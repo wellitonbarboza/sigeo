@@ -1,0 +1,78 @@
+@page "/cadastros/produtos"
+@inherits PaginaBase
+
+<Pagina Titulo="Produtos (insumos)" Grade="_grade" AoNovo="Novo" AoAtualizar="Carregar">
+    <ChildContent>
+        <div class="pagina">
+            <Grade T="Produto" @ref="_grade" Itens="_itens" AoClicar="Abrir" NomeExportacao="produtos" CriadoPor="p => p.CriadoPor">
+                <Colunas>
+                    <Coluna T="Produto" Titulo="Código" Valor="p => p.Codigo" Largura="110px" />
+                    <Coluna T="Produto" Titulo="Nome" Valor="p => p.Nome" />
+                    <Coluna T="Produto" Titulo="UN" Valor="p => p.Unidade" Largura="60px" />
+                    <Coluna T="Produto" Titulo="Grupo" Valor="p => p.Grupo" />
+                    <Coluna T="Produto" Titulo="Subgrupo" Valor="p => p.SubGrupo" />
+                    <Coluna T="Produto" Titulo="Lead time (dias)" Valor="p => p.LeadTimeDias" Alinhar="num" />
+                    <Coluna T="Produto" Titulo="Material controlado" Valor="p => p.MaterialControlado == null ? null : p.MaterialControlado.Nome" />
+                    <Coluna T="Produto" Titulo="Ativo" Valor="p => p.Ativo" />
+                </Colunas>
+            </Grade>
+        </div>
+    </ChildContent>
+    <Faixa><b>Produtos</b><span>Vincule ao material controlado para herdar especificação e documentos exigidos na requisição</span><span>Lead time alimenta o alerta de cronograma</span></Faixa>
+</Pagina>
+
+<Modal @bind-Aberto="_aberto" Titulo="Produto" Tamanho="media">
+    <ChildContent>
+        @if (_p is not null)
+        {
+            <Erros Lista="ErrosForm" />
+            <div class="form">
+                <Campo Rotulo="Código" Obrigatorio Classe="s4"><input @bind="_p.Codigo" /></Campo>
+                <Campo Rotulo="Nome" Obrigatorio Classe="s8"><input @bind="_p.Nome" /></Campo>
+                <Campo Rotulo="Unidade" Obrigatorio Classe="s3"><input @bind="_p.Unidade" /></Campo>
+                <Campo Rotulo="Grupo" Classe="s5"><input @bind="_p.Grupo" /></Campo>
+                <Campo Rotulo="Subgrupo" Classe="s4"><input @bind="_p.SubGrupo" /></Campo>
+                <Campo Rotulo="Lead time (dias)" Classe="s3"><input type="number" @bind="_p.LeadTimeDias" /></Campo>
+                <Campo Rotulo="Material controlado" Classe="s9"><select @bind="_p.MaterialControladoId"><option value="">(não controlado)</option>@foreach (var m in _materiais) { <option value="@m.Id">@m.Texto</option> }</select></Campo>
+                <Campo Rotulo="" Classe="s12"><label><input type="checkbox" @bind="_p.Ativo" /> Ativo</label></Campo>
+            </div>
+        }
+    </ChildContent>
+    <Rodape><button class="btn prim" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="16" /> Salvar</button></Rodape>
+</Modal>
+
+@code {
+    private Grade<Produto>? _grade;
+    private List<Produto>? _itens;
+    private Produto? _p;
+    private bool _aberto;
+    private List<Opcao> _materiais = [];
+
+    protected override async Task OnInitializedAsync() { _materiais = await Cat.MateriaisAsync(); await Carregar(); }
+
+    private async Task Carregar()
+    {
+        await using var db = Fabrica.Criar();
+        _itens = await db.Produtos.AsNoTracking().Include(p => p.MaterialControlado).OrderBy(p => p.Nome).ToListAsync();
+    }
+
+    private void Novo() { _p = new Produto(); ErrosForm = null; _aberto = true; }
+    private void Abrir(Produto p) { _p = p; ErrosForm = null; _aberto = true; }
+
+    private async Task Salvar()
+    {
+        var ok = await Executar(async () =>
+        {
+            var e = new List<string>();
+            if (string.IsNullOrWhiteSpace(_p!.Codigo)) e.Add("Informe o código.");
+            if (string.IsNullOrWhiteSpace(_p.Nome)) e.Add("Informe o nome.");
+            if (_p.LeadTimeDias < 0) e.Add("Lead time não pode ser negativo.");
+            ValidacaoException.Se(e);
+            await using var db = Fabrica.Criar();
+            _p.MaterialControlado = null;
+            await Grafo.SalvarAsync(db, _p);
+            await db.SaveChangesAsync();
+        }, "Produto salvo.");
+        if (ok) { _aberto = false; await Carregar(); }
+    }
+}

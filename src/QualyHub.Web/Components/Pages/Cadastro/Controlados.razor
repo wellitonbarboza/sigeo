@@ -1,0 +1,143 @@
+@page "/cadastros/controlados"
+@inherits PaginaBase
+
+<Pagina Titulo="Materiais e serviços controlados" Grade="GradeAtual" AoNovo="Novo" AoAtualizar="Carregar">
+    <ChildContent>
+        <div class="pagina">
+            <Abas Itens="_abas" @bind-Ativa="_aba" />
+            @if (_aba == "mat")
+            {
+                <Grade T="MaterialControlado" @ref="_gMat" Itens="_mats" AoClicar="m => { _m = m; ErrosForm = null; _abertoMat = true; }" NomeExportacao="materiais-controlados">
+                    <Colunas>
+                        <Coluna T="MaterialControlado" Titulo="Código" Valor="m => m.Codigo" Largura="90px" />
+                        <Coluna T="MaterialControlado" Titulo="Material" Valor="m => m.Nome" />
+                        <Coluna T="MaterialControlado" Titulo="UN" Valor="m => m.Unidade" />
+                        <Coluna T="MaterialControlado" Titulo="Grupo" Valor="m => m.GrupoCatalogo" />
+                        <Coluna T="MaterialControlado" Titulo="Documentos exigidos" Valor="m => m.DocumentosExigidos" />
+                        <Coluna T="MaterialControlado" Titulo="Consulta PSQ" Valor="m => m.ConsultarPsq" />
+                        <Coluna T="MaterialControlado" Titulo="Ativo" Valor="m => m.Ativo" />
+                    </Colunas>
+                </Grade>
+            }
+            else
+            {
+                <Grade T="ServicoControlado" @ref="_gSrv" Itens="_srvs" AoClicar="s => { _s = s; ErrosForm = null; _abertoSrv = true; }" NomeExportacao="servicos-controlados">
+                    <Colunas>
+                        <Coluna T="ServicoControlado" Titulo="Código (ITS)" Valor="s => s.Codigo" Largura="110px" />
+                        <Coluna T="ServicoControlado" Titulo="Serviço" Valor="s => s.Nome" />
+                        <Coluna T="ServicoControlado" Titulo="Exige FVS p/ medição" Valor="s => s.ExigeFvsParaMedicao" />
+                        <Coluna T="ServicoControlado" Titulo="Avaliado na medição" Valor="s => s.AvaliadoNaMedicao" />
+                        <Coluna T="ServicoControlado" Titulo="Ativo" Valor="s => s.Ativo" />
+                    </Colunas>
+                </Grade>
+            }
+        </div>
+    </ChildContent>
+    <Faixa><b>Controlados (SiAC)</b><span>Material controlado: especificação + FVM + fornecedor qualificado</span><span>Serviço controlado: ITS + FVS aprovada antes da medição</span><span>Lista inicial genérica — ajuste à realidade da empresa</span></Faixa>
+</Pagina>
+
+<Modal @bind-Aberto="_abertoMat" Titulo="Material controlado" Tamanho="media">
+    <ChildContent>
+        @if (_m is not null)
+        {
+            <Erros Lista="ErrosForm" />
+            <div class="form">
+                <Campo Rotulo="Código" Obrigatorio Classe="s3"><input @bind="_m.Codigo" /></Campo>
+                <Campo Rotulo="Nome" Obrigatorio Classe="s6"><input @bind="_m.Nome" /></Campo>
+                <Campo Rotulo="UN" Classe="s3"><input @bind="_m.Unidade" /></Campo>
+                <Campo Rotulo="Grupo do catálogo" Classe="s12"><input @bind="_m.GrupoCatalogo" /></Campo>
+                <Campo Rotulo="Especificação técnica modelo" Classe="s12"><textarea @bind="_m.EspecificacaoModelo"></textarea></Campo>
+                <Campo Rotulo="Documentos exigidos na entrega" Classe="s12"><input @bind="_m.DocumentosExigidos" /></Campo>
+                <Campo Rotulo="Regras" Classe="s12">
+                    <div class="checks">
+                        <label><input type="checkbox" @bind="_m.ExigeEspecificacao" /> Exige especificação na requisição</label>
+                        <label><input type="checkbox" @bind="_m.ExigeFvmParaAceite" /> Exige FVM no recebimento</label>
+                        <label><input type="checkbox" @bind="_m.ExigeFornecedorQualificado" /> Exige fornecedor qualificado</label>
+                        <label><input type="checkbox" @bind="_m.ConsultarPsq" /> Consultar PSQ/INMETRO</label>
+                        <label><input type="checkbox" @bind="_m.Ativo" /> Ativo</label>
+                    </div>
+                </Campo>
+            </div>
+        }
+    </ChildContent>
+    <Rodape><button class="btn prim" disabled="@Ocupado" @onclick="SalvarMat"><Icone Nome="check" Tam="16" /> Salvar</button></Rodape>
+</Modal>
+
+<Modal @bind-Aberto="_abertoSrv" Titulo="Serviço controlado" Tamanho="media">
+    <ChildContent>
+        @if (_s is not null)
+        {
+            <Erros Lista="ErrosForm" />
+            <div class="form">
+                <Campo Rotulo="Código (ITS)" Obrigatorio Classe="s4"><input @bind="_s.Codigo" /></Campo>
+                <Campo Rotulo="Nome" Obrigatorio Classe="s8"><input @bind="_s.Nome" /></Campo>
+                <Campo Rotulo="Regras" Classe="s12">
+                    <div class="checks">
+                        <label><input type="checkbox" @bind="_s.ExigeFvsParaMedicao" /> Exige FVS aprovada para medir</label>
+                        <label><input type="checkbox" @bind="_s.AvaliadoNaMedicao" /> Avaliado na medição</label>
+                        <label><input type="checkbox" @bind="_s.Ativo" /> Ativo</label>
+                    </div>
+                </Campo>
+            </div>
+        }
+    </ChildContent>
+    <Rodape><button class="btn prim" disabled="@Ocupado" @onclick="SalvarSrv"><Icone Nome="check" Tam="16" /> Salvar</button></Rodape>
+</Modal>
+
+@code {
+    private IGrade? GradeAtual => _aba == "mat" ? _gMat : _gSrv;
+    private Grade<MaterialControlado>? _gMat;
+    private Grade<ServicoControlado>? _gSrv;
+    private List<MaterialControlado>? _mats;
+    private List<ServicoControlado>? _srvs;
+    private MaterialControlado? _m;
+    private ServicoControlado? _s;
+    private bool _abertoMat, _abertoSrv;
+    private string _aba = "mat";
+    private static readonly List<(string, string)> _abas = [("mat", "Materiais controlados"), ("srv", "Serviços controlados (ITS)")];
+
+    protected override Task OnInitializedAsync() => Carregar();
+
+    private async Task Carregar()
+    {
+        await using var db = Fabrica.Criar();
+        _mats = await db.MateriaisControlados.AsNoTracking().OrderBy(m => m.Codigo).ToListAsync();
+        _srvs = await db.ServicosControlados.AsNoTracking().OrderBy(m => m.Codigo).ToListAsync();
+    }
+
+    private void Novo()
+    {
+        ErrosForm = null;
+        if (_aba == "mat") { _m = new MaterialControlado(); _abertoMat = true; } else { _s = new ServicoControlado(); _abertoSrv = true; }
+    }
+
+    private static List<string> Basico(string codigo, string nome)
+    {
+        var e = new List<string>();
+        if (string.IsNullOrWhiteSpace(codigo)) e.Add("Informe o código.");
+        if (string.IsNullOrWhiteSpace(nome)) e.Add("Informe o nome.");
+        return e;
+    }
+
+    private async Task SalvarMat()
+    {
+        var ok = await Executar(async () =>
+        {
+            ValidacaoException.Se(Basico(_m!.Codigo, _m.Nome));
+            await using var db = Fabrica.Criar();
+            await Grafo.SalvarAsync(db, _m); await db.SaveChangesAsync();
+        }, "Material salvo.");
+        if (ok) { _abertoMat = false; await Carregar(); }
+    }
+
+    private async Task SalvarSrv()
+    {
+        var ok = await Executar(async () =>
+        {
+            ValidacaoException.Se(Basico(_s!.Codigo, _s.Nome));
+            await using var db = Fabrica.Criar();
+            await Grafo.SalvarAsync(db, _s); await db.SaveChangesAsync();
+        }, "Serviço salvo.");
+        if (ok) { _abertoSrv = false; await Carregar(); }
+    }
+}

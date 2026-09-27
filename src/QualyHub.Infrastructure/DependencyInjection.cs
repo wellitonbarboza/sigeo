@@ -25,6 +25,12 @@ public static class DependencyInjection
             })
             .AddInterceptors(sp.GetRequiredService<AuditoriaInterceptor>()));
         services.AddScoped<ImportadorFornecedores>();
+        services.AddSingleton(new Servicos.FabricaSistema(connectionString));
+        services.AddScoped<Servicos.FabricaDb>();
+        services.AddScoped<Servicos.AprovacaoServico>();
+        services.AddScoped<Servicos.SuprimentosServico>();
+        services.AddScoped<Servicos.DocumentosServico>();
+        services.AddScoped<Servicos.PortalServico>();
         return services;
     }
 }

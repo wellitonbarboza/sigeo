@@ -5,9 +5,8 @@ using QualyHub.Domain.Cadastros;
 using QualyHub.Domain.Common;
 using QualyHub.Domain.Estrutura;
 using QualyHub.Domain.Importacao;
-using QualyHub.Domain.Medicoes;
 using QualyHub.Domain.Qualidade;
-using QualyHub.Domain.Sgq;
+using QualyHub.Domain.Documentos;
 using QualyHub.Domain.Suprimentos;
 using QualyHub.Infrastructure.Contexto;
 
@@ -24,24 +23,44 @@ public class QualyHubDbContext(DbContextOptions<QualyHubDbContext> options, IUsu
     public DbSet<Empresa> Empresas => Set<Empresa>();
     public DbSet<Obra> Obras => Set<Obra>();
     public DbSet<Local> Locais => Set<Local>();
+    public DbSet<CentroCusto> CentrosCusto => Set<CentroCusto>();
     public DbSet<Usuario> Usuarios => Set<Usuario>();
     public DbSet<UsuarioObra> UsuariosObras => Set<UsuarioObra>();
     public DbSet<Alcada> Alcadas => Set<Alcada>();
+    public DbSet<Parametro> Parametros => Set<Parametro>();
+    public DbSet<ItemLista> Listas => Set<ItemLista>();
+    public DbSet<Anexo> Anexos => Set<Anexo>();
+    public DbSet<Sequencia> Sequencias => Set<Sequencia>();
     // Cadastros
     public DbSet<TipoDocumentoExigido> TiposDocumento => Set<TipoDocumentoExigido>();
     public DbSet<Fornecedor> Fornecedores => Set<Fornecedor>();
+    public DbSet<FornecedorQualificacao> Qualificacoes => Set<FornecedorQualificacao>();
     public DbSet<FornecedorDocumento> FornecedorDocumentos => Set<FornecedorDocumento>();
-    public DbSet<FornecedorAvaliacao> FornecedorAvaliacoes => Set<FornecedorAvaliacao>();
+    public DbSet<LinkPortalFornecedor> LinksPortal => Set<LinkPortalFornecedor>();
     public DbSet<Funcionario> Funcionarios => Set<Funcionario>();
     public DbSet<FuncionarioObra> FuncionariosObras => Set<FuncionarioObra>();
     public DbSet<FuncionarioDocumento> FuncionarioDocumentos => Set<FuncionarioDocumento>();
     public DbSet<ServicoControlado> ServicosControlados => Set<ServicoControlado>();
     public DbSet<MaterialControlado> MateriaisControlados => Set<MaterialControlado>();
-    // Operação
+    public DbSet<Produto> Produtos => Set<Produto>();
+    // Suprimentos (T01–T18)
+    public DbSet<Requisicao> Requisicoes => Set<Requisicao>();
+    public DbSet<RequisicaoItem> RequisicaoItens => Set<RequisicaoItem>();
+    public DbSet<Cotacao> Cotacoes => Set<Cotacao>();
+    public DbSet<CotacaoFornecedor> CotacaoFornecedores => Set<CotacaoFornecedor>();
+    public DbSet<CotacaoItem> CotacaoItens => Set<CotacaoItem>();
     public DbSet<Pedido> Pedidos => Set<Pedido>();
     public DbSet<PedidoItem> PedidoItens => Set<PedidoItem>();
+    public DbSet<Contrato> Contratos => Set<Contrato>();
+    public DbSet<ContratoItem> ContratoItens => Set<ContratoItem>();
+    public DbSet<ContratoServico> ContratoServicos => Set<ContratoServico>();
+    public DbSet<Recebimento> Recebimentos => Set<Recebimento>();
+    public DbSet<RecebimentoItem> RecebimentoItens => Set<RecebimentoItem>();
     public DbSet<Medicao> Medicoes => Set<Medicao>();
     public DbSet<MedicaoItem> MedicaoItens => Set<MedicaoItem>();
+    public DbSet<PlanoAcaoFornecedor> PlanosAcao => Set<PlanoAcaoFornecedor>();
+    public DbSet<AvaliacaoSemestral> AvaliacoesSemestrais => Set<AvaliacaoSemestral>();
+    public DbSet<LiberacaoPagamento> Pagamentos => Set<LiberacaoPagamento>();
     // Qualidade
     public DbSet<FormModelo> FormModelos => Set<FormModelo>();
     public DbSet<FormItem> FormItens => Set<FormItem>();
@@ -49,10 +68,23 @@ public class QualyHubDbContext(DbContextOptions<QualyHubDbContext> options, IUsu
     public DbSet<FichaResposta> FichaRespostas => Set<FichaResposta>();
     public DbSet<FichaEvidencia> FichaEvidencias => Set<FichaEvidencia>();
     public DbSet<Rnc> Rncs => Set<Rnc>();
-    // SGQ
-    public DbSet<DocumentoSgq> DocumentosSgq => Set<DocumentoSgq>();
-    public DbSet<VersaoDocumentoSgq> VersoesDocumentoSgq => Set<VersaoDocumentoSgq>();
-    public DbSet<DistribuicaoDocumento> Distribuicoes => Set<DistribuicaoDocumento>();
+    // Documentos do SGQ (D01–D13)
+    public DbSet<Pasta> Pastas => Set<Pasta>();
+    public DbSet<Documento> Documentos => Set<Documento>();
+    public DbSet<DocumentoRelacionado> DocumentosRelacionados => Set<DocumentoRelacionado>();
+    public DbSet<DocumentoRevisao> Revisoes => Set<DocumentoRevisao>();
+    public DbSet<EtapaRevisao> EtapasRevisao => Set<EtapaRevisao>();
+    public DbSet<CopiaControlada> Copias => Set<CopiaControlada>();
+    public DbSet<SolicitacaoCopia> SolicitacoesCopia => Set<SolicitacaoCopia>();
+    public DbSet<SolicitacaoCopiaItem> SolicitacaoCopiaItens => Set<SolicitacaoCopiaItem>();
+    public DbSet<Ciencia> Ciencias => Set<Ciencia>();
+    public DbSet<PermissaoDocumento> Permissoes => Set<PermissaoDocumento>();
+    public DbSet<CheckoutDocumento> Checkouts => Set<CheckoutDocumento>();
+    public DbSet<EventoDocumento> EventosDocumento => Set<EventoDocumento>();
+    public DbSet<DocumentoExterno> DocumentosExternos => Set<DocumentoExterno>();
+    public DbSet<RegraRetencao> RegrasRetencao => Set<RegraRetencao>();
+    public DbSet<Grd> Grds => Set<Grd>();
+    public DbSet<GrdItem> GrdItens => Set<GrdItem>();
     // Aprovações, importação, auditoria
     public DbSet<SolicitacaoAprovacao> SolicitacoesAprovacao => Set<SolicitacaoAprovacao>();
     public DbSet<EtapaAprovacao> EtapasAprovacao => Set<EtapaAprovacao>();
@@ -84,8 +116,12 @@ public class QualyHubDbContext(DbContextOptions<QualyHubDbContext> options, IUsu
                 var enumType = Nullable.GetUnderlyingType(p.ClrType) ?? p.ClrType;
                 var converterType = typeof(Microsoft.EntityFrameworkCore.Storage.ValueConversion.EnumToStringConverter<>).MakeGenericType(enumType);
                 p.SetValueConverter((Microsoft.EntityFrameworkCore.Storage.ValueConversion.ValueConverter)Activator.CreateInstance(converterType, [null])!);
-                p.SetMaxLength(40);
+                p.SetMaxLength(enumType.IsDefined(typeof(FlagsAttribute), false) ? 200 : 40);
             }
+
+            // Textos longos por nome (o domínio não depende do EF): observação, objeto, especificação, justificativas…
+            foreach (var p in et.GetProperties().Where(p => p.ClrType == typeof(string) && TextoLongo(p.Name)))
+                p.SetMaxLength(null);
 
             // Sem exclusão em cascata: registro de qualidade nunca some por efeito colateral.
             foreach (var fk in et.GetForeignKeys()) fk.DeleteBehavior = DeleteBehavior.Restrict;
@@ -114,6 +150,13 @@ public class QualyHubDbContext(DbContextOptions<QualyHubDbContext> options, IUsu
                 mb.Entity(clr).Property(nameof(IOrigemObraPrima.CodigoObraPrima)).HasMaxLength(60);
         }
     }
+
+    private static readonly string[] PrefixosLongos =
+        ["Observacao", "Objeto", "Especificacao", "Justificativa", "Descricao", "Comentario", "Problema", "Acao", "Requisitos",
+         "Ocorrencia", "Bloqueios", "Participantes", "DocumentosExigidos", "Motivo", "Detalhe", "Emails", "Relacionados",
+         "DistribuicaoPadrao", "LeituraObrigatoria", "EficaciaComentario", "Protecao", "Armazenamento", "Recuperacao", "Descarte", "Assinatura"];
+
+    private static bool TextoLongo(string nome) => PrefixosLongos.Any(p => nome.StartsWith(p, StringComparison.Ordinal));
 
     private void Invocar(string metodo, Type clr, ModelBuilder mb) =>
         GetType().GetMethod(metodo, BindingFlags.NonPublic | BindingFlags.Instance)!

@@ -1,0 +1,131 @@
+@page "/cadastros/obras"
+@inherits PaginaBase
+
+<Pagina Titulo="Obras e centros de custo" Grade="GradeAtual" AoNovo="Novo" AoAtualizar="Carregar">
+    <ChildContent>
+        <div class="pagina">
+            <Abas Itens="_abas" @bind-Ativa="_aba" />
+            @if (_aba == "obras")
+            {
+                <Grade T="Obra" @ref="_gObras" Itens="_obras" AoClicar="o => { _o = o; ErrosForm = null; _abertoObra = true; }" NomeExportacao="obras" CriadoPor="o => o.CriadoPor">
+                    <Colunas>
+                        <Coluna T="Obra" Titulo="Código" Valor="o => o.Codigo" Largura="110px" />
+                        <Coluna T="Obra" Titulo="Nome" Valor="o => o.Nome" />
+                        <Coluna T="Obra" Titulo="Cidade/UF" Valor='o => o.Cidade == null ? null : $"{o.Cidade}/{o.Uf}"' />
+                        <Coluna T="Obra" Titulo="Início" Valor="o => o.DataInicio" />
+                        <Coluna T="Obra" Titulo="Término previsto" Valor="o => o.DataPrevistaTermino" />
+                        <Coluna T="Obra" Titulo="Código Obra Prima" Valor="o => o.CodigoObraPrima" />
+                        <Coluna T="Obra" Titulo="Ativa" Valor="o => o.Ativa" />
+                    </Colunas>
+                </Grade>
+            }
+            else
+            {
+                <Grade T="CentroCusto" @ref="_gCc" Itens="_ccs" AoClicar="c => { _c = c; ErrosForm = null; _abertoCc = true; }" NomeExportacao="centros-custo" CriadoPor="c => c.CriadoPor">
+                    <Colunas>
+                        <Coluna T="CentroCusto" Titulo="Código" Valor="c => c.Codigo" Largura="110px" />
+                        <Coluna T="CentroCusto" Titulo="Nome" Valor="c => c.Nome" />
+                        <Coluna T="CentroCusto" Titulo="Obra" Valor='c => c.ObraId == null ? "(todas)" : _obras?.FirstOrDefault(o => o.Id == c.ObraId)?.Nome' />
+                        <Coluna T="CentroCusto" Titulo="Ativo" Valor="c => c.Ativo" />
+                    </Colunas>
+                </Grade>
+            }
+        </div>
+    </ChildContent>
+    <Faixa><b>Estrutura</b><span>Obras e centros de custo usados em requisições, contratos e alçadas por obra</span><span>Códigos iguais ao ERP facilitam a importação</span></Faixa>
+</Pagina>
+
+<Modal @bind-Aberto="_abertoObra" Titulo="Obra" Tamanho="media">
+    <ChildContent>
+        @if (_o is not null)
+        {
+            <Erros Lista="ErrosForm" />
+            <div class="form">
+                <Campo Rotulo="Código" Obrigatorio Classe="s3"><input @bind="_o.Codigo" /></Campo>
+                <Campo Rotulo="Nome" Obrigatorio Classe="s9"><input @bind="_o.Nome" /></Campo>
+                <Campo Rotulo="Endereço" Classe="s12"><input @bind="_o.Endereco" /></Campo>
+                <Campo Rotulo="Cidade" Classe="s8"><input @bind="_o.Cidade" /></Campo>
+                <Campo Rotulo="UF" Classe="s4"><input @bind="_o.Uf" maxlength="2" /></Campo>
+                <Campo Rotulo="Início" Classe="s4"><input type="date" @bind="_o.DataInicio" /></Campo>
+                <Campo Rotulo="Término previsto" Classe="s4"><input type="date" @bind="_o.DataPrevistaTermino" /></Campo>
+                <Campo Rotulo="Código no ERP" Classe="s4"><input @bind="_o.CodigoObraPrima" /></Campo>
+                <Campo Rotulo="" Classe="s12"><label><input type="checkbox" @bind="_o.Ativa" /> Ativa</label></Campo>
+            </div>
+        }
+    </ChildContent>
+    <Rodape><button class="btn prim" disabled="@Ocupado" @onclick="SalvarObra"><Icone Nome="check" Tam="16" /> Salvar</button></Rodape>
+</Modal>
+
+<Modal @bind-Aberto="_abertoCc" Titulo="Centro de custo" Tamanho="media">
+    <ChildContent>
+        @if (_c is not null)
+        {
+            <Erros Lista="ErrosForm" />
+            <div class="form">
+                <Campo Rotulo="Código" Obrigatorio Classe="s4"><input @bind="_c.Codigo" /></Campo>
+                <Campo Rotulo="Nome" Obrigatorio Classe="s8"><input @bind="_c.Nome" /></Campo>
+                <Campo Rotulo="Obra" Classe="s8"><select @bind="_c.ObraId"><option value="">(todas)</option>@foreach (var o in _obras ?? []) { <option value="@o.Id">@o.Nome</option> }</select></Campo>
+                <Campo Rotulo="" Classe="s4"><label><input type="checkbox" @bind="_c.Ativo" /> Ativo</label></Campo>
+            </div>
+        }
+    </ChildContent>
+    <Rodape><button class="btn prim" disabled="@Ocupado" @onclick="SalvarCc"><Icone Nome="check" Tam="16" /> Salvar</button></Rodape>
+</Modal>
+
+@code {
+    private IGrade? GradeAtual => _aba == "obras" ? _gObras : _gCc;
+    private Grade<Obra>? _gObras;
+    private Grade<CentroCusto>? _gCc;
+    private List<Obra>? _obras;
+    private List<CentroCusto>? _ccs;
+    private Obra? _o;
+    private CentroCusto? _c;
+    private bool _abertoObra, _abertoCc;
+    private string _aba = "obras";
+    private static readonly List<(string, string)> _abas = [("obras", "Obras"), ("cc", "Centros de custo")];
+
+    protected override Task OnInitializedAsync() => Carregar();
+
+    private async Task Carregar()
+    {
+        await using var db = Fabrica.Criar();
+        _obras = await db.Obras.AsNoTracking().OrderBy(o => o.Codigo).ToListAsync();
+        _ccs = await db.CentrosCusto.AsNoTracking().OrderBy(o => o.Codigo).ToListAsync();
+    }
+
+    private void Novo()
+    {
+        ErrosForm = null;
+        if (_aba == "obras") { _o = new Obra(); _abertoObra = true; } else { _c = new CentroCusto(); _abertoCc = true; }
+    }
+
+    private async Task SalvarObra()
+    {
+        var ok = await Executar(async () =>
+        {
+            var e = new List<string>();
+            if (string.IsNullOrWhiteSpace(_o!.Codigo)) e.Add("Informe o código.");
+            if (string.IsNullOrWhiteSpace(_o.Nome)) e.Add("Informe o nome.");
+            ValidacaoException.Se(e);
+            await using var db = Fabrica.Criar();
+            await Grafo.SalvarAsync(db, _o);
+            await db.SaveChangesAsync();
+        }, "Obra salva.");
+        if (ok) { _abertoObra = false; await Carregar(); }
+    }
+
+    private async Task SalvarCc()
+    {
+        var ok = await Executar(async () =>
+        {
+            var e = new List<string>();
+            if (string.IsNullOrWhiteSpace(_c!.Codigo)) e.Add("Informe o código.");
+            if (string.IsNullOrWhiteSpace(_c.Nome)) e.Add("Informe o nome.");
+            ValidacaoException.Se(e);
+            await using var db = Fabrica.Criar();
+            await Grafo.SalvarAsync(db, _c);
+            await db.SaveChangesAsync();
+        }, "Centro de custo salvo.");
+        if (ok) { _abertoCc = false; await Carregar(); }
+    }
+}

@@ -1,0 +1,90 @@
+@page "/portal/{Token}"
+@attribute [AllowAnonymous]
+@layout LayoutPublico
+@inject PortalServico Portal
+@inject IHttpContextAccessor Http
+
+<PageTitle>Portal do fornecedor · QualyHub</PageTitle>
+<div class="portal">
+    @if (_carregando) { <p class="mudo">Carregando…</p> }
+    else if (_s is null)
+    {
+        <div class="caixa"><h2>Link inválido ou expirado</h2><p>Solicite um novo link ao setor de Suprimentos da construtora.</p></div>
+    }
+    else
+    {
+        <header class="portal-topo">
+            <div><small>Portal do fornecedor · @_s.EmpresaNome</small><h1>@_s.Fornecedor.RazaoSocial</h1><span class="mudo">@_s.Fornecedor.CpfCnpj · solicitação @_s.Link.Codigo · link válido até @_s.Link.ValidoAte.ToLocalTime().ToString("dd/MM/yyyy")</span></div>
+        </header>
+        @if (_s.Alerta is not null) { <div class="alerta aviso"><Icone Nome="alerta" /> @_s.Alerta</div> }
+        @if (_msg is not null) { <div class="alerta @(_ok ? "ok" : "erro")">@_msg</div> }
+        <table class="itens">
+            <thead><tr><th>Documento</th><th>Situação</th><th>Detalhe</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var d in _s.Documentos)
+                {
+                    <tr>
+                        <td><b>@d.Nome</b> @if (d.Obrigatorio) { <small class="mudo">obrigatório</small> }</td>
+                        <td><Selo Texto="@Rotulos.De(d.Situacao)" Tom="@Rotulos.Tom(d.Situacao)" /></td>
+                        <td>@d.Detalhe</td>
+                        <td>@if (!d.PorEntrega && d.Situacao != StatusDocumento.EmValidacao) { <button class="btn sec pq" @onclick="() => Escolher(d)">Enviar</button> }</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+
+        @if (_tipo is not null)
+        {
+            <div class="caixa-envio">
+                <h3>Enviar: @_tipo.Nome</h3>
+                <div class="form">
+                    <Campo Rotulo="Número do documento" Classe="s4"><input @bind="_numero" /></Campo>
+                    <Campo Rotulo="Emissão" Classe="s4"><input type="date" @bind="_emissao" /></Campo>
+                    <Campo Rotulo="Validade" Classe="s4"><input type="date" @bind="_validade" /></Campo>
+                    <Campo Rotulo="Seu nome (responsável pelo envio)" Obrigatorio Classe="s6"><input @bind="_responsavel" /></Campo>
+                    <Campo Rotulo="Arquivo (PDF, JPG ou PNG, até 15 MB)" Obrigatorio Classe="s6"><InputFile OnChange="e => _arquivo = e.File" accept=".pdf,.jpg,.jpeg,.png" /></Campo>
+                </div>
+                <button class="btn prim" disabled="@_enviando" @onclick="Enviar"><Icone Nome="enviar" Tam="16" /> Enviar para validação</button>
+                <button class="btn sec" @onclick="() => _tipo = null">Cancelar</button>
+            </div>
+        }
+        <p class="mudo" style="margin-top:18px">Os documentos enviados entram em validação pela construtora. Acesso registrado (data e IP). Não compartilhe este link.</p>
+    }
+</div>
+
+@code {
+    [Parameter] public string Token { get; set; } = "";
+    private SessaoPortal? _s;
+    private bool _carregando = true, _enviando, _ok;
+    private DocumentoSolicitado? _tipo;
+    private string? _numero, _responsavel, _msg;
+    private DateOnly? _emissao, _validade;
+    private IBrowserFile? _arquivo;
+    private string? _ip;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _ip = Http.HttpContext?.Connection.RemoteIpAddress?.ToString();
+        await Abrir();
+    }
+
+    private async Task Abrir() { _s = await Portal.AbrirAsync(Token, _ip); _carregando = false; }
+
+    private void Escolher(DocumentoSolicitado d) { _tipo = d; _numero = null; _emissao = null; _validade = null; _arquivo = null; _msg = null; }
+
+    private async Task Enviar()
+    {
+        if (_arquivo is null) { _ok = false; _msg = "Selecione o arquivo."; return; }
+        _enviando = true;
+        try
+        {
+            await using var s = _arquivo.OpenReadStream(15 * 1024 * 1024);
+            await Portal.ReceberAsync(Token, _tipo!.TipoId, _numero, _emissao, _validade, _responsavel ?? "", s, _arquivo.Name, _arquivo.ContentType);
+            _ok = true; _msg = $"'{_tipo.Nome}' enviado. Aguarde a validação."; _tipo = null;
+            await Abrir();
+        }
+        catch (RegraDeNegocioException e) { _ok = false; _msg = e.Message; }
+        catch (IOException) { _ok = false; _msg = "Arquivo acima de 15 MB."; }
+        finally { _enviando = false; }
+    }
+}

@@ -1,0 +1,97 @@
+@page "/sistema/log"
+@inherits PaginaBase
+
+<Pagina Titulo="Log de auditoria" Grade="GradeAtual" AoAtualizar="Carregar">
+    <ChildContent>
+        <div class="pagina">
+            <div class="barra-filtro">
+                <label>De <input type="date" @bind="_de" /></label>
+                <label>Até <input type="date" @bind="_ate" /></label>
+                <label>Texto <input @bind="_texto" placeholder="usuário, entidade, detalhe…" /></label>
+                <button class="btn sec" @onclick="Carregar"><Icone Nome="filtro" Tam="16" /> Aplicar</button>
+            </div>
+            <Abas Itens="_abas" @bind-Ativa="_aba" />
+            @if (_aba == "dados")
+            {
+                <Grade T="RegistroAuditoria" @ref="_gA" Itens="_auditoria" AoClicar="r => { _r = r; _aberto = true; }" NomeExportacao="log-auditoria">
+                    <Colunas>
+                        <Coluna T="RegistroAuditoria" Titulo="Quando" Valor="r => r.Quando" />
+                        <Coluna T="RegistroAuditoria" Titulo="Usuário" Valor="r => r.Usuario" />
+                        <Coluna T="RegistroAuditoria" Titulo="Operação" Valor="r => r.Operacao" />
+                        <Coluna T="RegistroAuditoria" Titulo="Entidade" Valor="r => r.Entidade" />
+                        <Coluna T="RegistroAuditoria" Titulo="Campos alterados" Valor="r => r.CamposAlterados" />
+                        <Coluna T="RegistroAuditoria" Titulo="Origem" Valor="r => r.Origem" />
+                    </Colunas>
+                </Grade>
+            }
+            else
+            {
+                <Grade T="EventoDocumento" @ref="_gE" Itens="_eventos" NomeExportacao="log-documentos">
+                    <Colunas>
+                        <Coluna T="EventoDocumento" Titulo="Quando" Valor="e => e.DataHora" />
+                        <Coluna T="EventoDocumento" Titulo="Usuário" Valor="e => e.UsuarioNome" />
+                        <Coluna T="EventoDocumento" Titulo="Evento" Valor="e => e.Evento" />
+                        <Coluna T="EventoDocumento" Titulo="Documento" Valor="e => e.DocumentoId == null ? null : _docs.GetValueOrDefault(e.DocumentoId.Value)" />
+                        <Coluna T="EventoDocumento" Titulo="Detalhe" Valor="e => e.Detalhe" />
+                        <Coluna T="EventoDocumento" Titulo="Origem" Valor="e => e.Origem" />
+                    </Colunas>
+                </Grade>
+            }
+        </div>
+    </ChildContent>
+    <Faixa><b>Auditoria</b><span>Toda gravação passa pelo interceptor (quem, quando, antes/depois)</span><span>Documentos do SGQ: visualização, download, impressão, cópias, leituras</span><span>Somente leitura · exclusão sempre lógica</span></Faixa>
+</Pagina>
+
+<Modal @bind-Aberto="_aberto" Titulo="@($"{_r?.Operacao} · {_r?.Entidade}")">
+    <ChildContent>
+        @if (_r is not null)
+        {
+            <p class="mudo">@DataHora(_r.Quando) · @_r.Usuario · id @_r.EntidadeId</p>
+            <div class="duas-colunas">
+                <div style="flex:1;min-width:0"><b>Antes</b><pre class="json">@Formatar(_r.ValoresAnterioresJson)</pre></div>
+                <div style="flex:1;min-width:0"><b>Depois</b><pre class="json">@Formatar(_r.ValoresNovosJson)</pre></div>
+            </div>
+        }
+    </ChildContent>
+</Modal>
+
+@code {
+    private IGrade? GradeAtual => _aba == "dados" ? _gA : _gE;
+    private Grade<RegistroAuditoria>? _gA;
+    private Grade<EventoDocumento>? _gE;
+    private List<RegistroAuditoria>? _auditoria;
+    private List<EventoDocumento>? _eventos;
+    private Dictionary<Guid, string> _docs = [];
+    private RegistroAuditoria? _r;
+    private bool _aberto;
+    private string _aba = "dados";
+    private DateOnly _de, _ate;
+    private string? _texto;
+    private static readonly List<(string, string)> _abas = [("dados", "Alterações de dados"), ("docs", "Eventos de documentos")];
+
+    protected override async Task OnInitializedAsync() { _ate = Hoje; _de = Hoje.AddDays(-30); await Carregar(); }
+
+    private async Task Carregar()
+    {
+        await using var db = Fabrica.Criar();
+        var ini = new DateTimeOffset(_de.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
+        var fim = new DateTimeOffset(_ate.ToDateTime(TimeOnly.MaxValue), TimeSpan.Zero);
+        var qa = db.Auditoria.AsNoTracking().Where(a => a.Quando >= ini && a.Quando <= fim);
+        var qe = db.EventosDocumento.AsNoTracking().Where(e => e.DataHora >= ini && e.DataHora <= fim);
+        if (!string.IsNullOrWhiteSpace(_texto))
+        {
+            qa = qa.Where(a => a.Usuario.Contains(_texto) || a.Entidade.Contains(_texto) || (a.CamposAlterados != null && a.CamposAlterados.Contains(_texto)));
+            qe = qe.Where(e => e.UsuarioNome.Contains(_texto) || (e.Detalhe != null && e.Detalhe.Contains(_texto)));
+        }
+        _auditoria = await qa.OrderByDescending(a => a.Quando).Take(2000).ToListAsync();
+        _eventos = await qe.OrderByDescending(e => e.DataHora).Take(2000).ToListAsync();
+        _docs = await db.Documentos.AsNoTracking().ToDictionaryAsync(d => d.Id, d => d.Codigo);
+    }
+
+    private static string Formatar(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return "—";
+        try { return System.Text.Json.JsonSerializer.Serialize(System.Text.Json.JsonDocument.Parse(json), new System.Text.Json.JsonSerializerOptions { WriteIndented = true, Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping }); }
+        catch { return json; }
+    }
+}

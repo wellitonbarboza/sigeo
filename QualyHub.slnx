@@ -2,6 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/QualyHub.Domain/QualyHub.Domain.csproj" />
     <Project Path="src/QualyHub.Infrastructure/QualyHub.Infrastructure.csproj" />
+    <Project Path="src/QualyHub.Web/QualyHub.Web.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/QualyHub.Tests/QualyHub.Tests.csproj" />

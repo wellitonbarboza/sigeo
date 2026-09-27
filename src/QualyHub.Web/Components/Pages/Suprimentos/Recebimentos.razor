@@ -1,0 +1,170 @@
+@page "/recebimentos"
+@inherits PaginaBase
+@inject SuprimentosServico Sup
+@inject NavigationManager Nav
+
+<Pagina Titulo="Recebimento de materiais / FVM" Grade="_grade" AoNovo="Novo" AoAtualizar="Carregar">
+    <ChildContent>
+        <div class="pagina">
+            <div class="kpis">
+                <Kpi Rotulo="Recebimentos" Valor="@_itens?.Count" />
+                <Kpi Rotulo="FVM aprovadas" Valor="@_itens?.Count(r => r.Aprovada == true)" Tom="ok" />
+                <Kpi Rotulo="FVM reprovadas" Valor="@_itens?.Count(r => r.Aprovada == false)" Tom="erro" />
+                <Kpi Rotulo="Devolvidos" Valor="@_itens?.Count(r => r.Destino == DestinoRecebimento.Devolvido)" Tom="aviso" />
+            </div>
+            <Grade T="Linha" @ref="_grade" Itens="_itens" AoClicar="l => Abrir(l.Id)" NomeExportacao="recebimentos" CriadoPor="l => l.CriadoPor">
+                <Colunas>
+                    <Coluna T="Linha" Titulo="Número" Valor="l => l.Numero" Largura="90px" />
+                    <Coluna T="Linha" Titulo="Data" Valor="l => l.Data" />
+                    <Coluna T="Linha" Titulo="Pedido" Valor="l => l.Pedido" />
+                    <Coluna T="Linha" Titulo="Fornecedor" Valor="l => l.Fornecedor" />
+                    <Coluna T="Linha" Titulo="NF" Valor="l => l.Nf" />
+                    <Coluna T="Linha" Titulo="FVM" Valor="l => l.Aprovada"><Modelo>@if (context.Aprovada == true) { <Selo Texto="Aprovada" Tom="ok" /> } else if (context.Aprovada == false) { <Selo Texto="Reprovada" Tom="erro" /> }</Modelo></Coluna>
+                    <Coluna T="Linha" Titulo="Nota entrega" Valor="l => l.Nota" Alinhar="num" />
+                    <Coluna T="Linha" Titulo="Destino" Valor="l => l.Destino" />
+                    <Coluna T="Linha" Titulo="Recebido por" Valor="l => l.CriadoPor" />
+                </Colunas>
+            </Grade>
+        </div>
+    </ChildContent>
+    <Faixa><b>Recebimento</b><span>FVM: prazo, qualidade, atendimento (Aprovado/Reprovado)</span><span>Controlado: lote + documentos obrigatórios</span><span>Reprovação gera comunicação e plano de ação</span></Faixa>
+</Pagina>
+
+<Modal @bind-Aberto="_aberto" Titulo="@(_r?.Numero > 0 ? $"Recebimento {_r.Numero}" : "Novo recebimento")" Tamanho="grande">
+    <ChildContent>
+        @if (_r is not null)
+        {
+            <Erros Lista="ErrosForm" />
+            <div class="form">
+                <Campo Rotulo="Pedido" Obrigatorio Classe="s4">
+                    <select value="@_r.PedidoId" @onchange="e => EscolherPedido(e.Value?.ToString())" disabled="@(!Novo_)">
+                        <option value="">Selecione…</option>@foreach (var p in _pedidos) { <option value="@p.Id">@p.Texto</option> }
+                    </select>
+                </Campo>
+                <Campo Rotulo="Chave NF-e (44 dígitos)" Classe="s5"><input @bind="_r.ChaveNFe" maxlength="44" disabled="@(!Novo_)" /></Campo>
+                <Campo Rotulo="Nº nota fiscal" Classe="s3"><input @bind="_r.NumeroNotaFiscal" disabled="@(!Novo_)" /></Campo>
+            </div>
+            <div class="secao"><Icone Nome="lista" /> Itens recebidos</div>
+            <table class="itens">
+                <thead><tr><th>Descrição</th><th>UN</th><th class="num">Qtd. pedida (saldo)</th><th>Qtd. recebida</th><th>Controlado</th><th>Lote / corrida</th><th>Documentos recebidos</th></tr></thead>
+                <tbody>
+                    @foreach (var i in _r.Itens)
+                    {
+                        <tr class="@(i.QtdRecebida != i.QtdPedida ? "alerta-linha" : "")">
+                            <td>@i.Descricao</td><td>@i.Unidade</td><td class="num">@Num(i.QtdPedida, 3)</td>
+                            <td style="width:110px"><input type="number" step="0.001" @bind="i.QtdRecebida" disabled="@(!Novo_)" /></td>
+                            <td>@if (i.MaterialControlado) { <Selo Texto="Sim" Tom="info" /> } else { <span class="mudo">Não</span> }</td>
+                            <td><input @bind="i.Lote" disabled="@(!Novo_)" placeholder="@(i.MaterialControlado ? "obrigatório" : "")" /></td>
+                            <td><label><input type="checkbox" @bind="i.DocumentosRecebidos" disabled="@(!Novo_)" /> certificado/laudo/FISPQ</label></td>
+                        </tr>
+                    }
+                    @if (_r.Itens.Count == 0) { <tr><td colspan="7" class="mudo">Selecione o pedido.</td></tr> }
+                </tbody>
+            </table>
+
+            <div class="secao"><Icone Nome="escudo-check" /> Ficha de verificação de material (FVM)</div>
+            <div class="criterios">
+                @foreach (var (nome, desc, get, set) in Criterios())
+                {
+                    var v = get();
+                    <div class="criterio @(v == ResultadoCriterio.Aprovado ? "ok" : v == ResultadoCriterio.Reprovado ? "erro" : "")">
+                        <b>@nome</b><span>@desc</span>
+                        <div class="botoes">
+                            <button class="btn pq @(v == ResultadoCriterio.Aprovado ? "ok" : "sec")" disabled="@(!Novo_)" @onclick="() => set(ResultadoCriterio.Aprovado)">Aprovado</button>
+                            <button class="btn pq @(v == ResultadoCriterio.Reprovado ? "perigo" : "sec")" disabled="@(!Novo_)" @onclick="() => set(ResultadoCriterio.Reprovado)">Reprovado</button>
+                        </div>
+                    </div>
+                }
+                <div class="criterio resultado @(_r.FvmAprovada == true ? "ok" : _r.FvmAprovada == false ? "erro" : "")">
+                    <b>Resultado</b><span>@(_r.FvmAprovada switch { true => "FVM aprovada", false => "FVM reprovada", _ => "avalie os 3 critérios" })</span>
+                    <div class="nota">@Num(_r.NotaEntrega)</div>
+                </div>
+            </div>
+            <div class="form" style="margin-top:12px">
+                <Campo Rotulo="Destino" Classe="s3"><select @bind="_r.Destino" disabled="@(!Novo_)">@foreach (var d in Enum.GetValues<DestinoRecebimento>()) { <option value="@d">@De(d)</option> }</select></Campo>
+                <Campo Rotulo="Ocorrência / não conformidade" Obrigatorio="@(_r.FvmAprovada == false || _r.TemDivergencia)" Classe="s9"><textarea @bind="_r.Ocorrencia" disabled="@(!Novo_)"></textarea></Campo>
+                @if (_r.ComunicadoEm is not null) { <div class="campo s12"><div class="alerta aviso"><Icone Nome="alerta" /> Comunicado a @_r.ComunicadoA em @DataHora(_r.ComunicadoEm)</div></div> }
+            </div>
+            @if (!Novo_) { <Anexos Entidade="Recebimento" EntidadeId="_r.Id" Categoria="Documentos" Titulo="Nota fiscal, certificados, laudos, fotos" /> }
+        }
+    </ChildContent>
+    <Rodape>
+        @if (_r is not null && Novo_) { <button class="btn prim" disabled="@Ocupado" @onclick="Registrar"><Icone Nome="check" Tam="16" /> Registrar recebimento</button> }
+    </Rodape>
+</Modal>
+
+@code {
+    private sealed record Linha(Guid Id, int Numero, DateTimeOffset Data, int? Pedido, string Fornecedor, string? Nf, bool? Aprovada, decimal? Nota, DestinoRecebimento Destino, string CriadoPor);
+    private Grade<Linha>? _grade;
+    private List<Linha>? _itens;
+    private Recebimento? _r;
+    private bool _aberto;
+    private List<Opcao> _pedidos = [];
+    private bool Novo_ => _r is { Numero: 0 };
+
+    private IEnumerable<(string, string, Func<ResultadoCriterio>, Action<ResultadoCriterio>)> Criterios() =>
+    [
+        ("Prazo", "Entregue na data combinada", () => _r!.FvmPrazo, v => _r!.FvmPrazo = v),
+        ("Qualidade", "Conforme especificação, sem avarias, documentos", () => _r!.FvmQualidade, v => _r!.FvmQualidade = v),
+        ("Atendimento", "Quantidade correta, descarga, postura", () => _r!.FvmAtendimento, v => _r!.FvmAtendimento = v),
+    ];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Carregar();
+        if (Nav.Uri.Contains("?pedido=") && Guid.TryParse(Nav.Uri.Split("?pedido=")[1], out var pid)) { await Novo(); await EscolherPedido(pid.ToString()); }
+    }
+
+    private async Task Carregar()
+    {
+        await using var db = Fabrica.Criar();
+        var lista = await db.Recebimentos.AsNoTracking().Include(r => r.Pedido).Include(r => r.Itens).OrderByDescending(r => r.Numero).ToListAsync();
+        var forn = await db.Fornecedores.AsNoTracking().ToDictionaryAsync(f => f.Id, f => f.NomeExibicao);
+        _itens = lista.Select(r => new Linha(r.Id, r.Numero, r.DataRecebimento, r.Pedido?.Numero, forn.GetValueOrDefault(r.FornecedorId, ""), r.NumeroNotaFiscal ?? r.ChaveNFe,
+            r.FvmAprovada, r.NotaEntrega, r.Destino, r.RecebidoPorNome)).ToList();
+    }
+
+    private async Task Novo()
+    {
+        await using var db = Fabrica.Criar();
+        _pedidos = await db.Pedidos.AsNoTracking().Where(p => p.Status == StatusPedido.EnviadoFornecedor || p.Status == StatusPedido.EntregueParcial)
+            .OrderBy(p => p.Numero).Select(p => new Opcao(p.Id, "Pedido " + p.Numero + " – " + p.Fornecedor.RazaoSocial)).ToListAsync();
+        _r = new Recebimento { DataRecebimento = DateTimeOffset.Now };
+        ErrosForm = null; _aberto = true;
+    }
+
+    private async Task EscolherPedido(string? valor)
+    {
+        _r!.Itens.Clear(); _r.PedidoId = null;
+        if (!Guid.TryParse(valor, out var id)) return;
+        await using var db = Fabrica.Criar();
+        var p = await db.Pedidos.AsNoTracking().Include(x => x.Itens).FirstAsync(x => x.Id == id);
+        if (_pedidos.All(o => o.Id != id)) _pedidos.Add(new Opcao(p.Id, $"Pedido {p.Numero}"));
+        _r.PedidoId = p.Id; _r.FornecedorId = p.FornecedorId; _r.ObraId = p.ObraId;
+        foreach (var i in p.Itens.Where(i => i.Quantidade > i.QuantidadeRecebidaAceita))
+        {
+            var saldo = i.Quantidade - i.QuantidadeRecebidaAceita;
+            _r.Itens.Add(new RecebimentoItem { PedidoItemId = i.Id, Descricao = i.Descricao, Unidade = i.Unidade, QtdPedida = saldo, QtdRecebida = saldo,
+                MaterialControlado = i.MaterialControladoId is not null, MaterialControladoId = i.MaterialControladoId });
+        }
+    }
+
+    private async Task Abrir(Guid id)
+    {
+        await using var db = Fabrica.Criar();
+        _r = await db.Recebimentos.AsNoTracking().Include(r => r.Itens).FirstAsync(r => r.Id == id);
+        var ped = _r.PedidoId is { } pid ? await db.Pedidos.AsNoTracking().Where(p => p.Id == pid).Select(p => p.Numero).FirstOrDefaultAsync() : 0;
+        _pedidos = _r.PedidoId is { } x ? [new Opcao(x, $"Pedido {ped}")] : [];
+        ErrosForm = null; _aberto = true;
+    }
+
+    private async Task Registrar()
+    {
+        Guid id = default;
+        if (await Executar(async () => id = await Sup.RegistrarRecebimentoAsync(_r!), "Recebimento registrado."))
+        {
+            if (_r!.FvmAprovada == false) Notif.Aviso("FVM reprovada: plano de ação aberto para o fornecedor.");
+            await Carregar(); await Abrir(id);
+        }
+    }
+}

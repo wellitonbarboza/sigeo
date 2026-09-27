@@ -5,9 +5,8 @@ using QualyHub.Domain.Cadastros;
 using QualyHub.Domain.Common;
 using QualyHub.Domain.Estrutura;
 using QualyHub.Domain.Importacao;
-using QualyHub.Domain.Medicoes;
 using QualyHub.Domain.Qualidade;
-using QualyHub.Domain.Sgq;
+using QualyHub.Domain.Documentos;
 using QualyHub.Domain.Suprimentos;
 
 namespace QualyHub.Infrastructure.Dados;
@@ -62,28 +61,6 @@ internal sealed class UsuarioObraCfg : IEntityTypeConfiguration<UsuarioObra>
     public void Configure(EntityTypeBuilder<UsuarioObra> b) => b.HasIndex(x => new { x.UsuarioId, x.ObraId }).IsUnique();
 }
 
-internal sealed class FornecedorCfg : IEntityTypeConfiguration<Fornecedor>
-{
-    public void Configure(EntityTypeBuilder<Fornecedor> b)
-    {
-        b.Property(x => x.CpfCnpj).HasMaxLength(18);
-        b.Property(x => x.Uf).HasMaxLength(2);
-        b.HasIndex(x => new { x.EmpresaId, x.CpfCnpj }).IsUnique().HasFilter("[Excluido] = 0");
-        b.HasMany(x => x.Documentos).WithOne(x => x.Fornecedor).HasForeignKey(x => x.FornecedorId);
-        b.HasMany(x => x.Avaliacoes).WithOne(x => x.Fornecedor).HasForeignKey(x => x.FornecedorId);
-    }
-}
-
-internal sealed class FornecedorDocumentoCfg : IEntityTypeConfiguration<FornecedorDocumento>
-{
-    public void Configure(EntityTypeBuilder<FornecedorDocumento> b)
-    {
-        b.HasOne(x => x.TipoDocumento).WithMany().HasForeignKey(x => x.TipoDocumentoExigidoId);
-        b.Property(x => x.ArquivoHashSha256).HasMaxLength(64);
-        b.HasIndex(x => x.DataValidade);
-    }
-}
-
 internal sealed class FuncionarioCfg : IEntityTypeConfiguration<Funcionario>
 {
     public void Configure(EntityTypeBuilder<Funcionario> b)
@@ -104,78 +81,6 @@ internal sealed class FuncionarioDocumentoCfg : IEntityTypeConfiguration<Funcion
         b.HasOne(x => x.TipoDocumento).WithMany().HasForeignKey(x => x.TipoDocumentoExigidoId);
         b.Property(x => x.ArquivoHashSha256).HasMaxLength(64);
         b.HasIndex(x => x.DataValidade);
-    }
-}
-
-internal sealed class ServicoCfg : IEntityTypeConfiguration<ServicoControlado>
-{
-    public void Configure(EntityTypeBuilder<ServicoControlado> b)
-    {
-        b.HasIndex(x => new { x.EmpresaId, x.Codigo }).IsUnique().HasFilter("[Excluido] = 0");
-        b.HasOne<DocumentoSgq>().WithMany().HasForeignKey(x => x.DocumentoPeisId);
-        b.HasOne<FormModelo>().WithMany().HasForeignKey(x => x.FormModeloFvsId);
-    }
-}
-
-internal sealed class MaterialCfg : IEntityTypeConfiguration<MaterialControlado>
-{
-    public void Configure(EntityTypeBuilder<MaterialControlado> b)
-    {
-        b.HasIndex(x => new { x.EmpresaId, x.Codigo }).IsUnique().HasFilter("[Excluido] = 0");
-        b.Property(x => x.CodigosInsumo).Longo();
-        b.HasOne<FormModelo>().WithMany().HasForeignKey(x => x.FormModeloFvmId);
-    }
-}
-
-internal sealed class PedidoCfg : IEntityTypeConfiguration<Pedido>
-{
-    public void Configure(EntityTypeBuilder<Pedido> b)
-    {
-        b.HasIndex(x => new { x.EmpresaId, x.Numero }).IsUnique().HasFilter("[Excluido] = 0");
-        b.HasOne(x => x.Fornecedor).WithMany().HasForeignKey(x => x.FornecedorId);
-        b.HasOne<Obra>().WithMany().HasForeignKey(x => x.ObraId);
-        b.Property(x => x.Bloqueios).Longo();
-        b.HasMany(x => x.Itens).WithOne(x => x.Pedido).HasForeignKey(x => x.PedidoId);
-    }
-}
-
-internal sealed class PedidoItemCfg : IEntityTypeConfiguration<PedidoItem>
-{
-    public void Configure(EntityTypeBuilder<PedidoItem> b)
-    {
-        b.HasOne(x => x.MaterialControlado).WithMany().HasForeignKey(x => x.MaterialControladoId);
-        b.HasIndex(x => x.CodigoInsumo);
-    }
-}
-
-internal sealed class MedicaoCfg : IEntityTypeConfiguration<Medicao>
-{
-    public void Configure(EntityTypeBuilder<Medicao> b)
-    {
-        b.HasIndex(x => new { x.EmpresaId, x.Numero }).IsUnique().HasFilter("[Excluido] = 0");
-        b.HasOne(x => x.Fornecedor).WithMany().HasForeignKey(x => x.FornecedorId);
-        b.HasOne<Obra>().WithMany().HasForeignKey(x => x.ObraId);
-        b.Property(x => x.Bloqueios).Longo();
-        b.HasMany(x => x.Itens).WithOne(x => x.Medicao).HasForeignKey(x => x.MedicaoId);
-    }
-}
-
-internal sealed class MedicaoItemCfg : IEntityTypeConfiguration<MedicaoItem>
-{
-    public void Configure(EntityTypeBuilder<MedicaoItem> b)
-    {
-        b.HasOne(x => x.ServicoControlado).WithMany().HasForeignKey(x => x.ServicoControladoId);
-        b.HasOne<Local>().WithMany().HasForeignKey(x => x.LocalId);
-    }
-}
-
-internal sealed class FormModeloCfg : IEntityTypeConfiguration<FormModelo>
-{
-    public void Configure(EntityTypeBuilder<FormModelo> b)
-    {
-        b.HasIndex(x => new { x.EmpresaId, x.Codigo, x.Versao }).IsUnique().HasFilter("[Excluido] = 0");
-        b.HasMany(x => x.Itens).WithOne(x => x.FormModelo).HasForeignKey(x => x.FormModeloId);
-        b.HasOne<DocumentoSgq>().WithMany().HasForeignKey(x => x.DocumentoSgqOrigemId);
     }
 }
 
@@ -248,27 +153,6 @@ internal sealed class RncCfg : IEntityTypeConfiguration<Rnc>
         b.Property(x => x.AnaliseCausa).Longo();
         b.Property(x => x.AcaoCorretiva).Longo();
         b.Property(x => x.VerificacaoEficacia).Longo();
-    }
-}
-
-internal sealed class DocumentoSgqCfg : IEntityTypeConfiguration<DocumentoSgq>
-{
-    public void Configure(EntityTypeBuilder<DocumentoSgq> b)
-    {
-        b.Property(x => x.Codigo).HasMaxLength(30);
-        b.HasIndex(x => new { x.EmpresaId, x.Codigo }).IsUnique().HasFilter("[Excluido] = 0");
-        b.HasMany(x => x.Versoes).WithOne(x => x.Documento).HasForeignKey(x => x.DocumentoSgqId);
-    }
-}
-
-internal sealed class VersaoDocumentoSgqCfg : IEntityTypeConfiguration<VersaoDocumentoSgq>
-{
-    public void Configure(EntityTypeBuilder<VersaoDocumentoSgq> b)
-    {
-        b.HasIndex(x => new { x.DocumentoSgqId, x.Revisao }).IsUnique();
-        b.Property(x => x.DescricaoAlteracao).Longo();
-        b.Property(x => x.ArquivoHashSha256).HasMaxLength(64);
-        b.HasMany(x => x.Distribuicoes).WithOne().HasForeignKey(x => x.VersaoDocumentoSgqId);
     }
 }
 

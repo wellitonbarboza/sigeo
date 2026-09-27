@@ -1,0 +1,15 @@
+<div class="etapas">
+    @for (var i = 0; i < Itens.Count; i++)
+    {
+        var e = Itens[i];
+        <div class="etapa @e.Estado">
+            <div class="bola">@if (e.Estado == "feita") { <Icone Nome="check" Tam="14" Traco="3" /> } else if (e.Estado == "erro") { <Icone Nome="x" Tam="14" Traco="3" /> } else { @(i + 1) }</div>
+            <div class="t">@e.Titulo</div>
+            <div class="s">@e.Sub</div>
+        </div>
+    }
+</div>
+@code {
+    public sealed record Passo(string Titulo, string? Sub, string Estado); // Estado: feita | atual | pendente | erro
+    [Parameter] public IReadOnlyList<Passo> Itens { get; set; } = [];
+}

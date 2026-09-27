@@ -1,0 +1,227 @@
+@typeparam T
+@implements IGrade
+@inject IJSRuntime JS
+
+<CascadingValue Value="this" IsFixed="true">@Colunas</CascadingValue>
+
+@if (MostrarAgrupamento)
+{
+    <div class="agrupar @(_arrastando ? "alvo" : "")" @ondragover:preventDefault="true" @ondragover="() => _arrastando = true" @ondragleave="() => _arrastando = false" @ondrop="Soltar">
+        @if (_grupos.Count == 0) { <span>Arraste o cabeçalho de uma coluna aqui para agrupar sua coluna</span> }
+        else
+        {
+            <span>Agrupado por:</span>
+            @foreach (var g in _grupos.ToList())
+            {
+                <span class="chip">@g.Titulo <button type="button" @onclick="() => { _grupos.Remove(g); }" aria-label="Remover agrupamento"><Icone Nome="x" Tam="12" /></button></span>
+            }
+        }
+    </div>
+}
+
+@if (_escolherColunas)
+{
+    <div class="cartao" style="margin:12px 0">
+        <h3><Icone Nome="colunas" /> Colunas visíveis</h3>
+        <div class="checks">
+            @foreach (var c in _colunas)
+            {
+                <label><input type="checkbox" checked="@c.Visivel" @onchange="e => c.Visivel = (bool)e.Value!" /> @c.Titulo</label>
+            }
+        </div>
+    </div>
+}
+
+<div class="grade-wrap" style="@(Altura is null ? "" : $"max-height:{Altura}")">
+    <table class="grade" style="@(_compacto ? "font-size:12.5px" : "")">
+        <thead>
+            <tr>
+                @if (Acoes is not null) { <th></th> }
+                @foreach (var c in Visiveis)
+                {
+                    <th class="@(c.Ordenavel ? "ordenavel" : "") @(c.Alinhar)" draggable="true" style="@(c.Largura is null ? "" : $"width:{c.Largura}")"
+                        @ondragstart="() => _arrastada = c" @onclick="() => Ordenar(c)">
+                        @c.Titulo
+                        @if (_ordem == c) { <span>@(_desc ? " ▾" : " ▴")</span> }
+                    </th>
+                }
+            </tr>
+            @if (_filtros)
+            {
+                <tr class="filtros">
+                    @if (Acoes is not null) { <th></th> }
+                    @foreach (var c in Visiveis)
+                    {
+                        <th><input placeholder="Filtrar…" value="@c.Filtro" @oninput="e => { c.Filtro = e.Value?.ToString(); _pagina = 0; }" /></th>
+                    }
+                </tr>
+            }
+        </thead>
+        <tbody>
+            @{
+                var linhas = Filtradas().ToList();
+                var pagina = linhas.Skip(_pagina * TamanhoPagina).Take(TamanhoPagina).ToList();
+                var nCols = Visiveis.Count() + (Acoes is null ? 0 : 1);
+            }
+            @if (Itens is null)
+            {
+                <tr><td class="vazio" colspan="@nCols">Carregando…</td></tr>
+            }
+            else if (linhas.Count == 0)
+            {
+                <tr><td class="vazio" colspan="@nCols">@(Vazio ?? "Não há registros a serem exibidos")</td></tr>
+            }
+            else if (_grupos.Count > 0)
+            {
+                foreach (var grupo in pagina.GroupBy(i => string.Join(" › ", _grupos.Select(g => g.Texto(i)))))
+                {
+                    <tr class="grupo"><td colspan="@nCols">@grupo.Key <span class="mudo">(@grupo.Count())</span></td></tr>
+                    @if (!_recolhidos.Contains(grupo.Key)) { foreach (var i in grupo) { @Linha(i) } }
+                }
+            }
+            else
+            {
+                foreach (var i in pagina) { @Linha(i) }
+            }
+        </tbody>
+    </table>
+</div>
+@if (Itens is not null && Filtradas().Count() > TamanhoPagina)
+{
+    var total = Filtradas().Count();
+    <div class="paginacao">
+        <span>@total registros</span>
+        <span class="linha">
+            <button disabled="@(_pagina == 0)" @onclick="() => _pagina--">‹ Anterior</button>
+            <span>Página @(_pagina + 1) de @((total - 1) / TamanhoPagina + 1)</span>
+            <button disabled="@((_pagina + 1) * TamanhoPagina >= total)" @onclick="() => _pagina++">Próxima ›</button>
+        </span>
+    </div>
+}
+
+@code {
+    [Parameter] public IEnumerable<T>? Itens { get; set; }
+    [Parameter] public RenderFragment? Colunas { get; set; }
+    [Parameter] public RenderFragment<T>? Acoes { get; set; }
+    [Parameter] public EventCallback<T> AoClicar { get; set; }
+    [Parameter] public Func<T, string?>? ClasseLinha { get; set; }
+    [Parameter] public Func<T, string?>? CriadoPor { get; set; }
+    [Parameter] public string? Vazio { get; set; }
+    [Parameter] public string NomeExportacao { get; set; } = "qualyhub";
+    [Parameter] public int TamanhoPagina { get; set; } = 50;
+    [Parameter] public string? Altura { get; set; }
+    [Parameter] public bool MostrarAgrupamento { get; set; } = true;
+    [CascadingParameter] public QualyHub.Web.Seguranca.UsuarioAtualWeb? UsuarioCascata { get; set; }
+    [Inject] public QualyHub.Web.Seguranca.UsuarioAtualWeb Usuario { get; set; } = default!;
+
+    private readonly List<Coluna<T>> _colunas = [];
+    private readonly List<Coluna<T>> _grupos = [];
+    private readonly HashSet<string> _recolhidos = [];
+    private Coluna<T>? _arrastada, _ordem;
+    private bool _desc, _filtros, _compacto, _escolherColunas, _arrastando, _somenteMeus;
+    private int _pagina;
+
+    public T? Selecionado { get; private set; }
+    public bool TemSelecionado => Selecionado is not null;
+    private IEnumerable<Coluna<T>> Visiveis => _colunas.Where(c => c.Visivel);
+
+    internal void Registrar(Coluna<T> c) { if (!_colunas.Contains(c)) { _colunas.Add(c); StateHasChanged(); } }
+
+    private RenderFragment Linha(T i) => __builder =>
+    {
+        <tr class="@(Equals(i, Selecionado) ? "sel" : "") @ClasseLinha?.Invoke(i)" @onclick="() => Clicar(i)" style="cursor:pointer">
+            @if (Acoes is not null) { <td class="acoes" @onclick:stopPropagation="true">@Acoes(i)</td> }
+            @foreach (var c in Visiveis)
+            {
+                <td class="@c.Alinhar">@if (c.Modelo is not null) { @c.Modelo(i) } else { @c.Texto(i) }</td>
+            }
+        </tr>
+    };
+
+    private async Task Clicar(T i) { Selecionado = i; await AoClicar.InvokeAsync(i); }
+
+    private IEnumerable<T> Filtradas()
+    {
+        if (Itens is null) return [];
+        IEnumerable<T> q = Itens;
+        if (_somenteMeus && CriadoPor is not null) q = q.Where(i => string.Equals(CriadoPor(i), Usuario.Nome, StringComparison.OrdinalIgnoreCase));
+        foreach (var c in _colunas.Where(c => !string.IsNullOrWhiteSpace(c.Filtro)))
+            q = q.Where(i => c.Texto(i).Contains(c.Filtro!, StringComparison.OrdinalIgnoreCase));
+        if (_grupos.Count > 0) q = q.OrderBy(i => string.Join("|", _grupos.Select(g => g.Chave(i))));
+        if (_ordem is not null)
+            q = _grupos.Count > 0
+                ? (_desc ? ((IOrderedEnumerable<T>)q).ThenByDescending(_ordem.Chave) : ((IOrderedEnumerable<T>)q).ThenBy(_ordem.Chave))
+                : (_desc ? q.OrderByDescending(_ordem.Chave) : q.OrderBy(_ordem.Chave));
+        return q;
+    }
+
+    private void Ordenar(Coluna<T> c)
+    {
+        if (!c.Ordenavel) return;
+        if (_ordem == c) _desc = !_desc; else { _ordem = c; _desc = false; }
+    }
+
+    private void Soltar()
+    {
+        _arrastando = false;
+        if (_arrastada is not null && _arrastada.Agrupavel && !_grupos.Contains(_arrastada)) _grupos.Add(_arrastada);
+        _arrastada = null;
+    }
+
+    // ───── Ferramentas (barra de título) ─────
+    public void AlternarFiltros() { _filtros = !_filtros; StateHasChanged(); }
+    public void AlternarCompacto() { _compacto = !_compacto; StateHasChanged(); }
+    public void AlternarColunas() { _escolherColunas = !_escolherColunas; StateHasChanged(); }
+    public void AlternarSomenteMeus() { _somenteMeus = !_somenteMeus; StateHasChanged(); }
+    public void AlternarGrupos()
+    {
+        if (_recolhidos.Count > 0) _recolhidos.Clear();
+        else foreach (var g in Filtradas().GroupBy(i => string.Join(" › ", _grupos.Select(x => x.Texto(i))))) _recolhidos.Add(g.Key);
+        StateHasChanged();
+    }
+    public bool Filtros => _filtros;
+    public bool Compacto => _compacto;
+    public bool SomenteMeus => _somenteMeus;
+
+    public async Task ExportarExcelAsync()
+    {
+        using var wb = new ClosedXML.Excel.XLWorkbook();
+        var ws = wb.AddWorksheet("Dados");
+        var cols = Visiveis.ToList();
+        for (var c = 0; c < cols.Count; c++) { ws.Cell(1, c + 1).Value = cols[c].Titulo; ws.Cell(1, c + 1).Style.Font.Bold = true; }
+        var r = 2;
+        foreach (var i in Filtradas())
+        {
+            for (var c = 0; c < cols.Count; c++)
+            {
+                var v = cols[c].Valor?.Invoke(i);
+                var cell = ws.Cell(r, c + 1);
+                switch (v)
+                {
+                    case null: break;
+                    case decimal d: cell.Value = d; break;
+                    case int n: cell.Value = n; break;
+                    case DateOnly dt: cell.Value = dt.ToDateTime(TimeOnly.MinValue); cell.Style.DateFormat.Format = "dd/mm/yyyy"; break;
+                    case DateTimeOffset dto: cell.Value = dto.LocalDateTime; cell.Style.DateFormat.Format = "dd/mm/yyyy hh:mm"; break;
+                    default: cell.Value = cols[c].Texto(i); break;
+                }
+            }
+            r++;
+        }
+        ws.Columns().AdjustToContents(8, 60);
+        using var ms = new MemoryStream();
+        wb.SaveAs(ms);
+        await JS.InvokeVoidAsync("qh.baixar", $"{NomeExportacao}-{DateTime.Now:yyyyMMdd-HHmm}.xlsx", Convert.ToBase64String(ms.ToArray()),
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    }
+
+    public async Task ExportarJsonAsync()
+    {
+        var cols = Visiveis.ToList();
+        var dados = Filtradas().Select(i => cols.ToDictionary(c => c.Titulo, c => (object?)c.Texto(i))).ToList();
+        var json = System.Text.Json.JsonSerializer.Serialize(dados, new System.Text.Json.JsonSerializerOptions { WriteIndented = true, Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping });
+        await JS.InvokeVoidAsync("qh.baixar", $"{NomeExportacao}-{DateTime.Now:yyyyMMdd-HHmm}.json", Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(json)), "application/json");
+    }
+
+    public ValueTask ImprimirAsync() => JS.InvokeVoidAsync("print");
+}

@@ -1,0 +1,74 @@
+@page "/sgq/registros"
+@inherits PaginaBase
+
+<Pagina Titulo="Controle de registros (retenção)" Grade="_grade" AoNovo="Novo" AoAtualizar="Carregar">
+    <ChildContent>
+        <div class="pagina">
+            <Grade T="RegraRetencao" @ref="_grade" Itens="_itens" AoClicar="r => { _r = r; ErrosForm = null; _aberto = true; }" NomeExportacao="controle-registros">
+                <Colunas>
+                    <Coluna T="RegraRetencao" Titulo="Registro" Valor="r => r.Identificacao" />
+                    <Coluna T="RegraRetencao" Titulo="Formulário" Valor="r => r.Formulario" />
+                    <Coluna T="RegraRetencao" Titulo="Armazenamento" Valor="r => r.Armazenamento" />
+                    <Coluna T="RegraRetencao" Titulo="Recuperação" Valor="r => r.Recuperacao" />
+                    <Coluna T="RegraRetencao" Titulo="Proteção" Valor="r => r.Protecao" />
+                    <Coluna T="RegraRetencao" Titulo="Tempo de retenção" Valor="r => r.TempoRetencao" />
+                    <Coluna T="RegraRetencao" Titulo="Descarte" Valor="r => r.Descarte" />
+                </Colunas>
+            </Grade>
+        </div>
+    </ChildContent>
+    <Faixa><b>Registros</b><span>Identificação · armazenamento · recuperação · proteção · retenção · descarte</span><span>Revisão obsoleta é retida pelo prazo da regra vinculada ao documento</span></Faixa>
+</Pagina>
+
+<Modal @bind-Aberto="_aberto" Titulo="Regra de retenção" Tamanho="media">
+    <ChildContent>
+        @if (_r is not null)
+        {
+            <Erros Lista="ErrosForm" />
+            <div class="form">
+                <Campo Rotulo="Registro (identificação)" Obrigatorio Classe="s8"><input @bind="_r.Identificacao" /></Campo>
+                <Campo Rotulo="Formulário" Classe="s4"><input @bind="_r.Formulario" /></Campo>
+                <Campo Rotulo="Armazenamento" Obrigatorio Classe="s6"><input @bind="_r.Armazenamento" /></Campo>
+                <Campo Rotulo="Recuperação" Obrigatorio Classe="s6"><input @bind="_r.Recuperacao" /></Campo>
+                <Campo Rotulo="Proteção" Obrigatorio Classe="s6"><input @bind="_r.Protecao" /></Campo>
+                <Campo Rotulo="Tempo de retenção (texto)" Obrigatorio Classe="s4"><input @bind="_r.TempoRetencao" placeholder="5 anos após entrega" /></Campo>
+                <Campo Rotulo="Anos" Classe="s2"><input type="number" @bind="_r.TempoRetencaoAnos" /></Campo>
+                <Campo Rotulo="Descarte" Obrigatorio Classe="s12"><input @bind="_r.Descarte" /></Campo>
+            </div>
+        }
+    </ChildContent>
+    <Rodape><button class="btn prim" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="16" /> Salvar</button></Rodape>
+</Modal>
+
+@code {
+    private Grade<RegraRetencao>? _grade;
+    private List<RegraRetencao>? _itens;
+    private RegraRetencao? _r;
+    private bool _aberto;
+
+    protected override Task OnInitializedAsync() => Carregar();
+
+    private async Task Carregar()
+    {
+        await using var db = Fabrica.Criar();
+        _itens = await db.RegrasRetencao.AsNoTracking().OrderBy(r => r.Identificacao).ToListAsync();
+    }
+
+    private void Novo() { _r = new RegraRetencao(); ErrosForm = null; _aberto = true; }
+
+    private async Task Salvar()
+    {
+        var ok = await Executar(async () =>
+        {
+            var e = new List<string>();
+            if (string.IsNullOrWhiteSpace(_r!.Identificacao)) e.Add("Informe o registro.");
+            if (string.IsNullOrWhiteSpace(_r.Armazenamento) || string.IsNullOrWhiteSpace(_r.Recuperacao) || string.IsNullOrWhiteSpace(_r.Protecao)
+                || string.IsNullOrWhiteSpace(_r.TempoRetencao) || string.IsNullOrWhiteSpace(_r.Descarte))
+                e.Add("Preencha armazenamento, recuperação, proteção, retenção e descarte.");
+            ValidacaoException.Se(e);
+            await using var db = Fabrica.Criar();
+            await Grafo.SalvarAsync(db, _r); await db.SaveChangesAsync();
+        }, "Regra salva.");
+        if (ok) { _aberto = false; await Carregar(); }
+    }
+}

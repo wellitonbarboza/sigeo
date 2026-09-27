@@ -1,0 +1,90 @@
+@* Trilha de aprovação (autorizações) de um registro + decisão da etapa pendente pelo usuário logado. *@
+@inject FabricaDb Fabrica
+@inject AprovacaoServico Aprov
+@inject Notificacoes Notif
+
+<div class="secao"><Icone Nome="pessoa" /> Autorizações</div>
+@if (_s is null) { <div class="mudo" style="padding:4px 2px 8px">Ainda não enviado para aprovação.</div> }
+else
+{
+    <table class="itens">
+        <thead><tr><th>Etapa</th><th>Nível</th><th>Data/hora</th><th>Usuário</th><th>Decisão</th><th>Justificativa</th></tr></thead>
+        <tbody>
+            <tr><td>0</td><td>Solicitante</td><td>@Rotulos.DataHora(_s.EnviadoEm)</td><td>@_s.SolicitanteNome</td><td><Selo Texto="Enviado" Tom="info" /></td><td>—</td></tr>
+            @foreach (var e in _s.Etapas.OrderBy(x => x.Ordem))
+            {
+                <tr>
+                    <td>@e.Ordem</td>
+                    <td>@NomeNivel(e)</td>
+                    <td>@Rotulos.DataHora(e.DecididoEm)</td>
+                    <td>@(e.DecididoPorNome ?? "—")@if (e.EmNomeDeNome is not null) { <span class="mudo"> (em nome de @e.EmNomeDeNome)</span> }</td>
+                    <td><Selo Texto="@Rotulos.De(e.Decisao)" Tom="@(e.Decisao switch { DecisaoAprovacao.Aprovado => "ok", DecisaoAprovacao.Pendente => "aviso", _ => "erro" })" /></td>
+                    <td>@(e.Justificativa ?? "—")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    @if (_pode)
+    {
+        <div class="form" style="margin-top:12px">
+            <Campo Rotulo="Justificativa" Classe="s12" Ajuda="Obrigatória para reprovar ou devolver."><textarea @bind="_just" rows="2"></textarea></Campo>
+        </div>
+        <div class="linha" style="justify-content:flex-end;margin-top:10px">
+            <button class="btn perigo" @onclick="() => Decidir(DecisaoAprovacao.Reprovado)"><Icone Nome="x-circulo" Tam="16" /> Reprovar</button>
+            <button class="btn sec" @onclick="() => Decidir(DecisaoAprovacao.DevolvidoParaAjuste)"><Icone Nome="atualizar" Tam="16" /> Devolver p/ ajuste</button>
+            <button class="btn ok" @onclick="() => Decidir(DecisaoAprovacao.Aprovado)"><Icone Nome="check-circulo" Tam="16" /> Aprovar (@NomeNivel(_s.Pendente!))</button>
+        </div>
+    }
+    else if (_s.Status == StatusAprovacao.EmAprovacao)
+    {
+        <div class="alerta info"><Icone Nome="ampulheta" /> Aguardando: @NomeNivel(_s.Pendente!). Você não é o aprovador desta etapa (ou é o solicitante).</div>
+    }
+}
+@code {
+    [Parameter] public EntidadeAprovavel Entidade { get; set; }
+    [Parameter] public Guid EntidadeId { get; set; }
+    [Parameter] public EventCallback AoDecidir { get; set; }
+    [Parameter] public int Versao { get; set; }
+    private SolicitacaoAprovacao? _s;
+    private List<Alcada> _alcadas = [];
+    private bool _pode;
+    private string? _just;
+    private int _versaoCarregada = -1;
+    private Guid _idCarregado;
+
+    public SolicitacaoAprovacao? Solicitacao => _s;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_idCarregado == EntidadeId && _versaoCarregada == Versao) return;
+        _idCarregado = EntidadeId; _versaoCarregada = Versao;
+        await Carregar();
+    }
+
+    private async Task Carregar()
+    {
+        await using var db = Fabrica.Criar();
+        _s = await AprovacaoServico.UltimaAsync(db, Entidade, EntidadeId);
+        _alcadas = await db.Alcadas.AsNoTracking().Where(a => a.Entidade == Entidade).ToListAsync();
+        _pode = _s is not null && await Aprov.PodeDecidirAsync(db, _s);
+    }
+
+    private string NomeNivel(EtapaAprovacao e) =>
+        _alcadas.Where(a => a.PerfilAprovador == e.PerfilAprovador && a.UsuarioAprovadorId == e.UsuarioAprovadorId).Select(a => a.NomeEtapa).FirstOrDefault()
+        ?? Rotulos.De(e.PerfilAprovador);
+
+    private async Task Decidir(DecisaoAprovacao d)
+    {
+        try
+        {
+            await using var db = Fabrica.Criar();
+            await Aprov.DecidirAsync(db, _s!.Id, d, _just);
+            await db.SaveChangesAsync();
+            Notif.Sucesso(d == DecisaoAprovacao.Aprovado ? "Aprovado." : d == DecisaoAprovacao.Reprovado ? "Reprovado." : "Devolvido para ajuste.");
+            _just = null;
+            await Carregar();
+            await AoDecidir.InvokeAsync();
+        }
+        catch (RegraDeNegocioException ex) { Notif.Erro(ex.Message); }
+    }
+}

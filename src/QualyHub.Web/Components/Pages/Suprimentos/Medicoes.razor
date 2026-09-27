@@ -1,0 +1,188 @@
+@page "/medicoes"
+@inherits PaginaBase
+@inject SuprimentosServico Sup
+@inject NavigationManager Nav
+
+<Pagina Titulo="Medições e avaliação do prestador" Grade="_grade" AoNovo="AbrirNova" AoAtualizar="Carregar">
+    <ChildContent>
+        <div class="pagina">
+            <div class="kpis">
+                <Kpi Rotulo="Em elaboração" Valor="@_itens?.Count(m => m.Status == StatusMedicao.EmElaboracao)" />
+                <Kpi Rotulo="Aguard. aprovação" Valor="@_itens?.Count(m => m.Status == StatusMedicao.AguardandoAprovacao)" Tom="aviso" />
+                <Kpi Rotulo="Nota média" Valor="@Num(_itens?.Where(m => m.Nota != null).Select(m => m.Nota).DefaultIfEmpty(null).Average())" Tom="info" />
+                <Kpi Rotulo="@($"Abaixo de {Num(_p?[Parametros.NotaPlanoPontual])}")" Valor="@_itens?.Count(m => m.Faixa != FaixaNota.Nenhuma)" Sub="geraram plano de ação" Tom="erro" />
+            </div>
+            <Grade T="Linha" @ref="_grade" Itens="_itens" AoClicar="l => Abrir(l.Id)" NomeExportacao="medicoes" CriadoPor="l => l.CriadoPor">
+                <Colunas>
+                    <Coluna T="Linha" Titulo="Contrato" Valor="l => l.Contrato" />
+                    <Coluna T="Linha" Titulo="Nº" Valor="l => l.Numero" Largura="60px" />
+                    <Coluna T="Linha" Titulo="Fornecedor" Valor="l => l.Fornecedor" />
+                    <Coluna T="Linha" Titulo="Período" Valor='l => $"{DataCurta(l.Inicio)} a {DataCurta(l.Fim)}"' />
+                    <Coluna T="Linha" Titulo="Valor período" Valor="l => l.Valor" Formato="C2" Alinhar="num" />
+                    <Coluna T="Linha" Titulo="Nota" Valor="l => l.Nota" Alinhar="num" />
+                    <Coluna T="Linha" Titulo="Faixa" Valor="l => l.Faixa"><Modelo>@if (context.Faixa != FaixaNota.Nenhuma) { <Selo Texto="@De(context.Faixa)" Tom="erro" /> }</Modelo></Coluna>
+                    <Coluna T="Linha" Titulo="Status" Valor="l => l.Status"><Modelo><Selo Texto="@De(context.Status)" Tom="@Tom(context.Status)" /></Modelo></Coluna>
+                </Colunas>
+            </Grade>
+        </div>
+    </ChildContent>
+    <Faixa><b>Medição</b><span>Quantidades × planilha do contrato + FVS aprovada dos serviços controlados</span><span>Notas: escopo @Pct(Parametros.PesoEscopo) · material @Pct(Parametros.PesoMaterial) · serviço @Pct(Parametros.PesoServico) · limpeza @Pct(Parametros.PesoLimpeza) · doc/seg @Pct(Parametros.PesoDocSeg)</span></Faixa>
+</Pagina>
+
+<Modal @bind-Aberto="_nova" Titulo="Nova medição" Tamanho="media">
+    <ChildContent>
+        <Erros Lista="ErrosForm" />
+        <div class="form">
+            <Campo Rotulo="Contrato ativo" Obrigatorio Classe="s12"><select @bind="_novoContrato"><option value="">Selecione…</option>@foreach (var c in _contratos) { <option value="@c.Id">@c.Texto</option> }</select></Campo>
+            <Campo Rotulo="Início do período" Classe="s6"><input type="date" @bind="_ini" /></Campo>
+            <Campo Rotulo="Fim do período" Classe="s6"><input type="date" @bind="_fim" /></Campo>
+        </div>
+    </ChildContent>
+    <Rodape><button class="btn prim" disabled="@(_novoContrato is null || Ocupado)" @onclick="CriarMedicao"><Icone Nome="mais" Tam="16" /> Criar</button></Rodape>
+</Modal>
+
+<Modal @bind-Aberto="_aberto" Titulo="@($"Medição {_m?.NumeroMedicao:00} — {_m?.Contrato.Numero} — {_m?.Contrato.Fornecedor.NomeExibicao}")" Tamanho="grande">
+    <ChildContent>
+        @if (_m is not null)
+        {
+            <Erros Lista="ErrosForm" />
+            @if (!string.IsNullOrEmpty(_m.Bloqueios)) { <div class="alerta erro"><Icone Nome="x-circulo" /> @_m.Bloqueios</div> }
+            <div class="kpis">
+                <Kpi Rotulo="Valor do período" Valor="@Moeda(_m.ValorPeriodo)" />
+                <Kpi Rotulo="Acumulado" Valor="@Moeda(_m.ValorAcumulado)" Sub="@($"de {Moeda(_m.Contrato.ValorTotal)}")" />
+                <Kpi Rotulo="Saldo" Valor="@Moeda(_m.Saldo)" />
+                <Kpi Rotulo="Retenção" Valor="@Moeda(_m.ValorRetencao)" Sub="@($"{_m.Contrato.RetencaoPerc:0.##}%")" />
+            </div>
+            <div class="secao"><Icone Nome="regua" /> Quantidades do período</div>
+            <table class="itens">
+                <thead><tr><th>Item</th><th>Descrição</th><th>UN</th><th class="num">Contratado</th><th class="num">Anterior</th><th>No período</th><th class="num">Acumulado</th><th class="num">% exec.</th><th>FVS (serv. controlado)</th></tr></thead>
+                <tbody>
+                    @foreach (var i in _m.Itens.OrderBy(i => i.ContratoItem.Item))
+                    {
+                        var q = _qtd[i.Id];
+                        <tr>
+                            <td>@i.ContratoItem.Item</td><td>@i.ContratoItem.Descricao</td><td>@i.ContratoItem.Unidade</td>
+                            <td class="num">@Num(i.ContratoItem.Quantidade, 3)</td><td class="num">@Num(i.QtdAnterior, 3)</td>
+                            <td style="width:110px"><input type="number" step="0.001" value="@q.Qtd" @onchange="e => _qtd[i.Id] = (decimal.TryParse(e.Value?.ToString(), System.Globalization.CultureInfo.InvariantCulture, out var d) ? d : 0, q.Fvs)" disabled="@(!Editavel)" /></td>
+                            <td class="num">@Num(i.QtdAcumulada, 3)</td>
+                            <td class="num"><div class="barra"><span style="width:@(Math.Min(100, i.PercExecutado).ToString(System.Globalization.CultureInfo.InvariantCulture))%"></span></div>@Num(i.PercExecutado, 1)%</td>
+                            <td>@if (i.ContratoItem.ServicoControladoId is not null) { <input value="@q.Fvs" placeholder="nº FVS" @onchange="e => _qtd[i.Id] = (_qtd[i.Id].Qtd, e.Value?.ToString())" disabled="@(!Editavel)" /> } else { <span class="mudo">—</span> }</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+
+            <div class="secao"><Icone Nome="grafico" /> Avaliação do prestador (0 a 10)</div>
+            <div class="criterios">
+                @foreach (var (nome, peso, get, set, opcional) in Notas())
+                {
+                    var v = get();
+                    <div class="criterio">
+                        <b>@nome @if (opcional) { <small class="mudo">(opcional)</small> }</b><span>peso @Pct(peso)</span>
+                        <input type="number" min="0" max="10" step="0.5" value="@v?.ToString(System.Globalization.CultureInfo.InvariantCulture)" disabled="@(!Editavel)"
+                               @onchange="e => set(decimal.TryParse(e.Value?.ToString(), System.Globalization.CultureInfo.InvariantCulture, out var d) ? d : null)" />
+                        <div class="barra"><span class="@(v < _p![Parametros.NotaPlanoCompleto] ? "erro" : v < _p[Parametros.NotaPlanoPontual] ? "aviso" : "ok")" style="width:@(((v ?? 0) * 10).ToString(System.Globalization.CultureInfo.InvariantCulture))%"></span></div>
+                    </div>
+                }
+                <div class="criterio resultado @(_m.Faixa == FaixaNota.ReuniaoPlanoCompleto ? "erro" : _m.Faixa == FaixaNota.PlanoPontual ? "aviso" : _m.NotaFinal is null ? "" : "ok")">
+                    <b>Nota final</b><span>@(_m.NotaFinal is null ? "preencha as notas" : Medicao.DescricaoFaixa(_m.Faixa, _p!))</span>
+                    <div class="nota">@Num(_m.NotaFinal)</div>
+                </div>
+            </div>
+            <div class="form" style="margin-top:12px">
+                <Campo Rotulo="Data da reunião com o prestador" Classe="s3"><input type="date" @bind="_m.DataReuniao" disabled="@(!Editavel)" /></Campo>
+                <Campo Rotulo="Avaliador" Classe="s5"><input readonly value="@(_m.AvaliadorNome ?? Usuario.Nome)" /></Campo>
+                @if (_m.PlanoAcaoId is not null) { <div class="campo s4"><button class="btn sec" @onclick='() => Nav.NavigateTo("fornecedores/planos")'><Icone Nome="alvo" Tam="16" /> Ver plano de ação</button></div> }
+                @if (!string.IsNullOrEmpty(_m.MotivoReprovacao)) { <div class="campo s12"><div class="alerta erro">Reprovação: @_m.MotivoReprovacao</div></div> }
+            </div>
+            <Autorizacoes Entidade="EntidadeAprovavel.Medicao" EntidadeId="_m.Id" Versao="_versao" AoDecidir="Recarregar" />
+        }
+    </ChildContent>
+    <Rodape>
+        @if (_m is not null)
+        {
+            @if (_m.Status == StatusMedicao.Aprovada) { <button class="btn laranja" @onclick='() => Nav.NavigateTo($"pagamentos?medicao={_m.Id}")'><Icone Nome="dinheiro" Tam="16" /> Encaminhar pagamento</button> }
+            @if (Editavel)
+            {
+                <button class="btn ok" disabled="@Ocupado" @onclick="Enviar"><Icone Nome="enviar" Tam="16" /> Enviar p/ aprovação</button>
+                <button class="btn prim" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="16" /> Salvar e calcular</button>
+            }
+        }
+    </Rodape>
+</Modal>
+
+@code {
+    private sealed record Linha(Guid Id, string Contrato, int Numero, string Fornecedor, DateOnly Inicio, DateOnly Fim, decimal Valor, decimal? Nota, FaixaNota Faixa, StatusMedicao Status, string CriadoPor);
+    private Grade<Linha>? _grade;
+    private List<Linha>? _itens;
+    private Medicao? _m;
+    private ParametrosVigentes? _p;
+    private bool _aberto, _nova;
+    private int _versao;
+    private Dictionary<Guid, (decimal Qtd, string? Fvs)> _qtd = [];
+    private List<Opcao> _contratos = [];
+    private Guid? _novoContrato;
+    private DateOnly _ini, _fim;
+
+    private bool Editavel => _m is { Status: StatusMedicao.EmElaboracao or StatusMedicao.Reprovada };
+    private string Pct(string chave) => _p is null ? "" : $"{_p[chave] * 100:0}%";
+    private string Pct(decimal v) => $"{v * 100:0}%";
+
+    private IEnumerable<(string, decimal, Func<decimal?>, Action<decimal?>, bool)> Notas() =>
+    [
+        ("Cumprimento do escopo/prazo", _p![Parametros.PesoEscopo], () => _m!.NotaEscopo, v => _m!.NotaEscopo = v, false),
+        ("Material (quando fornece)", _p[Parametros.PesoMaterial], () => _m!.NotaMaterial, v => _m!.NotaMaterial = v, true),
+        ("Qualidade do serviço", _p[Parametros.PesoServico], () => _m!.NotaServico, v => _m!.NotaServico = v, false),
+        ("Limpeza e organização", _p[Parametros.PesoLimpeza], () => _m!.NotaLimpeza, v => _m!.NotaLimpeza = v, false),
+        ("Documentação e segurança", _p[Parametros.PesoDocSeg], () => _m!.NotaDocSeg, v => _m!.NotaDocSeg = v, false),
+    ];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using (var db = Fabrica.Criar()) _p = await ParametrosServico.CarregarAsync(db);
+        await Carregar();
+        if (Nav.Uri.Contains("?id=") && Guid.TryParse(Nav.Uri.Split("?id=")[1], out var id)) await Abrir(id);
+        else if (Nav.Uri.Contains("?contrato=") && Guid.TryParse(Nav.Uri.Split("?contrato=")[1], out var cid)) { await AbrirNova(); _novoContrato = cid; }
+    }
+
+    private async Task Carregar()
+    {
+        await using var db = Fabrica.Criar();
+        _itens = await db.Medicoes.AsNoTracking().OrderByDescending(m => m.CriadoEm)
+            .Select(m => new Linha(m.Id, m.Contrato.Numero, m.NumeroMedicao, m.Contrato.Fornecedor.RazaoSocial, m.PeriodoInicio, m.PeriodoFim, m.ValorPeriodo, m.NotaFinal, m.Faixa, m.Status, m.CriadoPor)).ToListAsync();
+    }
+
+    private async Task AbrirNova()
+    {
+        await using var db = Fabrica.Criar();
+        _contratos = await db.Contratos.AsNoTracking().Where(k => k.Status == StatusContrato.Ativo).OrderBy(k => k.Numero)
+            .Select(k => new Opcao(k.Id, k.Numero + " – " + k.Fornecedor.RazaoSocial)).ToListAsync();
+        _fim = Hoje; _ini = Hoje.AddDays(-Hoje.Day + 1); _novoContrato = null; ErrosForm = null; _nova = true;
+    }
+
+    private async Task CriarMedicao()
+    {
+        Guid id = default;
+        if (await Executar(async () => id = await Sup.NovaMedicaoAsync(_novoContrato!.Value, _ini, _fim), "Medição criada.")) { _nova = false; await Carregar(); await Abrir(id); }
+    }
+
+    private async Task Abrir(Guid id)
+    {
+        await using var db = Fabrica.Criar();
+        _m = await SuprimentosServico.CarregarMedicaoAsync(db, id, default);
+        _qtd = _m.Itens.ToDictionary(i => i.Id, i => (i.QtdPeriodo, i.FvsRef));
+        ErrosForm = null; _versao++; _aberto = true;
+    }
+
+    private async Task Recarregar() { if (_m is not null) await Abrir(_m.Id); await Carregar(); }
+
+    private Task Gravar() => Sup.SalvarMedicaoAsync(_m!.Id, _qtd, _m.NotaEscopo, _m.NotaMaterial, _m.NotaServico, _m.NotaLimpeza, _m.NotaDocSeg, _m.DataReuniao);
+
+    private async Task Salvar() { if (await Executar(Gravar, "Medição calculada.")) await Recarregar(); }
+
+    private async Task Enviar()
+    {
+        if (await Executar(async () => { await Gravar(); await Sup.EnviarMedicaoAsync(_m!.Id); }, "Medição enviada para aprovação.")) await Recarregar();
+        else await Recarregar();
+    }
+}

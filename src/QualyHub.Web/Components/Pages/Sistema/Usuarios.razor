@@ -1,0 +1,269 @@
+@page "/sistema/usuarios"
+@inherits PaginaBase
+
+<Pagina Titulo="Usuários, alçadas e delegações" Grade="GradeAtual" AoNovo="Novo" AoAtualizar="Carregar">
+    <ChildContent>
+        <div class="pagina">
+            @if (!Perfil()) { <div class="alerta aviso"><Icone Nome="escudo" /> Somente o Administrador altera usuários e alçadas. Você pode consultar.</div> }
+            <Abas Itens="_abas" @bind-Ativa="_aba" />
+            @if (_aba == "usuarios")
+            {
+                <Grade T="Usuario" @ref="_gU" Itens="_usuarios" AoClicar="AbrirUsuario" NomeExportacao="usuarios">
+                    <Colunas>
+                        <Coluna T="Usuario" Titulo="Nome" Valor="u => u.Nome" />
+                        <Coluna T="Usuario" Titulo="E-mail" Valor="u => u.Email" />
+                        <Coluna T="Usuario" Titulo="Perfil" Valor="u => u.Perfil" />
+                        <Coluna T="Usuario" Titulo="Função" Valor="u => u.Funcao" />
+                        <Coluna T="Usuario" Titulo="Obras" Valor='u => u.AcessoTodasObras ? "Todas" : string.Join(", ", u.Obras.Select(o => NomeObra(o.ObraId)))' />
+                        <Coluna T="Usuario" Titulo="Limites" Valor='u => string.Join(" · ", u.LimitesAprovacao.Where(l => l.Ativo).Select(l => $"{De(l.Entidade)} {Moeda(l.ValorMaximo)}"))' />
+                        <Coluna T="Usuario" Titulo="Ativo" Valor="u => u.Ativo" />
+                    </Colunas>
+                </Grade>
+            }
+            else if (_aba == "alcadas")
+            {
+                <Grade T="Alcada" @ref="_gA" Itens="_alcadas" AoClicar="a => { _a = a; ErrosForm = null; _abertoA = true; }" NomeExportacao="alcadas">
+                    <Colunas>
+                        <Coluna T="Alcada" Titulo="Documento" Valor="a => a.Entidade" />
+                        <Coluna T="Alcada" Titulo="Ordem" Valor="a => a.Ordem" Largura="70px" />
+                        <Coluna T="Alcada" Titulo="Etapa" Valor="a => a.NomeEtapa" />
+                        <Coluna T="Alcada" Titulo="Perfil aprovador" Valor="a => a.PerfilAprovador" />
+                        <Coluna T="Alcada" Titulo="Usuário específico" Valor="a => a.UsuarioAprovadorId == null ? null : NomeUsuario(a.UsuarioAprovadorId.Value)" />
+                        <Coluna T="Alcada" Titulo="Valor de" Valor="a => a.ValorMinimo" Formato="C2" Alinhar="num" />
+                        <Coluna T="Alcada" Titulo="Valor até" Valor="a => a.ValorMaximo" Formato="C2" Alinhar="num" />
+                        <Coluna T="Alcada" Titulo="Obra" Valor='a => a.ObraId == null ? "Todas" : NomeObra(a.ObraId.Value)' />
+                        <Coluna T="Alcada" Titulo="Ativa" Valor="a => a.Ativa" />
+                    </Colunas>
+                </Grade>
+            }
+            else
+            {
+                <Grade T="DelegacaoAprovacao" @ref="_gD" Itens="_delegacoes" AoClicar="d => { _d = d; ErrosForm = null; _abertoD = true; }" NomeExportacao="delegacoes">
+                    <Colunas>
+                        <Coluna T="DelegacaoAprovacao" Titulo="Titular" Valor="d => NomeUsuario(d.TitularUsuarioId)" />
+                        <Coluna T="DelegacaoAprovacao" Titulo="Substituto" Valor="d => NomeUsuario(d.SubstitutoUsuarioId)" />
+                        <Coluna T="DelegacaoAprovacao" Titulo="Início" Valor="d => d.Inicio" />
+                        <Coluna T="DelegacaoAprovacao" Titulo="Fim" Valor="d => d.Fim" />
+                        <Coluna T="DelegacaoAprovacao" Titulo="Documento" Valor='d => d.Entidade == null ? "Todos" : De(d.Entidade.Value)' />
+                        <Coluna T="DelegacaoAprovacao" Titulo="Motivo" Valor="d => d.Motivo" />
+                        <Coluna T="DelegacaoAprovacao" Titulo="Situação" Valor='d => d.Revogada ? "Revogada" : d.Fim < DateTimeOffset.Now ? "Encerrada" : "Vigente"' />
+                    </Colunas>
+                </Grade>
+            }
+        </div>
+    </ChildContent>
+    <Faixa><b>Alçadas</b><span>Etapas por documento, valor e obra — congeladas no envio</span><span>Limite por usuário: aprova só até o valor configurado</span><span>Delegação com período · quem solicita não aprova (segregação)</span></Faixa>
+</Pagina>
+
+<Modal @bind-Aberto="_abertoU" Titulo="Usuário">
+    <ChildContent>
+        @if (_u is not null)
+        {
+            <Erros Lista="ErrosForm" />
+            <div class="form">
+                <Campo Rotulo="Nome" Obrigatorio Classe="s6"><input @bind="_u.Nome" disabled="@(!Perfil())" /></Campo>
+                <Campo Rotulo="E-mail (login Microsoft)" Obrigatorio Classe="s6"><input type="email" @bind="_u.Email" disabled="@(!Perfil())" /></Campo>
+                <Campo Rotulo="Perfil" Obrigatorio Classe="s4"><select @bind="_u.Perfil" disabled="@(!Perfil())">@foreach (var p in Enum.GetValues<PerfilUsuario>()) { <option value="@p">@De(p)</option> }</select></Campo>
+                <Campo Rotulo="Função (nome exibido nas aprovações)" Classe="s5"><select @bind="_u.Funcao" disabled="@(!Perfil())"><option value="">—</option>@foreach (var f in _funcoes) { <option>@f</option> }</select></Campo>
+                <Campo Rotulo="" Classe="s3"><label><input type="checkbox" @bind="_u.Ativo" disabled="@(!Perfil())" /> Ativo</label></Campo>
+                <Campo Rotulo="Acesso às obras" Classe="s12">
+                    <div class="checks">
+                        <label><input type="checkbox" @bind="_u.AcessoTodasObras" disabled="@(!Perfil())" /> <b>Todas as obras</b></label>
+                        @if (!_u.AcessoTodasObras)
+                        {
+                            @foreach (var o in _obras)
+                            {
+                                <label><input type="checkbox" disabled="@(!Perfil())" checked="@_u.Obras.Any(x => x.ObraId == o.Id)" @onchange="e => AlternarObra(o.Id, (bool)e.Value!)" /> @o.Texto</label>
+                            }
+                        }
+                    </div>
+                </Campo>
+            </div>
+            <div class="secao"><Icone Nome="dinheiro" /> Limites de aprovação (valor máximo que este usuário aprova)
+                @if (Perfil()) { <span class="acao"><button class="btn sec pq" @onclick="() => _u.LimitesAprovacao.Add(new LimiteAprovacao { UsuarioId = _u.Id, Entidade = EntidadeAprovavel.Pedido })"><Icone Nome="mais" Tam="14" /> Limite</button></span> }
+            </div>
+            <table class="itens">
+                <thead><tr><th>Documento</th><th>Obra</th><th>Valor máximo</th><th>Ativo</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var l in _u.LimitesAprovacao)
+                    {
+                        <tr>
+                            <td><select @bind="l.Entidade" disabled="@(!Perfil())">@foreach (var e in Enum.GetValues<EntidadeAprovavel>()) { <option value="@e">@De(e)</option> }</select></td>
+                            <td><select @bind="l.ObraId" disabled="@(!Perfil())"><option value="">Todas</option>@foreach (var o in _obras) { <option value="@o.Id">@o.Texto</option> }</select></td>
+                            <td style="width:150px"><input type="number" step="0.01" @bind="l.ValorMaximo" disabled="@(!Perfil())" /></td>
+                            <td><input type="checkbox" @bind="l.Ativo" disabled="@(!Perfil())" /></td>
+                            <td>@if (Perfil()) { <button class="icone-btn" @onclick="() => _u.LimitesAprovacao.Remove(l)"><Icone Nome="lixeira" Tam="16" /></button> }</td>
+                        </tr>
+                    }
+                    @if (_u.LimitesAprovacao.Count == 0) { <tr><td colspan="5" class="mudo">Sem limite: aprova conforme o perfil nas alçadas (sem teto por usuário).</td></tr> }
+                </tbody>
+            </table>
+        }
+    </ChildContent>
+    <Rodape>@if (Perfil()) { <button class="btn prim" disabled="@Ocupado" @onclick="SalvarUsuario"><Icone Nome="check" Tam="16" /> Salvar</button> }</Rodape>
+</Modal>
+
+<Modal @bind-Aberto="_abertoA" Titulo="Etapa de alçada" Tamanho="media">
+    <ChildContent>
+        @if (_a is not null)
+        {
+            <Erros Lista="ErrosForm" />
+            <div class="form">
+                <Campo Rotulo="Documento" Obrigatorio Classe="s6"><select @bind="_a.Entidade" disabled="@(!Perfil())">@foreach (var e in Enum.GetValues<EntidadeAprovavel>()) { <option value="@e">@De(e)</option> }</select></Campo>
+                <Campo Rotulo="Ordem" Obrigatorio Classe="s2"><input type="number" min="1" @bind="_a.Ordem" disabled="@(!Perfil())" /></Campo>
+                <Campo Rotulo="Nome da etapa" Classe="s4"><input @bind="_a.NomeEtapa" placeholder="ex.: Engenheiro da Obra" disabled="@(!Perfil())" /></Campo>
+                <Campo Rotulo="Perfil aprovador" Obrigatorio Classe="s6"><select @bind="_a.PerfilAprovador" disabled="@(!Perfil())">@foreach (var p in Enum.GetValues<PerfilUsuario>()) { <option value="@p">@De(p)</option> }</select></Campo>
+                <Campo Rotulo="Usuário específico (opcional)" Classe="s6"><select @bind="_a.UsuarioAprovadorId" disabled="@(!Perfil())"><option value="">Qualquer do perfil</option>@foreach (var u in _usuariosOp) { <option value="@u.Id">@u.Texto</option> }</select></Campo>
+                <Campo Rotulo="Valor a partir de" Classe="s4"><input type="number" step="0.01" @bind="_a.ValorMinimo" disabled="@(!Perfil())" /></Campo>
+                <Campo Rotulo="Valor até" Classe="s4"><input type="number" step="0.01" @bind="_a.ValorMaximo" disabled="@(!Perfil())" /></Campo>
+                <Campo Rotulo="Obra" Classe="s4"><select @bind="_a.ObraId" disabled="@(!Perfil())"><option value="">Todas</option>@foreach (var o in _obras) { <option value="@o.Id">@o.Texto</option> }</select></Campo>
+                <Campo Rotulo="" Classe="s12"><label><input type="checkbox" @bind="_a.Ativa" disabled="@(!Perfil())" /> Ativa</label></Campo>
+            </div>
+        }
+    </ChildContent>
+    <Rodape>@if (Perfil()) { <button class="btn prim" disabled="@Ocupado" @onclick="SalvarAlcada"><Icone Nome="check" Tam="16" /> Salvar</button> }</Rodape>
+</Modal>
+
+<Modal @bind-Aberto="_abertoD" Titulo="Delegação de aprovação" Tamanho="media">
+    <ChildContent>
+        @if (_d is not null)
+        {
+            <Erros Lista="ErrosForm" />
+            <div class="form">
+                <Campo Rotulo="Titular" Obrigatorio Classe="s6"><select @bind="_d.TitularUsuarioId" disabled="@(!Perfil() || _d.Revogada)"><option value="@Guid.Empty">Selecione…</option>@foreach (var u in _usuariosOp) { <option value="@u.Id">@u.Texto</option> }</select></Campo>
+                <Campo Rotulo="Substituto" Obrigatorio Classe="s6"><select @bind="_d.SubstitutoUsuarioId" disabled="@(!Perfil() || _d.Revogada)"><option value="@Guid.Empty">Selecione…</option>@foreach (var u in _usuariosOp) { <option value="@u.Id">@u.Texto</option> }</select></Campo>
+                <Campo Rotulo="Início" Obrigatorio Classe="s6"><input type="datetime-local" @bind="_d.Inicio" disabled="@(!Perfil() || _d.Revogada)" /></Campo>
+                <Campo Rotulo="Fim" Obrigatorio Classe="s6"><input type="datetime-local" @bind="_d.Fim" disabled="@(!Perfil() || _d.Revogada)" /></Campo>
+                <Campo Rotulo="Documento" Classe="s6"><select @bind="_d.Entidade" disabled="@(!Perfil() || _d.Revogada)"><option value="">Todos</option>@foreach (var e in Enum.GetValues<EntidadeAprovavel>()) { <option value="@e">@De(e)</option> }</select></Campo>
+                <Campo Rotulo="Obra" Classe="s6"><select @bind="_d.ObraId" disabled="@(!Perfil() || _d.Revogada)"><option value="">Todas</option>@foreach (var o in _obras) { <option value="@o.Id">@o.Texto</option> }</select></Campo>
+                <Campo Rotulo="Motivo" Obrigatorio Classe="s12"><input @bind="_d.Motivo" placeholder="Férias, viagem…" disabled="@(!Perfil() || _d.Revogada)" /></Campo>
+            </div>
+        }
+    </ChildContent>
+    <Rodape>
+        @if (_d is not null && Perfil() && !_d.Revogada)
+        {
+            @if (_delegacoes?.Any(x => x.Id == _d.Id) == true) { <button class="btn perigo" disabled="@Ocupado" @onclick="Revogar">Revogar</button> }
+            <button class="btn prim" disabled="@Ocupado" @onclick="SalvarDelegacao"><Icone Nome="check" Tam="16" /> Salvar</button>
+        }
+    </Rodape>
+</Modal>
+
+@code {
+    private IGrade? GradeAtual => _aba switch { "usuarios" => _gU, "alcadas" => _gA, _ => _gD };
+    private Grade<Usuario>? _gU;
+    private Grade<Alcada>? _gA;
+    private Grade<DelegacaoAprovacao>? _gD;
+    private List<Usuario>? _usuarios;
+    private List<Alcada>? _alcadas;
+    private List<DelegacaoAprovacao>? _delegacoes;
+    private Usuario? _u;
+    private Alcada? _a;
+    private DelegacaoAprovacao? _d;
+    private bool _abertoU, _abertoA, _abertoD;
+    private string _aba = "usuarios";
+    private List<Opcao> _obras = [], _usuariosOp = [];
+    private List<string> _funcoes = [];
+    private static readonly List<(string, string)> _abas = [("usuarios", "Usuários e limites"), ("alcadas", "Alçadas (etapas)"), ("delegacoes", "Delegações")];
+
+    private string NomeObra(Guid id) => _obras.FirstOrDefault(o => o.Id == id)?.Texto ?? "?";
+    private string NomeUsuario(Guid id) => _usuarios?.FirstOrDefault(u => u.Id == id)?.Nome ?? "?";
+
+    protected override async Task OnInitializedAsync()
+    {
+        _obras = await Cat.ObrasAsync(); _funcoes = await Cat.ListaAsync(TipoLista.Funcao);
+        await Carregar();
+    }
+
+    private async Task Carregar()
+    {
+        await using var db = Fabrica.Criar();
+        _usuarios = await db.Usuarios.AsNoTracking().Include(u => u.Obras).Include(u => u.LimitesAprovacao).OrderBy(u => u.Nome).ToListAsync();
+        _alcadas = await db.Alcadas.AsNoTracking().OrderBy(a => a.Entidade).ThenBy(a => a.Ordem).ToListAsync();
+        _delegacoes = await db.DelegacoesAprovacao.AsNoTracking().OrderByDescending(d => d.Inicio).ToListAsync();
+        _usuariosOp = _usuarios.Where(u => u.Ativo).Select(u => new Opcao(u.Id, $"{u.Nome} ({De(u.Perfil)})")).ToList();
+    }
+
+    private void Novo()
+    {
+        if (!Perfil()) { Notif.Aviso("Somente o Administrador."); return; }
+        ErrosForm = null;
+        switch (_aba)
+        {
+            case "usuarios": _u = new Usuario { Perfil = PerfilUsuario.Campo, EntraObjectId = Guid.NewGuid() }; _abertoU = true; break;
+            case "alcadas": _a = new Alcada { Entidade = EntidadeAprovavel.Pedido, Ordem = 1, PerfilAprovador = PerfilUsuario.Diretoria }; _abertoA = true; break;
+            default: _d = new DelegacaoAprovacao { Inicio = DateTimeOffset.Now, Fim = DateTimeOffset.Now.AddDays(15) }; _abertoD = true; break;
+        }
+    }
+
+    private void AbrirUsuario(Usuario u) { _u = u; ErrosForm = null; _abertoU = true; }
+
+    private void AlternarObra(Guid obra, bool marcado)
+    {
+        var v = _u!.Obras.FirstOrDefault(x => x.ObraId == obra);
+        if (marcado && v is null) _u.Obras.Add(new UsuarioObra { UsuarioId = _u.Id, ObraId = obra });
+        else if (!marcado && v is not null) _u.Obras.Remove(v);
+    }
+
+    private async Task SalvarUsuario()
+    {
+        var ok = await Executar(async () =>
+        {
+            var e = new List<string>();
+            if (string.IsNullOrWhiteSpace(_u!.Nome)) e.Add("Informe o nome.");
+            if (string.IsNullOrWhiteSpace(_u.Email) || !_u.Email.Contains('@')) e.Add("Informe um e-mail válido.");
+            if (_u.LimitesAprovacao.Any(l => l.ValorMaximo < 0)) e.Add("Limite não pode ser negativo.");
+            if (_u.Id == Usuario.UsuarioId && _u.Perfil != PerfilUsuario.Administrador) e.Add("Você não pode remover o próprio perfil de Administrador.");
+            ValidacaoException.Se(e);
+            await using var db = Fabrica.Criar();
+            if (await db.Usuarios.AnyAsync(x => x.Email == _u.Email && x.Id != _u.Id)) throw new RegraDeNegocioException("E-mail já cadastrado.");
+            foreach (var o in _u.Obras) o.Obra = null!;
+            if (_u.AcessoTodasObras) _u.Obras.Clear();
+            await Grafo.SalvarAsync(db, _u, nameof(QualyHub.Domain.Estrutura.Usuario.Obras), nameof(QualyHub.Domain.Estrutura.Usuario.LimitesAprovacao));
+            await db.SaveChangesAsync();
+        }, "Usuário salvo.");
+        if (ok) { _abertoU = false; await Carregar(); }
+    }
+
+    private async Task SalvarAlcada()
+    {
+        var ok = await Executar(async () =>
+        {
+            var e = new List<string>();
+            if (_a!.Ordem < 1) e.Add("Ordem deve ser 1 ou maior.");
+            if (_a.ValorMinimo is { } mi && _a.ValorMaximo is { } ma && ma < mi) e.Add("Valor até menor que valor a partir de.");
+            ValidacaoException.Se(e);
+            await using var db = Fabrica.Criar();
+            await Grafo.SalvarAsync(db, _a); await db.SaveChangesAsync();
+        }, "Alçada salva — vale para novos envios.");
+        if (ok) { _abertoA = false; await Carregar(); }
+    }
+
+    private async Task SalvarDelegacao()
+    {
+        var ok = await Executar(async () =>
+        {
+            var e = new List<string>();
+            if (_d!.TitularUsuarioId == Guid.Empty || _d.SubstitutoUsuarioId == Guid.Empty) e.Add("Informe titular e substituto.");
+            if (_d.TitularUsuarioId == _d.SubstitutoUsuarioId) e.Add("Titular e substituto devem ser diferentes.");
+            if (_d.Fim <= _d.Inicio) e.Add("Fim deve ser posterior ao início.");
+            if (string.IsNullOrWhiteSpace(_d.Motivo)) e.Add("Informe o motivo.");
+            ValidacaoException.Se(e);
+            await using var db = Fabrica.Criar();
+            await Grafo.SalvarAsync(db, _d); await db.SaveChangesAsync();
+        }, "Delegação salva.");
+        if (ok) { _abertoD = false; await Carregar(); }
+    }
+
+    private async Task Revogar()
+    {
+        var ok = await Executar(async () =>
+        {
+            await using var db = Fabrica.Criar();
+            var d = await db.DelegacoesAprovacao.FirstAsync(x => x.Id == _d!.Id);
+            d.Revogada = true; d.RevogadaEm = DateTimeOffset.UtcNow;
+            await db.SaveChangesAsync();
+        }, "Delegação revogada.");
+        if (ok) { _abertoD = false; await Carregar(); }
+    }
+}

@@ -1,0 +1,12 @@
+<div class="campo @Classe">
+    <label>@Rotulo@if (Obrigatorio) {<span class="req">*</span>}</label>
+    @ChildContent
+    @if (!string.IsNullOrEmpty(Ajuda)) { <span class="ajuda">@Ajuda</span> }
+</div>
+@code {
+    [Parameter] public string Rotulo { get; set; } = "";
+    [Parameter] public string Classe { get; set; } = "";
+    [Parameter] public bool Obrigatorio { get; set; }
+    [Parameter] public string? Ajuda { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

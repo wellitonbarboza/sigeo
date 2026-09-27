@@ -1,0 +1,67 @@
+@page "/sgq/leituras"
+@inherits PaginaBase
+@inject DocumentosServico Docs
+
+<Pagina Titulo="Leituras e ciência" Grade="_grade" AoAtualizar="Carregar">
+    <ChildContent>
+        <div class="pagina">
+            <div class="kpis">
+                <Kpi Rotulo="Minhas pendentes" Valor="@_todos.Count(c => c.Meu && c.Status != StatusCiencia.Lido)" Tom="aviso" />
+                <Kpi Rotulo="Atrasadas (geral)" Valor="@_todos.Count(c => c.Status == StatusCiencia.Atrasado)" Tom="erro" />
+                <Kpi Rotulo="Lidas" Valor="@_todos.Count(c => c.Status == StatusCiencia.Lido)" Tom="ok" />
+                <Kpi Rotulo="% de leitura" Valor="@(_todos.Count == 0 ? "—" : $"{100.0 * _todos.Count(c => c.Status == StatusCiencia.Lido) / _todos.Count:0}%")" />
+            </div>
+            <Abas Itens="_abas" Ativa="@_aba" AtivaChanged="a => { _aba = a; Filtrar(); }" />
+            <Grade T="Linha" @ref="_grade" Itens="_itens" NomeExportacao="leituras">
+                <Acoes>
+                    @if (context.Meu && context.Status != StatusCiencia.Lido)
+                    {
+                        <a title="Abrir PDF" href="arquivos/sgq/@context.RevisaoId/publicado" target="_blank" data-enhance-nav="false"><Icone Nome="arquivo" Tam="16" /></a>
+                        <button title="Li e entendi" @onclick="() => Confirmar(context.Id)"><Icone Nome="check" Tam="16" /></button>
+                    }
+                </Acoes>
+                <Colunas>
+                    <Coluna T="Linha" Titulo="Documento" Valor="l => l.Documento" />
+                    <Coluna T="Linha" Titulo="Rev." Valor="l => l.Rev" Largura="60px" />
+                    <Coluna T="Linha" Titulo="Usuário" Valor="l => l.Usuario" />
+                    <Coluna T="Linha" Titulo="Função" Valor="l => l.Funcao" />
+                    <Coluna T="Linha" Titulo="Prazo" Valor="l => l.Prazo" />
+                    <Coluna T="Linha" Titulo="Lido em" Valor="l => l.LidoEm" />
+                    <Coluna T="Linha" Titulo="Treinamento" Valor="l => l.Treinamento" />
+                    <Coluna T="Linha" Titulo="Status" Valor="l => l.Status"><Modelo><Selo Texto="@De(context.Status)" Tom="@Tom(context.Status)" /></Modelo></Coluna>
+                </Colunas>
+            </Grade>
+        </div>
+    </ChildContent>
+    <Faixa><b>Ciência</b><span>Gerada na publicação para as funções/perfis de leitura obrigatória</span><span>"Li e entendi" é pessoal e fica no log</span></Faixa>
+</Pagina>
+
+@code {
+    private sealed record Linha(Guid Id, Guid RevisaoId, string Documento, string Rev, string Usuario, string? Funcao, DateOnly Prazo, DateTimeOffset? LidoEm, bool Treinamento, StatusCiencia Status, bool Meu);
+    private Grade<Linha>? _grade;
+    private List<Linha> _todos = [];
+    private List<Linha>? _itens;
+    private string _aba = "minhas";
+    private static readonly List<(string, string)> _abas = [("minhas", "Minhas leituras"), ("pendentes", "Pendentes (todos)"), ("todas", "Todas")];
+
+    protected override Task OnInitializedAsync() => Carregar();
+
+    private async Task Carregar()
+    {
+        await using var db = Fabrica.Criar();
+        var eu = Usuario.UsuarioId;
+        var lista = await db.Ciencias.AsNoTracking().Include(c => c.Revisao).ThenInclude(r => r.Documento).OrderBy(c => c.Prazo).ToListAsync();
+        _todos = lista.Select(c => new Linha(c.Id, c.DocumentoRevisaoId, c.Revisao.Documento.Codigo + " – " + c.Revisao.Documento.Titulo, c.Revisao.Rotulo, c.UsuarioNome, c.Funcao,
+            c.Prazo, c.LidoEm, c.ExigeTreinamento, c.Status(Hoje), c.UsuarioId == eu)).ToList();
+        Filtrar();
+    }
+
+    private void Filtrar() => _itens = _aba switch
+    {
+        "minhas" => _todos.Where(c => c.Meu).ToList(),
+        "pendentes" => _todos.Where(c => c.Status != StatusCiencia.Lido).ToList(),
+        _ => _todos
+    };
+
+    private async Task Confirmar(Guid id) { if (await Executar(() => Docs.ConfirmarLeituraAsync(id), "Leitura confirmada.")) await Carregar(); }
+}

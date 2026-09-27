@@ -1,0 +1,22 @@
+@if (Aberto)
+{
+    <div class="veu" @onclick="Fundo">
+        <div class="janela @Tamanho" @onclick:stopPropagation="true" role="dialog" aria-modal="true">
+            <header><h2>@Titulo</h2><button type="button" aria-label="Fechar" @onclick="Fechar"><Icone Nome="x" Tam="20" /></button></header>
+            <div class="corpo">@ChildContent</div>
+            @if (Rodape is not null) { <footer>@Rodape</footer> }
+        </div>
+    </div>
+}
+@code {
+    [Parameter] public bool Aberto { get; set; }
+    [Parameter] public EventCallback<bool> AbertoChanged { get; set; }
+    [Parameter] public string Titulo { get; set; } = "";
+    [Parameter] public string Tamanho { get; set; } = "";
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public RenderFragment? Rodape { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    private async Task Fechar() { await AbertoChanged.InvokeAsync(false); await AoFechar.InvokeAsync(); }
+    private Task Fundo() => Task.CompletedTask; // clique fora não fecha (evita perder o que foi digitado)
+}

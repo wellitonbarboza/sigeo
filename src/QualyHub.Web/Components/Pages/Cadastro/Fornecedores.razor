@@ -1,0 +1,130 @@
+@page "/fornecedores"
+@inherits PaginaBase
+@inject SuprimentosServico Sup
+@inject PortalServico Portal
+@inject NavigationManager Nav
+
+<Pagina Titulo="Fornecedores" Grade="_grade" AoNovo="Novo" AoAtualizar="Carregar">
+    <ChildContent>
+        <div class="pagina">
+            <div class="kpis">
+                <Kpi Rotulo="Ativos" Valor="@_itens?.Count(f => f.Ativo)" Sub="fornecedores" />
+                <Kpi Rotulo="Qualificados" Valor="@_itens?.Count(f => f.StatusQualificacao == StatusQualificacao.Qualificado)" Tom="ok" />
+                <Kpi Rotulo="Qualificação vencida" Valor="@_itens?.Count(f => f.StatusQualificacao == StatusQualificacao.Vencida)" Sub="reconsultar" Tom="erro" />
+                <Kpi Rotulo="Sem e-mail" Valor="@_itens?.Count(f => string.IsNullOrWhiteSpace(f.Emails))" Sub="bloqueia envio de pedido" Tom="aviso" />
+            </div>
+            <Grade T="Fornecedor" @ref="_grade" Itens="_itens" AoClicar="Editar" NomeExportacao="fornecedores" CriadoPor="f => f.CriadoPor">
+                <Acoes><button title="Editar" @onclick="() => Editar(context)"><Icone Nome="editar" Tam="16" /></button><button title="Qualificação" @onclick='() => Nav.NavigateTo($"fornecedores/qualificacao?f={context.Id}")'><Icone Nome="selo" Tam="16" /></button></Acoes>
+                <Colunas>
+                    <Coluna T="Fornecedor" Titulo="CPF / CNPJ" Valor="f => f.CpfCnpj" Largura="150px" />
+                    <Coluna T="Fornecedor" Titulo="Razão social" Valor="f => f.RazaoSocial" />
+                    <Coluna T="Fornecedor" Titulo="Fantasia" Valor="f => f.NomeFantasia" />
+                    <Coluna T="Fornecedor" Titulo="Cidade / UF" Valor='f => f.Cidade == null ? null : $"{f.Cidade}/{f.Uf}"' />
+                    <Coluna T="Fornecedor" Titulo="Tipo de fornecimento" Valor="f => f.TipoFornecimento" />
+                    <Coluna T="Fornecedor" Titulo="Status de qualificação" Valor="f => f.StatusQualificacao"><Modelo><Selo Texto="@De(context.StatusQualificacao)" Tom="@Tom(context.StatusQualificacao)" /></Modelo></Coluna>
+                    <Coluna T="Fornecedor" Titulo="Nota média" Valor="f => f.NotaMedia" Alinhar="num" />
+                    <Coluna T="Fornecedor" Titulo="Ativo" Valor="f => f.Ativo" />
+                    <Coluna T="Fornecedor" Titulo="Criado por" Valor="f => f.CriadoPor" Visivel="false" />
+                    <Coluna T="Fornecedor" Titulo="Criado em" Valor="f => f.CriadoEm" Visivel="false" />
+                </Colunas>
+            </Grade>
+        </div>
+    </ChildContent>
+    <Faixa><b>Fornecedores</b><span>Cadastro (dados da Receita) + tipo de fornecimento + status de qualificação</span><span>Desqualificado = inativo · e-mail obrigatório para envio de pedido</span></Faixa>
+</Pagina>
+
+<Modal @bind-Aberto="_aberto" Titulo="@(_novo ? "Novo fornecedor" : "Fornecedor")">
+    <ChildContent>
+        @if (_f is not null)
+        {
+            <Erros Lista="ErrosForm" />
+            <div class="form">
+                <Campo Rotulo="CPF / CNPJ" Obrigatorio Classe="s3"><input @bind="_f.CpfCnpj" placeholder="00.000.000/0000-00" /></Campo>
+                <Campo Rotulo="Razão social / nome" Obrigatorio Classe="s6"><input @bind="_f.RazaoSocial" /></Campo>
+                <Campo Rotulo="Nome fantasia" Classe="s3"><input @bind="_f.NomeFantasia" /></Campo>
+                <Campo Rotulo="Inscrição estadual" Classe="s3"><input @bind="_f.InscricaoEstadual" /></Campo>
+                <Campo Rotulo="Inscrição municipal" Classe="s3"><input @bind="_f.InscricaoMunicipal" /></Campo>
+                <Campo Rotulo="Porte" Classe="s3"><input @bind="_f.Porte" /></Campo>
+                <Campo Rotulo="CNAE" Classe="s3"><input @bind="_f.Cnae" /></Campo>
+                <Campo Rotulo="CEP" Classe="s2"><input @bind="_f.Cep" /></Campo>
+                <Campo Rotulo="Endereço" Classe="s5"><input @bind="_f.Endereco" /></Campo>
+                <Campo Rotulo="Número" Classe="s2"><input @bind="_f.Numero" /></Campo>
+                <Campo Rotulo="Complemento" Classe="s3"><input @bind="_f.Complemento" /></Campo>
+                <Campo Rotulo="Bairro" Classe="s4"><input @bind="_f.Bairro" /></Campo>
+                <Campo Rotulo="Cidade" Classe="s6"><input @bind="_f.Cidade" /></Campo>
+                <Campo Rotulo="UF" Classe="s2"><input @bind="_f.Uf" maxlength="2" /></Campo>
+                <Campo Rotulo="Telefones" Classe="s6"><input @bind="_f.Telefones" /></Campo>
+                <Campo Rotulo="E-mails" Obrigatorio Classe="s6" Ajuda="Obrigatório para envio de pedido e contrato. Separe por ;"><input @bind="_f.Emails" /></Campo>
+                <Campo Rotulo="Tipo de fornecimento" Obrigatorio Classe="s12">
+                    <div class="checks">
+                        @foreach (var t in Enum.GetValues<TipoFornecimento>().Where(t => t != TipoFornecimento.Nenhum))
+                        {
+                            <label><input type="checkbox" checked="@_f.TipoFornecimento.HasFlag(t)" @onchange="e => Marcar(t, (bool)e.Value!)" /> @De(t)</label>
+                        }
+                    </div>
+                </Campo>
+                <Campo Rotulo="Status de qualificação" Classe="s4" Ajuda="Calculado pela última qualificação"><input readonly value="@De(_f.StatusQualificacao)" /></Campo>
+                <Campo Rotulo="Nota média (6 meses)" Classe="s4"><input readonly value="@Num(_f.NotaMedia)" /></Campo>
+                <Campo Rotulo="Ativo" Classe="s4"><div class="checks"><label><input type="checkbox" @bind="_f.Ativo" /> Ativo</label></div></Campo>
+            </div>
+            @if (_link is not null)
+            {
+                <div class="alerta info"><Icone Nome="cadeado" /> <div>Link do portal (@_link.Value.Codigo, válido por 15 dias): <b>@_link.Value.Url</b><br /><span class="mudo">Envie ao fornecedor. Ele envia os documentos sem login; você valida em Docs. do Fornecedor.</span></div></div>
+            }
+        }
+    </ChildContent>
+    <Rodape>
+        @if (!_novo) { <div class="esq"><button class="btn sec" @onclick="GerarLink"><Icone Nome="enviar" Tam="16" /> Link do portal</button></div> }
+        <button class="btn prim" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="16" /> Salvar</button>
+    </Rodape>
+</Modal>
+
+@code {
+    private Grade<Fornecedor>? _grade;
+    private List<Fornecedor>? _itens;
+    private Fornecedor? _f;
+    private bool _aberto, _novo;
+    private (string Codigo, string Url)? _link;
+
+    protected override Task OnInitializedAsync() => Carregar();
+
+    private async Task Carregar()
+    {
+        await using var db = Fabrica.Criar();
+        _itens = await db.Fornecedores.AsNoTracking().OrderBy(f => f.RazaoSocial).ToListAsync();
+    }
+
+    private void Novo() { _f = new Fornecedor(); _novo = true; _link = null; ErrosForm = null; _aberto = true; }
+    private void Editar(Fornecedor f) { _f = f; _novo = false; _link = null; ErrosForm = null; _aberto = true; }
+    private void Marcar(TipoFornecimento t, bool on) => _f!.TipoFornecimento = on ? _f.TipoFornecimento | t : _f.TipoFornecimento & ~t;
+
+    private async Task Salvar()
+    {
+        var ok = await Executar(async () =>
+        {
+            var e = new List<string>();
+            var doc = new string(_f!.CpfCnpj.Where(char.IsDigit).ToArray());
+            if (doc.Length == 14 && !QualyHub.Infrastructure.Importacao.Conversor.CnpjValido(doc)) e.Add("CNPJ inválido.");
+            if (doc.Length == 11 && !QualyHub.Infrastructure.Importacao.Conversor.CpfValido(doc)) e.Add("CPF inválido.");
+            if (doc.Length is not (0 or 11 or 14)) e.Add("CPF/CNPJ incompleto.");
+            if (string.IsNullOrWhiteSpace(_f.RazaoSocial)) e.Add("Informe a razão social.");
+            if (_f.TipoFornecimento == TipoFornecimento.Nenhum) e.Add("Informe o tipo de fornecimento.");
+            if (string.IsNullOrWhiteSpace(_f.Emails)) e.Add("Informe ao menos um e-mail.");
+            ValidacaoException.Se(e);
+            if (!_f.Ativo && _f.StatusQualificacao != StatusQualificacao.Desqualificado) { }
+            await using var db = Fabrica.Criar();
+            if (_novo) db.Fornecedores.Add(_f); else db.Fornecedores.Update(_f);
+            await db.SaveChangesAsync();
+        }, "Fornecedor salvo.");
+        if (ok) { _aberto = false; await Carregar(); }
+    }
+
+    private async Task GerarLink()
+    {
+        await Executar(async () =>
+        {
+            var (token, codigo) = await Portal.GerarLinkAsync(_f!.Id, 15);
+            _link = (codigo, Nav.ToAbsoluteUri($"portal/{token}").ToString());
+        });
+    }
+}

@@ -1,0 +1,256 @@
+@page "/requisicoes"
+@inherits PaginaBase
+@inject SuprimentosServico Sup
+@inject NavigationManager Nav
+
+<Pagina Titulo="Requisição de compras" Grade="_grade" AoNovo="Novo" AoAtualizar="Carregar">
+    <ChildContent>
+        <div class="pagina">
+            <Grade T="Linha" @ref="_grade" Itens="_itens" AoClicar="l => Abrir(l.Id)" NomeExportacao="requisicoes" CriadoPor="l => l.CriadoPor">
+                <Acoes><button title="Abrir" @onclick="() => Abrir(context.Id)"><Icone Nome="prancheta" Tam="16" /></button></Acoes>
+                <Colunas>
+                    <Coluna T="Linha" Titulo="Número" Valor="l => l.Numero" Largura="90px" />
+                    <Coluna T="Linha" Titulo="Obra" Valor="l => l.Obra" />
+                    <Coluna T="Linha" Titulo="Tipo" Valor="l => l.Tipo" />
+                    <Coluna T="Linha" Titulo="Atividade" Valor="l => l.Atividade" />
+                    <Coluna T="Linha" Titulo="Centro de custo" Valor="l => l.CentroCusto" />
+                    <Coluna T="Linha" Titulo="Entrega" Valor="l => l.Entrega" />
+                    <Coluna T="Linha" Titulo="Itens" Valor="l => l.Itens" Alinhar="num" />
+                    <Coluna T="Linha" Titulo="Status" Valor="l => l.Status"><Modelo><Selo Texto="@De(context.Status)" Tom="@Tom(context.Status)" /></Modelo></Coluna>
+                    <Coluna T="Linha" Titulo="Criado por" Valor="l => l.CriadoPor" />
+                    <Coluna T="Linha" Titulo="Criado em" Valor="l => l.CriadoEm" />
+                </Colunas>
+            </Grade>
+        </div>
+    </ChildContent>
+    <Faixa><b>Requisição</b><span>Solicitação de material ou serviço</span><span>Aprovação em 2 níveis: Engenheiro da Obra → Diretor Técnico</span><span>Só vai para cotação após as duas aprovações</span></Faixa>
+</Pagina>
+
+<Modal @bind-Aberto="_aberto" Titulo="@(_r?.Numero > 0 ? $"Requisição {_r.Numero}" : "Nova requisição")">
+    <ChildContent>
+        @if (_r is not null)
+        {
+            <Etapas Itens="Passos()" />
+            <Erros Lista="ErrosForm" />
+            <div class="form">
+                <Campo Rotulo="Empresa" Classe="s6"><input readonly value="@Usuario.EmpresaNome" /></Campo>
+                <Campo Rotulo="Obra / empreendimento" Obrigatorio Classe="s4">
+                    <select @bind="_r.ObraId" disabled="@(!Editavel)"><option value="@Guid.Empty">Selecione…</option>@foreach (var o in _obras) { <option value="@o.Id">@o.Texto</option> }</select>
+                </Campo>
+                <Campo Rotulo="Tipo" Obrigatorio Classe="s2">
+                    <select @bind="_r.Tipo" disabled="@(!Editavel)">@foreach (var t in Enum.GetValues<TipoRequisicao>()) { <option value="@t">@De(t)</option> }</select>
+                </Campo>
+                <Campo Rotulo="Atividade" Obrigatorio Classe="s4">
+                    <select @bind="_r.Atividade" disabled="@(!Editavel)"><option value="">Selecione…</option>@foreach (var a in _atividades) { <option>@a</option> }</select>
+                </Campo>
+                <Campo Rotulo="Centro de custo" Classe="s4">
+                    <select @bind="_r.CentroCustoId" disabled="@(!Editavel)"><option value="">—</option>@foreach (var c in _ccs) { <option value="@c.Id">@c.Texto</option> }</select>
+                </Campo>
+                <Campo Rotulo="Data de entrega" Obrigatorio Classe="s2"><input type="date" @bind="_r.DataEntrega" disabled="@(!Editavel)" /></Campo>
+                <Campo Rotulo="Prazo cronograma (dias)" Classe="s2" Ajuda="Maior lead time dos itens"><input readonly value="@_r.PrazoCronogramaDias" /></Campo>
+                @if (_r.Tipo == TipoRequisicao.Servico)
+                {
+                    <Campo Rotulo="Categoria do serviço" Obrigatorio Classe="s4">
+                        <select @bind="_r.CategoriaServico" disabled="@(!Editavel)"><option value="">Selecione…</option>@foreach (var c in _categorias) { <option>@c</option> }</select>
+                    </Campo>
+                }
+                <Campo Rotulo="Endereço de entrega" Classe="@(_r.Tipo == TipoRequisicao.Servico ? "s8" : "s12")"><input @bind="_r.EnderecoEntrega" disabled="@(!Editavel)" /></Campo>
+            </div>
+            @if (_r.AlertaCronograma(Hoje) is { } alerta)
+            {
+                <div class="alerta aviso"><Icone Nome="alerta" /> @alerta</div>
+            }
+            else if (_r.PrazoCronogramaDias > 0)
+            {
+                <div class="alerta aviso"><Icone Nome="alerta" /> Data de entrega respeita o cronograma de suprimentos (maior prazo entre os itens: @_r.PrazoCronogramaDias dias).</div>
+            }
+
+            <div class="secao"><Icone Nome="lista" /> Itens
+                @if (Editavel) { <span class="acao"><button class="btn sec pq" @onclick="AddItem"><Icone Nome="mais" Tam="14" /> Item</button></span> }
+            </div>
+            <table class="itens">
+                <thead><tr>
+                    <th style="min-width:220px">@(_r.Tipo == TipoRequisicao.Material ? "Produto" : "Serviço (ITS) / descrição")</th><th>UN</th><th>Quant.</th>
+                    <th>Material controlado</th><th>Especificação técnica</th><th>Documentos exigidos</th><th>Status</th><th></th>
+                </tr></thead>
+                <tbody>
+                    @foreach (var i in _r.Itens)
+                    {
+                        <tr>
+                            <td>
+                                @if (_r.Tipo == TipoRequisicao.Material)
+                                {
+                                    <select value="@i.ProdutoId" @onchange="e => EscolherProduto(i, e.Value?.ToString())" disabled="@(!Editavel)">
+                                        <option value="">Selecione…</option>@foreach (var p in _produtos) { <option value="@p.Id">@p.Texto</option> }
+                                    </select>
+                                }
+                                else
+                                {
+                                    <select @bind="i.ServicoControladoId" disabled="@(!Editavel)"><option value="">(serviço não controlado)</option>@foreach (var s in _servicos) { <option value="@s.Id">@s.Texto</option> }</select>
+                                    <input style="margin-top:4px" placeholder="Descrição" @bind="i.Descricao" disabled="@(!Editavel)" />
+                                }
+                            </td>
+                            <td style="width:70px"><input @bind="i.Unidade" disabled="@(!Editavel)" /></td>
+                            <td style="width:110px"><input type="number" step="0.001" @bind="i.Quantidade" disabled="@(!Editavel)" /></td>
+                            <td>@if (i.MaterialControlado) { <Selo Texto="Sim" Tom="info" /> } else { <Selo Texto="Não" /> }</td>
+                            <td><input @bind="i.EspecificacaoTecnica" disabled="@(!Editavel)" placeholder="@(i.MaterialControlado ? "obrigatória" : "—")" /></td>
+                            <td><input @bind="i.DocumentosExigidos" disabled="@(!Editavel)" /></td>
+                            <td><Selo Texto="@De(i.Status)" /></td>
+                            <td>@if (Editavel) { <button class="icone-btn" title="Remover" @onclick="() => _r.Itens.Remove(i)"><Icone Nome="lixeira" Tam="16" /></button> }</td>
+                        </tr>
+                    }
+                    @if (_r.Itens.Count == 0) { <tr><td colspan="8" class="mudo">Inclua os itens.</td></tr> }
+                </tbody>
+            </table>
+
+            <div class="form" style="margin-top:14px">
+                <Campo Rotulo="Observação" Classe="s8"><textarea @bind="_r.Observacao" disabled="@(!Editavel)"></textarea></Campo>
+                <Campo Rotulo="Sem orçamento (compra direta)" Classe="s4">
+                    <div class="checks"><label><input type="checkbox" @bind="_r.SemOrcamento" disabled="@(!Editavel)" /> Compra sem orçamento</label></div>
+                    @if (_r.SemOrcamento) { <input placeholder="Justificativa (obrigatória)" @bind="_r.JustificativaSemOrcamento" disabled="@(!Editavel)" /> }
+                </Campo>
+                @if (!string.IsNullOrEmpty(_r.MotivoReprovacao)) { <div class="campo s12"><div class="alerta erro"><Icone Nome="x-circulo" /> Motivo da reprovação/devolução: @_r.MotivoReprovacao</div></div> }
+            </div>
+
+            @if (_r.Numero > 0)
+            {
+                @if (_r.Tipo == TipoRequisicao.Servico) { <Anexos Entidade="Requisicao" EntidadeId="_r.Id" Categoria="Escopo" Titulo="Edital / escopo (projetos, memoriais, croquis, ITS)" SomenteLeitura="!Editavel" /> }
+                <Autorizacoes Entidade="EntidadeAprovavel.Requisicao" EntidadeId="_r.Id" Versao="_versao" AoDecidir="Recarregar" />
+            }
+        }
+    </ChildContent>
+    <Rodape>
+        @if (_r is not null)
+        {
+            @if (_r.Status == StatusRequisicao.Autorizada) { <button class="btn laranja" @onclick="AbrirCotacao"><Icone Nome="calculadora" Tam="16" /> Gerar cotação</button> }
+            @if (Editavel && _r.Numero > 0) { <button class="btn ok" disabled="@Ocupado" @onclick="Enviar"><Icone Nome="enviar" Tam="16" /> Enviar p/ aprovação</button> }
+            @if (Editavel) { <button class="btn prim" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="16" /> Salvar</button> }
+        }
+    </Rodape>
+</Modal>
+
+<Modal @bind-Aberto="_cotar" Titulo="Gerar cotação — convidar fornecedores" Tamanho="media">
+    <ChildContent>
+        <p class="mudo">Convide os fornecedores. A situação de qualificação na data fica registrada; fornecedor não qualificado pode ser convidado, mas não pode vencer.</p>
+        <table class="itens">
+            <thead><tr><th></th><th>Fornecedor</th><th>Qualificação</th></tr></thead>
+            <tbody>
+                @foreach (var f in _fornecedores)
+                {
+                    <tr><td style="width:30px"><input type="checkbox" checked="@_convidados.Contains(f.Id)" @onchange="e => { if ((bool)e.Value!) _convidados.Add(f.Id); else _convidados.Remove(f.Id); }" /></td>
+                        <td>@f.Texto</td><td>@if (Enum.TryParse<StatusQualificacao>(f.Extra, out var st)) { <Selo Texto="@De(st)" Tom="@Tom(st)" /> }</td></tr>
+                }
+            </tbody>
+        </table>
+    </ChildContent>
+    <Rodape><button class="btn prim" disabled="@(_convidados.Count == 0 || Ocupado)" @onclick="GerarCotacao"><Icone Nome="calculadora" Tam="16" /> Criar cotação (@_convidados.Count)</button></Rodape>
+</Modal>
+
+@code {
+    private sealed record Linha(Guid Id, int Numero, string Obra, TipoRequisicao Tipo, string Atividade, string? CentroCusto, DateOnly Entrega, int Itens, StatusRequisicao Status, string CriadoPor, DateTimeOffset CriadoEm);
+    private Grade<Linha>? _grade;
+    private List<Linha>? _itens;
+    private Requisicao? _r;
+    private bool _aberto, _cotar;
+    private int _versao;
+    private List<Opcao> _obras = [], _ccs = [], _produtos = [], _servicos = [], _fornecedores = [];
+    private List<string> _atividades = [], _categorias = [];
+    private readonly HashSet<Guid> _convidados = [];
+
+    private bool Editavel => _r is { Status: StatusRequisicao.Rascunho or StatusRequisicao.DevolvidaAjuste };
+
+    protected override async Task OnInitializedAsync()
+    {
+        _obras = await Cat.ObrasAsync(); _ccs = await Cat.CentrosCustoAsync(); _produtos = await Cat.ProdutosAsync(); _servicos = await Cat.ServicosAsync();
+        _atividades = await Cat.ListaAsync(TipoLista.Atividade); _categorias = await Cat.ListaAsync(TipoLista.CategoriaServico);
+        await Carregar();
+        if (Nav.Uri.Contains("?id=") && Guid.TryParse(Nav.Uri.Split("?id=")[1], out var id)) await Abrir(id);
+    }
+
+    private async Task Carregar()
+    {
+        await using var db = Fabrica.Criar();
+        _itens = await db.Requisicoes.AsNoTracking().OrderByDescending(r => r.Numero)
+            .Select(r => new Linha(r.Id, r.Numero, db.Obras.Where(o => o.Id == r.ObraId).Select(o => o.Nome).FirstOrDefault() ?? "",
+                r.Tipo, r.Atividade, r.CentroCusto != null ? r.CentroCusto.Nome : null, r.DataEntrega, r.Itens.Count, r.Status, r.CriadoPor, r.CriadoEm)).ToListAsync();
+    }
+
+    private void Novo()
+    {
+        _r = new Requisicao { DataEntrega = Hoje.AddDays(15), ObraId = _obras.Count == 1 ? _obras[0].Id : Guid.Empty };
+        ErrosForm = null; _aberto = true;
+    }
+
+    private async Task Abrir(Guid id)
+    {
+        await using var db = Fabrica.Criar();
+        _r = await db.Requisicoes.AsNoTracking().Include(r => r.Itens).FirstAsync(r => r.Id == id);
+        ErrosForm = null; _versao++; _aberto = true;
+    }
+
+    private async Task Recarregar() { if (_r is not null) await Abrir(_r.Id); await Carregar(); }
+
+    private List<Etapas.Passo> Passos()
+    {
+        var r = _r!;
+        string Est(bool feito, bool atual) => feito ? "feita" : atual ? "atual" : "pendente";
+        var reprov = r.Status == StatusRequisicao.NaoAutorizada;
+        return
+        [
+            new("Solicitação", r.Numero == 0 ? Usuario.Nome : r.SolicitanteNome, r.Numero == 0 ? "atual" : "feita"),
+            new("Aprov. Engenheiro", r.AprovadoEngenheiroEm is { } e ? Rotulos.DataHora(e) : r.Status == StatusRequisicao.AguardandoEngenheiro ? "pendente" : "—",
+                reprov && r.AprovadoEngenheiroEm is null ? "erro" : Est(r.AprovadoEngenheiroEm is not null, r.Status == StatusRequisicao.AguardandoEngenheiro)),
+            new("Aprov. Diretor Técnico", r.AprovadoDiretorEm is { } d ? Rotulos.DataHora(d) : r.Status == StatusRequisicao.AguardandoDiretorTecnico ? "pendente" : "—",
+                reprov && r.AprovadoEngenheiroEm is not null ? "erro" : Est(r.AprovadoDiretorEm is not null, r.Status == StatusRequisicao.AguardandoDiretorTecnico)),
+            new("Cotação", "Comprador", Est(r.Status is StatusRequisicao.EmCotacao or StatusRequisicao.PedidoEmitido or StatusRequisicao.Concluida, r.Status == StatusRequisicao.Autorizada)),
+        ];
+    }
+
+    private void AddItem() => _r!.Itens.Add(new RequisicaoItem { RequisicaoId = _r.Id, Quantidade = 1 });
+
+    private async Task EscolherProduto(RequisicaoItem i, string? valor)
+    {
+        if (!Guid.TryParse(valor, out var pid)) { i.ProdutoId = null; return; }
+        await using var db = Fabrica.Criar();
+        var p = await db.Produtos.AsNoTracking().Include(x => x.MaterialControlado).FirstAsync(x => x.Id == pid);
+        i.EspecificacaoTecnica = null; i.DocumentosExigidos = null;
+        i.HerdarDoProduto(p);
+        _r!.RecalcularPrazo();
+    }
+
+    private async Task Salvar()
+    {
+        if (await Executar(async () => { var id = await Sup.SalvarRequisicaoAsync(_r!); await AbrirSilencioso(id); }, "Requisição salva."))
+            await Carregar();
+    }
+
+    private async Task AbrirSilencioso(Guid id)
+    {
+        await using var db = Fabrica.Criar();
+        _r = await db.Requisicoes.AsNoTracking().Include(r => r.Itens).FirstAsync(r => r.Id == id);
+        _versao++;
+    }
+
+    private async Task Enviar()
+    {
+        if (await Executar(async () => { await Sup.SalvarRequisicaoAsync(_r!); await Sup.EnviarRequisicaoAsync(_r!.Id); }, "Enviada para aprovação do Engenheiro da Obra."))
+            await Recarregar();
+    }
+
+    private async Task AbrirCotacao()
+    {
+        var tipo = _r!.Tipo == TipoRequisicao.Material ? TipoFornecimento.Material : TipoFornecimento.ServicoObra | TipoFornecimento.Laboratorio | TipoFornecimento.Consultoria | TipoFornecimento.ServicoEspecializadoEngenharia | TipoFornecimento.Locacao;
+        await using var db = Fabrica.Criar();
+        _fornecedores = (await db.Fornecedores.AsNoTracking().Where(f => f.Ativo).OrderBy(f => f.RazaoSocial).ToListAsync())
+            .Where(f => (f.TipoFornecimento & tipo) != 0).Select(f => new Opcao(f.Id, f.RazaoSocial, f.StatusQualificacao.ToString())).ToList();
+        _convidados.Clear();
+        _cotar = true;
+    }
+
+    private async Task GerarCotacao()
+    {
+        Guid id = default;
+        if (await Executar(async () => id = await Sup.GerarCotacaoAsync(_r!.Id, _convidados), "Cotação criada."))
+        { _cotar = false; _aberto = false; Nav.NavigateTo($"cotacoes?id={id}"); }
+    }
+}

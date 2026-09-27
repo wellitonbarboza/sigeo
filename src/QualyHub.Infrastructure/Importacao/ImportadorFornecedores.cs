@@ -88,8 +88,8 @@ public sealed class ImportadorFornecedores(QualyHubDbContext db, TimeProvider re
     {
         f.RazaoSocial = d.GetValueOrDefault("RazaoSocial")?.Trim() ?? f.RazaoSocial;
         f.NomeFantasia = Valor(d, "NomeFantasia") ?? f.NomeFantasia;
-        f.Email = Valor(d, "Email") ?? f.Email;
-        f.Telefone = Valor(d, "Telefone") ?? f.Telefone;
+        f.Emails = Valor(d, "Email") ?? f.Emails;
+        f.Telefones = Valor(d, "Telefone") ?? f.Telefones;
         f.Cidade = Valor(d, "Cidade") ?? f.Cidade;
         f.Uf = Valor(d, "Uf")?.ToUpperInvariant() ?? f.Uf;
         f.CodigoObraPrima = Valor(d, "Codigo") ?? f.CodigoObraPrima;
@@ -98,8 +98,8 @@ public sealed class ImportadorFornecedores(QualyHubDbContext db, TimeProvider re
 
     private static bool Mudou(Fornecedor f, LinhaLida l) =>
         f.RazaoSocial != l["RazaoSocial"]?.Trim()
-        || (Valor(l.Campos, "Email") is { } e && e != f.Email)
-        || (Valor(l.Campos, "Telefone") is { } t && t != f.Telefone)
+        || (Valor(l.Campos, "Email") is { } e && e != f.Emails)
+        || (Valor(l.Campos, "Telefone") is { } t && t != f.Telefones)
         || (Valor(l.Campos, "Cidade") is { } c && c != f.Cidade);
 
     private static string? Valor(IReadOnlyDictionary<string, string?> d, string k) =>

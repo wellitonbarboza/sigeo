@@ -1,84 +1,54 @@
 # QualyHub
 
-Camada de **qualidade, aprovações e controle documental** que complementa o ERP **Obra Prima** para a certificação **PBQP-H / SiAC Nível B**. Primeiro cliente: **N Dalmina**.
+Sistema de **suprimentos com qualidade, aprovações por alçada e controle documental do SGQ** para construtoras que buscam **PBQP-H / SiAC**. Complementa o ERP (Obra Prima): o ERP segue com orçamento, financeiro e fiscal; o QualyHub controla, aprova e evidencia.
 
-O Obra Prima continua sendo o ERP (orçamento, compras, financeiro, medições). O QualyHub importa os dados básicos dele, **controla, aprova e evidencia**, e amarra o SGQ ao fluxo operacional.
+Modelo e telas seguem o mesmo padrão do sistema de referência (Azure + Blazor): menu lateral, tema claro/escuro, grade com agrupamento/filtros/exportação, formulários em janela com etapas e faixa informativa no rodapé.
 
-## O que está nesta entrega (etapas 1 e 2)
+**Banco começa vazio.** Na primeira execução o sistema pede a empresa e o administrador e aplica uma carga **genérica** (listas, parâmetros, tipos de documento, materiais e serviços controlados e alçadas padrão SiAC). Tudo é editável em *Sistema › Parâmetros e listas* e *Sistema › Usuários e alçadas*. Nenhum dado de cliente vem no código.
 
-| Etapa | Conteúdo | Status |
+## Módulos e telas
+
+| Menu | Tela | Tabelas |
 |---|---|---|
-| 1. Modelo de dados | Domínio, EF Core 10, auditoria, travas de qualidade, importação | ✅ compila, migration gerada, 10 testes passando |
-| 2. Provisionamento Azure | Bicep + script de deploy + permissões SQL | ✅ Bicep validado |
-| 3. Web (Blazor Server) | Escritório: aprovações, medições, cadastros, SGQ, painel | próxima |
-| 4. Campo (Blazor WASM PWA) | FVS/FVM offline | seguinte |
-| 5. Functions | Alertas de vencimento, importação assíncrona | seguinte |
+| Início | Pendências de aprovação, leituras, alertas do SGQ, primeiros passos | — |
+| Cadastro | Fornecedores · Qualificação · Documentos do fornecedor (validação do portal) · Obras e centros de custo · Produtos · Materiais e serviços controlados | T08, T09, T10 |
+| Suprimentos | Requisição → Orçamento (mapa comparativo) → Pedido / Contrato → Recebimento (FVM) → Medição (notas do prestador) → Liberação de pagamento (3 vias) | T01–T07, T11–T15, T18 |
+| Qualidade | Documentos do SGQ (árvore, revisões, check-out, etapas com assinatura) · Cópias controladas e solicitações · Lista mestra · Externos · Avaliação semestral · Planos de ação · GRD · Leituras · Registros (retenção) | D01–D13, T16, T17 |
+| Sistema | Usuários, limites, alçadas e delegações · Parâmetros e listas · Permissões do SGQ · Log de auditoria | — |
+| Público (sem login) | Portal do fornecedor `/portal/{token}` · Verificação de cópia `/qr/{token}` · Confirmação de GRD `/grd/confirmar/{token}` | — |
+
+## Regras que a auditoria vai olhar
+
+- **Alçadas configuráveis por login**: etapas por documento/valor/obra (congeladas no envio), limite de valor por usuário, **delegação** com período e **segregação** (quem solicita/elabora não aprova).
+- **Travas de qualidade** (`Domain/Regras`): vencedor da cotação qualificado; pedido/contrato só com fornecedor qualificado e documentos válidos; recebimento de controlado com lote + documentos + FVM; medição de serviço controlado exige FVS aprovada; pagamento em 3 vias.
+- **Avaliação do prestador** na medição (pesos e faixas parametrizados) gera plano de ação automático; FVM reprovada também.
+- **Documentos do SGQ**: elaboração → análise crítica → aprovação → publicação; revisão publicada é imutável; a anterior vira obsoleta e as cópias físicas entram em recolhimento; leitura obrigatória gerada na publicação; todo acesso vai para o log.
+- **Rastreabilidade**: `AuditoriaInterceptor` (antes/depois) + tabelas temporais; exclusão sempre lógica.
 
 ## Estrutura
 
 ```
-QualyHub/
-├── QualyHub.slnx
-├── src/
-│   ├── QualyHub.Domain/            # Entidades e regras (sem dependência de infraestrutura)
-│   │   ├── Common/                 # Base auditável, enums, RegistroAuditoria
-│   │   ├── Estrutura/              # Empresa, Obra, Local, Usuário, Alçada
-│   │   ├── Cadastros/              # Fornecedor, Funcionário, Documentos, Serviço/Material controlado
-│   │   ├── Suprimentos/            # Pedido (importado do Obra Prima)
-│   │   ├── Medicoes/               # Medição (importada do Obra Prima)
-│   │   ├── Qualidade/              # Construtor de formulários, FVS/FVM, RNC
-│   │   ├── Sgq/                    # Lista mestra, revisões, distribuição/obsoletos
-│   │   ├── Aprovacoes/             # Motor genérico de aprovação por alçada
-│   │   ├── Importacao/             # Layout, lote e linhas (staging)
-│   │   └── Regras/                 # TravasQualidade: pedido, medição, recebimento, acesso
-│   └── QualyHub.Infrastructure/
-│       ├── Dados/                  # DbContext, configurações, AuditoriaInterceptor, Migracoes/
-│       ├── Importacao/             # Leitor .xlsx/.csv, importador de fornecedores, ProtecaoCpf
-│       └── DependencyInjection.cs
-├── tests/QualyHub.Tests/           # Testes das travas, aprovação e conversões
-├── db/QualyHub_Inicial.sql         # Script SQL idempotente (para revisão/DBA)
-├── infra/
-│   ├── main.bicep                  # App Service, Functions, Azure SQL serverless, Storage, Key Vault, App Insights, orçamento
-│   ├── main.prd.bicepparam
-│   ├── deploy.sh                   # Provisiona, cria segredo, aplica migrations e usuários SQL
-│   └── sql/usuarios-identidades.sql
-└── docs/
-    ├── PONTOS-DE-ATENCAO.md        # Custo, offline, ecossistema, LGPD, prazo da Caixa
-    ├── ADR-001-ecossistema.md      # Decisão Azure/.NET x Supabase
-    └── EXPORTS-OBRA-PRIMA.md       # O que pedir de export à N Dalmina
+src/QualyHub.Domain          entidades e regras (sem dependência de infraestrutura)
+src/QualyHub.Infrastructure  EF Core 10 (SQL Server), serviços de caso de uso, carga padrão, migrations
+src/QualyHub.Web             Blazor Web App (Interactive Server), login Entra ID ou local de desenvolvimento
+tests/QualyHub.Tests         testes das regras (travas, aprovações, suprimentos, documentos)
+db/QualyHub_Inicial.sql      script idempotente da migration inicial (revisão/DBA)
+infra/                       Bicep + deploy (Azure)
 ```
-
-## Decisões de arquitetura que importam para a auditoria
-
-- **Rastreabilidade em duas camadas.** O `AuditoriaInterceptor` grava quem, quando e antes/depois em `qh.Auditoria` (append-only, com `DENY UPDATE` no banco). As entidades críticas (fornecedor, documentos, pedido, medição, fichas, RNC, SGQ, aprovações) usam **temporal tables** e provam o estado em qualquer data.
-- **Nada some.** Exclusão é sempre lógica, e o banco não concede `DELETE` no schema.
-- **Travas de qualidade** (`Domain/Regras/TravasQualidade.cs`):
-  - Pedido de **material controlado** exige fornecedor qualificado e sem documento bloqueante vencido.
-  - **Medição** de serviço controlado exige **FVS aprovada** do mesmo serviço e do mesmo local.
-  - **Recebimento** de material controlado só é aceito via **FVM** liberada.
-  - **Acesso de funcionário** à obra exige documentos/NRs válidos.
-- **Qualificação do fornecedor nunca vem da importação.** É decisão da Qualidade dentro do QualyHub.
-- **Fichas imutáveis após envio.** Correção é feita por **reinspeção**, com uma nova ficha vinculada à original.
-- **Filtros globais** por empresa (multiempresa pronto) e por obra (usuário só vê as obras dele).
 
 ## Rodar localmente
 
 ```bash
-# SQL Server local
-docker run -e ACCEPT_EULA=Y -e MSSQL_SA_PASSWORD='Dev@12345' -p 1433:1433 -d mcr.microsoft.com/mssql/server:2022-latest
-
-dotnet tool install --global dotnet-ef --version 10.0.12
-dotnet build
-dotnet test
-dotnet ef database update -p src/QualyHub.Infrastructure -s src/QualyHub.Infrastructure
+docker run -e ACCEPT_EULA=Y -e MSSQL_SA_PASSWORD='<senha-forte>' -p 1433:1433 -d mcr.microsoft.com/mssql/server:2022-latest
+dotnet build && dotnet test
+# ajuste ConnectionStrings:QualyHub em src/QualyHub.Web/appsettings.Development.json (ou variável de ambiente)
+dotnet run --project src/QualyHub.Web
 ```
 
-## Provisionar no Azure
+Em desenvolvimento a migration é aplicada ao iniciar. Sem `AzureAd:ClientId` configurado, o login é local (escolha do usuário cadastrado) — **use só para testes**. Com `AzureAd` preenchido, o login é pelo Microsoft Entra ID.
 
-```bash
-cd infra
-# edite main.prd.bicepparam (e-mails do alerta, orçamento)
-./deploy.sh "<assinatura>" prd rg-qualyhub-prd
-```
+## Pendências conhecidas
 
-Veja `docs/PONTOS-DE-ATENCAO.md` antes do primeiro deploy.
+- Armazenamento de arquivos: hoje `ArmazenamentoLocal` (pasta `App_Data/arquivos`). Para produção, implementar `IArmazenamento` com **Azure Blob Storage**.
+- Envio de e-mails (pedido, GRD, portal, alertas) ainda é registro manual; entra com as Azure Functions.
+- App de campo (FVS/FVM offline) e importação assíncrona do ERP: próximas etapas.

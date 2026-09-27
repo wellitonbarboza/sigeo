@@ -1,0 +1,98 @@
+@page "/"
+@inherits PaginaBase
+@inject AprovacaoServico Aprov
+@inject NavigationManager Nav
+
+<PageTitle>Início · QualyHub</PageTitle>
+<div class="tela">
+    <div class="topo"><h1>Olá, @Usuario.Nome.Split(' ')[0]</h1><div class="direita"><span class="mudo">@Data(Hoje) · @Usuario.EmpresaNome</span></div></div>
+    <div class="miolo">
+        <div class="pagina">
+            <div class="kpis">
+                <a href="#aprovacoes" class="kpi-link"><Kpi Rotulo="Aguardando minha aprovação" Valor="@_minhas.Count" Tom="@(_minhas.Count > 0 ? "aviso" : "ok")" /></a>
+                <a href="sgq/leituras" class="kpi-link"><Kpi Rotulo="Minhas leituras pendentes" Valor="@_leituras" Tom="@(_leituras > 0 ? "aviso" : "ok")" /></a>
+                <a href="fornecedores/documentos" class="kpi-link"><Kpi Rotulo="Docs. de fornecedor p/ validar" Valor="@_docsValidar" Tom="info" /></a>
+                <a href="fornecedores/planos" class="kpi-link"><Kpi Rotulo="Planos de ação vencidos" Valor="@_planosVencidos" Tom="@(_planosVencidos > 0 ? "erro" : "ok")" /></a>
+            </div>
+
+            <div class="secao" id="aprovacoes"><Icone Nome="check" /> Aguardando minha aprovação</div>
+            <table class="itens">
+                <thead><tr><th>Documento</th><th>Título</th><th>Solicitante</th><th>Enviado</th><th class="num">Valor</th><th>Etapa</th></tr></thead>
+                <tbody>
+                    @foreach (var s in _minhas)
+                    {
+                        <tr style="cursor:pointer" @onclick="() => Ir(s)"><td><Selo Texto="@De(s.Entidade)" Tom="info" /></td><td>@s.Titulo</td><td>@s.SolicitanteNome</td><td>@DataHora(s.EnviadoEm)</td><td class="num">@Moeda(s.Valor)</td><td>@s.EtapaAtual de @s.Etapas.Count</td></tr>
+                    }
+                    @if (_minhas.Count == 0) { <tr><td colspan="6" class="mudo">Nada pendente com você.</td></tr> }
+                </tbody>
+            </table>
+
+            <div class="secao"><Icone Nome="alerta" /> Alertas do SGQ</div>
+            <div class="alertas-home">
+                @foreach (var (texto, tom, link) in _alertas)
+                {
+                    <a class="alerta @tom" href="@link"><Icone Nome="alerta" /> @texto</a>
+                }
+                @if (_alertas.Count == 0) { <div class="alerta ok"><Icone Nome="check" /> Nenhum alerta. Tudo em dia.</div> }
+            </div>
+
+            @if (_vazio)
+            {
+                <div class="secao"><Icone Nome="casa" /> Primeiros passos (banco zerado)</div>
+                <ol class="passos-iniciais">
+                    <li><a href="cadastros/obras">Cadastre as obras e centros de custo</a></li>
+                    <li><a href="sistema/usuarios">Cadastre os usuários, perfis, obras e limites de aprovação</a> e revise as <a href="sistema/usuarios">alçadas</a></li>
+                    <li><a href="sistema/parametros">Revise parâmetros, listas e documentos exigidos</a></li>
+                    <li><a href="fornecedores">Cadastre fornecedores</a> e registre a <a href="fornecedores/qualificacao">qualificação</a></li>
+                    <li><a href="cadastros/produtos">Cadastre produtos</a> e vincule aos materiais controlados</li>
+                    <li><a href="sgq/documentos">Crie as pastas e documentos do SGQ</a></li>
+                </ol>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<SolicitacaoAprovacao> _minhas = [];
+    private int _leituras, _docsValidar, _planosVencidos;
+    private bool _vazio;
+    private List<(string, string, string)> _alertas = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = Fabrica.Criar();
+        var abertas = await db.SolicitacoesAprovacao.AsNoTracking().Include(s => s.Etapas).Where(s => s.Status == StatusAprovacao.EmAprovacao).OrderBy(s => s.EnviadoEm).ToListAsync();
+        if (Usuario.UsuarioId is not null)
+            foreach (var s in abertas)
+                if (await Aprov.PodeDecidirAsync(db, s)) _minhas.Add(s);
+        var eu = Usuario.UsuarioId;
+        _leituras = await db.Ciencias.CountAsync(c => c.UsuarioId == eu && c.LidoEm == null);
+        _docsValidar = await db.FornecedorDocumentos.CountAsync(d => d.Status == StatusDocumento.EmValidacao);
+        _planosVencidos = await db.PlanosAcao.CountAsync(p => p.Status != StatusPlanoAcao.Concluida && p.Prazo < Hoje);
+
+        var analise = await db.Documentos.CountAsync(d => d.ProximaAnalise != null && d.ProximaAnalise < Hoje);
+        var recolher = await db.Copias.CountAsync(c => c.Status == StatusCopia.RecolhimentoPendente && c.PrazoRecolhimento < Hoje);
+        var fornVencida = await db.Fornecedores.CountAsync(f => f.Ativo && f.StatusQualificacao == StatusQualificacao.Vencida);
+        var docVencidos = await db.FornecedorDocumentos.CountAsync(d => d.Bloqueia && d.DataValidade != null && d.DataValidade < Hoje && d.Status != StatusDocumento.Reprovado);
+        var contratosVencendo = await db.Contratos.CountAsync(k => k.Status == StatusContrato.Ativo && k.VigenciaFim <= Hoje.AddDays(30));
+        var leiturasAtrasadas = await db.Ciencias.CountAsync(c => c.LidoEm == null && c.Prazo < Hoje);
+        if (analise > 0) _alertas.Add(($"{analise} documento(s) do SGQ com análise crítica vencida", "erro", "sgq/documentos"));
+        if (recolher > 0) _alertas.Add(($"{recolher} cópia(s) obsoleta(s) com recolhimento atrasado", "erro", "sgq/copias"));
+        if (docVencidos > 0) _alertas.Add(($"{docVencidos} documento(s) de fornecedor vencido(s) que bloqueiam compras/medições", "erro", "fornecedores/documentos"));
+        if (fornVencida > 0) _alertas.Add(($"{fornVencida} fornecedor(es) com qualificação vencida", "aviso", "fornecedores/qualificacao"));
+        if (contratosVencendo > 0) _alertas.Add(($"{contratosVencendo} contrato(s) vencendo em 30 dias", "aviso", "contratos"));
+        if (leiturasAtrasadas > 0) _alertas.Add(($"{leiturasAtrasadas} leitura(s) obrigatória(s) em atraso", "aviso", "sgq/leituras"));
+        _vazio = !await db.Obras.AnyAsync() || !await db.Fornecedores.AnyAsync();
+    }
+
+    private void Ir(SolicitacaoAprovacao s)
+    {
+        var rota = s.Entidade switch
+        {
+            EntidadeAprovavel.Requisicao => "requisicoes", EntidadeAprovavel.Cotacao => "cotacoes", EntidadeAprovavel.Pedido => "pedidos",
+            EntidadeAprovavel.Contrato => "contratos", EntidadeAprovavel.Medicao => "medicoes", EntidadeAprovavel.Pagamento => "pagamentos",
+            EntidadeAprovavel.DocumentoSgq => "sgq/documentos", _ => ""
+        };
+        Nav.NavigateTo($"{rota}?id={s.EntidadeId}");
+    }
+}

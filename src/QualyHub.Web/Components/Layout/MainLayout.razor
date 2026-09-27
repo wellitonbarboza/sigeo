@@ -1,0 +1,79 @@
+@inherits LayoutComponentBase
+@inject UsuarioAtualWeb Usuario
+@inject IJSRuntime JS
+
+<div class="app">
+    <aside class="lateral">
+        <Logo />
+        <div class="tema" role="group" aria-label="Tema">
+            <button class="@(_tema == "claro" ? "on" : "")" @onclick='() => Tema("claro")'><Icone Nome="sol" Tam="13" /> Claro</button>
+            <button class="@(_tema == "escuro" ? "on" : "")" @onclick='() => Tema("escuro")'><Icone Nome="lua" Tam="13" /> Escuro</button>
+        </div>
+        <nav>
+            <ul class="menu">
+                <li class="grupo"><NavLink href="" Match="NavLinkMatch.All"><Icone Nome="casa" /> Início</NavLink></li>
+
+                <li class="grupo"><a><Icone Nome="cadastro" /> Cadastro</a></li>
+                <li class="item"><NavLink href="fornecedores" Match="NavLinkMatch.All"><Icone Nome="predio" Tam="16" /> Fornecedores</NavLink></li>
+                <li class="item"><NavLink href="fornecedores/qualificacao"><Icone Nome="selo" Tam="16" /> Qualificação Fornec.</NavLink></li>
+                <li class="item"><NavLink href="fornecedores/documentos"><Icone Nome="arquivo" Tam="16" /> Docs. do Fornecedor</NavLink></li>
+                <li class="item"><NavLink href="cadastros/obras"><Icone Nome="casa" Tam="16" /> Obras e centros de custo</NavLink></li>
+                <li class="item"><NavLink href="cadastros/produtos"><Icone Nome="caixa" Tam="16" /> Produtos</NavLink></li>
+                <li class="item"><NavLink href="cadastros/controlados"><Icone Nome="escudo-check" Tam="16" /> Materiais e serviços controlados</NavLink></li>
+
+                <li class="grupo"><a><Icone Nome="carrinho" /> Suprimentos</a></li>
+                <li class="item"><NavLink href="requisicoes"><Icone Nome="prancheta" Tam="16" /> Requisição</NavLink></li>
+                <li class="item"><NavLink href="cotacoes"><Icone Nome="calculadora" Tam="16" /> Orçamentos</NavLink></li>
+                <li class="item"><NavLink href="pedidos"><Icone Nome="sacola" Tam="16" /> Pedidos</NavLink></li>
+                <li class="item"><NavLink href="contratos"><Icone Nome="contrato" Tam="16" /> Contratos</NavLink></li>
+                <li class="item"><NavLink href="recebimentos"><Icone Nome="caixa" Tam="16" /> Recebimento / FVM</NavLink></li>
+                <li class="item"><NavLink href="medicoes"><Icone Nome="regua" Tam="16" /> Medições</NavLink></li>
+                <li class="item"><NavLink href="pagamentos"><Icone Nome="dinheiro" Tam="16" /> Liberação Pagamento</NavLink></li>
+
+                <li class="grupo"><a><Icone Nome="medalha" /> Qualidade</a></li>
+                <li class="item"><NavLink href="sgq/documentos"><Icone Nome="pasta" Tam="16" /> Documentos SGQ</NavLink></li>
+                <li class="item"><NavLink href="sgq/copias"><Icone Nome="impressora" Tam="16" /> Cópias Controladas</NavLink></li>
+                <li class="item"><NavLink href="sgq/lista-mestra"><Icone Nome="lista" Tam="16" /> Lista Mestra</NavLink></li>
+                <li class="item"><NavLink href="sgq/externos"><Icone Nome="livro" Tam="16" /> Documentos Externos</NavLink></li>
+                <li class="item"><NavLink href="fornecedores/avaliacao"><Icone Nome="grafico" Tam="16" /> Avaliação Fornec.</NavLink></li>
+                <li class="item"><NavLink href="fornecedores/planos"><Icone Nome="alvo" Tam="16" /> Planos de Ação</NavLink></li>
+                <li class="item"><NavLink href="sgq/grd"><Icone Nome="enviar" Tam="16" /> GRD</NavLink></li>
+                <li class="item"><NavLink href="sgq/leituras"><Icone Nome="livro" Tam="16" /> Leituras / Ciência</NavLink></li>
+                <li class="item"><NavLink href="sgq/registros"><Icone Nome="arquivo-morto" Tam="16" /> Registros (Retenção)</NavLink></li>
+
+                <li class="grupo"><a><Icone Nome="engrenagem" /> Sistema</a></li>
+                <li class="item"><NavLink href="sistema/usuarios"><Icone Nome="pessoa" Tam="16" /> Usuários e alçadas</NavLink></li>
+                <li class="item"><NavLink href="sistema/parametros"><Icone Nome="ferramenta" Tam="16" /> Parâmetros e listas</NavLink></li>
+                <li class="item"><NavLink href="sistema/permissoes"><Icone Nome="escudo" Tam="16" /> Permissões SGQ</NavLink></li>
+                <li class="item"><NavLink href="sistema/log"><Icone Nome="relogio" Tam="16" /> Log de Auditoria</NavLink></li>
+            </ul>
+        </nav>
+        <div class="usuario-box">
+            <b>@Usuario.Nome</b>
+            @Rotulos.De(Enum.TryParse<PerfilUsuario>(Usuario.Perfil, out var p) ? p : PerfilUsuario.Campo) · @Usuario.EmpresaNome
+            <div style="margin-top:8px"><a href="conta/sair" style="color:var(--sidebar-texto)" data-enhance-nav="false"><Icone Nome="sair" Tam="14" /> Sair</a></div>
+        </div>
+    </aside>
+    <main class="principal">
+        <div class="conteudo">@Body</div>
+    </main>
+</div>
+<Toasts />
+
+<div id="blazor-error-ui" data-nosnippet>
+    Ocorreu um erro inesperado. <a href="." class="reload">Recarregar</a>
+    <span class="dismiss">🗙</span>
+</div>
+
+@code {
+    private string _tema = "claro";
+
+    protected override async Task OnAfterRenderAsync(bool primeira)
+    {
+        if (!primeira) return;
+        _tema = await JS.InvokeAsync<string>("qh.temaAtual");
+        StateHasChanged();
+    }
+
+    private async Task Tema(string t) { _tema = t; await JS.InvokeVoidAsync("qh.tema", t); }
+}

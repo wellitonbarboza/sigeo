@@ -1,0 +1,100 @@
+@page "/sgq/grd"
+@inherits PaginaBase
+@inject DocumentosServico Docs
+@inject NavigationManager Nav
+
+<Pagina Titulo="GRD — guia de remessa de documentos" Grade="_grade" AoNovo="Novo" AoAtualizar="Carregar">
+    <ChildContent>
+        <div class="pagina">
+            <Grade T="Linha" @ref="_grade" Itens="_itens" AoClicar="l => Abrir(l.Id)" NomeExportacao="grd">
+                <Colunas>
+                    <Coluna T="Linha" Titulo="Número" Valor="l => l.Numero" />
+                    <Coluna T="Linha" Titulo="Fornecedor" Valor="l => l.Fornecedor" />
+                    <Coluna T="Linha" Titulo="Contato" Valor="l => l.Contato" />
+                    <Coluna T="Linha" Titulo="Documentos" Valor="l => l.Qtd" Alinhar="num" />
+                    <Coluna T="Linha" Titulo="Enviada em" Valor="l => l.Enviada" />
+                    <Coluna T="Linha" Titulo="Confirmada em" Valor="l => l.Confirmada"><Modelo>@if (context.Confirmada is null) { <Selo Texto="Aguardando" Tom="aviso" /> } else { @DataHora(context.Confirmada) }</Modelo></Coluna>
+                </Colunas>
+            </Grade>
+        </div>
+    </ChildContent>
+    <Faixa><b>GRD</b><span>Envio de documentos vigentes (ITS, projetos) a terceiros com cópia controlada externa</span><span>Confirmação de recebimento pelo link, sem login</span></Faixa>
+</Pagina>
+
+<Modal @bind-Aberto="_aberto" Titulo="@(_g?.Numero is { Length: > 0 } n ? n : "Nova GRD")">
+    <ChildContent>
+        @if (_g is not null)
+        {
+            <Erros Lista="ErrosForm" />
+            <div class="form">
+                <Campo Rotulo="Fornecedor" Obrigatorio Classe="s6"><select @bind="_g.FornecedorId" disabled="@Enviada"><option value="@Guid.Empty">Selecione…</option>@foreach (var f in _fornecedores) { <option value="@f.Id">@f.Texto</option> }</select></Campo>
+                <Campo Rotulo="Contato (nome / e-mail)" Classe="s6"><input @bind="_g.Contato" disabled="@Enviada" /></Campo>
+                <Campo Rotulo="Contrato" Classe="s6"><select @bind="_g.ContratoId" disabled="@Enviada"><option value="">—</option>@foreach (var c in _contratos) { <option value="@c.Id">@c.Texto</option> }</select></Campo>
+            </div>
+            <div class="secao"><Icone Nome="lista" /> Documentos vigentes
+                @if (!Enviada) { <span class="acao"><button class="btn sec pq" @onclick="() => _g.Itens.Add(new GrdItem())"><Icone Nome="mais" Tam="14" /> Documento</button></span> }
+            </div>
+            <table class="itens">
+                <tbody>
+                    @foreach (var i in _g.Itens)
+                    {
+                        <tr><td><select @bind="i.DocumentoRevisaoId" disabled="@Enviada"><option value="@Guid.Empty">Selecione…</option>@foreach (var v in _vigentes) { <option value="@v.Id">@v.Texto</option> }</select></td>
+                            <td style="width:40px">@if (!Enviada) { <button class="icone-btn" @onclick="() => _g.Itens.Remove(i)"><Icone Nome="lixeira" Tam="16" /></button> }</td></tr>
+                    }
+                </tbody>
+            </table>
+            @if (Enviada)
+            {
+                <div class="alerta info" style="margin-top:12px"><Icone Nome="enviar" /> Link de confirmação para o fornecedor:&nbsp;<code>@Nav.BaseUri@("grd/confirmar/")@_g.TokenConfirmacao</code></div>
+            }
+        }
+    </ChildContent>
+    <Rodape>@if (_g is not null && !Enviada) { <button class="btn prim" disabled="@Ocupado" @onclick="Enviar"><Icone Nome="enviar" Tam="16" /> Registrar envio</button> }</Rodape>
+</Modal>
+
+@code {
+    private sealed record Linha(Guid Id, string Numero, string Fornecedor, string? Contato, int Qtd, DateTimeOffset? Enviada, DateTimeOffset? Confirmada);
+    private Grade<Linha>? _grade;
+    private List<Linha>? _itens;
+    private Grd? _g;
+    private bool _aberto;
+    private bool Enviada => _g?.EnviadoEm is not null;
+    private List<Opcao> _fornecedores = [], _vigentes = [], _contratos = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _fornecedores = await Cat.FornecedoresAsync();
+        await using (var db = Fabrica.Criar())
+        {
+            _vigentes = await db.Revisoes.AsNoTracking().Where(r => r.Status == StatusRevisao.Vigente || r.Status == StatusRevisao.VigenteComRessalvas)
+                .OrderBy(r => r.Documento.Codigo).Select(r => new Opcao(r.Id, r.Documento.Codigo + " R" + r.Revisao.ToString("00") + " – " + r.Documento.Titulo)).ToListAsync();
+            _contratos = await db.Contratos.AsNoTracking().Where(k => k.Status == StatusContrato.Ativo).Select(k => new Opcao(k.Id, k.Numero)).ToListAsync();
+        }
+        await Carregar();
+    }
+
+    private async Task Carregar()
+    {
+        await using var db = Fabrica.Criar();
+        var forn = await db.Fornecedores.AsNoTracking().ToDictionaryAsync(f => f.Id, f => f.RazaoSocial);
+        _itens = (await db.Grds.AsNoTracking().Include(g => g.Itens).OrderByDescending(g => g.EnviadoEm).ToListAsync())
+            .Select(g => new Linha(g.Id, g.Numero, forn.GetValueOrDefault(g.FornecedorId, ""), g.Contato, g.Itens.Count, g.EnviadoEm, g.ConfirmadoEm)).ToList();
+    }
+
+    private void Novo() { _g = new Grd { Itens = [new GrdItem()] }; ErrosForm = null; _aberto = true; }
+
+    private async Task Abrir(Guid id)
+    {
+        await using var db = Fabrica.Criar();
+        _g = await db.Grds.AsNoTracking().Include(g => g.Itens).FirstAsync(g => g.Id == id);
+        ErrosForm = null; _aberto = true;
+    }
+
+    private async Task Enviar()
+    {
+        _g!.Itens = _g.Itens.Where(i => i.DocumentoRevisaoId != Guid.Empty).ToList();
+        if (_g.FornecedorId == Guid.Empty) { ErrosForm = ["Informe o fornecedor."]; return; }
+        Guid id = default;
+        if (await Executar(async () => id = await Docs.EnviarGrdAsync(_g), "GRD registrada — cópias externas numeradas.")) { await Carregar(); await Abrir(id); }
+    }
+}

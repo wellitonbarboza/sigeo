@@ -1,0 +1,137 @@
+@page "/fornecedores/documentos"
+@inherits PaginaBase
+@inject PortalServico Portal
+
+<Pagina Titulo="Documentos do fornecedor" Grade="_grade" AoNovo="Novo" AoAtualizar="Carregar">
+    <ChildContent>
+        <div class="pagina">
+            <div class="kpis">
+                <Kpi Rotulo="Em validação" Valor="@_todos.Count(d => d.Status == StatusDocumento.EmValidacao)" Sub="enviados pelo portal" Tom="info" />
+                <Kpi Rotulo="A vencer" Valor="@_todos.Count(d => d.Status == StatusDocumento.AVencer)" Tom="aviso" />
+                <Kpi Rotulo="Vencidos" Valor="@_todos.Count(d => d.Status == StatusDocumento.Vencido)" Sub="bloqueiam pedido/medição" Tom="erro" />
+                <Kpi Rotulo="Recusados" Valor="@_todos.Count(d => d.Status == StatusDocumento.Reprovado)" />
+            </div>
+            <Abas Itens="_abas" Ativa="@_aba" AtivaChanged="MudarAba" />
+            <Grade T="Linha" @ref="_grade" Itens="_itens" AoClicar="l => Abrir(l.Id)" NomeExportacao="documentos-fornecedor" CriadoPor="l => l.CriadoPor">
+                <Colunas>
+                    <Coluna T="Linha" Titulo="Fornecedor" Valor="l => l.Fornecedor" />
+                    <Coluna T="Linha" Titulo="Documento" Valor="l => l.Tipo" />
+                    <Coluna T="Linha" Titulo="Número" Valor="l => l.Numero" />
+                    <Coluna T="Linha" Titulo="Emissão" Valor="l => l.Emissao" />
+                    <Coluna T="Linha" Titulo="Validade" Valor="l => l.Validade" />
+                    <Coluna T="Linha" Titulo="Origem" Valor='l => l.Portal ? "Portal" : "Interno"' />
+                    <Coluna T="Linha" Titulo="Status" Valor="l => l.Status"><Modelo><Selo Texto="@De(context.Status)" Tom="@Tom(context.Status)" /></Modelo></Coluna>
+                    <Coluna T="Linha" Titulo="Bloqueia" Valor="l => l.Bloqueia" />
+                </Colunas>
+            </Grade>
+        </div>
+    </ChildContent>
+    <Faixa><b>Documentos</b><span>Tipos exigidos por tipo de fornecimento (configuráveis)</span><span>Portal: fornecedor envia → Suprimentos valida ou recusa com motivo</span><span>Vencido com bloqueio = trava pedido, contrato, medição e pagamento</span></Faixa>
+</Pagina>
+
+<Modal @bind-Aberto="_aberto" Titulo="Documento do fornecedor" Tamanho="media">
+    <ChildContent>
+        @if (_d is not null)
+        {
+            <Erros Lista="ErrosForm" />
+            @if (_d.Status == StatusDocumento.EmValidacao)
+            {
+                <div class="alerta info"><Icone Nome="alerta" /> Enviado pelo portal por <b>&nbsp;@_d.ResponsavelEnvio&nbsp;</b> — confira e valide.</div>
+            }
+            <div class="form">
+                <Campo Rotulo="Fornecedor" Obrigatorio Classe="s12"><select @bind="_d.FornecedorId" disabled="@(_d.CriadoEm != default)"><option value="@Guid.Empty">Selecione…</option>@foreach (var f in _fornecedores) { <option value="@f.Id">@f.Texto</option> }</select></Campo>
+                <Campo Rotulo="Tipo de documento" Obrigatorio Classe="s8"><select @bind="_d.TipoDocumentoExigidoId" disabled="@(_d.CriadoEm != default)"><option value="@Guid.Empty">Selecione…</option>@foreach (var t in _tipos) { <option value="@t.Id">@t.Texto</option> }</select></Campo>
+                <Campo Rotulo="Número" Classe="s4"><input @bind="_d.Numero" /></Campo>
+                <Campo Rotulo="Emissão" Classe="s4"><input type="date" @bind="_d.DataEmissao" /></Campo>
+                <Campo Rotulo="Validade" Classe="s4"><input type="date" @bind="_d.DataValidade" /></Campo>
+                <Campo Rotulo="Bloqueia quando vencido" Classe="s4"><label><input type="checkbox" @bind="_d.Bloqueia" /> Sim</label></Campo>
+                <Campo Rotulo="Arquivo (PDF/imagem)" Classe="s12">
+                    @if (_d.ArquivoBlob is not null) { <a href="arquivos/fornecedor/@_d.Id" target="_blank" data-enhance-nav="false"><Icone Nome="arquivo" Tam="14" /> @_d.ArquivoNomeOriginal</a> }
+                    <InputFile OnChange="Escolher" accept=".pdf,.jpg,.jpeg,.png" />
+                </Campo>
+                <Campo Rotulo="Conferência (o que foi verificado)" Classe="s12"><textarea @bind="_d.Conferencia" placeholder="Ex.: CNPJ confere, assinatura, validade, escopo…"></textarea></Campo>
+                @if (_d.Status is StatusDocumento.EmValidacao or StatusDocumento.Reprovado)
+                {
+                    <Campo Rotulo="Motivo da recusa" Classe="s12"><textarea @bind="_motivo"></textarea></Campo>
+                }
+            </div>
+        }
+    </ChildContent>
+    <Rodape>
+        @if (_d?.Status == StatusDocumento.EmValidacao)
+        {
+            <button class="btn perigo" disabled="@Ocupado" @onclick="() => Validar(false)"><Icone Nome="x" Tam="16" /> Recusar</button>
+            <button class="btn ok" disabled="@Ocupado" @onclick="() => Validar(true)"><Icone Nome="check" Tam="16" /> Validar</button>
+        }
+        else
+        {
+            <button class="btn prim" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="16" /> Salvar</button>
+        }
+    </Rodape>
+</Modal>
+
+@code {
+    private sealed record Linha(Guid Id, string Fornecedor, string Tipo, string? Numero, DateOnly? Emissao, DateOnly? Validade, bool Portal, StatusDocumento Status, bool Bloqueia, string CriadoPor);
+    private Grade<Linha>? _grade;
+    private List<Linha> _todos = [];
+    private List<Linha>? _itens;
+    private FornecedorDocumento? _d;
+    private bool _aberto;
+    private string _aba = "todos";
+    private string? _motivo;
+    private IBrowserFile? _arquivo;
+    private List<Opcao> _fornecedores = [], _tipos = [];
+    private static readonly List<(string, string)> _abas = [("todos", "Todos"), ("validar", "Em validação"), ("vencer", "Vencidos / a vencer"), ("recusados", "Recusados")];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _fornecedores = await Cat.FornecedoresAsync(); _tipos = await Cat.TiposDocFornecedorAsync();
+        await Carregar();
+    }
+
+    private async Task Carregar()
+    {
+        await using var db = Fabrica.Criar();
+        var lista = await db.FornecedorDocumentos.AsNoTracking().Include(d => d.TipoDocumento).Include(d => d.Fornecedor).ToListAsync();
+        _todos = lista.Select(d => new Linha(d.Id, d.Fornecedor.RazaoSocial, d.TipoDocumento.Nome, d.Numero, d.DataEmissao, d.DataValidade, d.EnviadoPeloPortal,
+            StatusDocumentoCalculo.Calcular(d, Hoje), d.Bloqueia, d.CriadoPor)).OrderBy(l => l.Fornecedor).ThenBy(l => l.Tipo).ToList();
+        Filtrar();
+    }
+
+    private void MudarAba(string a) { _aba = a; Filtrar(); }
+
+    private void Filtrar() => _itens = _aba switch
+    {
+        "validar" => _todos.Where(d => d.Status == StatusDocumento.EmValidacao).ToList(),
+        "vencer" => _todos.Where(d => d.Status is StatusDocumento.Vencido or StatusDocumento.AVencer).ToList(),
+        "recusados" => _todos.Where(d => d.Status == StatusDocumento.Reprovado).ToList(),
+        _ => _todos
+    };
+
+    private void Novo() { _d = new FornecedorDocumento(); _arquivo = null; _motivo = null; ErrosForm = null; _aberto = true; }
+
+    private async Task Abrir(Guid id)
+    {
+        await using var db = Fabrica.Criar();
+        _d = await db.FornecedorDocumentos.AsNoTracking().FirstAsync(d => d.Id == id);
+        _arquivo = null; _motivo = _d.MotivoRecusa; ErrosForm = null; _aberto = true;
+    }
+
+    private void Escolher(InputFileChangeEventArgs e) => _arquivo = e.File;
+
+    private async Task Salvar()
+    {
+        var ok = await Executar(async () =>
+        {
+            await using var s = _arquivo?.OpenReadStream(20 * 1024 * 1024);
+            await Portal.RegistrarDocumentoInternoAsync(_d!, s, _arquivo?.Name, _arquivo?.ContentType);
+        }, "Documento salvo.");
+        if (ok) { _aberto = false; await Carregar(); }
+    }
+
+    private async Task Validar(bool aprovado)
+    {
+        if (await Executar(() => Portal.ValidarDocumentoAsync(_d!.Id, aprovado, _motivo), aprovado ? "Documento validado." : "Documento recusado."))
+        { _aberto = false; await Carregar(); }
+    }
+}

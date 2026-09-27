@@ -1,0 +1,173 @@
+@page "/sgq/copias"
+@inherits PaginaBase
+@inject DocumentosServico Docs
+
+<Pagina Titulo="Cópias controladas" Grade="GradeAtual" AoNovo="NovaSolicitacao" AoAtualizar="Carregar">
+    <ChildContent>
+        <div class="pagina">
+            <div class="kpis">
+                <Kpi Rotulo="Em uso" Valor="@_copias.Count(c => c.Status == StatusCopia.EmUso)" Tom="ok" />
+                <Kpi Rotulo="Recolhimento pendente" Valor="@_copias.Count(c => c.Status == StatusCopia.RecolhimentoPendente)" Tom="aviso" />
+                <Kpi Rotulo="Recolhimento atrasado" Valor="@_copias.Count(c => c.Status == StatusCopia.RecolhimentoPendente && c.Prazo < Hoje)" Tom="erro" />
+                <Kpi Rotulo="Solicitações abertas" Valor="@_solic.Count(s => s.Status == StatusSolicitacaoCopia.Solicitada)" Tom="info" />
+            </div>
+            <Abas Itens="_abas" Ativa="@_aba" AtivaChanged="MudarAba" />
+            @if (_aba == "solic")
+            {
+                <Grade T="SolicitacaoCopia" @ref="_gSol" Itens="_solic" AoClicar="s => { _s = s; _abertoSol = true; }" NomeExportacao="solicitacoes-copia">
+                    <Colunas>
+                        <Coluna T="SolicitacaoCopia" Titulo="Nº" Valor="s => s.Numero" Largura="70px" />
+                        <Coluna T="SolicitacaoCopia" Titulo="Solicitado por" Valor="s => s.SolicitadoPor" />
+                        <Coluna T="SolicitacaoCopia" Titulo="Em" Valor="s => s.SolicitadoEm" />
+                        <Coluna T="SolicitacaoCopia" Titulo="Copiadora" Valor="s => s.Copiadora" />
+                        <Coluna T="SolicitacaoCopia" Titulo="Programação" Valor="s => s.Programacao" />
+                        <Coluna T="SolicitacaoCopia" Titulo="Qtd." Valor="s => s.QtdTotal" Alinhar="num" />
+                        <Coluna T="SolicitacaoCopia" Titulo="Status" Valor="s => s.Status"><Modelo><Selo Texto="@De(context.Status)" Tom="@Tom(context.Status)" /></Modelo></Coluna>
+                    </Colunas>
+                </Grade>
+            }
+            else
+            {
+                <Grade T="Linha" @ref="_gCop" Itens="_itens" NomeExportacao="copias">
+                    <Acoes>
+                        @if (context.Status == StatusCopia.EmUso && context.Entregue is null) { <button title="Registrar entrega" @onclick="() => { _sel = context; _recebidoPor = context.Destinatario; _abertoEntrega = true; }"><Icone Nome="check" Tam="16" /></button> }
+                        @if (context.Status == StatusCopia.RecolhimentoPendente) { <button title="Recolher" @onclick="() => { _sel = context; _destino = DestinoObsoleta.Destruida; _abertoRecolher = true; }"><Icone Nome="arquivo-morto" Tam="16" /></button> }
+                        <a title="QR de verificação" href="qr/@context.Qr" target="_blank" data-enhance-nav="false"><Icone Nome="celular" Tam="16" /></a>
+                    </Acoes>
+                    <Colunas>
+                        <Coluna T="Linha" Titulo="Cópia" Valor="l => l.Numero" />
+                        <Coluna T="Linha" Titulo="Documento" Valor="l => l.Documento" />
+                        <Coluna T="Linha" Titulo="Rev." Valor="l => l.Rev" Largura="60px" />
+                        <Coluna T="Linha" Titulo="Tipo" Valor="l => l.Tipo" />
+                        <Coluna T="Linha" Titulo="Destinatário" Valor="l => l.Destinatario" />
+                        <Coluna T="Linha" Titulo="Entregue" Valor="l => l.Entregue" />
+                        <Coluna T="Linha" Titulo="Prazo recolh." Valor="l => l.Prazo"><Modelo><span class="@(context.Prazo < Hoje && context.Status == StatusCopia.RecolhimentoPendente ? "texto-erro" : "")">@Data(context.Prazo)</span></Modelo></Coluna>
+                        <Coluna T="Linha" Titulo="Status" Valor="l => l.Status"><Modelo><Selo Texto="@De(context.Status)" Tom="@Tom(context.Status)" /></Modelo></Coluna>
+                    </Colunas>
+                </Grade>
+            }
+        </div>
+    </ChildContent>
+    <Faixa><b>Cópias</b><span>Numeração &lt;CÓDIGO&gt;-Rnn-Cnnn · QR de verificação de vigência</span><span>Nova revisão publicada → cópias anteriores em recolhimento (prazo configurável)</span><span>Liberação de impressão pela Qualidade</span></Faixa>
+</Pagina>
+
+<Modal @bind-Aberto="_abertoEntrega" Titulo="Registrar entrega" Tamanho="pequena">
+    <ChildContent><div class="form"><Campo Rotulo="Recebido por" Obrigatorio Classe="s12"><input @bind="_recebidoPor" /></Campo></div></ChildContent>
+    <Rodape><button class="btn prim" disabled="@Ocupado" @onclick="Entregar">Confirmar</button></Rodape>
+</Modal>
+
+<Modal @bind-Aberto="_abertoRecolher" Titulo="@($"Recolher {_sel?.Numero}")" Tamanho="pequena">
+    <ChildContent>
+        <div class="form"><Campo Rotulo="Destino da cópia obsoleta" Classe="s12"><select @bind="_destino">@foreach (var d in Enum.GetValues<DestinoObsoleta>()) { <option value="@d">@De(d)</option> }</select></Campo></div>
+    </ChildContent>
+    <Rodape><button class="btn prim" disabled="@Ocupado" @onclick="Recolher">Registrar recolhimento</button></Rodape>
+</Modal>
+
+<Modal @bind-Aberto="_abertoSol" Titulo="@(_s?.Numero > 0 ? $"Solicitação de cópias {_s.Numero}" : "Solicitar cópias controladas")">
+    <ChildContent>
+        @if (_s is not null)
+        {
+            <Erros Lista="ErrosForm" />
+            <div class="form">
+                <Campo Rotulo="Obra" Classe="s4"><select @bind="_s.ObraId" disabled="@(_s.Numero > 0)"><option value="">(corporativo)</option>@foreach (var o in _obras) { <option value="@o.Id">@o.Texto</option> }</select></Campo>
+                <Campo Rotulo="Copiadora / local de impressão" Obrigatorio Classe="s5"><input @bind="_s.Copiadora" disabled="@(_s.Numero > 0)" /></Campo>
+                <Campo Rotulo="Programação" Classe="s3"><input type="date" @bind="_s.Programacao" disabled="@(_s.Numero > 0)" /></Campo>
+            </div>
+            <div class="secao"><Icone Nome="lista" /> Documentos (somente revisões vigentes)
+                @if (_s.Numero == 0) { <span class="acao"><button class="btn sec pq" @onclick="() => _s.Itens.Add(new SolicitacaoCopiaItem())"><Icone Nome="mais" Tam="14" /> Documento</button></span> }
+            </div>
+            <table class="itens">
+                <thead><tr><th>Documento</th><th>Qtd.</th><th>Destinatário (local/função)</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var i in _s.Itens)
+                    {
+                        <tr>
+                            <td><select @bind="i.DocumentoRevisaoId" disabled="@(_s.Numero > 0)"><option value="@Guid.Empty">Selecione…</option>@foreach (var v in _vigentes) { <option value="@v.Id">@v.Texto</option> }</select></td>
+                            <td style="width:80px"><input type="number" min="1" @bind="i.Quantidade" disabled="@(_s.Numero > 0)" /></td>
+                            <td><input @bind="i.Destinatario" disabled="@(_s.Numero > 0)" /></td>
+                            <td>@if (_s.Numero == 0) { <button class="icone-btn" @onclick="() => _s.Itens.Remove(i)"><Icone Nome="lixeira" Tam="16" /></button> }</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </ChildContent>
+    <Rodape>
+        @if (_s is not null)
+        {
+            @if (_s.Numero == 0) { <button class="btn prim" disabled="@Ocupado" @onclick="Solicitar"><Icone Nome="enviar" Tam="16" /> Solicitar</button> }
+            else if (_s.Status == StatusSolicitacaoCopia.Solicitada && Perfil(PerfilUsuario.Qualidade)) { <button class="btn ok" disabled="@Ocupado" @onclick="Liberar"><Icone Nome="impressora" Tam="16" /> Liberar e numerar cópias</button> }
+        }
+    </Rodape>
+</Modal>
+
+@code {
+    private sealed record Linha(Guid Id, string Numero, string Documento, string Rev, TipoCopia Tipo, string Destinatario, DateTimeOffset? Entregue, DateOnly? Prazo, StatusCopia Status, string Qr);
+    private IGrade? GradeAtual => _aba == "solic" ? _gSol : _gCop;
+    private Grade<Linha>? _gCop;
+    private Grade<SolicitacaoCopia>? _gSol;
+    private List<Linha> _copias = [];
+    private List<Linha>? _itens;
+    private List<SolicitacaoCopia> _solic = [];
+    private SolicitacaoCopia? _s;
+    private Linha? _sel;
+    private string _aba = "uso";
+    private string _recebidoPor = "";
+    private DestinoObsoleta _destino;
+    private bool _abertoEntrega, _abertoRecolher, _abertoSol;
+    private List<Opcao> _obras = [], _vigentes = [];
+    private static readonly List<(string, string)> _abas = [("uso", "Em uso"), ("recolher", "Recolhimento"), ("todas", "Todas"), ("solic", "Solicitações de cópia")];
+
+    protected override async Task OnInitializedAsync() { _obras = await Cat.ObrasAsync(); await Carregar(); }
+
+    private async Task Carregar()
+    {
+        await using var db = Fabrica.Criar();
+        _copias = await db.Copias.AsNoTracking().OrderByDescending(c => c.CriadoEm)
+            .Select(c => new Linha(c.Id, c.NumeroCopia, c.Revisao.Documento.Codigo + " – " + c.Revisao.Documento.Titulo, "R" + c.Revisao.Revisao.ToString("00"),
+                c.TipoCopia, c.Destinatario, c.EntregueEm, c.PrazoRecolhimento, c.Status, c.QrToken)).ToListAsync();
+        _solic = await db.SolicitacoesCopia.AsNoTracking().Include(s => s.Itens).OrderByDescending(s => s.Numero).ToListAsync();
+        _vigentes = await db.Revisoes.AsNoTracking().Where(r => r.Status == StatusRevisao.Vigente || r.Status == StatusRevisao.VigenteComRessalvas)
+            .OrderBy(r => r.Documento.Codigo).Select(r => new Opcao(r.Id, r.Documento.Codigo + " R" + r.Revisao.ToString("00") + " – " + r.Documento.Titulo)).ToListAsync();
+        MudarAba(_aba);
+    }
+
+    private void MudarAba(string a)
+    {
+        _aba = a;
+        _itens = a switch
+        {
+            "uso" => _copias.Where(c => c.Status == StatusCopia.EmUso).ToList(),
+            "recolher" => _copias.Where(c => c.Status == StatusCopia.RecolhimentoPendente).ToList(),
+            _ => _copias
+        };
+    }
+
+    private void NovaSolicitacao()
+    {
+        _s = new SolicitacaoCopia { Programacao = Hoje, Itens = [new SolicitacaoCopiaItem()] };
+        ErrosForm = null; _abertoSol = true;
+    }
+
+    private async Task Solicitar()
+    {
+        _s!.Itens = _s.Itens.Where(i => i.DocumentoRevisaoId != Guid.Empty).ToList();
+        if (string.IsNullOrWhiteSpace(_s.Copiadora)) { ErrosForm = ["Informe a copiadora / local de impressão."]; return; }
+        if (await Executar(() => Docs.SolicitarCopiasAsync(_s), "Solicitação enviada à Qualidade.")) { _abertoSol = false; _aba = "solic"; await Carregar(); }
+    }
+
+    private async Task Liberar()
+    {
+        if (await Executar(() => Docs.LiberarSolicitacaoAsync(_s!.Id), "Cópias liberadas e numeradas.")) { _abertoSol = false; await Carregar(); }
+    }
+
+    private async Task Entregar()
+    {
+        if (await Executar(() => Docs.RegistrarEntregaAsync(_sel!.Id, _recebidoPor), "Entrega registrada.")) { _abertoEntrega = false; await Carregar(); }
+    }
+
+    private async Task Recolher()
+    {
+        if (await Executar(() => Docs.RecolherCopiaAsync(_sel!.Id, _destino), "Cópia recolhida.")) { _abertoRecolher = false; await Carregar(); }
+    }
+}

@@ -1,0 +1,44 @@
+@page "/sgq/lista-mestra"
+@inherits PaginaBase
+@inject NavigationManager Nav
+
+<Pagina Titulo="Lista mestra de documentos" Grade="_grade" AoAtualizar="Carregar">
+    <ChildContent>
+        <div class="pagina">
+            <Grade T="Linha" @ref="_grade" Itens="_itens" AoClicar='l => Nav.NavigateTo($"sgq/documentos?id={l.Id}")' NomeExportacao="lista-mestra">
+                <Colunas>
+                    <Coluna T="Linha" Titulo="Código" Valor="l => l.Codigo" Largura="110px" />
+                    <Coluna T="Linha" Titulo="Título" Valor="l => l.Titulo" />
+                    <Coluna T="Linha" Titulo="Tipo" Valor="l => l.Tipo" />
+                    <Coluna T="Linha" Titulo="Processo / área" Valor="l => l.Pasta" />
+                    <Coluna T="Linha" Titulo="Requisito SiAC" Valor="l => l.Requisito" />
+                    <Coluna T="Linha" Titulo="Rev. vigente" Valor="l => l.Rev" Largura="70px" />
+                    <Coluna T="Linha" Titulo="Vigência" Valor="l => l.Vigencia" />
+                    <Coluna T="Linha" Titulo="Aprovado por" Valor="l => l.AprovadoPor" />
+                    <Coluna T="Linha" Titulo="Distribuição" Valor="l => l.Distribuicao" />
+                    <Coluna T="Linha" Titulo="Cópias em uso" Valor="l => l.Copias" Alinhar="num" />
+                    <Coluna T="Linha" Titulo="Próx. análise" Valor="l => l.ProximaAnalise" />
+                    <Coluna T="Linha" Titulo="Status" Valor="l => l.Status"><Modelo><Selo Texto="@De(context.Status)" Tom="@Tom(context.Status)" /></Modelo></Coluna>
+                </Colunas>
+            </Grade>
+        </div>
+    </ChildContent>
+    <Faixa><b>Lista mestra</b><span>Gerada automaticamente dos documentos cadastrados — sem digitação paralela</span><span>Exporte para Excel/JSON ou imprima para auditoria</span></Faixa>
+</Pagina>
+
+@code {
+    private sealed record Linha(Guid Id, string Codigo, string Titulo, string Tipo, string Pasta, string? Requisito, string? Rev, DateOnly? Vigencia, string? AprovadoPor, string? Distribuicao, int Copias, DateOnly? ProximaAnalise, StatusDocumentoSgq Status);
+    private Grade<Linha>? _grade;
+    private List<Linha>? _itens;
+
+    protected override Task OnInitializedAsync() => Carregar();
+
+    private async Task Carregar()
+    {
+        await using var db = Fabrica.Criar();
+        var pastas = await db.Pastas.AsNoTracking().ToDictionaryAsync(p => p.Id, p => p.Nome);
+        var docs = await db.Documentos.AsNoTracking().Include(d => d.Revisoes).ThenInclude(r => r.Copias).Where(d => d.Status != StatusDocumentoSgq.Cancelado).OrderBy(d => d.Codigo).ToListAsync();
+        _itens = docs.Select(d => new Linha(d.Id, d.Codigo, d.Titulo, d.Tipo, pastas.GetValueOrDefault(d.PastaId, ""), d.RequisitoSiac, d.RevisaoVigente?.Rotulo, d.DataVigencia,
+            d.RevisaoVigente?.AprovadoPor, d.DistribuicaoPadrao, d.RevisaoVigente?.Copias.Count(c => c.Status == StatusCopia.EmUso) ?? 0, d.ProximaAnalise, d.Status)).ToList();
+    }
+}

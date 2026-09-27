@@ -1,0 +1,185 @@
+@page "/sistema/parametros"
+@inherits PaginaBase
+
+<Pagina Titulo="Parâmetros e listas" Grade="GradeAtual" AoNovo="Novo" AoAtualizar="Carregar">
+    <ChildContent>
+        <div class="pagina">
+            @if (!Perfil()) { <div class="alerta aviso"><Icone Nome="escudo" /> Somente o Administrador altera parâmetros e listas.</div> }
+            <Abas Itens="_abas" @bind-Ativa="_aba" />
+            @if (_aba == "param")
+            {
+                <Grade T="Parametro" @ref="_gP" Itens="_params" AoClicar="p => { _p = p; _valor = p.Valor; ErrosForm = null; _abertoP = true; }" NomeExportacao="parametros">
+                    <Colunas>
+                        <Coluna T="Parametro" Titulo="Grupo" Valor="p => p.Grupo" />
+                        <Coluna T="Parametro" Titulo="Descrição" Valor="p => p.Descricao" />
+                        <Coluna T="Parametro" Titulo="Valor" Valor="p => p.Valor" Alinhar="num" />
+                        <Coluna T="Parametro" Titulo="Unidade" Valor="p => p.Unidade" />
+                        <Coluna T="Parametro" Titulo="Chave" Valor="p => p.Chave" Visivel="false" />
+                    </Colunas>
+                </Grade>
+            }
+            else if (_aba == "listas")
+            {
+                <Grade T="ItemLista" @ref="_gL" Itens="_listas" AoClicar="l => { _l = l; ErrosForm = null; _abertoL = true; }" NomeExportacao="listas">
+                    <Colunas>
+                        <Coluna T="ItemLista" Titulo="Lista" Valor="l => l.Tipo" />
+                        <Coluna T="ItemLista" Titulo="Código" Valor="l => l.Codigo" Largura="100px" />
+                        <Coluna T="ItemLista" Titulo="Nome" Valor="l => l.Nome" />
+                        <Coluna T="ItemLista" Titulo="Ordem" Valor="l => l.Ordem" Alinhar="num" />
+                        <Coluna T="ItemLista" Titulo="Ativo" Valor="l => l.Ativo" />
+                    </Colunas>
+                </Grade>
+            }
+            else
+            {
+                <Grade T="TipoDocumentoExigido" @ref="_gT" Itens="_tipos" AoClicar="t => { _t = t; ErrosForm = null; _abertoT = true; }" NomeExportacao="tipos-documento">
+                    <Colunas>
+                        <Coluna T="TipoDocumentoExigido" Titulo="Aplica a" Valor="t => t.AplicaA" />
+                        <Coluna T="TipoDocumentoExigido" Titulo="Documento" Valor="t => t.Nome" />
+                        <Coluna T="TipoDocumentoExigido" Titulo="Exigido para" Valor="t => t.ExigidoPara" />
+                        <Coluna T="TipoDocumentoExigido" Titulo="Validade padrão (dias)" Valor="t => t.ValidadePadraoDias" Alinhar="num" />
+                        <Coluna T="TipoDocumentoExigido" Titulo="Alerta (dias)" Valor="t => t.DiasAlertaAntesVencimento" Alinhar="num" />
+                        <Coluna T="TipoDocumentoExigido" Titulo="Obrigatório" Valor="t => t.Obrigatorio" />
+                        <Coluna T="TipoDocumentoExigido" Titulo="Por entrega" Valor="t => t.PorEntrega" />
+                        <Coluna T="TipoDocumentoExigido" Titulo="Bloqueia" Valor="t => t.BloqueiaQuandoVencido" />
+                        <Coluna T="TipoDocumentoExigido" Titulo="Ativo" Valor="t => t.Ativo" />
+                    </Colunas>
+                </Grade>
+            }
+        </div>
+    </ChildContent>
+    <Faixa><b>Configuração</b><span>Carga inicial genérica (padrão SiAC) — ajuste à política da empresa</span><span>Alterações ficam no histórico (tabela temporal + log)</span></Faixa>
+</Pagina>
+
+<Modal @bind-Aberto="_abertoP" Titulo="Parâmetro" Tamanho="pequena">
+    <ChildContent>
+        @if (_p is not null)
+        {
+            <Erros Lista="ErrosForm" />
+            <p><b>@_p.Descricao</b></p>
+            <div class="form">
+                <Campo Rotulo="@($"Valor ({_p.Unidade})")" Classe="s6"><input type="number" step="0.01" @bind="_valor" disabled="@(!Perfil())" /></Campo>
+                <Campo Rotulo="Padrão" Classe="s6"><input readonly value="@(Parametros.Padrao.TryGetValue(_p.Chave, out var pd) ? pd.Valor.ToString() : "—")" /></Campo>
+            </div>
+        }
+    </ChildContent>
+    <Rodape>@if (Perfil()) { <button class="btn prim" disabled="@Ocupado" @onclick="SalvarParametro"><Icone Nome="check" Tam="16" /> Salvar</button> }</Rodape>
+</Modal>
+
+<Modal @bind-Aberto="_abertoL" Titulo="Item de lista" Tamanho="pequena">
+    <ChildContent>
+        @if (_l is not null)
+        {
+            <Erros Lista="ErrosForm" />
+            <div class="form">
+                <Campo Rotulo="Lista" Classe="s12"><select @bind="_l.Tipo" disabled="@(!Perfil())">@foreach (var t in Enum.GetValues<TipoLista>()) { <option value="@t">@De(t)</option> }</select></Campo>
+                <Campo Rotulo="Código" Classe="s4"><input @bind="_l.Codigo" disabled="@(!Perfil())" /></Campo>
+                <Campo Rotulo="Nome" Obrigatorio Classe="s8"><input @bind="_l.Nome" disabled="@(!Perfil())" /></Campo>
+                <Campo Rotulo="Ordem" Classe="s4"><input type="number" @bind="_l.Ordem" disabled="@(!Perfil())" /></Campo>
+                <Campo Rotulo="" Classe="s8"><label><input type="checkbox" @bind="_l.Ativo" disabled="@(!Perfil())" /> Ativo</label></Campo>
+            </div>
+        }
+    </ChildContent>
+    <Rodape>@if (Perfil()) { <button class="btn prim" disabled="@Ocupado" @onclick="() => SalvarSimples(_l!, () => { _abertoL = false; })"><Icone Nome="check" Tam="16" /> Salvar</button> }</Rodape>
+</Modal>
+
+<Modal @bind-Aberto="_abertoT" Titulo="Tipo de documento exigido" Tamanho="media">
+    <ChildContent>
+        @if (_t is not null)
+        {
+            <Erros Lista="ErrosForm" />
+            <div class="form">
+                <Campo Rotulo="Aplica a" Classe="s4"><select @bind="_t.AplicaA" disabled="@(!Perfil())">@foreach (var a in Enum.GetValues<AplicaA>()) { <option value="@a">@De(a)</option> }</select></Campo>
+                <Campo Rotulo="Nome" Obrigatorio Classe="s8"><input @bind="_t.Nome" disabled="@(!Perfil())" /></Campo>
+                <Campo Rotulo="Descrição" Classe="s12"><input @bind="_t.Descricao" disabled="@(!Perfil())" /></Campo>
+                <Campo Rotulo="Exigido para (tipos de fornecimento)" Classe="s12">
+                    <div class="checks">
+                        @foreach (var tf in Enum.GetValues<TipoFornecimento>().Where(x => x != TipoFornecimento.Nenhum))
+                        {
+                            <label><input type="checkbox" disabled="@(!Perfil())" checked="@_t.ExigidoPara.HasFlag(tf)" @onchange="e => _t.ExigidoPara = (bool)e.Value! ? _t.ExigidoPara | tf : _t.ExigidoPara & ~tf" /> @De(tf)</label>
+                        }
+                    </div>
+                </Campo>
+                <Campo Rotulo="Validade padrão (dias)" Classe="s4"><input type="number" @bind="_t.ValidadePadraoDias" disabled="@(!Perfil())" /></Campo>
+                <Campo Rotulo="Alerta antes (dias)" Classe="s4"><input type="number" @bind="_t.DiasAlertaAntesVencimento" disabled="@(!Perfil())" /></Campo>
+                <Campo Rotulo="Regras" Classe="s12">
+                    <div class="checks">
+                        <label><input type="checkbox" @bind="_t.Obrigatorio" disabled="@(!Perfil())" /> Obrigatório</label>
+                        <label><input type="checkbox" @bind="_t.PorEntrega" disabled="@(!Perfil())" /> Exigido a cada entrega</label>
+                        <label><input type="checkbox" @bind="_t.BloqueiaQuandoVencido" disabled="@(!Perfil())" /> Bloqueia quando vencido</label>
+                        <label><input type="checkbox" @bind="_t.ContemDadoSensivel" disabled="@(!Perfil())" /> Contém dado pessoal sensível</label>
+                        <label><input type="checkbox" @bind="_t.Ativo" disabled="@(!Perfil())" /> Ativo</label>
+                    </div>
+                </Campo>
+            </div>
+        }
+    </ChildContent>
+    <Rodape>@if (Perfil()) { <button class="btn prim" disabled="@Ocupado" @onclick="() => SalvarSimples(_t!, () => { _abertoT = false; })"><Icone Nome="check" Tam="16" /> Salvar</button> }</Rodape>
+</Modal>
+
+@code {
+    private IGrade? GradeAtual => _aba switch { "param" => _gP, "listas" => _gL, _ => _gT };
+    private Grade<Parametro>? _gP;
+    private Grade<ItemLista>? _gL;
+    private Grade<TipoDocumentoExigido>? _gT;
+    private List<Parametro>? _params;
+    private List<ItemLista>? _listas;
+    private List<TipoDocumentoExigido>? _tipos;
+    private Parametro? _p;
+    private ItemLista? _l;
+    private TipoDocumentoExigido? _t;
+    private decimal _valor;
+    private bool _abertoP, _abertoL, _abertoT;
+    private string _aba = "param";
+    private static readonly List<(string, string)> _abas = [("param", "Parâmetros"), ("listas", "Listas"), ("tipos", "Documentos exigidos")];
+
+    protected override Task OnInitializedAsync() => Carregar();
+
+    private async Task Carregar()
+    {
+        await using var db = Fabrica.Criar();
+        _params = await db.Parametros.AsNoTracking().OrderBy(p => p.Grupo).ThenBy(p => p.Chave).ToListAsync();
+        _listas = await db.Listas.AsNoTracking().OrderBy(l => l.Tipo).ThenBy(l => l.Ordem).ThenBy(l => l.Nome).ToListAsync();
+        _tipos = await db.TiposDocumento.AsNoTracking().OrderBy(t => t.AplicaA).ThenBy(t => t.Nome).ToListAsync();
+    }
+
+    private void Novo()
+    {
+        if (!Perfil()) return;
+        ErrosForm = null;
+        if (_aba == "listas") { _l = new ItemLista { Tipo = TipoLista.Atividade }; _abertoL = true; }
+        else if (_aba == "tipos") { _t = new TipoDocumentoExigido { AplicaA = AplicaA.Fornecedor }; _abertoT = true; }
+        else Notif.Aviso("Parâmetros são fixos; altere o valor.");
+    }
+
+    private async Task SalvarParametro()
+    {
+        var ok = await Executar(async () =>
+        {
+            if (_valor < 0) throw new RegraDeNegocioException("Valor não pode ser negativo.");
+            if (_p!.Chave.StartsWith("AVAL.PESO") && _valor > 1) throw new RegraDeNegocioException("Peso vai de 0 a 1 (ex.: 0,25).");
+            await using var db = Fabrica.Criar();
+            var p = await db.Parametros.FirstAsync(x => x.Id == _p.Id);
+            p.Valor = _valor;
+            await db.SaveChangesAsync();
+            if (_p.Chave.StartsWith("AVAL.PESO"))
+            {
+                var soma = await db.Parametros.Where(x => x.Chave.StartsWith("AVAL.PESO")).SumAsync(x => x.Valor);
+                if (soma != 1) Notif.Aviso($"Soma dos pesos = {soma:0.##}. A nota é normalizada, mas o recomendado é somar 1.");
+            }
+        }, "Parâmetro alterado.");
+        if (ok) { _abertoP = false; await Carregar(); }
+    }
+
+    private async Task SalvarSimples<T>(T item, Action fechar) where T : EntidadeAuditavel
+    {
+        var ok = await Executar(async () =>
+        {
+            var nome = item switch { ItemLista l => l.Nome, TipoDocumentoExigido t => t.Nome, _ => "x" };
+            if (string.IsNullOrWhiteSpace(nome)) throw new RegraDeNegocioException("Informe o nome.");
+            await using var db = Fabrica.Criar();
+            await Grafo.SalvarAsync(db, item); await db.SaveChangesAsync();
+        }, "Salvo.");
+        if (ok) { fechar(); await Carregar(); }
+    }
+}

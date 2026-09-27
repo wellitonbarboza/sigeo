@@ -1,0 +1,10 @@
+@if (Lista is { Count: > 0 })
+{
+    <div class="alerta erro"><Icone Nome="exclamacao" />
+        @if (Lista.Count == 1) { <div>@Lista[0]</div> }
+        else { <ul>@foreach (var e in Lista) { <li>@e</li> }</ul> }
+    </div>
+}
+@code {
+    [Parameter] public IReadOnlyList<string>? Lista { get; set; }
+}

@@ -1,0 +1,130 @@
+@page "/fornecedores/qualificacao"
+@inherits PaginaBase
+@inject SuprimentosServico Sup
+@inject NavigationManager Nav
+
+<Pagina Titulo="Qualificação de fornecedores" Grade="_grade" AoNovo="Novo" AoAtualizar="Carregar">
+    <ChildContent>
+        <div class="pagina">
+            <div class="kpis">
+                <Kpi Rotulo="Qualificações vigentes" Valor="@_itens?.Count(q => q.Resultado == ResultadoQualificacao.Qualificado && (q.Validade == null || q.Validade >= Hoje))" Tom="ok" />
+                <Kpi Rotulo="Vencendo em 60 dias" Valor="@_itens?.Count(q => q.Resultado == ResultadoQualificacao.Qualificado && q.Validade >= Hoje && q.Validade <= Hoje.AddDays(60))" Tom="aviso" />
+                <Kpi Rotulo="Vencidas" Valor="@_itens?.Count(q => q.Resultado == ResultadoQualificacao.Qualificado && q.Validade < Hoje)" Tom="erro" />
+                <Kpi Rotulo="PSQ não conforme" Valor="@_itens?.Count(q => q.Psq == SituacaoPsq.NaoConforme)" Sub="compra vedada" Tom="erro" />
+            </div>
+            <Grade T="Linha" @ref="_grade" Itens="_itens" AoClicar="l => Abrir(l.Id)" NomeExportacao="qualificacoes" CriadoPor="l => l.CriadoPor">
+                <Colunas>
+                    <Coluna T="Linha" Titulo="Fornecedor" Valor="l => l.Fornecedor" />
+                    <Coluna T="Linha" Titulo="Tipo" Valor="l => l.Tipo" />
+                    <Coluna T="Linha" Titulo="Escopo" Valor="l => l.Escopo" />
+                    <Coluna T="Linha" Titulo="Critério" Valor="l => l.Criterio" />
+                    <Coluna T="Linha" Titulo="PSQ" Valor="l => l.Psq"><Modelo><Selo Texto="@De(context.Psq)" Tom="@Tom(context.Psq)" /></Modelo></Coluna>
+                    <Coluna T="Linha" Titulo="Qualificado em" Valor="l => l.Data" />
+                    <Coluna T="Linha" Titulo="Validade" Valor="l => l.Validade" />
+                    <Coluna T="Linha" Titulo="Resultado" Valor="l => l.Resultado"><Modelo><Selo Texto="@De(context.Resultado)" Tom="@Tom(context.Resultado)" /></Modelo></Coluna>
+                    <Coluna T="Linha" Titulo="Responsável" Valor="l => l.Responsavel" />
+                </Colunas>
+            </Grade>
+        </div>
+    </ChildContent>
+    <Faixa><b>Qualificação</b><span>Por escopo: material controlado ou serviço (ITS)</span><span>PSQ/INMETRO consultado · "Não conforme" = compra vedada</span><span>Validade: material @_p?.Int(Parametros.ValidadeQualifMaterialMeses) meses · serviço @_p?.Int(Parametros.ValidadeQualifServicoMeses) meses · laboratório conforme enquadramento</span></Faixa>
+</Pagina>
+
+<Modal @bind-Aberto="_aberto" Titulo="Qualificação de fornecedor">
+    <ChildContent>
+        @if (_q is not null)
+        {
+            <Erros Lista="ErrosForm" />
+            <div class="form">
+                <Campo Rotulo="Fornecedor" Obrigatorio Classe="s8"><select @bind="_q.FornecedorId"><option value="@Guid.Empty">Selecione…</option>@foreach (var f in _fornecedores) { <option value="@f.Id">@f.Texto</option> }</select></Campo>
+                <Campo Rotulo="Data da qualificação" Obrigatorio Classe="s4"><input type="date" @bind="_q.DataQualificacao" /></Campo>
+                <Campo Rotulo="Tipo de fornecimento" Obrigatorio Classe="s12">
+                    <div class="checks">
+                        @foreach (var t in Enum.GetValues<TipoFornecimento>().Where(t => t != TipoFornecimento.Nenhum))
+                        {
+                            <label><input type="checkbox" checked="@_q.TipoFornecimento.HasFlag(t)" @onchange="e => _q.TipoFornecimento = (bool)e.Value! ? _q.TipoFornecimento | t : _q.TipoFornecimento & ~t" /> @De(t)</label>
+                        }
+                    </div>
+                </Campo>
+                @if (_q.TipoFornecimento.HasFlag(TipoFornecimento.Material))
+                {
+                    <Campo Rotulo="Escopo – material controlado" Obrigatorio Classe="s6"><select @bind="_q.MaterialControladoId"><option value="">Selecione…</option>@foreach (var m in _materiais) { <option value="@m.Id">@m.Texto</option> }</select></Campo>
+                }
+                @if (_q.TipoFornecimento.HasFlag(TipoFornecimento.ServicoObra))
+                {
+                    <Campo Rotulo="Escopo – serviço (ITS)" Obrigatorio Classe="s6"><select @bind="_q.ServicoControladoId"><option value="">Selecione…</option>@foreach (var s in _servicos) { <option value="@s.Id">@s.Texto</option> }</select></Campo>
+                }
+                <Campo Rotulo="Critério de qualificação" Obrigatorio Classe="s6"><select @bind="_q.CriterioQualificacao"><option value="">Selecione…</option>@foreach (var c in _criterios) { <option>@c</option> }</select></Campo>
+                <Campo Rotulo="Situação no PSQ" Classe="s3"><select @bind="_q.Psq">@foreach (var s in Enum.GetValues<SituacaoPsq>()) { <option value="@s">@De(s)</option> }</select></Campo>
+                <Campo Rotulo="Data consulta PSQ" Classe="s3"><input type="date" @bind="_q.DataConsultaPsq" /></Campo>
+                <Campo Rotulo="Certificado SBAC / ISO" Classe="s6"><input @bind="_q.CertificadoSbac" /></Campo>
+                @if (_q.TipoFornecimento.HasFlag(TipoFornecimento.Laboratorio))
+                {
+                    <Campo Rotulo="Enquadramento do laboratório" Obrigatorio Classe="s6"><select @bind="_q.LaboratorioEnquadramento">@foreach (var e in Enum.GetValues<EnquadramentoLaboratorio>()) { <option value="@e">@De(e)</option> }</select></Campo>
+                    @if (_q.LaboratorioEnquadramento >= EnquadramentoLaboratorio.C_Avaliado)
+                    {
+                        <Campo Rotulo="Avaliador (treinado NBR ISO/IEC 17025)" Obrigatorio Classe="s6"><input @bind="_q.AvaliadorLaboratorio" /></Campo>
+                    }
+                }
+                <Campo Rotulo="Resultado" Obrigatorio Classe="s4"><select @bind="_q.Resultado">@foreach (var r in Enum.GetValues<ResultadoQualificacao>()) { <option value="@r">@De(r)</option> }</select></Campo>
+                <Campo Rotulo="Responsável" Classe="s5"><input @bind="_q.ResponsavelNome" /></Campo>
+                <Campo Rotulo="Validade (calculada)" Classe="s3"><input readonly value="@(_q.DataValidade is null ? "ao salvar" : Data(_q.DataValidade))" /></Campo>
+                <Campo Rotulo="" Classe="s12"><label><input type="checkbox" @bind="_q.QualificadoPorHistorico" /> Qualificado por histórico de fornecimento (sem problemas registrados)</label></Campo>
+                <Campo Rotulo="Observação" Classe="s12"><textarea @bind="_q.Observacao"></textarea></Campo>
+            </div>
+            @if (_q.CriadoEm != default) { <Anexos Entidade="Qualificacao" EntidadeId="_q.Id" Categoria="Evidencia" Titulo="Evidências (consulta PSQ, certificados, visita técnica)" /> }
+        }
+    </ChildContent>
+    <Rodape><button class="btn prim" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="16" /> Salvar</button></Rodape>
+</Modal>
+
+@code {
+    private sealed record Linha(Guid Id, string Fornecedor, TipoFornecimento Tipo, string? Escopo, string Criterio, SituacaoPsq Psq, DateOnly Data, DateOnly? Validade, ResultadoQualificacao Resultado, string? Responsavel, string CriadoPor);
+    private Grade<Linha>? _grade;
+    private List<Linha>? _itens;
+    private FornecedorQualificacao? _q;
+    private ParametrosVigentes? _p;
+    private bool _aberto;
+    private Guid? _filtro;
+    private List<Opcao> _fornecedores = [], _materiais = [], _servicos = [];
+    private List<string> _criterios = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using (var db = Fabrica.Criar()) _p = await ParametrosServico.CarregarAsync(db);
+        _fornecedores = await Cat.FornecedoresAsync(); _materiais = await Cat.MateriaisAsync(); _servicos = await Cat.ServicosAsync();
+        _criterios = await Cat.ListaAsync(TipoLista.CriterioQualificacao);
+        if (Nav.Uri.Contains("?f=") && Guid.TryParse(Nav.Uri.Split("?f=")[1], out var f)) _filtro = f;
+        await Carregar();
+        if (_filtro is not null && _itens!.Count == 0) { Novo(); _q!.FornecedorId = _filtro.Value; }
+    }
+
+    private async Task Carregar()
+    {
+        await using var db = Fabrica.Criar();
+        var q = db.Qualificacoes.AsNoTracking();
+        if (_filtro is { } f) q = q.Where(x => x.FornecedorId == f);
+        _itens = await q.OrderByDescending(x => x.DataQualificacao)
+            .Select(x => new Linha(x.Id, x.Fornecedor.RazaoSocial, x.TipoFornecimento,
+                x.MaterialControlado != null ? x.MaterialControlado.Nome : x.ServicoControlado != null ? x.ServicoControlado.Nome : null,
+                x.CriterioQualificacao, x.Psq, x.DataQualificacao, x.DataValidade, x.Resultado, x.ResponsavelNome, x.CriadoPor)).ToListAsync();
+    }
+
+    private void Novo()
+    {
+        _q = new FornecedorQualificacao { DataQualificacao = Hoje, ResponsavelNome = Usuario.Nome, FornecedorId = _filtro ?? Guid.Empty };
+        ErrosForm = null; _aberto = true;
+    }
+
+    private async Task Abrir(Guid id)
+    {
+        await using var db = Fabrica.Criar();
+        _q = await db.Qualificacoes.AsNoTracking().FirstAsync(x => x.Id == id);
+        ErrosForm = null; _aberto = true;
+    }
+
+    private async Task Salvar()
+    {
+        if (await Executar(() => Sup.SalvarQualificacaoAsync(_q!), "Qualificação salva — status do fornecedor recalculado.")) { _aberto = false; await Carregar(); }
+    }
+}

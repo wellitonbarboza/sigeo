@@ -1,0 +1,48 @@
+@page "/login"
+@attribute [AllowAnonymous]
+@attribute [ExcludeFromInteractiveRouting]
+@layout LayoutPublico
+@inject FabricaSistema Sistema
+@inject IConfiguration Cfg
+@inject IWebHostEnvironment Env
+
+<PageTitle>Entrar · QualyHub</PageTitle>
+<div class="login">
+    <div class="caixa">
+        <div style="background:#2f3a4b;border-radius:10px;width:fit-content"><Logo /></div>
+        <h1>Entrar no QualyHub</h1>
+        <p class="mudo">Suprimentos, qualidade e documentos do SGQ em um só lugar.</p>
+        @if (Erro is not null) { <div class="alerta erro">Usuário inválido ou inativo.</div> }
+        @if (Autenticacao.ModoEntra(Cfg))
+        {
+            <a class="btn prim" style="margin-top:16px" href="conta/entrar-microsoft">Entrar com a conta Microsoft</a>
+        }
+        else if (Env.IsProduction())
+        {
+            <div class="alerta erro">Configure o Entra ID (AzureAd) para usar em produção.</div>
+        }
+        else
+        {
+            <div class="alerta info" style="margin-top:16px"><Icone Nome="info" /> Modo local de testes: escolha o usuário (sem senha). Em produção o login é pela conta Microsoft (Entra ID).</div>
+            <form method="post" action="conta/entrar" class="usuarios">
+                <input type="hidden" name="retorno" value="@Retorno" />
+                @foreach (var u in _usuarios)
+                {
+                    <button type="submit" name="usuario" value="@u.Id"><b>@u.Nome</b><small>@Rotulos.De(u.Perfil) · @(u.Funcao ?? "—") · @u.Email</small></button>
+                }
+            </form>
+        }
+    </div>
+</div>
+
+@code {
+    [SupplyParameterFromQuery] public string? Retorno { get; set; }
+    [SupplyParameterFromQuery] public string? Erro { get; set; }
+    private List<Usuario> _usuarios = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = Sistema.Criar(Guid.Empty, "Login");
+        _usuarios = await db.Usuarios.IgnoreQueryFilters().AsNoTracking().Where(u => u.Ativo && !u.Excluido).OrderBy(u => u.Perfil).ThenBy(u => u.Nome).ToListAsync();
+    }
+}
