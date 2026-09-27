@@ -1,0 +1,126 @@
+@page "/obra/rnc"
+@inherits PaginaBase
+@inject QualidadeObraServico Qob
+@inject NavigationManager Nav
+
+<Pagina Titulo="Não conformidades" Grade="_grade" AoNovo="Novo" AoAtualizar="Carregar">
+    <ChildContent>
+        <div class="pagina">
+            <div class="kpis">
+                <Kpi Rotulo="RNC abertas" Valor="@_itens?.Count(r => Aberta(r.Status))" Tom="aviso" />
+                <Kpi Rotulo="Origem FVS" Valor="@_itens?.Count(r => Aberta(r.Status) && r.Origem == OrigemRnc.Fvs)" />
+                <Kpi Rotulo="Origem FVM / fornecedor" Valor="@_itens?.Count(r => Aberta(r.Status) && r.Origem is OrigemRnc.FvmRecebimento or OrigemRnc.Fornecedor)" />
+                <Kpi Rotulo="Origem auditoria" Valor="@_itens?.Count(r => Aberta(r.Status) && r.Origem is OrigemRnc.AuditoriaInterna or OrigemRnc.AuditoriaExterna)" />
+                <Kpi Rotulo="Prazo vencido" Valor="@_itens?.Count(r => r.Vencida(Hoje))" Tom="erro" />
+            </div>
+            <Grade T="Rnc" @ref="_grade" Itens="_itens" AoClicar="r => Abrir(r.Id)" NomeExportacao="rnc" CriadoPor="r => r.CriadoPor">
+                <Colunas>
+                    <Coluna T="Rnc" Titulo="Nº" Valor="r => r.Numero" Largura="90px" />
+                    <Coluna T="Rnc" Titulo="Origem" Valor="r => r.Origem" />
+                    <Coluna T="Rnc" Titulo="Referência" Valor="r => r.Referencia" />
+                    <Coluna T="Rnc" Titulo="Descrição" Valor="r => r.Descricao" />
+                    <Coluna T="Rnc" Titulo="Local / fornecedor" Valor="r => LocalForn(r)" />
+                    <Coluna T="Rnc" Titulo="Gravidade" Valor="r => r.Gravidade"><Modelo><Selo Texto="@De(context.Gravidade)" Tom="@Tom(context.Gravidade)" /></Modelo></Coluna>
+                    <Coluna T="Rnc" Titulo="Disposição" Valor="r => r.Disposicao" />
+                    <Coluna T="Rnc" Titulo="Ação corretiva" Valor='r => r.AcaoCorretivaId == null ? (r.ExigeAcao ? "Exigida" : "Não exigida") : _acs.GetValueOrDefault(r.AcaoCorretivaId.Value)' />
+                    <Coluna T="Rnc" Titulo="Prazo" Valor="r => r.Prazo"><Modelo><span class="@(context.Vencida(Hoje) ? "texto-erro" : "")">@Data(context.Prazo)</span></Modelo></Coluna>
+                    <Coluna T="Rnc" Titulo="Status" Valor="r => r.Status"><Modelo><Selo Texto="@De(context.Status)" Tom="@Tom(context.Status)" /></Modelo></Coluna>
+                </Colunas>
+            </Grade>
+        </div>
+    </ChildContent>
+    <Faixa><b>Tela 36 · RNC</b><span>Origem: FVS, FVM, auditoria, reclamação, segurança</span><span>Disposição imediata e bloqueio · gravidade alta ou reincidência exige ação corretiva</span></Faixa>
+</Pagina>
+
+<Modal @bind-Aberto="_aberto" Titulo="@(string.IsNullOrEmpty(_r?.Numero) ? "Nova não conformidade" : $"{_r.Numero} — registro de não conformidade")">
+    <ChildContent>
+        @if (_r is not null)
+        {
+            <Erros Lista="ErrosForm" />
+            <div class="form">
+                <Campo Rotulo="Origem" Obrigatorio Classe="s3"><select @bind="_r.Origem" disabled="@(!Novo_)">@foreach (var o in Enum.GetValues<OrigemRnc>()) { <option value="@o">@De(o)</option> }</select></Campo>
+                <Campo Rotulo="Referência" Classe="s3"><input @bind="_r.Referencia" disabled="@(!Novo_)" /></Campo>
+                <Campo Rotulo="Obra" Classe="s3"><select value="@_r.ObraId" @onchange="async e => { _r.ObraId = Guid.TryParse(e.Value?.ToString(), out var g) ? g : null; _locais = _r.ObraId is { } o ? await Cat.LocaisAsync(o) : []; }" disabled="@Encerrada"><option value="">—</option>@foreach (var o in _obras) { <option value="@o.Id">@o.Texto</option> }</select></Campo>
+                <Campo Rotulo="Local" Classe="s3"><select @bind="_r.LocalId" disabled="@Encerrada"><option value="">—</option>@foreach (var l in _locais) { <option value="@l.Id">@l.Texto</option> }</select></Campo>
+                <Campo Rotulo="Descrição" Obrigatorio Classe="s12"><textarea @bind="_r.Descricao" disabled="@Encerrada"></textarea></Campo>
+                <Campo Rotulo="Fornecedor / prestador" Classe="s4"><select @bind="_r.FornecedorId" disabled="@Encerrada"><option value="">—</option>@foreach (var f in _fornecedores) { <option value="@f.Id">@f.Texto</option> }</select></Campo>
+                <Campo Rotulo="Classificação" Classe="s3"><select @bind="_r.Classificacao" disabled="@Encerrada">@foreach (var c in Enum.GetValues<ClassificacaoRnc>()) { <option value="@c">@De(c)</option> }</select></Campo>
+                <Campo Rotulo="Gravidade" Classe="s2"><select @bind="_r.Gravidade" disabled="@Encerrada">@foreach (var g in Enum.GetValues<Gravidade>()) { <option value="@g">@De(g)</option> }</select></Campo>
+                <Campo Rotulo="Prazo" Obrigatorio Classe="s3"><input type="date" @bind="_r.Prazo" disabled="@Encerrada" /></Campo>
+                <Campo Rotulo="Disposição (tratamento imediato)" Obrigatorio Classe="s6"><select @bind="_r.Disposicao" disabled="@Encerrada"><option value="">Selecione…</option>@foreach (var d in QualyHub.Web.Components.Pages.QualidadeObra.Fvss.Disposicoes.Append("Tratar conforme ação corretiva").Append("Paralisação da frente até correção")) { <option>@d</option> }</select></Campo>
+                <Campo Rotulo="Responsável" Obrigatorio Classe="s6"><select @bind="_r.ResponsavelId" disabled="@Encerrada"><option value="">—</option>@foreach (var u in _usuarios) { <option value="@u.Id">@u.Texto</option> }</select></Campo>
+                <Campo Rotulo="Concessão / aceite (aprovação do projetista / Diretoria)" Classe="s8"><input @bind="_r.Concessao" disabled="@Encerrada" /></Campo>
+                <Campo Rotulo="Exige ação corretiva?" Classe="s4"><select @bind="_r.ExigeAcao" disabled="@Encerrada"><option value="False">Não — caso isolado</option><option value="True">Sim (gravidade alta / reincidência)</option></select></Campo>
+                @if (!string.IsNullOrEmpty(_r.LocaisAfetados)) { <Campo Rotulo="Locais afetados (rastreabilidade do lote)" Classe="s12"><input readonly value="@_r.LocaisAfetados" /></Campo> }
+            </div>
+            @if (_r.Origem == OrigemRnc.Fvs && _r.ReferenciaId is { } fid) { <div class="alerta aviso"><Icone Nome="alerta" /> Etapa seguinte do local bloqueada até a reinspeção da <a href="obra/fvs?id=@fid">&nbsp;FVS&nbsp;</a> ser aprovada. Prestador avisado (conta na nota de qualidade do serviço da medição).</div> }
+            @if (_r.AcaoCorretivaId is { } ac) { <div class="alerta info"><Icone Nome="ferramenta" /> Ação corretiva <a href="obra/acoes?id=@ac">&nbsp;@_acs.GetValueOrDefault(ac)</a></div> }
+            @if (!Novo_) { <Anexos Entidade="Rnc" EntidadeId="_r.Id" Categoria="Evidencia" Titulo="Evidências e fotos" SomenteLeitura="Encerrada" /> }
+        }
+    </ChildContent>
+    <Rodape>
+        @if (_r is not null && !Encerrada)
+        {
+            @if (!Novo_ && _r.AcaoCorretivaId is null) { <button class="btn sec" disabled="@Ocupado" @onclick="AbrirAc"><Icone Nome="ferramenta" Tam="16" /> Abrir ação corretiva</button> }
+            @if (!Novo_) { <button class="btn ok" disabled="@Ocupado" @onclick="Encerrar"><Icone Nome="check" Tam="16" /> Encerrar RNC</button> }
+            <button class="btn prim" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="16" /> Salvar</button>
+        }
+    </Rodape>
+</Modal>
+
+@code {
+    private Grade<Rnc>? _grade;
+    private List<Rnc>? _itens;
+    private Rnc? _r;
+    private bool _aberto;
+    private Dictionary<Guid, string> _acs = [], _locNomes = [];
+    private List<Opcao> _obras = [], _locais = [], _fornecedores = [], _usuarios = [];
+    private bool Novo_ => _r is not null && string.IsNullOrEmpty(_r.Numero);
+    private bool Encerrada => _r?.Status is StatusRnc.Encerrada or StatusRnc.Cancelada;
+    private static bool Aberta(StatusRnc s) => s is StatusRnc.Aberta or StatusRnc.EmTratamento or StatusRnc.AguardandoEficacia;
+    private string? LocalForn(Rnc r) => r.LocalId is { } l ? _locNomes.GetValueOrDefault(l) : r.FornecedorId is { } f ? _fornecedores.FirstOrDefault(x => x.Id == f)?.Texto : null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _obras = await Cat.ObrasAsync(); _fornecedores = await Cat.FornecedoresAsync(); _usuarios = await Cat.UsuariosAsync();
+        await Carregar();
+        if (Nav.Uri.Contains("?id=") && Guid.TryParse(Nav.Uri.Split("?id=")[1], out var id)) await Abrir(id);
+    }
+
+    private async Task Carregar()
+    {
+        await using var db = Fabrica.Criar();
+        _itens = await db.Rncs.AsNoTracking().OrderByDescending(r => r.Numero).ToListAsync();
+        _acs = await db.AcoesCorretivas.AsNoTracking().ToDictionaryAsync(a => a.Id, a => a.Numero);
+        _locNomes = await db.Locais.AsNoTracking().ToDictionaryAsync(l => l.Id, l => l.Nome);
+    }
+
+    private void Novo()
+    {
+        _r = new Rnc { Origem = OrigemRnc.ProcessoInterno, Prazo = Hoje.AddDays(7), ResponsavelId = Usuario.UsuarioId, ObraId = _obras.Count == 1 ? _obras[0].Id : null };
+        ErrosForm = null; _aberto = true;
+    }
+
+    private async Task Abrir(Guid id)
+    {
+        await using var db = Fabrica.Criar();
+        _r = await db.Rncs.AsNoTracking().FirstAsync(x => x.Id == id);
+        _locais = _r.ObraId is { } o ? await Cat.LocaisAsync(o) : [];
+        ErrosForm = null; _aberto = true;
+    }
+
+    private async Task Salvar()
+    {
+        _r!.ResponsavelNome = _usuarios.FirstOrDefault(u => u.Id == _r.ResponsavelId)?.Texto ?? _r.ResponsavelNome;
+        Guid id = default;
+        if (await Executar(async () => id = await Qob.SalvarRncAsync(_r), "RNC salva.")) { await Carregar(); await Abrir(id); }
+    }
+
+    private async Task Encerrar() { if (await Executar(() => Qob.EncerrarRncAsync(_r!.Id), "RNC atualizada.")) { await Carregar(); await Abrir(_r!.Id); } }
+
+    private async Task AbrirAc()
+    {
+        Guid id = default;
+        if (await Executar(async () => id = await Qob.AbrirAcaoCorretivaAsync([_r!.Id], null, _r!.Descricao), "Ação corretiva aberta.")) Nav.NavigateTo($"obra/acoes?id={id}");
+    }
+}

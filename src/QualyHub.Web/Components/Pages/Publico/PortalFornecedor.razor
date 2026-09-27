@@ -18,6 +18,42 @@
         </header>
         @if (_s.Alerta is not null) { <div class="alerta aviso"><Icone Nome="alerta" /> @_s.Alerta</div> }
         @if (_msg is not null) { <div class="alerta @(_ok ? "ok" : "erro")">@_msg</div> }
+        <div class="abas" style="margin-bottom:10px">
+            <button class="@(_aba == "empresa" ? "on" : "")" @onclick='() => _aba = "empresa"'>Documentos da empresa</button>
+            <button class="@(_aba == "func" ? "on" : "")" @onclick='() => _aba = "func"'>Funcionários (@_s.Colaboradores.Count)</button>
+        </div>
+        @if (_aba == "func")
+        {
+            <table class="itens">
+                <thead><tr><th>Funcionário</th><th>Função</th><th>Situação</th><th>Pendências</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var c in _s.Colaboradores)
+                    {
+                        <tr><td><b>@c.Nome</b></td><td>@c.Funcao</td><td><Selo Texto="@(Enum.TryParse<SituacaoColaborador>(c.Situacao, out var sc) ? Rotulos.De(sc) : c.Situacao)" Tom="@(Enum.TryParse<SituacaoColaborador>(c.Situacao, out var sc2) ? Rotulos.Tom(sc2) : "neutro")" /></td>
+                            <td><small>@c.Pendencias</small></td><td><button class="btn sec pq" @onclick="() => { _colab = c; _exig = null; _tipo = null; _msg = null; }">Enviar documento</button></td></tr>
+                    }
+                    @if (_s.Colaboradores.Count == 0) { <tr><td colspan="5" class="mudo">Nenhum funcionário cadastrado para esta empresa na obra. Informe a construtora.</td></tr> }
+                </tbody>
+            </table>
+            @if (_colab is not null)
+            {
+                <div class="caixa-envio">
+                    <h3>@_colab.Nome — enviar documento</h3>
+                    <div class="form">
+                        <Campo Rotulo="Documento" Obrigatorio Classe="s6"><select @bind="_exig"><option value="">Selecione…</option>@foreach (var e in _s.Exigencias) { <option value="@e.Id">@e.Nome</option> }</select></Campo>
+                        <Campo Rotulo="Emissão / exame" Obrigatorio Classe="s3"><input type="date" @bind="_emissaoC" /></Campo>
+                        <Campo Rotulo="Validade" Classe="s3"><input type="date" @bind="_validade" /></Campo>
+                        <Campo Rotulo="Seu nome (responsável)" Obrigatorio Classe="s6"><input @bind="_responsavel" /></Campo>
+                        <Campo Rotulo="Arquivo (PDF, JPG ou PNG)" Obrigatorio Classe="s6"><InputFile OnChange="e => _arquivo = e.File" accept=".pdf,.jpg,.jpeg,.png" /></Campo>
+                    </div>
+                    <p class="mudo">ASO: envie só o atestado (apto/inapto e aptidões). Não envie exames ou diagnósticos. O documento vale após validação do SST da construtora.</p>
+                    <button class="btn prim" disabled="@_enviando" @onclick="EnviarColab"><Icone Nome="enviar" Tam="16" /> Enviar para validação</button>
+                    <button class="btn sec" @onclick="() => _colab = null">Cancelar</button>
+                </div>
+            }
+        }
+        else
+        {
         <table class="itens">
             <thead><tr><th>Documento</th><th>Situação</th><th>Detalhe</th><th></th></tr></thead>
             <tbody>
@@ -48,6 +84,7 @@
                 <button class="btn sec" @onclick="() => _tipo = null">Cancelar</button>
             </div>
         }
+        }
         <p class="mudo" style="margin-top:18px">Os documentos enviados entram em validação pela construtora. Acesso registrado (data e IP). Não compartilhe este link.</p>
     }
 </div>
@@ -61,6 +98,26 @@
     private DateOnly? _emissao, _validade;
     private IBrowserFile? _arquivo;
     private string? _ip;
+    private string _aba = "empresa";
+    private ColaboradorPortal? _colab;
+    private Guid? _exig;
+    private DateOnly _emissaoC = DateOnly.FromDateTime(DateTime.Today);
+
+    private async Task EnviarColab()
+    {
+        if (_arquivo is null || _exig is null) { _ok = false; _msg = "Escolha o documento e o arquivo."; return; }
+        _enviando = true;
+        try
+        {
+            await using var s = _arquivo.OpenReadStream(15 * 1024 * 1024);
+            await Portal.ReceberDocColaboradorAsync(Token, _colab!.Id, _exig.Value, _emissaoC, _validade, _responsavel ?? "", s, _arquivo.Name, _arquivo.ContentType);
+            _ok = true; _msg = $"Documento de {_colab.Nome} enviado. Aguarde a validação do SST."; _colab = null;
+            await Abrir();
+        }
+        catch (RegraDeNegocioException e) { _ok = false; _msg = e.Message; }
+        catch (IOException) { _ok = false; _msg = "Arquivo acima de 15 MB."; }
+        finally { _enviando = false; }
+    }
 
     protected override async Task OnInitializedAsync()
     {

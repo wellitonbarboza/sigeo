@@ -2,6 +2,7 @@
 @inherits PaginaBase
 @inject SuprimentosServico Sup
 @inject NavigationManager Nav
+@inject QualidadeObraServico Qob
 
 <Pagina Titulo="Recebimento de materiais / FVM" Grade="_grade" AoNovo="Novo" AoAtualizar="Carregar">
     <ChildContent>
@@ -62,6 +63,34 @@
                 </tbody>
             </table>
 
+            @if (_r.FvmItens.Count > 0)
+            {
+                <div class="secao"><Icone Nome="lista" /> Itens de verificação na chegada — @(_modelo?.Codigo ?? "modelo FVM") @(_modelo is null ? "" : _modelo.Rotulo)</div>
+                <table class="itens">
+                    <thead><tr><th>#</th><th>Item</th><th>Critério</th><th>Medido</th><th style="min-width:220px">Resultado</th><th>Obs.</th><th>Foto</th></tr></thead>
+                    <tbody>
+                        @foreach (var i in _r.FvmItens.OrderBy(i => i.Ordem))
+                        {
+                            <tr class="@(i.Resultado == ResultadoItem.NaoConforme ? "alerta-linha" : "")">
+                                <td>@i.Ordem</td><td>@i.Descricao @if (i.Bloqueia) { <small class="mudo">· bloqueia</small> }</td><td>@i.Criterio</td>
+                                <td style="width:90px"><input @bind="i.ValorMedido" disabled="@(!Novo_)" /></td>
+                                <td><div class="botoes-resultado">
+                                    <button class="btn pq @(i.Resultado == ResultadoItem.Conforme ? "ok" : "sec")" disabled="@(!Novo_)" @onclick="() => i.Resultado = ResultadoItem.Conforme">Conforme</button>
+                                    <button class="btn pq @(i.Resultado == ResultadoItem.NaoConforme ? "perigo-cheio" : "sec")" disabled="@(!Novo_)" @onclick="() => i.Resultado = ResultadoItem.NaoConforme">Não conf.</button>
+                                    <button class="btn pq @(i.Resultado == ResultadoItem.NaoAplica ? "prim" : "sec")" disabled="@(!Novo_)" @onclick="() => i.Resultado = ResultadoItem.NaoAplica">N/A</button></div></td>
+                                <td><input @bind="i.Observacao" disabled="@(!Novo_)" /></td>
+                                <td><Fotos Entidade="FvmItem" EntidadeId="i.Id" SomenteLeitura="!Novo_" /></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+                @if (Novo_ && _modelo is not null)
+                {
+                    <div class="alerta info"><Icone Nome="info" /> Amostragem: @_modelo.Amostragem · Norma: @_modelo.NormaReferencia @(_modelo.QuarentenaAteEnsaio ? "· lote em quarentena até ensaio aprovado" : "") @(_modelo.RastrearAplicacao ? "· rastrear aplicação do lote" : "")
+                        @if (_modelo.Ensaios.Count > 0) { <span>&nbsp;· Ensaios: @string.Join(", ", _modelo.Ensaios.Select(x => $"{x.Ensaio} ({De(x.Momento).ToLowerInvariant()})"))</span> }</div>
+                }
+            }
+            else if (Novo_ && _r.Itens.Any(i => i.MaterialControlado)) { <div class="alerta aviso"><Icone Nome="alerta" /> Material controlado sem modelo de FVM vigente: cadastre em Qualidade da Obra › Modelos de FVM.</div> }
             <div class="secao"><Icone Nome="escudo-check" /> Ficha de verificação de material (FVM)</div>
             <div class="criterios">
                 @foreach (var (nome, desc, get, set) in Criterios())
@@ -85,7 +114,47 @@
                 <Campo Rotulo="Ocorrência / não conformidade" Obrigatorio="@(_r.FvmAprovada == false || _r.TemDivergencia)" Classe="s9"><textarea @bind="_r.Ocorrencia" disabled="@(!Novo_)"></textarea></Campo>
                 @if (_r.ComunicadoEm is not null) { <div class="campo s12"><div class="alerta aviso"><Icone Nome="alerta" /> Comunicado a @_r.ComunicadoA em @DataHora(_r.ComunicadoEm)</div></div> }
             </div>
-            @if (!Novo_) { <Anexos Entidade="Recebimento" EntidadeId="_r.Id" Categoria="Documentos" Titulo="Nota fiscal, certificados, laudos, fotos" /> }
+            @if (!Novo_)
+            {
+                <div class="cabecalho-doc"><span>Lote</span><Selo Texto="@De(_r.StatusLote)" Tom="@Tom(_r.StatusLote)" />@if (_r.RncId is { } rid) { <a href="obra/rnc?id=@rid">RNC aberta</a> }</div>
+                @if (_r.Ensaios.Count > 0)
+                {
+                    <div class="secao"><Icone Nome="regua" /> Ensaios de recebimento</div>
+                    <table class="itens">
+                        <thead><tr><th>Ensaio</th><th>Amostra</th><th>Coleta</th><th>Resultado previsto</th><th>Critério</th><th>Resultado</th><th>Situação</th><th></th></tr></thead>
+                        <tbody>
+                            @foreach (var x in _r.Ensaios)
+                            {
+                                <tr class="@(x.Atrasado(Hoje) ? "alerta-linha" : "")">
+                                    <td>@x.Ensaio</td><td>@x.Amostra</td><td>@Data(x.DataColeta)</td><td>@Data(x.DataPrevista)</td><td>@x.Criterio</td>
+                                    <td>@if (x.Situacao == SituacaoEnsaio.Aguardando) { <input @bind="_resEnsaio[x.Id]" placeholder="ex.: 32,5 MPa" /> } else { @x.Resultado }</td>
+                                    <td><Selo Texto="@De(x.Situacao)" Tom="@Tom(x.Situacao)" /> @if (x.RncId is { } rr) { <a href="obra/rnc?id=@rr">RNC</a> }</td>
+                                    <td>@if (x.Situacao == SituacaoEnsaio.Aguardando) { <button class="btn ok pq" @onclick="() => Ensaio(x.Id, true)">Aprovado</button> <button class="btn perigo pq" @onclick="() => Ensaio(x.Id, false)">Reprovado</button> }</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+                @if (_r.RastrearAplicacao || _r.Aplicacoes.Count > 0)
+                {
+                    <div class="secao"><Icone Nome="casa" /> Aplicação do lote (rastreabilidade)</div>
+                    <table class="itens">
+                        <thead><tr><th>Local</th><th class="num">Quantidade</th><th>Data</th><th>FVS</th><th>Registrado por</th></tr></thead>
+                        <tbody>
+                            @foreach (var a in _r.Aplicacoes) { <tr><td>@_locNomes.GetValueOrDefault(a.LocalId)</td><td class="num">@Num(a.Quantidade, 3)</td><td>@Data(a.Data)</td><td>@(a.FvsId is null ? "—" : "vinculada")</td><td>@a.RegistradoPor</td></tr> }
+                            <tr class="total">
+                                <td><select @bind="_apLocal"><option value="">Local…</option>@foreach (var l in _locais) { <option value="@l.Id">@l.Texto</option> }</select></td>
+                                <td><input type="number" step="0.001" @bind="_apQtd" /></td>
+                                <td><input type="date" @bind="_apData" /></td>
+                                <td></td>
+                                <td><button class="btn sec pq" disabled="@Ocupado" @onclick="Aplicar">Registrar aplicação</button></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <p class="mudo">Recebido: @Num(_r.QuantidadeRecebida, 3) · aplicado: @Num(_r.Aplicacoes.Sum(a => a.Quantidade), 3). Ensaio reprovado abre RNC já com os locais onde o lote foi aplicado.</p>
+                }
+                <Anexos Entidade="Recebimento" EntidadeId="_r.Id" Categoria="Documentos" Titulo="Nota fiscal, certificados, laudos, fotos" />
+            }
         }
     </ChildContent>
     <Rodape>
@@ -147,12 +216,43 @@
             _r.Itens.Add(new RecebimentoItem { PedidoItemId = i.Id, Descricao = i.Descricao, Unidade = i.Unidade, QtdPedida = saldo, QtdRecebida = saldo,
                 MaterialControlado = i.MaterialControladoId is not null, MaterialControladoId = i.MaterialControladoId });
         }
+        _r.FvmItens.Clear(); _modelo = null;
+        if (_r.Itens.FirstOrDefault(i => i.MaterialControladoId is not null)?.MaterialControladoId is { } mat && await Qob.ModeloFvmVigenteAsync(mat) is { } m)
+        {
+            _modelo = m;
+            foreach (var it in m.Itens.OrderBy(x => x.Ordem))
+                _r.FvmItens.Add(new FvmItem { RecebimentoId = _r.Id, ItemVerificacaoId = it.Id, Ordem = it.Ordem, Descricao = it.Descricao, Criterio = it.Criterio, ValorMin = it.ValorMin, ValorMax = it.ValorMax, Bloqueia = it.Bloqueia });
+        }
+    }
+
+    private ModeloInspecao? _modelo;
+    private readonly Dictionary<Guid, string> _resEnsaio = [];
+    private Dictionary<Guid, string> _locNomes = [];
+    private List<Opcao> _locais = [];
+    private Guid? _apLocal;
+    private decimal _apQtd;
+    private DateOnly _apData;
+
+    private async Task Ensaio(Guid id, bool aprovado)
+    {
+        if (await Executar(() => Qob.RegistrarEnsaioAsync(id, _resEnsaio.GetValueOrDefault(id) ?? "", aprovado, null), aprovado ? "Ensaio aprovado." : "Ensaio reprovado — RNC aberta com os locais afetados."))
+            await Abrir(_r!.Id);
+    }
+
+    private async Task Aplicar()
+    {
+        if (_apLocal is null) { Notif.Erro("Informe o local."); return; }
+        if (await Executar(() => Qob.AplicarLoteAsync(_r!.Id, _apLocal.Value, _apQtd, _apData, null), "Aplicação registrada.")) await Abrir(_r!.Id);
     }
 
     private async Task Abrir(Guid id)
     {
         await using var db = Fabrica.Criar();
-        _r = await db.Recebimentos.AsNoTracking().Include(r => r.Itens).FirstAsync(r => r.Id == id);
+        _r = await db.Recebimentos.AsNoTracking().Include(r => r.Itens).Include(r => r.FvmItens).Include(r => r.Ensaios).Include(r => r.Aplicacoes).AsSplitQuery().FirstAsync(r => r.Id == id);
+        _locais = await Cat.LocaisAsync(_r.ObraId);
+        _locNomes = _locais.ToDictionary(l => l.Id, l => l.Texto);
+        _resEnsaio.Clear(); foreach (var en in _r.Ensaios) _resEnsaio[en.Id] = en.Resultado ?? "";
+        _apLocal = null; _apQtd = 0; _apData = Hoje;
         var ped = _r.PedidoId is { } pid ? await db.Pedidos.AsNoTracking().Where(p => p.Id == pid).Select(p => p.Numero).FirstOrDefaultAsync() : 0;
         _pedidos = _r.PedidoId is { } x ? [new Opcao(x, $"Pedido {ped}")] : [];
         ErrosForm = null; _aberto = true;
@@ -163,7 +263,7 @@
         Guid id = default;
         if (await Executar(async () => id = await Sup.RegistrarRecebimentoAsync(_r!), "Recebimento registrado."))
         {
-            if (_r!.FvmAprovada == false) Notif.Aviso("FVM reprovada: plano de ação aberto para o fornecedor.");
+            if (_r!.FvmAprovada == false) Notif.Aviso("FVM reprovada: RNC e plano de ação abertos para o fornecedor.");
             await Carregar(); await Abrir(id);
         }
     }

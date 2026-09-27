@@ -13,7 +13,7 @@ public static class DependencyInjection
     /// Registra o QualyHub. Em produção a connection string usa Managed Identity
     /// (Authentication=Active Directory Default) — sem senha de banco em configuração.
     /// </summary>
-    public static IServiceCollection AddQualyHubInfra(this IServiceCollection services, string connectionString)
+    public static IServiceCollection AddQualyHubInfra(this IServiceCollection services, string connectionString, byte[]? chaveCpf = null)
     {
         services.AddSingleton(TimeProvider.System);
         services.AddScoped<AuditoriaInterceptor>();
@@ -31,6 +31,10 @@ public static class DependencyInjection
         services.AddScoped<Servicos.SuprimentosServico>();
         services.AddScoped<Servicos.DocumentosServico>();
         services.AddScoped<Servicos.PortalServico>();
+        services.AddScoped<Servicos.QualidadeObraServico>();
+        services.AddScoped<Servicos.SstServico>();
+        // LGPD: chave HMAC do CPF vem do Key Vault em produção; sem chave, gera uma efêmera (apenas desenvolvimento).
+        services.AddSingleton(new ProtecaoCpf(chaveCpf ?? System.Security.Cryptography.RandomNumberGenerator.GetBytes(32)));
         return services;
     }
 }

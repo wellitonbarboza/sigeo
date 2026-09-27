@@ -37,6 +37,7 @@ public abstract class PaginaBase : ComponentBase
             return true;
         }
         catch (ValidacaoException v) { ErrosForm = v.Erros; }
+        catch (QualyHub.Domain.Qualidade.ValidacaoFalha v) { ErrosForm = v.Erros; }
         catch (RegraDeNegocioException r) { ErrosForm = [r.Message]; }
         catch (Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException) { ErrosForm = ["Registro alterado por outra pessoa. Feche e abra novamente."]; }
         catch (Microsoft.EntityFrameworkCore.DbUpdateException e) when (e.InnerException?.Message.Contains("duplicate", StringComparison.OrdinalIgnoreCase) == true

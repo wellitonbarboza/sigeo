@@ -12,4 +12,4 @@ param sqlAutoPauseMinutos = 60
 param orcamentoMensal = 500
 param emailsAlerta = [ 'welliton@exemplo.com.br' ]
 param orcamentoInicio = '2026-10-01'
-param functionsDotnetVersao = '10.0'
+param entraClientId = '' // preenchido pelo deploy.sh após registrar o app

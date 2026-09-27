@@ -1,0 +1,53 @@
+@page "/campo/local/{Qr}"
+@layout LayoutCampo
+@inherits PaginaBase
+@inject QualidadeObraServico Qob
+@inject NavigationManager Nav
+
+<PageTitle>Local · FVS</PageTitle>
+@if (_local is null) { <p style="padding:20px">Local não encontrado (etiqueta inválida).</p> }
+else
+{
+    <header class="campo-topo"><a href="obra/mapa" class="voltar">‹</a><div><b>@_local.Nome</b><small>@_local.Codigo · @_local.Tipo</small></div></header>
+    <div class="campo-corpo">
+        <Erros Lista="ErrosForm" />
+        @foreach (var (m, fvs) in _linhas)
+        {
+            <div class="campo-card">
+                <b>@m.Texto</b>
+                @if (fvs is not null) { <small><Selo Texto="@De(fvs.Status)" Tom="@Tom(fvs.Status)" /> @fvs.Numero</small> <a class="btn prim" href="campo/fvs/@fvs.Id">Abrir FVS</a> }
+                else
+                {
+                    <select @bind="_prestador"><option value="">Prestador…</option>@foreach (var f in _fornecedores) { <option value="@f.Id">@f.Texto</option> }</select>
+                    <button class="btn prim" disabled="@Ocupado" @onclick="() => Iniciar(m.Id)">Iniciar FVS</button>
+                }
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public string Qr { get; set; } = "";
+    private Local? _local;
+    private Guid? _prestador;
+    private List<(Opcao Modelo, Fvs? Fvs)> _linhas = [];
+    private List<Opcao> _fornecedores = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _fornecedores = await Cat.FornecedoresAsync();
+        await using var db = Fabrica.Criar();
+        _local = await db.Locais.AsNoTracking().FirstOrDefaultAsync(l => l.QrToken == Qr);
+        if (_local is null) return;
+        var modelos = await Cat.ModelosAsync(TipoModelo.FVS);
+        var fvs = await db.Fvss.AsNoTracking().Where(f => f.LocalId == _local.Id && f.Status != StatusFvs.Cancelada).OrderByDescending(f => f.DataInspecao).ToListAsync();
+        _linhas = modelos.Select(m => (m, fvs.FirstOrDefault(f => f.ModeloInspecaoId == m.Id || f.ServicoControladoId.ToString() == m.Extra))).ToList();
+    }
+
+    private async Task Iniciar(Guid modelo)
+    {
+        if (_prestador is null) { ErrosForm = ["Escolha o prestador."]; return; }
+        Guid id = default;
+        if (await Executar(async () => id = await Qob.AbrirFvsAsync(modelo, _local!.Id, _prestador.Value, null, OrigemRegistro.CelularOnline))) Nav.NavigateTo($"campo/fvs/{id}");
+    }
+}

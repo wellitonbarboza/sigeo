@@ -109,6 +109,82 @@
             {
                 <Anexos Entidade="Contrato" EntidadeId="_k.Id" Categoria="Contrato" Titulo="Contrato assinado, proposta, projetos e memoriais" SomenteLeitura="false" />
             }
+            else if (_aba == "aditivos")
+            {
+                @if (_ad is null)
+                {
+                    <table class="itens">
+                        <thead><tr><th>Nº</th><th>Tipo</th><th>Justificativa</th><th class="num">Valor</th><th class="num">% acumulado</th><th>Nova vigência</th><th>Status</th></tr></thead>
+                        <tbody>
+                            @foreach (var a in _aditivos) { <tr style="cursor:pointer" @onclick="() => AbrirAditivo(a.Id)"><td>@a.Numero</td><td>@De(a.Tipo)</td><td>@a.Justificativa</td><td class="num">@Moeda(a.Valor)</td><td class="num">@a.PercAcumulado.ToString("0.##")%</td><td>@Data(a.NovaVigencia)</td><td><Selo Texto="@De(a.Status)" Tom="@Tom(a.Status)" /></td></tr> }
+                            @if (_aditivos.Count == 0) { <tr><td colspan="7" class="mudo">Nenhum aditivo.</td></tr> }
+                        </tbody>
+                    </table>
+                    @if (_k.Status == StatusContrato.Ativo) { <button class="btn sec" style="margin-top:8px" disabled="@Ocupado" @onclick="NovoAditivo"><Icone Nome="mais" Tam="14" /> Novo aditivo</button> }
+                }
+                else
+                {
+                    var editaAd = _ad.Status == StatusAditivo.EmElaboracao;
+                    <div class="cabecalho-doc"><b>@_ad.Numero</b><Selo Texto="@De(_ad.Status)" Tom="@Tom(_ad.Status)" /><button class="btn sec pq" @onclick="() => _ad = null">‹ voltar à lista</button></div>
+                    <div class="form">
+                        <Campo Rotulo="Tipo" Obrigatorio Classe="s3"><select @bind="_ad.Tipo" disabled="@(!editaAd)">@foreach (var t in Enum.GetValues<TipoAditivo>()) { <option value="@t">@De(t)</option> }</select></Campo>
+                        <Campo Rotulo="Origem" Classe="s6"><input @bind="_ad.Origem" placeholder="ex.: medição 03, projeto revisado" disabled="@(!editaAd)" /></Campo>
+                        <Campo Rotulo="Nova vigência" Classe="s3"><input type="date" @bind="_ad.NovaVigencia" disabled="@(!editaAd || !_ad.AlteraPrazo)" /></Campo>
+                        <Campo Rotulo="Justificativa" Obrigatorio Classe="s12"><textarea @bind="_ad.Justificativa" disabled="@(!editaAd)"></textarea></Campo>
+                    </div>
+                    @if (_ad.AlteraValor)
+                    {
+                        <div class="secao"><Icone Nome="tabela" /> Itens alterados
+                            @if (editaAd) { <span class="acao"><select @bind="_itemAd" style="max-width:260px"><option value="">Item existente…</option>@foreach (var ci in _k.Itens.Where(ci => _ad.Itens.All(x => x.ContratoItemId != ci.Id))) { <option value="@ci.Id">@ci.Item – @ci.Descricao</option> }</select>
+                                <button class="btn sec pq" @onclick="IncluirItemAditivo"><Icone Nome="mais" Tam="14" /></button> <button class="btn sec pq" @onclick="ItemNovoAditivo">Item novo</button></span> }
+                        </div>
+                        <table class="itens">
+                            <thead><tr><th>Item</th><th>Serviço</th><th>UN</th><th class="num">Qtd original</th><th>Acréscimo (−supressão)</th><th class="num">Nova qtd</th><th>Preço unit.</th><th class="num">Valor do aditivo</th><th></th></tr></thead>
+                            <tbody>
+                                @foreach (var i in _ad.Itens)
+                                {
+                                    var ci = _k.Itens.FirstOrDefault(x => x.Id == i.ContratoItemId);
+                                    <tr>
+                                        <td>@if (ci is null) { <input @bind="i.Item" style="width:60px" disabled="@(!editaAd)" /> } else { @ci.Item }</td>
+                                        <td>@if (ci is null) { <input @bind="i.Descricao" disabled="@(!editaAd)" /> } else { @ci.Descricao }</td>
+                                        <td>@(ci?.Unidade ?? i.Unidade)</td>
+                                        <td class="num">@Num(ci?.Quantidade ?? 0, 3)</td>
+                                        <td style="width:120px"><input type="number" step="0.001" @bind="i.QtdDelta" disabled="@(!editaAd)" /></td>
+                                        <td class="num">@Num((ci?.Quantidade ?? 0) + i.QtdDelta, 3)</td>
+                                        <td style="width:110px"><input type="number" step="0.01" @bind="i.PrecoUnitario" disabled="@(!editaAd)" /></td>
+                                        <td class="num">@Moeda(((ci?.Quantidade ?? 0) + i.QtdDelta) * i.PrecoUnitario - (ci?.Quantidade ?? 0) * (ci?.PrecoUnitario ?? 0))</td>
+                                        <td>@if (editaAd) { <button class="icone-btn" @onclick="() => _ad.Itens.Remove(i)"><Icone Nome="lixeira" Tam="16" /></button> }</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                    <div class="duas-caixas">
+                        <div class="caixa-sec" style="font-size:13px;padding:12px">
+                            @{ var orig = _k.ValorTotal - _aditivos.Where(a => a.Status == StatusAditivo.Vigente).Sum(a => a.Valor); var ant = _aditivos.Where(a => a.Status == StatusAditivo.Vigente && a.Id != _ad.Id).Sum(a => a.Valor);
+                               var este = _ad.Itens.Sum(i => { var ci = _k.Itens.FirstOrDefault(x => x.Id == i.ContratoItemId); return ((ci?.Quantidade ?? 0) + i.QtdDelta) * i.PrecoUnitario - (ci?.Quantidade ?? 0) * (ci?.PrecoUnitario ?? 0); });
+                               var perc = orig == 0 ? 0 : 100m * (ant + este) / orig; }
+                            Valor original: <b>@Moeda(orig)</b><br />Aditivos anteriores: <b>@Moeda(ant)</b><br />Este aditivo: <b>@Moeda(este) (@((orig == 0 ? 0 : 100m * este / orig).ToString("0.0"))%)</b><br />Novo valor do contrato: <b>@Moeda(orig + ant + este)</b>
+                            @if (perc > _limiteAditivo) { <div class="alerta aviso"><Icone Nome="alerta" /> Aditivos acumulados (@perc.ToString("0.0")%) passam do limite de @_limiteAditivo.ToString("0")%.</div> }
+                        </div>
+                        <div class="caixa-sec" style="font-size:13px;padding:12px">Aprovação: regra de alçada (Aditivo)<br />Assinaturas: empresa e fornecedor<br />Após assinado: itens e saldo da medição atualizados; ITS revisadas seguem por GRD
+                            @if (_ad.Status == StatusAditivo.AguardandoAssinaturas)
+                            {
+                                <div class="form" style="margin-top:8px"><Campo Rotulo="Assinatura empresa" Classe="s6"><input type="date" @bind="_adAssEmp" /></Campo><Campo Rotulo="Assinatura fornecedor" Classe="s6"><input type="date" @bind="_adAssForn" /></Campo></div>
+                                <button class="btn ok pq" disabled="@Ocupado" @onclick="AssinarAditivo">Registrar assinaturas e aplicar</button>
+                            }
+                        </div>
+                    </div>
+                    @if (_ad.CriadoEm != default) { <Autorizacoes Entidade="EntidadeAprovavel.Aditivo" EntidadeId="_ad.Id" Versao="_versao" AoDecidir="() => AbrirAditivo(_ad.Id)" /> }
+                    @if (editaAd)
+                    {
+                        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px">
+                            <button class="btn prim" disabled="@Ocupado" @onclick="SalvarAditivo"><Icone Nome="check" Tam="16" /> Salvar aditivo</button>
+                            @if (_ad.CriadoEm != default) { <button class="btn ok" disabled="@Ocupado" @onclick="EnviarAditivo"><Icone Nome="enviar" Tam="16" /> Enviar p/ aprovação</button> }
+                        </div>
+                    }
+                }
+            }
             else if (_aba == "medicoes")
             {
                 <table class="itens">
@@ -156,9 +232,55 @@
     private DateOnly? _assEmpresa, _assFornecedor;
     private List<Opcao> _obras = [], _fornecedores = [], _ccs = [], _servicos = [];
     private List<string> _categorias = [];
-    private static readonly List<(string, string)> _abas = [("dados", "Dados gerais"), ("itens", "Itens"), ("its", "ITS vinculadas"), ("anexos", "Anexos"), ("medicoes", "Medições")];
+    private static readonly List<(string, string)> _abas = [("dados", "Dados gerais"), ("itens", "Itens"), ("its", "ITS vinculadas"), ("anexos", "Anexos"), ("aditivos", "Aditivos"), ("medicoes", "Medições")];
 
     private bool Editavel => _k is { Status: StatusContrato.EmElaboracao };
+    private List<Aditivo> _aditivos = [];
+    private Aditivo? _ad;
+    private Guid? _itemAd;
+    private DateOnly? _adAssEmp, _adAssForn;
+    private decimal _limiteAditivo = 25;
+
+    private async Task NovoAditivo()
+    {
+        Aditivo? a = null;
+        if (await Executar(async () => a = await Sup.NovoAditivoAsync(_k!.Id))) _ad = a;
+    }
+
+    private void ItemNovoAditivo() => _ad!.Itens.Add(new AditivoItem { AditivoId = _ad.Id, Unidade = "un" });
+
+    private void IncluirItemAditivo()
+    {
+        var ci = _k!.Itens.FirstOrDefault(x => x.Id == _itemAd);
+        if (ci is not null) _ad!.Itens.Add(new AditivoItem { AditivoId = _ad.Id, ContratoItemId = ci.Id, QtdOriginal = ci.Quantidade, PrecoOriginal = ci.PrecoUnitario, PrecoUnitario = ci.PrecoUnitario });
+        _itemAd = null;
+    }
+
+    private async Task AbrirAditivo(Guid id)
+    {
+        await using var db = Fabrica.Criar();
+        _ad = await db.Aditivos.AsNoTracking().Include(a => a.Itens).FirstAsync(a => a.Id == id);
+        _aditivos = await db.Aditivos.AsNoTracking().Where(a => a.ContratoId == _ad.ContratoId).OrderBy(a => a.Numero).ToListAsync();
+        _adAssEmp = _adAssForn = Hoje; _versao++;
+    }
+
+    private async Task SalvarAditivo()
+    {
+        Guid id = default;
+        if (await Executar(async () => id = await Sup.SalvarAditivoAsync(_ad!), "Aditivo salvo.")) await AbrirAditivo(id);
+    }
+
+    private async Task EnviarAditivo()
+    {
+        if (await Executar(async () => { await Sup.SalvarAditivoAsync(_ad!); await Sup.EnviarAditivoAsync(_ad!.Id); }, "Aditivo enviado para aprovação.")) await AbrirAditivo(_ad!.Id);
+    }
+
+    private async Task AssinarAditivo()
+    {
+        if (_adAssEmp is null || _adAssForn is null) { Notif.Erro("Informe as duas assinaturas."); return; }
+        if (await Executar(() => Sup.AssinarAditivoAsync(_ad!.Id, _adAssEmp.Value, _adAssForn.Value), "Aditivo vigente — itens e vigência do contrato atualizados."))
+        { var id = _ad!.Id; await Abrir(_k!.Id); _aba = "aditivos"; await AbrirAditivo(id); }
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -166,6 +288,12 @@
         _categorias = await Cat.ListaAsync(TipoLista.CategoriaServico);
         await Carregar();
         if (Nav.Uri.Contains("?id=") && Guid.TryParse(Nav.Uri.Split("?id=")[1], out var id)) await Abrir(id);
+        else if (Nav.Uri.Contains("?aditivo=") && Guid.TryParse(Nav.Uri.Split("?aditivo=")[1], out var aid))
+        {
+            await using var db = Fabrica.Criar();
+            var cid = await db.Aditivos.Where(a => a.Id == aid).Select(a => a.ContratoId).FirstOrDefaultAsync();
+            if (cid != Guid.Empty) { await Abrir(cid); _aba = "aditivos"; await AbrirAditivo(aid); }
+        }
     }
 
     private async Task Carregar()
@@ -187,6 +315,9 @@
         await using var db = Fabrica.Criar();
         _k = await db.Contratos.AsNoTracking().Include(k => k.Itens).Include(k => k.ServicosVinculados).FirstAsync(k => k.Id == id);
         _medicoes = await db.Medicoes.AsNoTracking().Where(m => m.ContratoId == id).OrderBy(m => m.NumeroMedicao).ToListAsync();
+        _aditivos = await db.Aditivos.AsNoTracking().Where(a => a.ContratoId == id).OrderBy(a => a.Numero).ToListAsync();
+        _limiteAditivo = (await ParametrosServico.CarregarAsync(db))[Parametros.LimiteAditivoPerc];
+        _ad = null;
         _assEmpresa = _k.AssinaturaEmpresa ?? Hoje; _assFornecedor = _k.AssinaturaFornecedor ?? Hoje;
         ErrosForm = null; _versao++; _aberto = true;
     }

@@ -20,6 +20,11 @@ public class TipoDocumentoExigido : EntidadeAuditavel
     public TipoFornecimento ExigidoPara { get; set; }
     /// <summary>Documento que acompanha cada entrega (ex.: certificado do lote do aço) — não tem validade própria.</summary>
     public bool PorEntrega { get; set; }
+    public MomentoDocumento Momento { get; set; } = MomentoDocumento.Cadastro;
+    public Guid? MaterialControladoId { get; set; }
+    public Guid? ServicoControladoId { get; set; }
+    public int DiasLembrete { get; set; } = 30;
+    public string? Fonte { get; set; }
     /// <summary>Se vencido: bloqueia compra (fornecedor) ou acesso à obra (funcionário).</summary>
     public bool BloqueiaQuandoVencido { get; set; } = true;
     /// <summary>LGPD: documento com dado sensível (ex.: ASO). Arquivo vai para container restrito.</summary>
@@ -189,6 +194,11 @@ public class LinkPortalFornecedor : EntidadeAuditavel
     public bool Revogado { get; set; }
     public DateTimeOffset? UltimoAcessoEm { get; set; }
     public string? UltimoAcessoIp { get; set; }
+    public string? EmailDestino { get; set; }
+    public string Motivo { get; set; } = "Cadastro inicial";
+    public string? ItensSolicitados { get; set; }
+    public string? EnviadoPor { get; set; }
+    public StatusSolicitacaoDoc Status { get; set; } = StatusSolicitacaoDoc.Enviada;
 
     public bool Valido(DateTimeOffset agora) => !Revogado && !Excluido && agora <= ValidoAte;
 }
@@ -196,54 +206,6 @@ public class LinkPortalFornecedor : EntidadeAuditavel
 /// <summary>
 /// Funcionário próprio ou de terceiro. LGPD (minimização): guarda apenas o necessário para controle
 /// de acesso à obra e treinamentos — sem dados de saúde, endereço residencial ou dados bancários.
-/// </summary>
-public class Funcionario : EntidadeAuditavel, IOrigemObraPrima
-{
-    public string Nome { get; set; } = string.Empty;
-    /// <summary>LGPD: CPF não é guardado em claro. Hash HMAC-SHA256 (chave no Key Vault) para casar na importação.</summary>
-    public string CpfHash { get; set; } = string.Empty;
-    /// <summary>Somente para exibição: ***.456.789-**</summary>
-    public string CpfMascarado { get; set; } = string.Empty;
-    public string? Funcao { get; set; }
-    public bool Terceiro { get; set; }
-    public Guid? FornecedorId { get; set; }
-    public Fornecedor? Fornecedor { get; set; }
-    public bool Ativo { get; set; } = true;
-    public string? CodigoObraPrima { get; set; }
-    public Guid? UltimaImportacaoId { get; set; }
-
-    public ICollection<FuncionarioDocumento> Documentos { get; set; } = [];
-    public ICollection<FuncionarioObra> Obras { get; set; } = [];
-}
-
-public class FuncionarioObra : Entidade
-{
-    public Guid FuncionarioId { get; set; }
-    public Funcionario Funcionario { get; set; } = null!;
-    public Guid ObraId { get; set; }
-    public DateOnly? DataIntegracao { get; set; }
-    public bool AcessoLiberado { get; set; }
-}
-
-/// <summary>
-/// Documento/treinamento do funcionário (NR-18, NR-35, NR-10, integração, ficha de EPI, ASO).
-/// LGPD: para ASO guarda somente "Apto/Inapto" e validade — NUNCA CID, exames ou diagnóstico.
-/// </summary>
-public class FuncionarioDocumento : EntidadeAuditavel, IHistoricoTemporal
-{
-    public Guid FuncionarioId { get; set; }
-    public Funcionario Funcionario { get; set; } = null!;
-    public Guid TipoDocumentoExigidoId { get; set; }
-    public TipoDocumentoExigido TipoDocumento { get; set; } = null!;
-    public DateOnly? DataRealizacao { get; set; }
-    public DateOnly? DataValidade { get; set; }
-    /// <summary>Somente para ASO: apto para a função. Nenhum outro dado de saúde.</summary>
-    public bool? Apto { get; set; }
-    public string? CargaHoraria { get; set; }
-    public string? ArquivoBlob { get; set; }
-    public string? ArquivoHashSha256 { get; set; }
-    public StatusDocumento Status { get; set; } = StatusDocumento.PendenteEnvio;
-}
 
 /// <summary>Serviço controlado (lista de serviços controlados / ITS). Liga contrato, medição e FVS.</summary>
 public class ServicoControlado : EntidadeAuditavel, IOrigemObraPrima
@@ -253,7 +215,6 @@ public class ServicoControlado : EntidadeAuditavel, IOrigemObraPrima
     public string Nome { get; set; } = string.Empty;
     /// <summary>Documento do SGQ (ITS) que descreve o serviço — enviado ao prestador junto com o contrato.</summary>
     public Guid? DocumentoItsId { get; set; }
-    public Guid? FormModeloFvsId { get; set; }
     public bool ExigeFvsParaMedicao { get; set; } = true;
     public bool AvaliadoNaMedicao { get; set; } = true;
     public bool Ativo { get; set; } = true;
@@ -278,7 +239,9 @@ public class MaterialControlado : EntidadeAuditavel, IOrigemObraPrima
     public bool ExigeFvmParaAceite { get; set; } = true;
     public bool ExigeFornecedorQualificado { get; set; } = true;
     public bool ConsultarPsq { get; set; } = true;
-    public Guid? FormModeloFvmId { get; set; }
+    public string? SubGrupos { get; set; }
+    public string? Ensaios { get; set; }
+    public string ConstaPsq { get; set; } = "Verificar";
     public bool Ativo { get; set; } = true;
     public string? CodigoObraPrima { get; set; }
     public Guid? UltimaImportacaoId { get; set; }

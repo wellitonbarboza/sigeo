@@ -13,11 +13,19 @@
                         <Coluna T="MaterialControlado" Titulo="Material" Valor="m => m.Nome" />
                         <Coluna T="MaterialControlado" Titulo="UN" Valor="m => m.Unidade" />
                         <Coluna T="MaterialControlado" Titulo="Grupo" Valor="m => m.GrupoCatalogo" />
+                        <Coluna T="MaterialControlado" Titulo="Sub-grupos vinculados" Valor="m => m.SubGrupos" />
                         <Coluna T="MaterialControlado" Titulo="Documentos exigidos" Valor="m => m.DocumentosExigidos" />
-                        <Coluna T="MaterialControlado" Titulo="Consulta PSQ" Valor="m => m.ConsultarPsq" />
-                        <Coluna T="MaterialControlado" Titulo="Ativo" Valor="m => m.Ativo" />
+                        <Coluna T="MaterialControlado" Titulo="PSQ" Valor="m => m.ConstaPsq" />
+                        <Coluna T="MaterialControlado" Titulo="Modelo FVM" Valor="m => _fvm.GetValueOrDefault(m.Id)" />
+                        <Coluna T="MaterialControlado" Titulo="Situação" Valor="m => SitMat(m)"><Modelo><Selo Texto="@SitMat(context)" Tom="@(SitMat(context) == "Completo" ? "ok" : "erro")" /></Modelo></Coluna>
                     </Colunas>
                 </Grade>
+            }
+            else if (_aba == "gen")
+            {
+                <div class="alerta aviso"><Icone Nome="alerta" /> Produtos sem vínculo com material controlado. Se pertencem a uma família controlada, vincule em Cadastro › Produtos — sem o vínculo, o "material controlado" da requisição não funciona.</div>
+                <table class="itens"><thead><tr><th>Código</th><th>Produto</th><th>Grupo</th><th>Subgrupo</th></tr></thead>
+                    <tbody>@foreach (var p in _semVinculo) { <tr><td>@p.Codigo</td><td>@p.Nome</td><td>@p.Grupo</td><td>@p.SubGrupo</td></tr> }</tbody></table>
             }
             else
             {
@@ -25,6 +33,8 @@
                     <Colunas>
                         <Coluna T="ServicoControlado" Titulo="Código (ITS)" Valor="s => s.Codigo" Largura="110px" />
                         <Coluna T="ServicoControlado" Titulo="Serviço" Valor="s => s.Nome" />
+                        <Coluna T="ServicoControlado" Titulo="Documento ITS" Valor="s => s.DocumentoItsId == null ? null : _docs.FirstOrDefault(d => d.Id == s.DocumentoItsId)?.Texto" />
+                        <Coluna T="ServicoControlado" Titulo="Modelo FVS" Valor="s => _fvs.GetValueOrDefault(s.Id)" />
                         <Coluna T="ServicoControlado" Titulo="Exige FVS p/ medição" Valor="s => s.ExigeFvsParaMedicao" />
                         <Coluna T="ServicoControlado" Titulo="Avaliado na medição" Valor="s => s.AvaliadoNaMedicao" />
                         <Coluna T="ServicoControlado" Titulo="Ativo" Valor="s => s.Ativo" />
@@ -47,7 +57,11 @@
                 <Campo Rotulo="UN" Classe="s3"><input @bind="_m.Unidade" /></Campo>
                 <Campo Rotulo="Grupo do catálogo" Classe="s12"><input @bind="_m.GrupoCatalogo" /></Campo>
                 <Campo Rotulo="Especificação técnica modelo" Classe="s12"><textarea @bind="_m.EspecificacaoModelo"></textarea></Campo>
-                <Campo Rotulo="Documentos exigidos na entrega" Classe="s12"><input @bind="_m.DocumentosExigidos" /></Campo>
+                <Campo Rotulo="Sub-grupos do produto vinculados (separe por ;)" Classe="s12"><input @bind="_m.SubGrupos" placeholder="Aço › Barras e perfis; Vergalhão" /></Campo>
+                <Campo Rotulo="Documentos exigidos na entrega (matriz T10A)" Classe="s6"><input @bind="_m.DocumentosExigidos" /></Campo>
+                <Campo Rotulo="Ensaios" Classe="s4"><input @bind="_m.Ensaios" /></Campo>
+                <Campo Rotulo="Consta no PSQ" Classe="s2"><select @bind="_m.ConstaPsq"><option>Sim</option><option>Não</option><option>Verificar</option></select></Campo>
+                <Campo Rotulo="Modelo de FVM" Classe="s12"><input readonly value="@(_fvm.GetValueOrDefault(_m.Id) ?? "sem modelo vigente — cadastre em Qualidade da Obra › Modelos de FVM")" /></Campo>
                 <Campo Rotulo="Regras" Classe="s12">
                     <div class="checks">
                         <label><input type="checkbox" @bind="_m.ExigeEspecificacao" /> Exige especificação na requisição</label>
@@ -71,6 +85,7 @@
             <div class="form">
                 <Campo Rotulo="Código (ITS)" Obrigatorio Classe="s4"><input @bind="_s.Codigo" /></Campo>
                 <Campo Rotulo="Nome" Obrigatorio Classe="s8"><input @bind="_s.Nome" /></Campo>
+                <Campo Rotulo="Documento ITS (revisão vigente vai no contrato e na GRD)" Classe="s12"><select @bind="_s.DocumentoItsId"><option value="">—</option>@foreach (var d in _docs) { <option value="@d.Id">@d.Texto</option> }</select></Campo>
                 <Campo Rotulo="Regras" Classe="s12">
                     <div class="checks">
                         <label><input type="checkbox" @bind="_s.ExigeFvsParaMedicao" /> Exige FVS aprovada para medir</label>
@@ -85,7 +100,11 @@
 </Modal>
 
 @code {
-    private IGrade? GradeAtual => _aba == "mat" ? _gMat : _gSrv;
+    private IGrade? GradeAtual => _aba == "mat" ? _gMat : _aba == "srv" ? _gSrv : null;
+    private Dictionary<Guid, string> _fvm = [], _fvs = [];
+    private List<Opcao> _docs = [];
+    private List<Produto> _semVinculo = [];
+    private string SitMat(MaterialControlado m) => string.IsNullOrWhiteSpace(m.SubGrupos) ? "Sem vínculo" : string.IsNullOrWhiteSpace(m.EspecificacaoModelo) ? "Sem especificação" : !_fvm.ContainsKey(m.Id) ? "Sem modelo FVM" : "Completo";
     private Grade<MaterialControlado>? _gMat;
     private Grade<ServicoControlado>? _gSrv;
     private List<MaterialControlado>? _mats;
@@ -94,7 +113,7 @@
     private ServicoControlado? _s;
     private bool _abertoMat, _abertoSrv;
     private string _aba = "mat";
-    private static readonly List<(string, string)> _abas = [("mat", "Materiais controlados"), ("srv", "Serviços controlados (ITS)")];
+    private static readonly List<(string, string)> _abas = [("mat", "Materiais controlados"), ("srv", "Serviços controlados (ITS)"), ("gen", "Produtos sem vínculo")];
 
     protected override Task OnInitializedAsync() => Carregar();
 
@@ -103,6 +122,11 @@
         await using var db = Fabrica.Criar();
         _mats = await db.MateriaisControlados.AsNoTracking().OrderBy(m => m.Codigo).ToListAsync();
         _srvs = await db.ServicosControlados.AsNoTracking().OrderBy(m => m.Codigo).ToListAsync();
+        var modelos = await db.ModelosInspecao.AsNoTracking().Where(m => m.Situacao == SituacaoModelo.Vigente).ToListAsync();
+        _fvm = modelos.Where(m => m.MaterialControladoId != null).GroupBy(m => m.MaterialControladoId!.Value).ToDictionary(g => g.Key, g => $"{g.First().Codigo} {g.First().Rotulo}");
+        _fvs = modelos.Where(m => m.ServicoControladoId != null && m.Tipo == TipoModelo.FVS).GroupBy(m => m.ServicoControladoId!.Value).ToDictionary(g => g.Key, g => $"{g.First().Codigo} {g.First().Rotulo}");
+        _semVinculo = await db.Produtos.AsNoTracking().Where(p => p.Ativo && p.MaterialControladoId == null).OrderBy(p => p.Nome).Take(500).ToListAsync();
+        _docs = await Cat.DocumentosSgqAsync();
     }
 
     private void Novo()

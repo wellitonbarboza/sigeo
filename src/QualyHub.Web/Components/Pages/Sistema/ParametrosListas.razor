@@ -30,6 +30,20 @@
                     </Colunas>
                 </Grade>
             }
+            else if (_aba == "notif")
+            {
+                <Grade T="RegraNotificacao" @ref="_gN" Itens="_notifs" AoClicar="n => { _n = n; ErrosForm = null; _abertoN = true; }" NomeExportacao="notificacoes">
+                    <Colunas>
+                        <Coluna T="RegraNotificacao" Titulo="Evento" Valor="n => n.Evento" />
+                        <Coluna T="RegraNotificacao" Titulo="Antecedência" Valor="n => n.Antecedencia" />
+                        <Coluna T="RegraNotificacao" Titulo="Repetir" Valor="n => n.Repeticao" />
+                        <Coluna T="RegraNotificacao" Titulo="Destinatários" Valor="n => n.Destinatarios" />
+                        <Coluna T="RegraNotificacao" Titulo="Canal" Valor="n => n.Canal" />
+                        <Coluna T="RegraNotificacao" Titulo="Ativa" Valor="n => n.Ativa" />
+                    </Colunas>
+                </Grade>
+                <div class="alerta info"><Icone Nome="info" /> Pendências (tela inicial) já funcionam. E-mail e WhatsApp dependem de habilitar o serviço de mensagens no Azure (próxima etapa: Azure Functions).</div>
+            }
             else
             {
                 <Grade T="TipoDocumentoExigido" @ref="_gT" Itens="_tipos" AoClicar="t => { _t = t; ErrosForm = null; _abertoT = true; }" NomeExportacao="tipos-documento">
@@ -100,6 +114,11 @@
                         }
                     </div>
                 </Campo>
+                <Campo Rotulo="Momento" Classe="s4"><select @bind="_t.Momento" disabled="@(!Perfil())">@foreach (var m in Enum.GetValues<MomentoDocumento>()) { <option value="@m">@De(m)</option> }</select></Campo>
+                <Campo Rotulo="Escopo – material (opcional)" Classe="s4"><select @bind="_t.MaterialControladoId" disabled="@(!Perfil())"><option value="">—</option>@foreach (var x in _materiais) { <option value="@x.Id">@x.Texto</option> }</select></Campo>
+                <Campo Rotulo="Escopo – serviço (opcional)" Classe="s4"><select @bind="_t.ServicoControladoId" disabled="@(!Perfil())"><option value="">—</option>@foreach (var x in _servicos) { <option value="@x.Id">@x.Texto</option> }</select></Campo>
+                <Campo Rotulo="Lembrete (dias antes)" Classe="s4"><input type="number" @bind="_t.DiasLembrete" disabled="@(!Perfil())" /></Campo>
+                <Campo Rotulo="Fonte da exigência" Classe="s8"><input @bind="_t.Fonte" placeholder="especificação, procedimento…" disabled="@(!Perfil())" /></Campo>
                 <Campo Rotulo="Validade padrão (dias)" Classe="s4"><input type="number" @bind="_t.ValidadePadraoDias" disabled="@(!Perfil())" /></Campo>
                 <Campo Rotulo="Alerta antes (dias)" Classe="s4"><input type="number" @bind="_t.DiasAlertaAntesVencimento" disabled="@(!Perfil())" /></Campo>
                 <Campo Rotulo="Regras" Classe="s12">
@@ -117,8 +136,33 @@
     <Rodape>@if (Perfil()) { <button class="btn prim" disabled="@Ocupado" @onclick="() => SalvarSimples(_t!, () => { _abertoT = false; })"><Icone Nome="check" Tam="16" /> Salvar</button> }</Rodape>
 </Modal>
 
+<Modal @bind-Aberto="_abertoN" Titulo="@($"Notificação — {_n?.Evento}")" Tamanho="media">
+    <ChildContent>
+        @if (_n is not null)
+        {
+            <Erros Lista="ErrosForm" />
+            <div class="form">
+                <Campo Rotulo="Evento" Obrigatorio Classe="s12"><input @bind="_n.Evento" disabled="@(!Perfil())" /></Campo>
+                <Campo Rotulo="Antecedência" Classe="s6"><input @bind="_n.Antecedencia" placeholder="30 dias" disabled="@(!Perfil())" /></Campo>
+                <Campo Rotulo="Repetir" Classe="s6"><input @bind="_n.Repeticao" placeholder="a cada 7 dias até renovar" disabled="@(!Perfil())" /></Campo>
+                <Campo Rotulo="Destinatários" Obrigatorio Classe="s12"><input @bind="_n.Destinatarios" disabled="@(!Perfil())" /></Campo>
+                <Campo Rotulo="Canal" Classe="s12"><div class="checks">@foreach (var c in new[] { CanalNotificacao.Pendencias, CanalNotificacao.Email, CanalNotificacao.WhatsApp }) { <label><input type="checkbox" disabled="@(!Perfil())" checked="@_n.Canal.HasFlag(c)" @onchange="e => _n.Canal = (bool)e.Value! ? _n.Canal | c : _n.Canal & ~c" /> @De(c)</label> }</div></Campo>
+                <Campo Rotulo="Modelo de mensagem (variáveis: {documento}, {fornecedor}, {data}, {link}…)" Obrigatorio Classe="s12"><textarea @bind="_n.ModeloMensagem" disabled="@(!Perfil())"></textarea></Campo>
+                <Campo Rotulo="" Classe="s12"><label><input type="checkbox" @bind="_n.Ativa" disabled="@(!Perfil())" /> Ativa</label></Campo>
+            </div>
+        }
+    </ChildContent>
+    <Rodape>@if (Perfil()) { <button class="btn prim" disabled="@Ocupado" @onclick="() => SalvarSimples(_n!, () => { _abertoN = false; })"><Icone Nome="check" Tam="16" /> Salvar</button> }</Rodape>
+</Modal>
+
 @code {
-    private IGrade? GradeAtual => _aba switch { "param" => _gP, "listas" => _gL, _ => _gT };
+    private List<Opcao> _materiais = [], _servicos = [];
+    protected override async Task OnParametersSetAsync() { _materiais = await Cat.MateriaisAsync(); _servicos = await Cat.ServicosAsync(); }
+    private IGrade? GradeAtual => _aba switch { "param" => _gP, "listas" => _gL, "notif" => _gN, _ => _gT };
+    private Grade<RegraNotificacao>? _gN;
+    private List<RegraNotificacao>? _notifs;
+    private RegraNotificacao? _n;
+    private bool _abertoN;
     private Grade<Parametro>? _gP;
     private Grade<ItemLista>? _gL;
     private Grade<TipoDocumentoExigido>? _gT;
@@ -131,7 +175,7 @@
     private decimal _valor;
     private bool _abertoP, _abertoL, _abertoT;
     private string _aba = "param";
-    private static readonly List<(string, string)> _abas = [("param", "Parâmetros"), ("listas", "Listas"), ("tipos", "Documentos exigidos")];
+    private static readonly List<(string, string)> _abas = [("param", "Parâmetros"), ("notif", "Notificações"), ("listas", "Listas"), ("tipos", "Documentos exigidos (matriz)")];
 
     protected override Task OnInitializedAsync() => Carregar();
 
@@ -141,6 +185,7 @@
         _params = await db.Parametros.AsNoTracking().OrderBy(p => p.Grupo).ThenBy(p => p.Chave).ToListAsync();
         _listas = await db.Listas.AsNoTracking().OrderBy(l => l.Tipo).ThenBy(l => l.Ordem).ThenBy(l => l.Nome).ToListAsync();
         _tipos = await db.TiposDocumento.AsNoTracking().OrderBy(t => t.AplicaA).ThenBy(t => t.Nome).ToListAsync();
+        _notifs = await db.RegrasNotificacao.AsNoTracking().OrderBy(n => n.Evento).ToListAsync();
     }
 
     private void Novo()
@@ -149,6 +194,7 @@
         ErrosForm = null;
         if (_aba == "listas") { _l = new ItemLista { Tipo = TipoLista.Atividade }; _abertoL = true; }
         else if (_aba == "tipos") { _t = new TipoDocumentoExigido { AplicaA = AplicaA.Fornecedor }; _abertoT = true; }
+        else if (_aba == "notif") { _n = new RegraNotificacao(); _abertoN = true; }
         else Notif.Aviso("Parâmetros são fixos; altere o valor.");
     }
 
@@ -175,7 +221,7 @@
     {
         var ok = await Executar(async () =>
         {
-            var nome = item switch { ItemLista l => l.Nome, TipoDocumentoExigido t => t.Nome, _ => "x" };
+            var nome = item switch { ItemLista l => l.Nome, TipoDocumentoExigido t => t.Nome, RegraNotificacao n => n.Evento, _ => "x" };
             if (string.IsNullOrWhiteSpace(nome)) throw new RegraDeNegocioException("Informe o nome.");
             await using var db = Fabrica.Criar();
             await Grafo.SalvarAsync(db, item); await db.SaveChangesAsync();

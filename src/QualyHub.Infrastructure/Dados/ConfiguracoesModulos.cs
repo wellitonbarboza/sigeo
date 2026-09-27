@@ -110,7 +110,6 @@ internal sealed class ServicoCfg : IEntityTypeConfiguration<ServicoControlado>
     {
         b.HasIndex(x => new { x.EmpresaId, x.Codigo }).IsUnique().HasFilter("[Excluido] = 0");
         b.HasOne<Documento>().WithMany().HasForeignKey(x => x.DocumentoItsId);
-        b.HasOne<FormModelo>().WithMany().HasForeignKey(x => x.FormModeloFvsId);
     }
 }
 
@@ -119,7 +118,6 @@ internal sealed class MaterialCfg : IEntityTypeConfiguration<MaterialControlado>
     public void Configure(EntityTypeBuilder<MaterialControlado> b)
     {
         b.HasIndex(x => new { x.EmpresaId, x.Codigo }).IsUnique().HasFilter("[Excluido] = 0");
-        b.HasOne<FormModelo>().WithMany().HasForeignKey(x => x.FormModeloFvmId);
     }
 }
 
@@ -129,16 +127,6 @@ internal sealed class ProdutoCfg : IEntityTypeConfiguration<Produto>
     {
         b.HasIndex(x => new { x.EmpresaId, x.Codigo }).IsUnique().HasFilter("[Excluido] = 0");
         b.HasOne(x => x.MaterialControlado).WithMany().HasForeignKey(x => x.MaterialControladoId);
-    }
-}
-
-internal sealed class FormModeloCfg : IEntityTypeConfiguration<FormModelo>
-{
-    public void Configure(EntityTypeBuilder<FormModelo> b)
-    {
-        b.HasIndex(x => new { x.EmpresaId, x.Codigo, x.Versao }).IsUnique().HasFilter("[Excluido] = 0");
-        b.HasMany(x => x.Itens).WithOne(x => x.FormModelo).HasForeignKey(x => x.FormModeloId);
-        b.HasOne<Documento>().WithMany().HasForeignKey(x => x.DocumentoSgqOrigemId);
     }
 }
 
@@ -277,7 +265,6 @@ internal sealed class RecebimentoCfg : IEntityTypeConfiguration<Recebimento>
         b.HasOne<Contrato>().WithMany().HasForeignKey(x => x.ContratoId);
         b.HasOne<Fornecedor>().WithMany().HasForeignKey(x => x.FornecedorId);
         b.HasOne<Obra>().WithMany().HasForeignKey(x => x.ObraId);
-        b.HasOne<Ficha>().WithMany().HasForeignKey(x => x.FichaFvmId);
         b.Property(x => x.ChaveNFe).HasMaxLength(44);
         b.Ignore(x => x.FvmAprovada); b.Ignore(x => x.NotaEntrega); b.Ignore(x => x.TemDivergencia);
         b.HasIndex(x => new { x.FornecedorId, x.DataRecebimento });
@@ -316,7 +303,6 @@ internal sealed class MedicaoItemCfg : IEntityTypeConfiguration<MedicaoItem>
     {
         b.HasOne(x => x.ContratoItem).WithMany().HasForeignKey(x => x.ContratoItemId);
         b.HasOne<Local>().WithMany().HasForeignKey(x => x.LocalId);
-        b.HasOne<Ficha>().WithMany().HasForeignKey(x => x.FichaFvsId);
         foreach (var p in new[] { nameof(MedicaoItem.QtdAnterior), nameof(MedicaoItem.QtdPeriodo), nameof(MedicaoItem.QtdAcumulada) })
             b.Property(p).HasPrecision(18, 3);
     }

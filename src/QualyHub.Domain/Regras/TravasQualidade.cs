@@ -104,11 +104,11 @@ public static class TravasQualidade
     /// Medição: contrato ativo, acumulado ≤ contratado, FVS aprovada para cada item de serviço controlado
     /// (no mesmo local, quando informado), avaliação preenchida e documentos do prestador em dia.
     /// </summary>
-    public static ResultadoTrava VerificarMedicao(Medicao m, IEnumerable<Ficha> fvsDaObra, DateOnly hoje)
+    public static ResultadoTrava VerificarMedicao(Medicao m, IEnumerable<Fvs> fvsDaObra, DateOnly hoje)
     {
         var b = new List<string>();
         if (m.Contrato.Status != StatusContrato.Ativo) b.Add("Contrato não está ativo.");
-        var fvs = fvsDaObra.Where(f => f.Tipo == TipoFicha.FVS && f.Liberada).ToList();
+        var fvs = fvsDaObra.Where(f => f.Liberada).ToList();
         foreach (var i in m.Itens)
         {
             var ci = i.ContratoItem;
@@ -116,10 +116,9 @@ public static class TravasQualidade
                 b.Add($"Item {ci.Item}: acumulado ({i.QtdAcumulada}) maior que o contratado ({ci.Quantidade}) — exige aditivo.");
             if (ci.ServicoControlado is { ExigeFvsParaMedicao: true } sc && i.QtdPeriodo > 0)
             {
-                var ok = i.FichaFvsId is { } fid ? fvs.Any(f => f.Id == fid)
-                       : fvs.Any(f => f.ServicoControladoId == sc.Id && (i.LocalId is null || f.LocalId == i.LocalId))
-                         || !string.IsNullOrWhiteSpace(i.FvsRef);
-                if (!ok) b.Add($"Item {ci.Item} ({sc.Codigo} – {sc.Nome}): sem FVS aprovada.");
+                var ok = i.FvsId is { } fid ? fvs.Any(f => f.Id == fid)
+                       : fvs.Any(f => f.ServicoControladoId == sc.Id && (i.LocalId is null || f.LocalId == i.LocalId));
+                if (!ok) b.Add($"Item {ci.Item} ({sc.Codigo} – {sc.Nome}): sem FVS liberada{(i.LocalId is null ? "" : " neste local")}.");
             }
         }
         if (m.NotaFinal is null) b.Add("Preencha a avaliação do prestador (notas obrigatórias).");
@@ -154,23 +153,6 @@ public static class TravasQualidade
             if (medicao is null) b.Add("Vincule a medição.");
             else if (medicao.Status is not (StatusMedicao.Aprovada or StatusMedicao.NfRecebida)) b.Add("Medição ainda não aprovada pelo Diretor Técnico.");
             l.RecebimentoOk = medicao?.Status is StatusMedicao.Aprovada or StatusMedicao.NfRecebida;
-        }
-        return new ResultadoTrava(b);
-    }
-
-    /// <summary>Funcionário: acesso à obra somente com documentos obrigatórios válidos.</summary>
-    public static ResultadoTrava VerificarAcessoFuncionario(Funcionario funcionario, IEnumerable<TipoDocumentoExigido> exigidos, DateOnly hoje)
-    {
-        var b = new List<string>();
-        foreach (var tipo in exigidos.Where(t => t is { AplicaA: AplicaA.Funcionario, Obrigatorio: true, Ativo: true }))
-        {
-            var doc = funcionario.Documentos.Where(d => d.TipoDocumentoExigidoId == tipo.Id && !d.Excluido)
-                                            .OrderByDescending(d => d.DataValidade).FirstOrDefault();
-            if (doc is null) { b.Add($"{tipo.Nome}: não apresentado."); continue; }
-            if (doc.Apto == false) b.Add($"{tipo.Nome}: inapto.");
-            var status = StatusDocumentoCalculo.Calcular(doc.DataValidade, doc.ArquivoBlob is not null, tipo.DiasAlertaAntesVencimento, hoje);
-            if (status is StatusDocumento.Vencido or StatusDocumento.PendenteEnvio && tipo.BloqueiaQuandoVencido)
-                b.Add($"{tipo.Nome}: {(status == StatusDocumento.Vencido ? "vencido" : "arquivo pendente")}.");
         }
         return new ResultadoTrava(b);
     }

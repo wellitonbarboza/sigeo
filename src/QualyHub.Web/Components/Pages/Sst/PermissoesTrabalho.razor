@@ -1,0 +1,142 @@
+@page "/sst/pt"
+@inherits PaginaBase
+@inject SstServico Sst
+
+<Pagina Titulo="Permissão de trabalho" Grade="_grade" AoNovo="Nova" AoAtualizar="Carregar">
+    <ChildContent>
+        <div class="pagina">
+            <Grade T="PermissaoTrabalho" @ref="_grade" Itens="_itens" AoClicar="p => Abrir(p.Id)" NomeExportacao="permissoes-trabalho">
+                <Colunas>
+                    <Coluna T="PermissaoTrabalho" Titulo="PT" Valor="p => p.Numero" Largura="80px" />
+                    <Coluna T="PermissaoTrabalho" Titulo="Tipo" Valor="p => p.Tipo" />
+                    <Coluna T="PermissaoTrabalho" Titulo="Local" Valor="p => _locNomes.GetValueOrDefault(p.LocalId)" />
+                    <Coluna T="PermissaoTrabalho" Titulo="Atividade" Valor="p => p.Atividade" />
+                    <Coluna T="PermissaoTrabalho" Titulo="Validade" Valor='p => $"{p.Inicio.ToLocalTime():dd/MM HH:mm}–{p.Fim.ToLocalTime():HH:mm}"' />
+                    <Coluna T="PermissaoTrabalho" Titulo="Executantes" Valor="p => p.Executantes.Count" Alinhar="num" />
+                    <Coluna T="PermissaoTrabalho" Titulo="Status" Valor="p => p.Status"><Modelo><Selo Texto="@(context.Status == StatusPermissaoTrabalho.Liberada && context.Fim < DateTimeOffset.UtcNow ? "Sem encerramento" : De(context.Status))" Tom="@(context.Status == StatusPermissaoTrabalho.Liberada && context.Fim < DateTimeOffset.UtcNow ? "erro" : Tom(context.Status))" /></Modelo></Coluna>
+                </Colunas>
+            </Grade>
+        </div>
+    </ChildContent>
+    <Faixa><b>Tela 47 · Permissão de trabalho</b><span>Altura, a quente, elétrico, espaço confinado, içamento</span><span>Executante sem requisito válido não entra · validade máxima de um turno</span></Faixa>
+</Pagina>
+
+<Modal @bind-Aberto="_aberto" Titulo="@($"{(string.IsNullOrEmpty(_p?.Numero) ? "Nova PT" : _p.Numero)} — permissão de trabalho {(_p is null ? "" : De(_p.Tipo).ToLowerInvariant())}")" Tamanho="grande">
+    <ChildContent>
+        @if (_p is not null)
+        {
+            var edita = _p.Status is StatusPermissaoTrabalho.Rascunho or StatusPermissaoTrabalho.AguardandoLiberacao or StatusPermissaoTrabalho.Suspensa;
+            <Erros Lista="ErrosForm" />
+            <div class="form">
+                <Campo Rotulo="Tipo" Obrigatorio Classe="s3"><select value="@_p.Tipo" @onchange="e => { _p.Tipo = Enum.Parse<TipoPermissaoTrabalho>(e.Value!.ToString()!); _p.Medidas = PermissaoTrabalho.MedidasPadrao(_p.Tipo); _p.MedidasMarcadas = string.Empty; }" disabled="@(!string.IsNullOrEmpty(_p.Numero))">@foreach (var t in Enum.GetValues<TipoPermissaoTrabalho>()) { <option value="@t">@De(t)</option> }</select></Campo>
+                <Campo Rotulo="Obra" Obrigatorio Classe="s3"><select value="@_p.ObraId" @onchange="async e => { _p.ObraId = Guid.TryParse(e.Value?.ToString(), out var g) ? g : Guid.Empty; _locais = await Cat.LocaisAsync(_p.ObraId); }" disabled="@(!edita)"><option value="@Guid.Empty">Selecione…</option>@foreach (var o in _obras) { <option value="@o.Id">@o.Texto</option> }</select></Campo>
+                <Campo Rotulo="Local" Obrigatorio Classe="s3"><select @bind="_p.LocalId" disabled="@(!edita)"><option value="@Guid.Empty">Selecione…</option>@foreach (var l in _locais) { <option value="@l.Id">@l.Texto</option> }</select></Campo>
+                <Campo Rotulo="Empresa" Obrigatorio Classe="s3"><select @bind="_p.FornecedorId" disabled="@(!edita)"><option value="@Guid.Empty">Selecione…</option>@foreach (var f in _fornecedores) { <option value="@f.Id">@f.Texto</option> }</select></Campo>
+                <Campo Rotulo="Atividade" Obrigatorio Classe="s6"><input @bind="_p.Atividade" disabled="@(!edita)" /></Campo>
+                <Campo Rotulo="Início" Classe="s3"><input type="datetime-local" @bind="_p.Inicio" disabled="@(!edita)" /></Campo>
+                <Campo Rotulo="Fim (máx. um turno)" Classe="s3"><input type="datetime-local" @bind="_p.Fim" disabled="@(!edita)" /></Campo>
+            </div>
+            <div class="duas-caixas" style="grid-template-columns: 3fr 2fr">
+                <div class="caixa-sec"><div class="secao"><Icone Nome="pessoa" /> Executantes (só aptos para o risco)
+                    @if (edita) { <span class="acao"><select @bind="_novoExec" style="max-width:220px"><option value="">Incluir…</option>@foreach (var c in _colabs.Where(c => _p.Executantes.All(x => x.ColaboradorId != c.Id))) { <option value="@c.Id">@c.Texto</option> }</select> <button class="btn sec pq" @onclick="IncluirExec"><Icone Nome="mais" Tam="14" /></button></span> }
+                </div>
+                    <table class="itens"><thead><tr><th>Colaborador</th><th>Papel</th><th>Situação</th><th></th></tr></thead>
+                        <tbody>@foreach (var x in _p.Executantes)
+                        {
+                            <tr><td>@(string.IsNullOrEmpty(x.Nome) ? Nome(_colabs, x.ColaboradorId) : x.Nome)</td>
+                                <td><select @bind="x.Papel" disabled="@(!edita)">@foreach (var pp in Enum.GetValues<PapelPt>()) { <option value="@pp">@De(pp)</option> }</select></td>
+                                <td>@if (string.IsNullOrEmpty(x.Nome)) { <span class="mudo">salve para verificar</span> } else if (x.Liberado) { <Selo Texto="Liberado" Tom="ok" /> } else { <Selo Texto="Não pode entrar" Tom="erro" /> <small class="mudo">@x.Motivo</small> }</td>
+                                <td>@if (edita) { <button class="icone-btn" @onclick="() => _p.Executantes.Remove(x)"><Icone Nome="lixeira" Tam="16" /></button> }</td></tr>
+                        }</tbody></table>
+                </div>
+                <div class="caixa-sec"><div class="secao"><Icone Nome="escudo-check" /> Medidas de controle</div>
+                    <div class="checks" style="flex-direction:column;gap:6px">
+                        @foreach (var (m, idx) in _p.Medidas.Split(';', StringSplitOptions.RemoveEmptyEntries).Select((m, i) => (m, i)))
+                        {
+                            <label><input type="checkbox" checked="@Marcada(idx)" disabled="@(!edita)" @onchange="e => Marcar(idx, (bool)e.Value!)" /> @m</label>
+                        }
+                    </div>
+                </div>
+            </div>
+            <div class="form" style="margin-top:12px">
+                <Campo Rotulo="Emitente (SST)" Obrigatorio Classe="s4"><input @bind="_p.Emitente" disabled="@(!edita)" /></Campo>
+                <Campo Rotulo="Responsável da área" Obrigatorio Classe="s4"><input @bind="_p.ResponsavelArea" disabled="@(!edita)" /></Campo>
+                <Campo Rotulo="Encerramento" Classe="s4"><input readonly value="@(_p.EncerradaEm is null ? "— (obrigatório ao fim do turno)" : $"{DataHora(_p.EncerradaEm)} · {_p.EncerradaPor}")" /></Campo>
+            </div>
+        }
+    </ChildContent>
+    <Rodape>
+        @if (_p is not null)
+        {
+            @if (_p.Status == StatusPermissaoTrabalho.Liberada)
+            {
+                <button class="btn perigo" disabled="@Ocupado" @onclick="() => Mudar(StatusPermissaoTrabalho.Suspensa)">Suspender</button>
+                <button class="btn ok" disabled="@Ocupado" @onclick="() => Mudar(StatusPermissaoTrabalho.Encerrada)"><Icone Nome="check" Tam="16" /> Encerrar PT</button>
+            }
+            @if (_p.Status is StatusPermissaoTrabalho.Rascunho or StatusPermissaoTrabalho.AguardandoLiberacao or StatusPermissaoTrabalho.Suspensa)
+            {
+                <button class="btn sec" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="16" /> Salvar</button>
+                <button class="btn ok" disabled="@Ocupado" @onclick="Liberar"><Icone Nome="check-circulo" Tam="16" /> Liberar PT</button>
+            }
+        }
+    </Rodape>
+</Modal>
+
+@code {
+    private Grade<PermissaoTrabalho>? _grade;
+    private List<PermissaoTrabalho>? _itens;
+    private PermissaoTrabalho? _p;
+    private Guid? _novoExec;
+    private bool _aberto;
+    private Dictionary<Guid, string> _locNomes = [];
+    private List<Opcao> _obras = [], _locais = [], _fornecedores = [], _colabs = [];
+    private static string Nome(List<Opcao> l, Guid id) => l.FirstOrDefault(x => x.Id == id)?.Texto ?? "—";
+
+    protected override async Task OnInitializedAsync()
+    {
+        _obras = await Cat.ObrasAsync(); _fornecedores = await Cat.FornecedoresAsync(); _colabs = await Cat.ColaboradoresAsync();
+        await Carregar();
+    }
+
+    private async Task Carregar()
+    {
+        await using var db = Fabrica.Criar();
+        _itens = await db.PermissoesTrabalho.AsNoTracking().Include(p => p.Executantes).OrderByDescending(p => p.Inicio).ToListAsync();
+        _locNomes = await db.Locais.AsNoTracking().ToDictionaryAsync(l => l.Id, l => l.Nome);
+    }
+
+    private async Task Nova()
+    {
+        var hoje = DateTimeOffset.Now.Date;
+        _p = new PermissaoTrabalho { Tipo = TipoPermissaoTrabalho.Altura, Inicio = hoje.AddHours(7), Fim = hoje.AddHours(17), Emitente = Usuario.Nome, Medidas = PermissaoTrabalho.MedidasPadrao(TipoPermissaoTrabalho.Altura), ObraId = _obras.Count == 1 ? _obras[0].Id : Guid.Empty };
+        _locais = _p.ObraId == Guid.Empty ? [] : await Cat.LocaisAsync(_p.ObraId);
+        ErrosForm = null; _aberto = true;
+    }
+
+    private async Task Abrir(Guid id)
+    {
+        await using var db = Fabrica.Criar();
+        _p = await db.PermissoesTrabalho.AsNoTracking().Include(p => p.Executantes).FirstAsync(p => p.Id == id);
+        _locais = await Cat.LocaisAsync(_p.ObraId);
+        ErrosForm = null; _aberto = true;
+    }
+
+    private bool Marcada(int i) => _p!.MedidasMarcadas.Split(';', StringSplitOptions.RemoveEmptyEntries).Contains(i.ToString());
+    private void Marcar(int i, bool v)
+    {
+        var s = _p!.MedidasMarcadas.Split(';', StringSplitOptions.RemoveEmptyEntries).ToHashSet();
+        if (v) s.Add(i.ToString()); else s.Remove(i.ToString());
+        _p.MedidasMarcadas = string.Join(';', s);
+    }
+
+    private void IncluirExec() { if (_novoExec is { } c) _p!.Executantes.Add(new ExecutantePt { PermissaoTrabalhoId = _p.Id, ColaboradorId = c }); _novoExec = null; }
+
+    private async Task Salvar()
+    {
+        Guid id = default;
+        if (await Executar(async () => id = await Sst.SalvarPtAsync(_p!), "PT salva — executantes verificados.")) { await Carregar(); await Abrir(id); }
+    }
+
+    private async Task Liberar() { if (await Executar(() => Sst.LiberarPtAsync(_p!), "PT liberada.")) { await Carregar(); await Abrir(_p!.Id); } }
+    private async Task Mudar(StatusPermissaoTrabalho s) { if (await Executar(() => Sst.MudarStatusPtAsync(_p!.Id, s), "PT atualizada.")) { await Carregar(); await Abrir(_p!.Id); } }
+}

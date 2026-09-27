@@ -1,0 +1,232 @@
+@page "/obra/fvs"
+@inherits PaginaBase
+@inject QualidadeObraServico Qob
+@inject NavigationManager Nav
+
+<Pagina Titulo="FVS – Inspeções de serviço" Grade="_grade" AoNovo="() => NovaFvs(null, null)" AoAtualizar="Carregar">
+    <ChildContent>
+        <div class="pagina">
+            <div class="kpis">
+                <Kpi Rotulo="FVS no mês" Valor="@_itens?.Count(f => f.Data >= InicioMes)" />
+                <Kpi Rotulo="Aprovadas na 1ª inspeção" Valor="@Pct1a()" Sub="@($"meta ≥ {_meta:0}%")" Tom="@(Pct1aNum() >= _meta ? "ok" : "aviso")" />
+                <Kpi Rotulo="Reprovadas abertas" Valor="@_itens?.Count(f => f.Status == StatusFvs.Reprovada)" Tom="erro" />
+                <Kpi Rotulo="Aguardando liberação" Valor="@_itens?.Count(f => f.Status == StatusFvs.Aprovada)" Sub="engenheiro da obra" Tom="aviso" />
+            </div>
+            <Grade T="Linha" @ref="_grade" Itens="_itens" AoClicar="l => Abrir(l.Id)" NomeExportacao="fvs" CriadoPor="l => l.Inspetor">
+                <Acoes>
+                    <a title="Abrir no celular" href="campo/fvs/@context.Id" target="_blank" data-enhance-nav="false"><Icone Nome="celular" Tam="16" /></a>
+                </Acoes>
+                <Colunas>
+                    <Coluna T="Linha" Titulo="Nº" Valor="l => l.Numero" Largura="90px" />
+                    <Coluna T="Linha" Titulo="Serviço (ITS)" Valor="l => l.Servico" />
+                    <Coluna T="Linha" Titulo="Local" Valor="l => l.Local" />
+                    <Coluna T="Linha" Titulo="Prestador" Valor="l => l.Prestador" />
+                    <Coluna T="Linha" Titulo="Inspetor" Valor="l => l.Inspetor" />
+                    <Coluna T="Linha" Titulo="Data" Valor="l => l.Data" />
+                    <Coluna T="Linha" Titulo="Resultado" Valor="l => l.Resumo" />
+                    <Coluna T="Linha" Titulo="Status" Valor="l => l.Status"><Modelo><Selo Texto="@De(context.Status)" Tom="@Tom(context.Status)" /></Modelo></Coluna>
+                </Colunas>
+            </Grade>
+        </div>
+    </ChildContent>
+    <Faixa><b>Tela 33 · FVS</b><span>Não conforme abre RNC e bloqueia a etapa seguinte do local</span><span>Equipamento só com calibração válida</span><span>Liberada = pode medir</span></Faixa>
+</Pagina>
+
+<Modal @bind-Aberto="_nova" Titulo="Nova FVS" Tamanho="media">
+    <ChildContent>
+        <Erros Lista="ErrosForm" />
+        <div class="form">
+            <Campo Rotulo="Obra" Obrigatorio Classe="s6"><select value="@_obra" @onchange="async e => { _obra = Guid.TryParse(e.Value?.ToString(), out var g) ? g : null; _locais = _obra is { } o ? await Cat.LocaisAsync(o) : []; }"><option value="">Selecione…</option>@foreach (var o in _obras) { <option value="@o.Id">@o.Texto</option> }</select></Campo>
+            <Campo Rotulo="Local" Obrigatorio Classe="s6"><select @bind="_local"><option value="">Selecione…</option>@foreach (var l in _locais) { <option value="@l.Id">@l.Texto (@l.Extra)</option> }</select></Campo>
+            <Campo Rotulo="Modelo de FVS (vigente)" Obrigatorio Classe="s12"><select @bind="_modelo"><option value="">Selecione…</option>@foreach (var m in _modelos) { <option value="@m.Id">@m.Texto</option> }</select></Campo>
+            <Campo Rotulo="Prestador" Obrigatorio Classe="s6"><select @bind="_prestador"><option value="">Selecione…</option>@foreach (var f in _fornecedores) { <option value="@f.Id">@f.Texto</option> }</select></Campo>
+            <Campo Rotulo="Contrato (liga à medição)" Classe="s6"><select @bind="_contrato"><option value="">—</option>@foreach (var c in _contratos.Where(c => _prestador is null || c.Extra == _prestador.ToString())) { <option value="@c.Id">@c.Texto</option> }</select></Campo>
+        </div>
+    </ChildContent>
+    <Rodape><button class="btn prim" disabled="@Ocupado" @onclick="CriarFvs"><Icone Nome="prancheta" Tam="16" /> Iniciar inspeção</button></Rodape>
+</Modal>
+
+<Modal @bind-Aberto="_aberto" Titulo="@($"{_f?.Numero} · {_f?.Modelo?.Titulo} — {_f?.Local?.Nome}")" Tamanho="grande">
+    <ChildContent>
+        @if (_f is not null)
+        {
+            <Erros Lista="ErrosForm" />
+            <div class="cabecalho-doc"><Selo Texto="@De(_f.Status)" Tom="@Tom(_f.Status)" /><span>Modelo <b>@_f.Modelo?.Codigo R@(_f.RevisaoModelo.ToString("00"))</b></span><span>Prestador <b>@Nome(_fornecedores, _f.FornecedorId)</b></span><span>Inspetor <b>@_f.InspetorNome</b> · @DataHora(_f.DataInspecao)</span>
+                @if (_f.LiberadoPorNome is not null) { <span>Liberada por <b>@_f.LiberadoPorNome</b> · @DataHora(_f.DataLiberacao)</span> }</div>
+            <div class="form">
+                <Campo Rotulo="Contrato" Classe="s6"><select @bind="_f.ContratoId" disabled="@(!EmInspecao)"><option value="">—</option>@foreach (var c in _contratos.Where(c => c.Extra == _f.FornecedorId.ToString())) { <option value="@c.Id">@c.Texto</option> }</select></Campo>
+                <Campo Rotulo="Equipamento (calibração válida)" Classe="s6"><select @bind="_f.EquipamentoId" disabled="@(!EmInspecao)"><option value="">—</option>@foreach (var e in _equipamentos) { <option value="@e.Id">@e.Texto</option> }</select></Campo>
+            </div>
+            <table class="itens">
+                <thead><tr><th>#</th><th>Item de verificação</th><th>Método</th><th>Tolerância / critério</th><th>Medido</th><th style="min-width:230px">Resultado</th><th>Foto</th><th>Observação</th>@if (_f.Status is StatusFvs.Reprovada or StatusFvs.Aprovada or StatusFvs.Liberada && _f.Itens.Any(i => i.Resultado == ResultadoItem.NaoConforme)) { <th>Reinspeção</th> }</tr></thead>
+                <tbody>
+                    @foreach (var i in _f.Itens.OrderBy(i => i.Ordem))
+                    {
+                        <tr class="@(i.ResultadoFinal == ResultadoItem.NaoConforme ? "alerta-linha" : "")">
+                            <td>@i.Ordem</td><td>@i.Descricao @if (i.Bloqueia) { <small class="mudo">· bloqueia</small> }</td><td>@i.Metodo</td><td>@i.Criterio</td>
+                            <td style="width:90px">@if (i.ValorMin is not null || i.ValorMax is not null) { <input type="number" step="0.01" @bind="i.ValorMedido" @bind:after="i.AplicarValor" disabled="@(!EmInspecao)" /> }</td>
+                            <td>
+                                <div class="botoes-resultado">
+                                    @foreach (var (r, rot, cls) in Opcoes)
+                                    {
+                                        <button class="btn pq @(i.Resultado == r ? cls : "sec")" disabled="@(!EmInspecao)" @onclick="() => i.Resultado = r">@rot</button>
+                                    }
+                                </div>
+                            </td>
+                            <td><Fotos EntidadeId="i.Id" SomenteLeitura="!EmInspecao" Obrigatoria="i.Foto == FotoItem.Obrigatoria || (i.Foto == FotoItem.SoEmNaoConformidade && i.Resultado == ResultadoItem.NaoConforme)" /></td>
+                            <td><input @bind="i.Observacao" disabled="@(!EmInspecao)" /></td>
+                            @if (_f.Status is StatusFvs.Reprovada or StatusFvs.Aprovada or StatusFvs.Liberada && _f.Itens.Any(x => x.Resultado == ResultadoItem.NaoConforme))
+                            {
+                                <td>@if (i.Resultado == ResultadoItem.NaoConforme)
+                                    {
+                                        @if (_f.Status == StatusFvs.Reprovada)
+                                        {
+                                            <select value="@(_reinsp.GetValueOrDefault(i.Id))" @onchange="e => _reinsp[i.Id] = Enum.Parse<ResultadoItem>(e.Value!.ToString()!)"><option value="@ResultadoItem.NaoAvaliado">—</option><option value="@ResultadoItem.Conforme">Conforme</option><option value="@ResultadoItem.NaoConforme">Não conforme</option></select>
+                                        }
+                                        else if (i.ResultadoReinspecao is { } rr) { <Selo Texto="@De(rr)" Tom="@Tom(rr)" /> }
+                                    }</td>
+                            }
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            @if (_f.Itens.Any(i => i.Resultado == ResultadoItem.NaoConforme) || _f.Status == StatusFvs.Reprovada)
+            {
+                <div class="duas-caixas">
+                    <div class="caixa-sec"><div class="secao"><Icone Nome="x-circulo" /> Não conformidade</div>
+                        <div class="form">
+                            <Campo Rotulo="Disposição" Obrigatorio Classe="s8"><select @bind="_f.Disposicao" disabled="@(_f.Status is StatusFvs.Liberada or StatusFvs.Aprovada)"><option value="">Selecione…</option>@foreach (var d in Disposicoes) { <option>@d</option> }</select></Campo>
+                            <Campo Rotulo="Prazo" Obrigatorio Classe="s4"><input type="date" @bind="_f.PrazoCorrecao" disabled="@(_f.Status is StatusFvs.Liberada or StatusFvs.Aprovada)" /></Campo>
+                        </div>
+                        @if (_rnc is not null) { <p class="mudo">RNC <a href="obra/rnc?id=@_rnc.Id"><b>@_rnc.Numero</b></a> aberta automaticamente (@De(_rnc.Status)) · etapa seguinte do local bloqueada até a reinspeção.</p> }
+                    </div>
+                    <div class="caixa-sec"><div class="secao"><Icone Nome="atualizar" /> Reinspeção</div>
+                        <div class="form"><Campo Rotulo="Data" Classe="s6"><input type="date" @bind="_dataReinsp" disabled="@(_f.Status != StatusFvs.Reprovada)" /></Campo></div>
+                        <p class="mudo">Só os itens não conformes são reinspecionados. Aprovada → liberação do engenheiro para a próxima etapa e para a medição.</p>
+                    </div>
+                </div>
+            }
+        }
+    </ChildContent>
+    <Rodape>
+        @if (_f is not null)
+        {
+            <a class="btn sec" href="campo/fvs/@_f.Id" target="_blank" data-enhance-nav="false"><Icone Nome="celular" Tam="16" /> Abrir no celular</a>
+            <button class="btn sec" @onclick='() => JS.InvokeVoidAsync("print")'><Icone Nome="impressora" Tam="16" /> Imprimir FVS</button>
+            @if (_f.Status == StatusFvs.Aprovada) { <button class="btn ok" disabled="@Ocupado" @onclick="Liberar"><Icone Nome="check" Tam="16" /> Liberar (engenheiro)</button> }
+            @if (_f.Status == StatusFvs.Reprovada) { <button class="btn laranja" disabled="@Ocupado" @onclick="Reinspecionar"><Icone Nome="atualizar" Tam="16" /> Registrar reinspeção</button> }
+            @if (EmInspecao) { <button class="btn ok" disabled="@Ocupado" @onclick="Concluir"><Icone Nome="check" Tam="16" /> Concluir inspeção</button> }
+            @if (EmInspecao || _f.Status == StatusFvs.Reprovada) { <button class="btn prim" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="16" /> Salvar</button> }
+        }
+    </Rodape>
+</Modal>
+
+@code {
+    [Inject] private IJSRuntime JS { get; set; } = default!;
+    private sealed record Linha(Guid Id, string Numero, string Servico, string Local, string Prestador, string Inspetor, DateTimeOffset Data, string Resumo, StatusFvs Status, bool Primeira);
+    public static readonly string[] Disposicoes = ["Retrabalho", "Reparo", "Refazer (demolir)", "Aceite sob concessão", "Devolução ao fornecedor", "Reclassificação"];
+    private static readonly (ResultadoItem, string, string)[] Opcoes = [(ResultadoItem.Conforme, "Conforme", "ok"), (ResultadoItem.NaoConforme, "Não conf.", "perigo-cheio"), (ResultadoItem.NaoAplica, "N/A", "prim")];
+    private Grade<Linha>? _grade;
+    private List<Linha>? _itens;
+    private Fvs? _f;
+    private Rnc? _rnc;
+    private bool _aberto, _nova;
+    private decimal _meta = 85;
+    private Guid? _obra, _local, _modelo, _prestador, _contrato;
+    private DateOnly _dataReinsp;
+    private readonly Dictionary<Guid, ResultadoItem> _reinsp = [];
+    private List<Opcao> _obras = [], _locais = [], _modelos = [], _fornecedores = [], _contratos = [], _equipamentos = [];
+    private bool EmInspecao => _f?.Status == StatusFvs.EmInspecao;
+    private DateTimeOffset InicioMes => new(Hoje.Year, Hoje.Month, 1, 0, 0, 0, TimeSpan.Zero);
+    private static string Nome(List<Opcao> l, Guid id) => l.FirstOrDefault(x => x.Id == id)?.Texto ?? "—";
+    private decimal Pct1aNum()
+    {
+        var concl = _itens?.Where(f => f.Status is not (StatusFvs.EmInspecao or StatusFvs.Cancelada)).ToList() ?? [];
+        return concl.Count == 0 ? 0 : Math.Round(100m * concl.Count(f => f.Primeira) / concl.Count, 0);
+    }
+    private string Pct1a() => _itens is { Count: > 0 } ? $"{Pct1aNum():0}%" : "—";
+
+    protected override async Task OnInitializedAsync()
+    {
+        _obras = await Cat.ObrasAsync(); _modelos = await Cat.ModelosAsync(TipoModelo.FVS); _fornecedores = await Cat.FornecedoresAsync(); _contratos = await Cat.ContratosAtivosAsync();
+        await using (var db = Fabrica.Criar())
+        {
+            _meta = (await ParametrosServico.CarregarAsync(db))[Parametros.MetaFvs1aInspecaoPerc];
+            _equipamentos = (await db.Equipamentos.AsNoTracking().ToListAsync()).Where(e => e.UsavelEm(Hoje)).Select(e => new Opcao(e.Id, $"{e.Codigo} – {e.Descricao} (até {e.Proxima:dd/MM/yy})")).ToList();
+        }
+        await Carregar();
+        var q = System.Web.HttpUtility.ParseQueryString(new Uri(Nav.Uri).Query);
+        if (Guid.TryParse(q["id"], out var id)) await Abrir(id);
+        else if (Guid.TryParse(q["local"], out var loc)) await NovaFvs(loc, Guid.TryParse(q["servico"], out var s) ? s : null);
+    }
+
+    private async Task Carregar()
+    {
+        await using var db = Fabrica.Criar();
+        var locais = await db.Locais.AsNoTracking().ToDictionaryAsync(l => l.Id, l => l.Nome);
+        var forn = await db.Fornecedores.AsNoTracking().ToDictionaryAsync(f => f.Id, f => f.NomeExibicao);
+        var lista = await db.Fvss.AsNoTracking().Include(f => f.Itens).Include(f => f.Modelo).OrderByDescending(f => f.DataInspecao).ToListAsync();
+        _itens = lista.Select(f => new Linha(f.Id, f.Numero, f.Modelo?.Titulo ?? "", locais.GetValueOrDefault(f.LocalId, ""), forn.GetValueOrDefault(f.FornecedorId, ""),
+            f.InspetorNome, f.DataInspecao, f.Status == StatusFvs.EmInspecao ? "—" : f.Resumo, f.Status, f.Aprovada1aInspecao)).ToList();
+    }
+
+    private async Task NovaFvs(Guid? local, Guid? servico)
+    {
+        _obra = null; _local = null; _modelo = null; _prestador = null; _contrato = null; _locais = [];
+        if (local is { } l)
+        {
+            await using var db = Fabrica.Criar();
+            var loc = await db.Locais.AsNoTracking().FirstOrDefaultAsync(x => x.Id == l);
+            if (loc is not null) { _obra = loc.ObraId; _locais = await Cat.LocaisAsync(loc.ObraId); _local = l; }
+            if (servico is { } s) _modelo = _modelos.FirstOrDefault(m => m.Extra == s.ToString())?.Id;
+        }
+        else if (_obras.Count == 1) { _obra = _obras[0].Id; _locais = await Cat.LocaisAsync(_obras[0].Id); }
+        ErrosForm = null; _nova = true;
+    }
+
+    private async Task CriarFvs()
+    {
+        var e = new List<string>();
+        if (_local is null) e.Add("Informe o local.");
+        if (_modelo is null) e.Add("Informe o modelo.");
+        if (_prestador is null) e.Add("Informe o prestador.");
+        if (e.Count > 0) { ErrosForm = e; return; }
+        Guid id = default;
+        if (await Executar(async () => id = await Qob.AbrirFvsAsync(_modelo!.Value, _local!.Value, _prestador!.Value, _contrato, OrigemRegistro.Web), "FVS aberta."))
+        { _nova = false; await Carregar(); await Abrir(id); }
+    }
+
+    private async Task Abrir(Guid id)
+    {
+        await using var db = Fabrica.Criar();
+        _f = await db.Fvss.AsNoTracking().Include(f => f.Itens).Include(f => f.Modelo).Include(f => f.Local).FirstAsync(f => f.Id == id);
+        _rnc = _f.RncId is { } r ? await db.Rncs.AsNoTracking().FirstOrDefaultAsync(x => x.Id == r) : null;
+        if (_f.EquipamentoId is { } eq && _equipamentos.All(x => x.Id != eq))
+        {
+            var e = await db.Equipamentos.AsNoTracking().FirstAsync(x => x.Id == eq);
+            _equipamentos.Add(new Opcao(e.Id, $"{e.Codigo} – {e.Descricao} (fora da validade)"));
+        }
+        _reinsp.Clear(); _dataReinsp = Hoje; ErrosForm = null; _aberto = true;
+    }
+
+    private async Task Salvar() { if (await Executar(() => Qob.SalvarFvsAsync(_f!), "FVS salva.")) await Abrir(_f!.Id); }
+
+    private async Task Concluir()
+    {
+        if (await Executar(() => Qob.ConcluirFvsAsync(_f!)))
+        {
+            await Carregar(); await Abrir(_f!.Id);
+            if (_f.Status == StatusFvs.Reprovada) Notif.Aviso($"FVS reprovada: {_rnc?.Numero} aberta e etapa seguinte bloqueada."); else Notif.Sucesso("FVS aprovada — aguardando liberação do engenheiro.");
+        }
+    }
+
+    private async Task Reinspecionar()
+    {
+        if (await Executar(() => Qob.ReinspecionarAsync(_f!.Id, _dataReinsp, _reinsp), "Reinspeção registrada.")) { await Carregar(); await Abrir(_f!.Id); }
+    }
+
+    private async Task Liberar()
+    {
+        if (await Executar(() => Qob.LiberarFvsAsync(_f!.Id), "FVS liberada — local disponível para medição e próxima etapa.")) { await Carregar(); await Abrir(_f!.Id); }
+    }
+}

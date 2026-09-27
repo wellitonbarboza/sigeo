@@ -321,3 +321,52 @@ table.mapa th { white-space: nowrap; }
 .caixa-envio .btn { width: fit-content; }
 pre.json { background: var(--superficie-2); border: 1px solid var(--borda); border-radius: 8px; padding: 10px; font-size: 12px; max-height: 60vh; overflow: auto; white-space: pre-wrap; word-break: break-word; }
 @media (max-width: 900px) { .vias { grid-template-columns: 1fr; } .janela .duas-colunas { grid-template-columns: 1fr; } }
+
+.menu a.dobra { cursor: pointer; user-select: none; }
+.menu a.dobra .seta { margin-left: auto; transition: transform .15s; opacity: .7; }
+.menu a.dobra.aberto .seta { transform: rotate(90deg); }
+
+/* ───── Campo (celular / tablet) ───── */
+.campo-app { max-width: 560px; margin: 0 auto; min-height: 100vh; background: var(--fundo); display: flex; flex-direction: column; }
+.campo-topo { position: sticky; top: 0; z-index: 5; background: var(--sidebar); color: #fff; padding: 12px 14px; display: flex; gap: 12px; align-items: center; }
+.campo-topo .voltar { color: #fff; font-size: 26px; line-height: 1; text-decoration: none; }
+.campo-topo small { display: block; color: var(--sidebar-sutil); font-size: 12px; }
+.campo-corpo { padding: 12px; display: flex; flex-direction: column; gap: 10px; flex: 1; }
+.campo-status { display: flex; gap: 10px; align-items: center; font-size: 13px; }
+.campo-card { background: var(--superficie); border: 1px solid var(--borda); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.campo-card.nc { border-color: #fca5a5; background: var(--erro-suave); }
+.campo-card small { color: var(--texto-3); }
+.campo-card input, .campo-card select { font-size: 16px; padding: 10px; border: 1px solid var(--borda); border-radius: 8px; background: var(--superficie); }
+.campo-botoes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.campo-botoes button { padding: 12px 6px; font-size: 14px; border-radius: 8px; border: 1px solid var(--borda-forte); background: var(--superficie); font-weight: 600; }
+.campo-botoes button.on { background: var(--primaria); color: #fff; border-color: var(--primaria); }
+.campo-botoes button.on.ok { background: var(--ok); border-color: var(--ok); } .campo-botoes button.on.erro { background: var(--erro); border-color: var(--erro); }
+.campo-rodape { position: sticky; bottom: 0; background: var(--superficie); border-top: 1px solid var(--borda); padding: 10px 12px; display: grid; grid-template-columns: 1fr 2fr; gap: 8px; }
+.campo-rodape button { padding: 14px; font-size: 15px; font-weight: 700; border-radius: 10px; border: 1px solid var(--borda-forte); background: var(--superficie); }
+.campo-rodape button.prim { background: var(--primaria); color: #fff; border-color: var(--primaria); }
+.fotos { display: inline-flex; gap: 4px; align-items: center; flex-wrap: wrap; }
+.foto-mini, .foto-add { display: inline-flex; align-items: center; gap: 2px; border: 1px solid var(--borda-forte); border-radius: 6px; padding: 3px 5px; color: var(--texto-2); cursor: pointer; background: var(--superficie); }
+.foto-mini { background: var(--info-suave); color: var(--info-texto); }
+.botoes-resultado { display: flex; gap: 4px; }
+.btn.perigo-cheio { background: var(--erro); color: #fff; border-color: var(--erro); }
+.duas-caixas { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 12px; }
+.caixa-sec { border: 1px solid var(--borda); border-radius: 10px; padding: 4px 14px 10px; }
+@media (max-width: 900px) { .duas-caixas { grid-template-columns: 1fr; } }
+/* Mapa de inspeções */
+.mapa-insp { border-collapse: separate; border-spacing: 4px; font-size: 12px; }
+.mapa-insp th { font-size: 11px; color: var(--texto-2); font-weight: 700; text-align: center; padding: 4px; max-width: 110px; }
+.mapa-insp th.loc { text-align: right; white-space: nowrap; }
+.mapa-insp td { min-width: 96px; height: 30px; text-align: center; border-radius: 6px; cursor: pointer; font-weight: 600; background: var(--neutro-suave); color: var(--texto-3); }
+.mapa-insp td.Liberada { background: #16a34a; color: #fff; } .mapa-insp td.Aprovada { background: #86efac; color: #14532d; }
+.mapa-insp td.Reprovada { background: #ef4444; color: #fff; } .mapa-insp td.Reinspecao { background: #fde68a; color: #78350f; }
+.mapa-insp td.EmInspecao { background: #c7d2fe; color: #312e81; }
+.legenda { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; margin-top: 8px; }
+.legenda i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 4px; vertical-align: -2px; }
+.colunas-graf { display: flex; gap: 12px; align-items: flex-end; height: 170px; padding: 8px 4px 0; }
+.colunas-graf > div { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: 4px; font-size: 12px; }
+.colunas-graf span { width: 70%; background: var(--primaria); border-radius: 5px 5px 0 0; min-height: 2px; }
+.colunas-graf small { color: var(--texto-3); }
+.texto-aviso { color: var(--aviso); font-weight: 700; }
+.pilula { display: inline-block; min-width: 22px; padding: 2px 7px; border-radius: 99px; font-weight: 800; font-size: 12px; }
+.pilula.ok { background: var(--ok-suave); color: var(--ok-texto); } .pilula.info { background: var(--info-suave); color: var(--info-texto); }
+table.matriz th { font-size: 11px; white-space: normal; min-width: 70px; }

@@ -1,0 +1,190 @@
+@page "/sst/treinamentos"
+@inherits PaginaBase
+@inject SstServico Sst
+
+<Pagina Titulo="Treinamentos" Grade="GradeAtual" AoNovo="Novo" AoAtualizar="Carregar">
+    <ChildContent>
+        <div class="pagina">
+            <Abas Itens="Abas" @bind-Ativa="_aba" />
+            @if (_aba == "turmas")
+            {
+                <Grade T="Turma" @ref="_gT" Itens="_turmas" AoClicar="t => AbrirTurma(t.Id)" NomeExportacao="turmas">
+                    <Colunas>
+                        <Coluna T="Turma" Titulo="Turma" Valor="t => t.Codigo" Largura="90px" />
+                        <Coluna T="Turma" Titulo="Treinamento" Valor="t => NomeT(t.TreinamentoId)" />
+                        <Coluna T="Turma" Titulo="Data" Valor="t => t.Data" />
+                        <Coluna T="Turma" Titulo="Carga" Valor="t => _cat.FirstOrDefault(x => x.Id == t.TreinamentoId)?.CargaHoraria" />
+                        <Coluna T="Turma" Titulo="Instrutor" Valor="t => t.Instrutor" />
+                        <Coluna T="Turma" Titulo="Inscritos" Valor="t => t.Participantes.Count" Alinhar="num" />
+                        <Coluna T="Turma" Titulo="Presentes" Valor='t => t.Status == StatusTurma.Concluida ? t.Participantes.Count(p => p.Presenca).ToString() : "—"' Alinhar="num" />
+                        <Coluna T="Turma" Titulo="Status" Valor="t => t.Status"><Modelo><Selo Texto="@De(context.Status)" Tom="@Tom(context.Status)" /></Modelo></Coluna>
+                    </Colunas>
+                </Grade>
+            }
+            else if (_aba == "cat")
+            {
+                <Grade T="Treinamento" @ref="_gC" Itens="_cat" AoClicar="t => { _t = t; ErrosForm = null; _abertoC = true; }" NomeExportacao="treinamentos">
+                    <Colunas>
+                        <Coluna T="Treinamento" Titulo="Treinamento" Valor="t => t.Descricao" />
+                        <Coluna T="Treinamento" Titulo="Tipo" Valor="t => t.Tipo" />
+                        <Coluna T="Treinamento" Titulo="Carga horária" Valor="t => t.CargaHoraria" />
+                        <Coluna T="Treinamento" Titulo="Validade (meses)" Valor="t => t.ValidadeMeses" Alinhar="num" />
+                        <Coluna T="Treinamento" Titulo="Eficácia" Valor="t => t.MetodoEficacia" />
+                    </Colunas>
+                </Grade>
+            }
+            else
+            {
+                <table class="itens">
+                    <thead><tr><th>Colaborador</th><th>Treinamento</th><th>Situação</th><th>Validade</th></tr></thead>
+                    <tbody>
+                        @foreach (var n in (_aba == "nec" ? _necessidades.Where(n => n.Situacao != "Válido") : _necessidades.Where(n => n.Validade >= Hoje && n.Validade <= Hoje.AddDays(30))))
+                        {
+                            <tr><td>@n.Colaborador</td><td>@n.Treinamento</td><td><Selo Texto="@n.Situacao" Tom="@(n.Situacao == "Válido" ? "aviso" : "erro")" /></td><td>@Data(n.Validade)</td></tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    </ChildContent>
+    <Faixa><b>Tela 44 · Treinamentos</b><span>NRs, integração e treinamentos do SGQ · competência SiAC 7.2</span><span>Presença + avaliação geram o registro de competência com validade</span></Faixa>
+</Pagina>
+
+<Modal @bind-Aberto="_abertoT" Titulo="@($"Turma {_turma?.Codigo} — {NomeT(_turma?.TreinamentoId ?? Guid.Empty)}")">
+    <ChildContent>
+        @if (_turma is not null)
+        {
+            var fechada = _turma.Status != StatusTurma.Programada;
+            <Erros Lista="ErrosForm" />
+            <div class="form">
+                <Campo Rotulo="Treinamento" Obrigatorio Classe="s6"><select @bind="_turma.TreinamentoId" disabled="@fechada"><option value="@Guid.Empty">Selecione…</option>@foreach (var t in _cat) { <option value="@t.Id">@t.Descricao</option> }</select></Campo>
+                <Campo Rotulo="Data / hora" Obrigatorio Classe="s3"><input type="datetime-local" @bind="_turma.Data" disabled="@fechada" /></Campo>
+                <Campo Rotulo="Obra" Classe="s3"><select @bind="_turma.ObraId" disabled="@fechada"><option value="">—</option>@foreach (var o in _obras) { <option value="@o.Id">@o.Texto</option> }</select></Campo>
+                <Campo Rotulo="Origem" Classe="s6"><input @bind="_turma.Origem" placeholder="necessidade, ação corretiva, nova revisão de ITS…" disabled="@fechada" /></Campo>
+                <Campo Rotulo="Instrutor" Obrigatorio Classe="s3"><input @bind="_turma.Instrutor" disabled="@fechada" /></Campo>
+                <Campo Rotulo="Local" Obrigatorio Classe="s3"><input @bind="_turma.Local" disabled="@fechada" /></Campo>
+            </div>
+            <div class="secao"><Icone Nome="pessoa" /> Participantes
+                @if (!fechada) { <span class="acao"><select @bind="_novoPart" style="max-width:260px"><option value="">Incluir colaborador…</option>@foreach (var c in _colabs.Where(c => _turma.Participantes.All(p => p.ColaboradorId != c.Id))) { <option value="@c.Id">@c.Texto</option> }</select>
+                    <button class="btn sec pq" @onclick="Incluir"><Icone Nome="mais" Tam="14" /></button></span> }
+            </div>
+            <table class="itens">
+                <thead><tr><th>Participante</th><th>Presença</th><th>Avaliação</th><th>Resultado</th><th>Válido até</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var p in _turma.Participantes)
+                    {
+                        <tr><td>@Nome(_colabs, p.ColaboradorId)</td>
+                            <td><input type="checkbox" @bind="p.Presenca" disabled="@fechada" /></td>
+                            <td style="width:140px"><input @bind="p.Avaliacao" disabled="@fechada" /></td>
+                            <td>@if (!fechada) { <select @bind="p.Resultado"><option value="">(auto)</option><option value="@ResultadoParticipante.Aprovado">Aprovado</option><option value="@ResultadoParticipante.Reprovado">Reprovado</option></select> } else { @(p.Resultado is { } r ? De(r) : "—") }</td>
+                            <td>@(p.ValidoAte == DateOnly.MaxValue ? "sem vencimento" : Data(p.ValidoAte))</td>
+                            <td>@if (!fechada) { <button class="icone-btn" @onclick="() => _turma.Participantes.Remove(p)"><Icone Nome="lixeira" Tam="16" /></button> }</td></tr>
+                    }
+                </tbody>
+            </table>
+            <div class="alerta info"><Icone Nome="info" /> Ao concluir: presença + avaliação geram o registro de competência (SiAC 7.2) e atualizam a situação dos colaboradores. Treinamento de ITS habilita o inspetor a assinar a FVS daquela ITS.</div>
+            @if (_turma.CriadoEm != default) { <Anexos Entidade="Turma" EntidadeId="_turma.Id" Categoria="Presenca" Titulo="Lista de presença assinada, certificados e qualificação do instrutor" /> }
+        }
+    </ChildContent>
+    <Rodape>
+        @if (_turma is not null && _turma.Status == StatusTurma.Programada)
+        {
+            @if (_turma.CriadoEm != default) { <button class="btn ok" disabled="@Ocupado" @onclick="Concluir"><Icone Nome="check" Tam="16" /> Concluir turma</button> }
+            <button class="btn prim" disabled="@Ocupado" @onclick="SalvarTurma"><Icone Nome="check" Tam="16" /> Salvar</button>
+        }
+    </Rodape>
+</Modal>
+
+<Modal @bind-Aberto="_abertoC" Titulo="Treinamento (catálogo)" Tamanho="media">
+    <ChildContent>
+        @if (_t is not null)
+        {
+            <Erros Lista="ErrosForm" />
+            <div class="form">
+                <Campo Rotulo="Treinamento" Obrigatorio Classe="s8"><input @bind="_t.Descricao" /></Campo>
+                <Campo Rotulo="Tipo" Classe="s4"><select @bind="_t.Tipo">@foreach (var x in Enum.GetValues<TipoTreinamento>()) { <option value="@x">@De(x)</option> }</select></Campo>
+                @if (_t.Tipo == TipoTreinamento.Sgq) { <Campo Rotulo="Documento SGQ (ITS / procedimento)" Classe="s12"><select @bind="_t.DocumentoId"><option value="">—</option>@foreach (var d in _docs) { <option value="@d.Id">@d.Texto</option> }</select></Campo> }
+                <Campo Rotulo="Carga horária" Obrigatorio Classe="s4"><input @bind="_t.CargaHoraria" /></Campo>
+                <Campo Rotulo="Validade (meses)" Classe="s4"><input type="number" @bind="_t.ValidadeMeses" /></Campo>
+                <Campo Rotulo="Avaliação de eficácia" Classe="s4"><select @bind="_t.MetodoEficacia">@foreach (var x in Enum.GetValues<MetodoEficaciaTreinamento>()) { <option value="@x">@De(x)</option> }</select></Campo>
+                <Campo Rotulo="Conteúdo programático" Classe="s12"><textarea @bind="_t.Conteudo"></textarea></Campo>
+            </div>
+        }
+    </ChildContent>
+    <Rodape><button class="btn prim" disabled="@Ocupado" @onclick="SalvarCatalogo"><Icone Nome="check" Tam="16" /> Salvar</button></Rodape>
+</Modal>
+
+@code {
+    private IGrade? GradeAtual => _aba == "turmas" ? _gT : _aba == "cat" ? _gC : null;
+    private Grade<Turma>? _gT;
+    private Grade<Treinamento>? _gC;
+    private List<Turma>? _turmas;
+    private List<Treinamento> _cat = [];
+    private Turma? _turma;
+    private Treinamento? _t;
+    private Guid? _novoPart;
+    private bool _abertoT, _abertoC;
+    private string _aba = "turmas";
+    private List<Opcao> _colabs = [], _obras = [], _docs = [];
+    private List<(string Colaborador, string Treinamento, string Situacao, DateOnly? Validade)> _necessidades = [];
+    private List<(string, string)> Abas => [("turmas", "Turmas"), ("nec", $"Necessidades ({_necessidades.Count(n => n.Situacao != "Válido")})"),
+        ("vencer", $"Vencendo em 30 dias ({_necessidades.Count(n => n.Validade >= Hoje && n.Validade <= Hoje.AddDays(30))})"), ("cat", "Catálogo")];
+    private string NomeT(Guid id) => _cat.FirstOrDefault(x => x.Id == id)?.Descricao ?? "—";
+    private static string Nome(List<Opcao> l, Guid id) => l.FirstOrDefault(x => x.Id == id)?.Texto ?? "—";
+
+    protected override async Task OnInitializedAsync()
+    {
+        _colabs = await Cat.ColaboradoresAsync(); _obras = await Cat.ObrasAsync(); _docs = await Cat.DocumentosSgqAsync();
+        await Carregar();
+    }
+
+    private async Task Carregar()
+    {
+        await using (var db = Fabrica.Criar())
+        {
+            _turmas = await db.Turmas.AsNoTracking().Include(t => t.Participantes).OrderByDescending(t => t.Data).ToListAsync();
+            _cat = await db.Treinamentos.AsNoTracking().Where(t => t.Ativo).OrderBy(t => t.Descricao).ToListAsync();
+        }
+        var calc = await Sst.RecalcularAsync();
+        var treinExig = _cat.Select(t => t.Descricao).ToHashSet();
+        _necessidades = calc.SelectMany(kv => kv.Value.Detalhe.Where(d => d.Situacao is "Não realizado" or "Vencido" || (d.Ok && d.Validade is not null && d.Validade <= Hoje.AddDays(30)))
+            .Select(d => (Nome(_colabs, kv.Key), d.Exigencia, d.Ok ? "Válido" : d.Situacao, d.Validade))).OrderBy(x => x.Item2).ToList();
+    }
+
+    private void Novo()
+    {
+        ErrosForm = null;
+        if (_aba == "cat") { _t = new Treinamento(); _abertoC = true; }
+        else { _turma = new Turma { Data = DateTimeOffset.Now.AddDays(3), ObraId = _obras.Count == 1 ? _obras[0].Id : null }; _abertoT = true; }
+    }
+
+    private async Task AbrirTurma(Guid id)
+    {
+        await using var db = Fabrica.Criar();
+        _turma = await db.Turmas.AsNoTracking().Include(t => t.Participantes).FirstAsync(t => t.Id == id);
+        ErrosForm = null; _abertoT = true;
+    }
+
+    private void Incluir()
+    {
+        if (_novoPart is { } c) _turma!.Participantes.Add(new Participante { TurmaId = _turma.Id, ColaboradorId = c, Presenca = true });
+        _novoPart = null;
+    }
+
+    private async Task SalvarTurma()
+    {
+        Guid id = default;
+        if (await Executar(async () => id = await Sst.SalvarTurmaAsync(_turma!), "Turma salva.")) { await Carregar(); await AbrirTurma(id); }
+    }
+
+    private async Task Concluir() { if (await Executar(() => Sst.ConcluirTurmaAsync(_turma!), "Turma concluída — competências registradas.")) { await Carregar(); await AbrirTurma(_turma!.Id); } }
+
+    private async Task SalvarCatalogo()
+    {
+        if (await Executar(async () =>
+        {
+            if (string.IsNullOrWhiteSpace(_t!.Descricao) || string.IsNullOrWhiteSpace(_t.CargaHoraria)) throw new RegraDeNegocioException("Informe o treinamento e a carga horária.");
+            await using var db = Fabrica.Criar(); await Grafo.SalvarAsync(db, _t); await db.SaveChangesAsync();
+        }, "Treinamento salvo.")) { _abertoC = false; await Carregar(); }
+    }
+}

@@ -7,6 +7,7 @@ using QualyHub.Domain.Estrutura;
 using QualyHub.Domain.Importacao;
 using QualyHub.Domain.Qualidade;
 using QualyHub.Domain.Documentos;
+using QualyHub.Domain.Sst;
 using QualyHub.Domain.Suprimentos;
 using QualyHub.Infrastructure.Contexto;
 
@@ -37,9 +38,6 @@ public class QualyHubDbContext(DbContextOptions<QualyHubDbContext> options, IUsu
     public DbSet<FornecedorQualificacao> Qualificacoes => Set<FornecedorQualificacao>();
     public DbSet<FornecedorDocumento> FornecedorDocumentos => Set<FornecedorDocumento>();
     public DbSet<LinkPortalFornecedor> LinksPortal => Set<LinkPortalFornecedor>();
-    public DbSet<Funcionario> Funcionarios => Set<Funcionario>();
-    public DbSet<FuncionarioObra> FuncionariosObras => Set<FuncionarioObra>();
-    public DbSet<FuncionarioDocumento> FuncionarioDocumentos => Set<FuncionarioDocumento>();
     public DbSet<ServicoControlado> ServicosControlados => Set<ServicoControlado>();
     public DbSet<MaterialControlado> MateriaisControlados => Set<MaterialControlado>();
     public DbSet<Produto> Produtos => Set<Produto>();
@@ -62,12 +60,6 @@ public class QualyHubDbContext(DbContextOptions<QualyHubDbContext> options, IUsu
     public DbSet<AvaliacaoSemestral> AvaliacoesSemestrais => Set<AvaliacaoSemestral>();
     public DbSet<LiberacaoPagamento> Pagamentos => Set<LiberacaoPagamento>();
     // Qualidade
-    public DbSet<FormModelo> FormModelos => Set<FormModelo>();
-    public DbSet<FormItem> FormItens => Set<FormItem>();
-    public DbSet<Ficha> Fichas => Set<Ficha>();
-    public DbSet<FichaResposta> FichaRespostas => Set<FichaResposta>();
-    public DbSet<FichaEvidencia> FichaEvidencias => Set<FichaEvidencia>();
-    public DbSet<Rnc> Rncs => Set<Rnc>();
     // Documentos do SGQ (D01–D13)
     public DbSet<Pasta> Pastas => Set<Pasta>();
     public DbSet<Documento> Documentos => Set<Documento>();
@@ -85,6 +77,42 @@ public class QualyHubDbContext(DbContextOptions<QualyHubDbContext> options, IUsu
     public DbSet<RegraRetencao> RegrasRetencao => Set<RegraRetencao>();
     public DbSet<Grd> Grds => Set<Grd>();
     public DbSet<GrdItem> GrdItens => Set<GrdItem>();
+    // Qualidade da obra (Q01–Q15)
+    public DbSet<ModeloInspecao> ModelosInspecao => Set<ModeloInspecao>();
+    public DbSet<ItemVerificacao> ItensVerificacao => Set<ItemVerificacao>();
+    public DbSet<EnsaioModelo> EnsaiosModelo => Set<EnsaioModelo>();
+    public DbSet<Fvs> Fvss => Set<Fvs>();
+    public DbSet<FvsItem> FvsItens => Set<FvsItem>();
+    public DbSet<Rnc> Rncs => Set<Rnc>();
+    public DbSet<AcaoCorretiva> AcoesCorretivas => Set<AcaoCorretiva>();
+    public DbSet<AcaoCorretivaItem> AcaoCorretivaItens => Set<AcaoCorretivaItem>();
+    public DbSet<EquipamentoMedicao> Equipamentos => Set<EquipamentoMedicao>();
+    public DbSet<Calibracao> Calibracoes => Set<Calibracao>();
+    public DbSet<AuditoriaInterna> AuditoriasInternas => Set<AuditoriaInterna>();
+    public DbSet<Constatacao> Constatacoes => Set<Constatacao>();
+    public DbSet<FvmItem> FvmItens => Set<FvmItem>();
+    public DbSet<EnsaioRecebimento> EnsaiosRecebimento => Set<EnsaioRecebimento>();
+    public DbSet<AplicacaoLote> AplicacoesLote => Set<AplicacaoLote>();
+    // Segurança e pessoas (S01–S13)
+    public DbSet<FuncaoObra> Funcoes => Set<FuncaoObra>();
+    public DbSet<Exigencia> Exigencias => Set<Exigencia>();
+    public DbSet<FuncaoExigencia> FuncaoExigencias => Set<FuncaoExigencia>();
+    public DbSet<Colaborador> Colaboradores => Set<Colaborador>();
+    public DbSet<DocumentoColaborador> DocumentosColaborador => Set<DocumentoColaborador>();
+    public DbSet<Treinamento> Treinamentos => Set<Treinamento>();
+    public DbSet<Turma> Turmas => Set<Turma>();
+    public DbSet<Participante> Participantes => Set<Participante>();
+    public DbSet<Epi> Epis => Set<Epi>();
+    public DbSet<EntregaEpi> EntregasEpi => Set<EntregaEpi>();
+    public DbSet<InspecaoSeguranca> InspecoesSeguranca => Set<InspecaoSeguranca>();
+    public DbSet<InspecaoSegurancaItem> InspecaoSegurancaItens => Set<InspecaoSegurancaItem>();
+    public DbSet<PermissaoTrabalho> PermissoesTrabalho => Set<PermissaoTrabalho>();
+    public DbSet<ExecutantePt> ExecutantesPt => Set<ExecutantePt>();
+    public DbSet<Ocorrencia> Ocorrencias => Set<Ocorrencia>();
+    // Contratos e sistema (T27, T28)
+    public DbSet<Aditivo> Aditivos => Set<Aditivo>();
+    public DbSet<AditivoItem> AditivoItens => Set<AditivoItem>();
+    public DbSet<RegraNotificacao> RegrasNotificacao => Set<RegraNotificacao>();
     // Aprovações, importação, auditoria
     public DbSet<SolicitacaoAprovacao> SolicitacoesAprovacao => Set<SolicitacaoAprovacao>();
     public DbSet<EtapaAprovacao> EtapasAprovacao => Set<EtapaAprovacao>();
@@ -154,7 +182,9 @@ public class QualyHubDbContext(DbContextOptions<QualyHubDbContext> options, IUsu
     private static readonly string[] PrefixosLongos =
         ["Observacao", "Objeto", "Especificacao", "Justificativa", "Descricao", "Comentario", "Problema", "Acao", "Requisitos",
          "Ocorrencia", "Bloqueios", "Participantes", "DocumentosExigidos", "Motivo", "Detalhe", "Emails", "Relacionados",
-         "DistribuicaoPadrao", "LeituraObrigatoria", "EficaciaComentario", "Protecao", "Armazenamento", "Recuperacao", "Descarte", "Assinatura"];
+         "DistribuicaoPadrao", "LeituraObrigatoria", "EficaciaComentario", "Protecao", "Armazenamento", "Recuperacao", "Descarte", "Assinatura",
+         "Evidencia", "AnaliseCausa", "CausaRaiz", "Conteudo", "Medidas", "Paralisacao", "Riscos", "Resumo", "ModeloMensagem", "Pergunta", "Escopo",
+         "AvaliacaoImpacto", "LocaisAfetados", "RncsOrigem", "Pendencias", "Concessao", "ItensSolicitados", "Destinatarios", "SubGrupos", "Ensaios"];
 
     private static bool TextoLongo(string nome) => PrefixosLongos.Any(p => nome.StartsWith(p, StringComparison.Ordinal));
 

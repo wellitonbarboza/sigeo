@@ -1,6 +1,6 @@
 // =====================================================================================
 // QualyHub — Infraestrutura Azure (escopo: resource group)
-// Custo sob controle: App Service B1 compartilhado (Web + Functions), Azure SQL serverless
+// Custo sob controle: App Service B1 (Web), Azure SQL serverless
 // com auto-pause, Storage LRS e orçamento com alerta. Escalar só quando o uso justificar.
 // =====================================================================================
 targetScope = 'resourceGroup'
@@ -40,8 +40,11 @@ param emailsAlerta array
 @description('Início do orçamento: primeiro dia do mês corrente (yyyy-MM-01).')
 param orcamentoInicio string
 
-@description('Versão .NET do Azure Functions isolado. Use 8.0 se 10.0 ainda não estiver disponível na região.')
-param functionsDotnetVersao string = '10.0'
+@description('ClientId (Application ID) do registro do app no Entra ID usado no login. Vazio = site sobe mas recusa iniciar em produção.')
+param entraClientId string = ''
+
+@description('Tenant do Entra ID do login (padrão: o tenant da assinatura).')
+param entraTenantId string = subscription().tenantId
 
 var sufixo = uniqueString(resourceGroup().id)
 var nome = '${prefixo}-${ambiente}'
@@ -97,7 +100,7 @@ resource st 'Microsoft.Storage/storageAccounts@2023-05-01' = {
   properties: {
     accessTier: 'Hot'
     allowBlobPublicAccess: false
-    allowSharedKeyAccess: true // necessário para o runtime do Functions; a aplicação usa Managed Identity
+    allowSharedKeyAccess: false // a aplicação usa só Managed Identity
     minimumTlsVersion: 'TLS1_2'
     supportsHttpsTrafficOnly: true
   }
@@ -197,7 +200,7 @@ resource dbBackup 'Microsoft.Sql/servers/databases/backupShortTermRetentionPolic
   properties: { retentionDays: 14 }
 }
 
-// ---------------------------- App Service (Web + Functions no mesmo plano) ----------
+// ---------------------------- App Service (Web) --------------------------------------
 resource plano 'Microsoft.Web/serverfarms@2023-12-01' = {
   name: 'asp-${nome}'
   location: local
@@ -232,6 +235,12 @@ resource web 'Microsoft.Web/sites@2023-12-01' = {
         { name: 'QualyHub__KeyVaultUri', value: kv.properties.vaultUri }
         { name: 'QualyHub__BlobUri', value: st.properties.primaryEndpoints.blob }
         { name: 'ASPNETCORE_ENVIRONMENT', value: ambiente == 'prd' ? 'Production' : 'Staging' }
+        { name: 'ASPNETCORE_FORWARDEDHEADERS_ENABLED', value: 'true' } // TLS termina no proxy do App Service
+        { name: 'TZ', value: 'America/Sao_Paulo' }
+        { name: 'AzureAd__Instance', value: environment().authentication.loginEndpoint }
+        { name: 'AzureAd__TenantId', value: entraTenantId }
+        { name: 'AzureAd__ClientId', value: entraClientId }
+        { name: 'AzureAd__CallbackPath', value: '/signin-oidc' }
       ]
       connectionStrings: [
         { name: 'QualyHub', connectionString: sqlConn, type: 'SQLAzure' }
@@ -240,40 +249,9 @@ resource web 'Microsoft.Web/sites@2023-12-01' = {
   }
 }
 
-resource func 'Microsoft.Web/sites@2023-12-01' = {
-  name: 'func-${nome}-${take(sufixo, 6)}'
-  location: local
-  tags: tags
-  kind: 'functionapp,linux'
-  identity: { type: 'SystemAssigned' }
-  properties: {
-    serverFarmId: plano.id // sem custo adicional: roda no mesmo plano B1
-    httpsOnly: true
-    siteConfig: {
-      linuxFxVersion: 'DOTNET-ISOLATED|${functionsDotnetVersao}'
-      alwaysOn: true
-      minTlsVersion: '1.2'
-      ftpsState: 'Disabled'
-      appSettings: [
-        { name: 'FUNCTIONS_EXTENSION_VERSION', value: '~4' }
-        { name: 'FUNCTIONS_WORKER_RUNTIME', value: 'dotnet-isolated' }
-        { name: 'AzureWebJobsStorage__accountName', value: st.name } // runtime via Managed Identity
-        { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: appi.properties.ConnectionString }
-        { name: 'QualyHub__KeyVaultUri', value: kv.properties.vaultUri }
-        { name: 'QualyHub__BlobUri', value: st.properties.primaryEndpoints.blob }
-        { name: 'QualyHub__Sql', value: sqlConn }
-        { name: 'QualyHub__AgendaAlertas', value: '0 0 7 * * 1-5' } // 07h, seg–sex (UTC → ajuste no código p/ America/Sao_Paulo)
-      ]
-    }
-  }
-}
-
 // ---------------------------- Permissões (RBAC, sem chaves na aplicação) -------------
 var roles = {
   blobContributor: 'ba92f5b4-2d11-453d-a403-e96b0029c9fe'
-  blobOwner: 'b7e6dc6d-f1e8-4753-8033-0f276bb0955b'
-  queueContributor: '974c5e8b-45b9-4653-ba55-5f855dd0fb88'
-  tableContributor: '0a9a7e1f-b9d0-4cc4-a60d-0319b160aaa3'
   kvSecretsUser: '4633458b-17de-408a-b874-0445c86b69e6'
 }
 
@@ -287,30 +265,6 @@ resource rWebKv 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   scope: kv
   name: guid(kv.id, web.id, roles.kvSecretsUser)
   properties: { principalId: web.identity.principalId, principalType: 'ServicePrincipal', roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roles.kvSecretsUser) }
-}
-
-resource rFuncBlob 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  scope: st
-  name: guid(st.id, func.id, roles.blobOwner)
-  properties: { principalId: func.identity.principalId, principalType: 'ServicePrincipal', roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roles.blobOwner) }
-}
-
-resource rFuncQueue 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  scope: st
-  name: guid(st.id, func.id, roles.queueContributor)
-  properties: { principalId: func.identity.principalId, principalType: 'ServicePrincipal', roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roles.queueContributor) }
-}
-
-resource rFuncTable 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  scope: st
-  name: guid(st.id, func.id, roles.tableContributor)
-  properties: { principalId: func.identity.principalId, principalType: 'ServicePrincipal', roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roles.tableContributor) }
-}
-
-resource rFuncKv 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  scope: kv
-  name: guid(kv.id, func.id, roles.kvSecretsUser)
-  properties: { principalId: func.identity.principalId, principalType: 'ServicePrincipal', roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roles.kvSecretsUser) }
 }
 
 // ---------------------------- Orçamento e alerta de custo ---------------------------
@@ -332,10 +286,8 @@ resource orcamento 'Microsoft.Consumption/budgets@2023-11-01' = {
 // ---------------------------- Saídas -------------------------------------------------
 output webAppNome string = web.name
 output webAppUrl string = 'https://${web.properties.defaultHostName}'
-output functionAppNome string = func.name
 output sqlServidor string = sql.properties.fullyQualifiedDomainName
 output sqlBanco string = db.name
 output keyVaultNome string = kv.name
 output storageNome string = st.name
 output webIdentidade string = web.name
-output funcIdentidade string = func.name

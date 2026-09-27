@@ -19,6 +19,12 @@ public sealed class AprovacaoServico(IUsuarioAtual usuario, TimeProvider relogio
         var aberta = await db.SolicitacoesAprovacao.AnyAsync(s => s.Entidade == entidade && s.EntidadeId == entidadeId && s.Status == StatusAprovacao.EmAprovacao, ct);
         if (aberta) throw new RegraDeNegocioException("Já existe uma aprovação em andamento para este registro.");
         var alcadas = await db.Alcadas.AsNoTracking().Where(a => a.Entidade == entidade).ToListAsync(ct);
+        // "Engenheiro responsável da obra" (T21/T24): resolve o aprovador pelo cadastro da obra no momento do envio.
+        if (obraId is { } oid && alcadas.Any(a => a.EngenheiroDaObra))
+        {
+            var eng = await db.Obras.AsNoTracking().Where(o => o.Id == oid).Select(o => o.EngenheiroId).FirstOrDefaultAsync(ct);
+            foreach (var a in alcadas.Where(a => a.EngenheiroDaObra && a.UsuarioAprovadorId is null)) a.UsuarioAprovadorId = eng;
+        }
         var s = SolicitacaoAprovacao.Criar(entidade, entidadeId, usuario.EmpresaId, obraId, titulo, valor,
             usuario.UsuarioId ?? Guid.Empty, usuario.Nome, alcadas, relogio.GetUtcNow());
         db.SolicitacoesAprovacao.Add(s);
@@ -104,6 +110,12 @@ public sealed class AprovacaoServico(IUsuarioAtual usuario, TimeProvider relogio
                 var m = await db.Medicoes.FirstAsync(x => x.Id == s.EntidadeId, ct);
                 if (aprovado) { m.AprovadoDiretorPor = nome; m.AprovadoDiretorEm = agora; m.Status = StatusMedicao.Aprovada; }
                 else if (reprovado || devolvido) { m.Status = StatusMedicao.Reprovada; m.MotivoReprovacao = just; }
+                break;
+            case EntidadeAprovavel.Aditivo:
+                var ad = await db.Aditivos.FirstAsync(x => x.Id == s.EntidadeId, ct);
+                if (aprovado) { ad.AprovadoPor = nome; ad.AprovadoEm = agora; ad.Status = StatusAditivo.AguardandoAssinaturas; }
+                else if (reprovado) ad.Status = StatusAditivo.Reprovado;
+                else if (devolvido) ad.Status = StatusAditivo.EmElaboracao;
                 break;
             case EntidadeAprovavel.Pagamento:
                 var l = await db.Pagamentos.FirstAsync(x => x.Id == s.EntidadeId, ct);

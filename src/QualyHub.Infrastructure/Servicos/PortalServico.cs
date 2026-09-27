@@ -25,7 +25,14 @@ public sealed class FabricaSistema(string connectionString)
 /// <summary>Documento pedido ao fornecedor no portal (tela 24).</summary>
 public sealed record DocumentoSolicitado(Guid TipoId, string Nome, bool PorEntrega, bool Obrigatorio, StatusDocumento Situacao, DateOnly? Validade, string? Detalhe);
 
-public sealed record SessaoPortal(Guid EmpresaId, string EmpresaNome, Fornecedor Fornecedor, LinkPortalFornecedor Link, IReadOnlyList<DocumentoSolicitado> Documentos, string? Alerta);
+public sealed record SessaoPortal(Guid EmpresaId, string EmpresaNome, Fornecedor Fornecedor, LinkPortalFornecedor Link, IReadOnlyList<DocumentoSolicitado> Documentos, string? Alerta)
+{
+    public IReadOnlyList<ColaboradorPortal> Colaboradores { get; init; } = [];
+    public IReadOnlyList<(Guid Id, string Nome)> Exigencias { get; init; } = [];
+}
+
+/// <summary>Funcionário da empresa terceira visto no portal (aba Funcionários): só nome, função e pendências — sem CPF.</summary>
+public sealed record ColaboradorPortal(Guid Id, string Nome, string Funcao, string Situacao, string? Pendencias);
 
 /// <summary>
 /// Portal do fornecedor: acesso externo por link com token (sem login), prazo e registro de IP.
@@ -38,7 +45,13 @@ public sealed class PortalServico(FabricaSistema sistema, FabricaDb fabrica, IAr
         await using var db = fabrica.Criar();
         var token = Token.Novo();
         var codigo = $"SOL-{await Numerador.ProximoAsync(db, "LinkPortal", ct):0000}";
-        db.LinksPortal.Add(new LinkPortalFornecedor { FornecedorId = fornecedorId, Codigo = codigo, TokenHash = Token.Hash(token), ValidoAte = relogio.GetUtcNow().AddDays(dias) });
+        var f = await db.Fornecedores.AsNoTracking().FirstAsync(x => x.Id == fornecedorId, ct);
+        var motivo = await db.LinksPortal.AnyAsync(l => l.FornecedorId == fornecedorId, ct) ? "Renovação" : "Cadastro inicial";
+        db.LinksPortal.Add(new LinkPortalFornecedor
+        {
+            FornecedorId = fornecedorId, Codigo = codigo, TokenHash = Token.Hash(token), ValidoAte = relogio.GetUtcNow().AddDays(dias),
+            EmailDestino = f.Emails, Motivo = motivo, EnviadoPor = usuario.Nome, Status = StatusSolicitacaoDoc.Enviada
+        });
         await db.SaveChangesAsync(ct);
         return (token, codigo);
     }
@@ -56,6 +69,7 @@ public sealed class PortalServico(FabricaSistema sistema, FabricaDb fabrica, IAr
         await using var db = sistema.Criar(empresaId, "Portal");
         var link = await db.LinksPortal.FirstAsync(x => x.TokenHash == hash, ct);
         link.UltimoAcessoEm = relogio.GetUtcNow();
+        if (link.Status == StatusSolicitacaoDoc.Enviada) link.Status = StatusSolicitacaoDoc.Acessada;
         link.UltimoAcessoIp = ip;
         await db.SaveChangesAsync(ct);
 
@@ -77,7 +91,15 @@ public sealed class PortalServico(FabricaSistema sistema, FabricaDb fabrica, IAr
 
         var vence = docs.Where(d => d.Validade is { } v && v >= hoje && v <= hoje.AddDays(30)).OrderBy(d => d.Validade).FirstOrDefault();
         var alerta = vence is null ? null : $"Seu documento '{vence.Nome}' vence em {vence.Validade:dd/MM/yyyy}. Sem documento válido, novos pedidos ficam bloqueados.";
-        return new SessaoPortal(empresaId, empresa, f, link, docs, alerta);
+        var funcoes = await db.Funcoes.AsNoTracking().ToDictionaryAsync(x => x.Id, x => x.Descricao, ct);
+        var cols = await db.Colaboradores.AsNoTracking().Where(c => c.FornecedorId == f.Id && (c.DataSaida == null || c.DataSaida > hoje)).OrderBy(c => c.Nome)
+            .Select(c => new { c.Id, c.Nome, c.FuncaoObraId, c.Situacao, c.Pendencias }).ToListAsync(ct);
+        var exig = await db.Exigencias.AsNoTracking().Where(x => x.Tipo != Domain.Common.TipoExigencia.Epi).OrderBy(x => x.Ordem).Select(x => new { x.Id, x.Descricao }).ToListAsync(ct);
+        return new SessaoPortal(empresaId, empresa, f, link, docs, alerta)
+        {
+            Colaboradores = cols.Select(c => new ColaboradorPortal(c.Id, c.Nome, funcoes.GetValueOrDefault(c.FuncaoObraId, ""), c.Situacao.ToString(), c.Pendencias)).ToList(),
+            Exigencias = exig.Select(x => (x.Id, x.Descricao)).ToList()
+        };
     }
 
     public async Task ReceberAsync(string token, Guid tipoId, string? numero, DateOnly? emissao, DateOnly? validade, string responsavel,
@@ -95,6 +117,27 @@ public sealed class PortalServico(FabricaSistema sistema, FabricaDb fabrica, IAr
             DataValidade = validade, ArquivoBlob = salvo.Blob, ArquivoNomeOriginal = nomeArquivo, ArquivoHashSha256 = salvo.Hash,
             Status = StatusDocumento.EmValidacao, EnviadoPeloPortal = true, ResponsavelEnvio = responsavel,
             Bloqueia = await db.TiposDocumento.Where(t => t.Id == tipoId).Select(t => t.BloqueiaQuandoVencido).FirstAsync(ct)
+        });
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>Aba Funcionários: a empresa envia documento por pessoa; só vale após validação do SST.</summary>
+    public async Task ReceberDocColaboradorAsync(string token, Guid colaboradorId, Guid exigenciaId, DateOnly emissao, DateOnly? validade, string responsavel,
+        Stream arquivo, string nomeArquivo, string? contentType, CancellationToken ct = default)
+    {
+        var sessao = await AbrirAsync(token, null, ct) ?? throw new RegraDeNegocioException("Link inválido ou expirado.");
+        if (sessao.Colaboradores.All(c => c.Id != colaboradorId)) throw new RegraDeNegocioException("Funcionário não pertence a esta empresa.");
+        var ext = Path.GetExtension(nomeArquivo).ToLowerInvariant();
+        if (ext is not (".pdf" or ".jpg" or ".jpeg" or ".png")) throw new RegraDeNegocioException("Envie PDF, JPG ou PNG.");
+        if (string.IsNullOrWhiteSpace(responsavel)) throw new RegraDeNegocioException("Informe o responsável pelo envio.");
+        await using var db = sistema.Criar(sessao.EmpresaId, "Portal");
+        var ex = await db.Exigencias.AsNoTracking().FirstAsync(x => x.Id == exigenciaId, ct);
+        var salvo = await armazenamento.SalvarAsync(arquivo, nomeArquivo, ex.Tipo == Domain.Common.TipoExigencia.ExameAso ? "sst-restrito" : "sst", contentType, ct);
+        db.DocumentosColaborador.Add(new Domain.Sst.DocumentoColaborador
+        {
+            EmpresaId = sessao.EmpresaId, ColaboradorId = colaboradorId, ExigenciaId = exigenciaId, DataEmissao = emissao, Validade = validade,
+            ArquivoBlob = salvo.Blob, ArquivoNome = nomeArquivo, ArquivoRestrito = ex.Tipo == Domain.Common.TipoExigencia.ExameAso,
+            Origem = Domain.Common.OrigemDocColaborador.PortalFornecedor, Validacao = Domain.Common.ValidacaoDoc.Aguardando, ValidadoPor = $"enviado por {responsavel}"
         });
         await db.SaveChangesAsync(ct);
     }

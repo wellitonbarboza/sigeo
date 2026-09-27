@@ -46,6 +46,10 @@ public static class Autenticacao
         }
         else
         {
+            // Login local (sem senha) é só para desenvolvimento/testes. Em produção exige Entra ID,
+            // a menos que alguém ligue explicitamente Autenticacao:PermitirLoginLocal (nunca em dados reais).
+            if (builder.Environment.IsProduction() && !cfg.GetValue<bool>("Autenticacao:PermitirLoginLocal"))
+                throw new InvalidOperationException("Produção sem Entra ID: configure AzureAd:TenantId e AzureAd:ClientId.");
             builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
                 .AddCookie(o =>
                 {
@@ -84,7 +88,7 @@ public static class Autenticacao
     {
         app.MapPost("/conta/entrar", async (HttpContext http, FabricaSistema sistema, IWebHostEnvironment env, IConfiguration cfg) =>
         {
-            if (ModoEntra(cfg) || env.IsProduction()) return Results.Forbid();
+            if (ModoEntra(cfg) || (env.IsProduction() && !cfg.GetValue<bool>("Autenticacao:PermitirLoginLocal"))) return Results.Forbid();
             var form = await http.Request.ReadFormAsync();
             if (!Guid.TryParse(form["usuario"], out var uid)) return Results.Redirect("/login?erro=1");
             await using var db = sistema.Criar(Guid.Empty, "Login");

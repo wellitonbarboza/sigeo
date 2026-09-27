@@ -11,6 +11,11 @@ using QualyHub.Web.Seguranca;
 using QualyHub.Web.Servicos;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Produção: segredos (CpfHmacChave, etc.) vêm do Key Vault via Managed Identity.
+if (builder.Configuration["QualyHub:KeyVaultUri"] is { Length: > 0 } kvUri)
+    builder.Configuration.AddAzureKeyVault(new Uri(kvUri), new Azure.Identity.DefaultAzureCredential());
+
 var cs = builder.Configuration.GetConnectionString("QualyHub")
          ?? throw new InvalidOperationException("Configure ConnectionStrings:QualyHub (produção: Managed Identity — Authentication=Active Directory Default).");
 
@@ -20,9 +25,19 @@ Autenticacao.Configurar(builder);
 
 builder.Services.AddScoped<UsuarioAtualWeb>();
 builder.Services.AddScoped<IUsuarioAtual>(sp => sp.GetRequiredService<UsuarioAtualWeb>());
-builder.Services.AddQualyHubInfra(cs);
-builder.Services.AddSingleton<IArmazenamento>(new ArmazenamentoLocal(
-    builder.Configuration["Armazenamento:PastaLocal"] ?? Path.Combine(builder.Environment.ContentRootPath, "App_Data", "arquivos")));
+// Chave HMAC do CPF (LGPD): obrigatória fora de desenvolvimento — sem ela os hashes mudariam a cada reinício.
+var chaveCpfTexto = builder.Configuration["CpfHmacChave"] ?? builder.Configuration["QualyHub:CpfHmacChave"];
+byte[]? chaveCpf = string.IsNullOrWhiteSpace(chaveCpfTexto) ? null : Convert.FromBase64String(chaveCpfTexto);
+if (chaveCpf is null && !builder.Environment.IsDevelopment())
+    throw new InvalidOperationException("Configure o segredo CpfHmacChave (Key Vault) antes de iniciar fora de desenvolvimento.");
+builder.Services.AddQualyHubInfra(cs, chaveCpf);
+
+// Arquivos: Azure Blob (Managed Identity) quando QualyHub:BlobUri existe; senão pasta local (desenvolvimento).
+if (builder.Configuration["QualyHub:BlobUri"] is { Length: > 0 } blobUri)
+    builder.Services.AddSingleton<IArmazenamento>(new ArmazenamentoBlob(new Uri(blobUri)));
+else
+    builder.Services.AddSingleton<IArmazenamento>(new ArmazenamentoLocal(
+        builder.Configuration["Armazenamento:PastaLocal"] is { Length: > 0 } pasta ? pasta : Path.Combine(builder.Environment.ContentRootPath, "App_Data", "arquivos")));
 builder.Services.AddScoped<Notificacoes>();
 builder.Services.AddScoped<Catalogos>();
 
@@ -50,6 +65,7 @@ app.UseAntiforgery();
 app.Use(async (ctx, next) =>
 {
     var p = ctx.Request.Path.Value ?? "";
+    if (p == "/saude") { await next(); return; }
     if (!p.StartsWith("/configuracao-inicial") && !p.StartsWith("/_") && !p.Contains('.') && !p.StartsWith("/portal") && !p.StartsWith("/qr"))
     {
         await using var db = ctx.RequestServices.GetRequiredService<FabricaSistema>().Criar(Guid.Empty, "Web");
@@ -59,6 +75,7 @@ app.Use(async (ctx, next) =>
 });
 
 app.MapStaticAssets();
+app.MapGet("/saude", () => Results.Ok("ok")).AllowAnonymous(); // health check do App Service
 Autenticacao.MapearEndpoints(app);
 Endpoints.Mapear(app);
 app.MapRazorComponents<App>().AddInteractiveServerRenderMode();

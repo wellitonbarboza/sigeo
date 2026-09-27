@@ -109,6 +109,7 @@ public sealed class DocumentosServico(FabricaDb fabrica, IUsuarioAtual usuario, 
         var res = RegrasDocumentos.Publicar(doc, rev, vigencia, usuarios, p, anos, usuario.UsuarioId ?? Guid.Empty, usuario.Nome, Agora, perm.Aprovar);
         db.Ciencias.AddRange(res.Ciencias);
         Log(db, EventoDocumentoTipo.Publicacao, doc.Id, rev.Id, detalhe: $"{doc.Codigo} {rev.Rotulo} vigente a partir de {vigencia:dd/MM/yyyy}");
+        if (res.Anterior is not null) await QualidadeObraServico.DocumentoRevisadoAsync(db, doc.Id, ct);
         if (res.Anterior is { } ant)
             Log(db, EventoDocumentoTipo.Obsolescencia, doc.Id, ant.Id, detalhe: $"{ant.Rotulo} obsoleta · {res.CopiasParaRecolher.Count} cópia(s) aguardando recolhimento");
         await db.SaveChangesAsync(ct);

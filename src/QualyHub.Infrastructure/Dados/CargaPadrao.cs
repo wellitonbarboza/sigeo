@@ -3,6 +3,8 @@ using QualyHub.Domain.Cadastros;
 using QualyHub.Domain.Common;
 using QualyHub.Domain.Documentos;
 using QualyHub.Domain.Estrutura;
+using QualyHub.Domain.Qualidade;
+using QualyHub.Domain.Sst;
 
 namespace QualyHub.Infrastructure.Dados;
 
@@ -171,19 +173,115 @@ public static class CargaPadrao
                 Protecao = r.Prot, TempoRetencao = r.Tempo, TempoRetencaoAnos = r.Anos, Descarte = r.Descarte
             });
 
-        if (!await db.Alcadas.IgnoreQueryFilters().AnyAsync(a => a.EmpresaId == empresaId, ct))
+        var comAlcada = await db.Alcadas.IgnoreQueryFilters().Where(a => a.EmpresaId == empresaId).Select(a => a.Entidade).Distinct().ToListAsync(ct);
+        void Alc(EntidadeAprovavel e, int ordemEtapa, PerfilUsuario perfil, string nome, bool engObra = false)
         {
-            void Alc(EntidadeAprovavel e, int ordemEtapa, PerfilUsuario perfil, string nome) =>
-                db.Alcadas.Add(new Alcada { EmpresaId = empresaId, Entidade = e, Ordem = ordemEtapa, PerfilAprovador = perfil, NomeEtapa = nome });
-            Alc(EntidadeAprovavel.Requisicao, 1, PerfilUsuario.Engenharia, "Aprov. Engenheiro");
-            Alc(EntidadeAprovavel.Requisicao, 2, PerfilUsuario.Diretoria, "Aprov. Diretor Técnico");
-            Alc(EntidadeAprovavel.Cotacao, 1, PerfilUsuario.Diretoria, "Aprov. Diretor Técnico");
-            Alc(EntidadeAprovavel.Pedido, 1, PerfilUsuario.Diretoria, "Aprov. Diretor");
-            Alc(EntidadeAprovavel.Contrato, 1, PerfilUsuario.Diretoria, "Aprov. Diretoria");
-            Alc(EntidadeAprovavel.Medicao, 1, PerfilUsuario.Diretoria, "Aprov. Diretor Técnico");
-            Alc(EntidadeAprovavel.Pagamento, 1, PerfilUsuario.Diretoria, "Liberação Diretor Técnico");
+            if (!comAlcada.Contains(e))
+                db.Alcadas.Add(new Alcada { EmpresaId = empresaId, Entidade = e, Ordem = ordemEtapa, PerfilAprovador = perfil, NomeEtapa = nome, EngenheiroDaObra = engObra, PrazoHoras = 24 });
         }
+        Alc(EntidadeAprovavel.Requisicao, 1, PerfilUsuario.Engenharia, "Aprov. Engenheiro da obra", engObra: true);
+        Alc(EntidadeAprovavel.Requisicao, 2, PerfilUsuario.Diretoria, "Aprov. Diretor Técnico");
+        Alc(EntidadeAprovavel.Cotacao, 1, PerfilUsuario.Diretoria, "Aprov. Diretor Técnico");
+        Alc(EntidadeAprovavel.Pedido, 1, PerfilUsuario.Diretoria, "Aprov. Diretor");
+        Alc(EntidadeAprovavel.Contrato, 1, PerfilUsuario.Diretoria, "Aprov. Diretoria");
+        Alc(EntidadeAprovavel.Aditivo, 1, PerfilUsuario.Diretoria, "Aprov. Diretoria");
+        Alc(EntidadeAprovavel.Medicao, 1, PerfilUsuario.Diretoria, "Aprov. Diretor Técnico");
+        Alc(EntidadeAprovavel.Pagamento, 1, PerfilUsuario.Diretoria, "Liberação Diretor Técnico");
 
+        await AplicarSstAsync(db, empresaId, ct);
+        await AplicarNotificacoesAsync(db, empresaId, ct);
         await db.SaveChangesAsync(ct);
+    }
+
+    // ───────── SST: matriz inicial genérica (VALIDAR com SST / PGR / PCMSO da obra) ─────────
+
+    public static readonly (string Cod, string Nome, TipoExigencia Tipo, string? Carga, int? Validade, EfeitoVencimento Efeito, AtividadeRisco Ativ, string Fonte)[] ExigenciasSst =
+    [
+        ("ASO", "ASO – aptidão", TipoExigencia.ExameAso, null, 12, EfeitoVencimento.BloqueiaPessoa, AtividadeRisco.Nenhuma, "NR-07 · PCMSO"),
+        ("INT", "Integração na obra (NR-18)", TipoExigencia.Treinamento, "Conforme NR-18", null, EfeitoVencimento.BloqueiaPessoa, AtividadeRisco.Nenhuma, "NR-18"),
+        ("OS", "Ordem de serviço de SST (NR-01)", TipoExigencia.Documento, null, null, EfeitoVencimento.BloqueiaPessoa, AtividadeRisco.Nenhuma, "NR-01"),
+        ("EPI", "Ficha de EPI (NR-06)", TipoExigencia.Epi, null, null, EfeitoVencimento.BloqueiaPessoa, AtividadeRisco.Nenhuma, "NR-06"),
+        ("NR35", "NR-35 – trabalho em altura", TipoExigencia.Treinamento, "8 h", 24, EfeitoVencimento.RestringeAtividade, AtividadeRisco.Altura, "NR-35"),
+        ("NR10", "NR-10 – básico", TipoExigencia.Treinamento, "40 h", 24, EfeitoVencimento.RestringeAtividade, AtividadeRisco.Eletrico, "NR-10"),
+        ("NR12", "NR-12 – operação de máquinas", TipoExigencia.Treinamento, "Conforme máquina", null, EfeitoVencimento.RestringeAtividade, AtividadeRisco.OperacaoEquipamento, "NR-12"),
+        ("NR11", "NR-11 – movimentação de cargas", TipoExigencia.Treinamento, "Conforme equipamento", null, EfeitoVencimento.RestringeAtividade, AtividadeRisco.Icamento, "NR-11 / NR-18"),
+        ("NR33", "NR-33 – trabalhador autorizado", TipoExigencia.Treinamento, "16 h", 12, EfeitoVencimento.RestringeAtividade, AtividadeRisco.EspacoConfinado, "NR-33"),
+        ("AND", "Montagem de andaimes", TipoExigencia.Treinamento, "Conforme NR-18", null, EfeitoVencimento.RestringeAtividade, AtividadeRisco.Andaime, "NR-18"),
+    ];
+
+    /// <summary>Linha = função; colunas na ordem de ExigenciasSst. O = obrigatório, C = conforme a atividade, - = não se aplica.</summary>
+    public static readonly (string Funcao, string Matriz)[] MatrizSst =
+    [
+        ("Servente", "OOOOC-C-C-"), ("Pedreiro", "OOOOC-----"), ("Carpinteiro de fôrma", "OOOOO-O---"), ("Armador", "OOOOO-O---"),
+        ("Eletricista", "OOOOCO--C-"), ("Encanador / bombeiro hidráulico", "OOOOC---C-"), ("Pintor (interno)", "OOOOC-----"),
+        ("Pintor (fachada)", "OOOOO-----"), ("Gesseiro / montador de drywall", "OOOOC-C---"), ("Impermeabilizador", "OOOOC---C-"),
+        ("Operador de grua / guindaste", "OOOO--OO--"), ("Operador de elevador de obra", "OOOO--OO--"), ("Sinaleiro / amarrador de cargas", "OOOOC--O--"),
+        ("Montador de andaime", "OOOOO----O"), ("Soldador / serralheiro", "OOOOC-O-C-"), ("Operador de betoneira / serra circular", "OOOO--O---"),
+        ("Encarregado / mestre de obras", "OOOOC---C-"), ("Almoxarife", "OOOO---C--"), ("Técnico de segurança", "OOOOO---C-"), ("Engenheiro / estagiário", "OOOOC-----"),
+    ];
+
+    public static readonly (string Ordem, string Item, string Ref)[] ChecklistCanteiro =
+    [
+        ("1", "Proteção de periferia (guarda-corpo e rodapé) nos pavimentos", "NR-18"), ("2", "Aberturas no piso fechadas ou sinalizadas", "NR-18"),
+        ("3", "Escadas e rampas com corrimão", "NR-18"), ("4", "Quadros elétricos fechados e identificados", "NR-10 / NR-18"),
+        ("5", "Extintores sinalizados e dentro da validade", "NR-23"), ("6", "Organização e limpeza das frentes", "NR-18"),
+        ("7", "Uso de EPI pelos trabalhadores", "NR-06"), ("8", "Máquinas com proteção de partes móveis", "NR-12"),
+    ];
+
+    private static async Task AplicarSstAsync(QualyHubDbContext db, Guid empresaId, CancellationToken ct)
+    {
+        if (await db.Exigencias.IgnoreQueryFilters().AnyAsync(x => x.EmpresaId == empresaId, ct)) return;
+        var treinamentos = new Dictionary<string, Treinamento>();
+        var exig = new List<Exigencia>();
+        var ordem = 0;
+        foreach (var e in ExigenciasSst)
+        {
+            Guid? tid = null;
+            if (e.Tipo == TipoExigencia.Treinamento)
+            {
+                var t = new Treinamento
+                {
+                    EmpresaId = empresaId, Descricao = e.Nome, Tipo = e.Cod == "INT" ? TipoTreinamento.Integracao : TipoTreinamento.NR, CargaHoraria = e.Carga ?? "",
+                    ValidadeMeses = e.Validade, MetodoEficacia = MetodoEficaciaTreinamento.Prova
+                };
+                db.Treinamentos.Add(t); tid = t.Id; treinamentos[e.Cod] = t;
+            }
+            var x = new Exigencia
+            {
+                EmpresaId = empresaId, Codigo = e.Cod, Descricao = e.Nome, Tipo = e.Tipo, TreinamentoId = tid, CargaInicial = e.Carga, ValidadeMeses = e.Validade,
+                EfeitoVencimento = e.Efeito, Atividades = e.Ativ, Fonte = e.Fonte, Ordem = ++ordem
+            };
+            db.Exigencias.Add(x); exig.Add(x);
+        }
+        db.Treinamentos.Add(new Treinamento { EmpresaId = empresaId, Descricao = "Treinamento em procedimento/ITS do SGQ", Tipo = TipoTreinamento.Sgq, CargaHoraria = "2 h", MetodoEficacia = MetodoEficaciaTreinamento.ObservacaoEmCampo });
+        foreach (var (funcao, matriz) in MatrizSst)
+        {
+            var f = new FuncaoObra { EmpresaId = empresaId, Descricao = funcao, Riscos = "Preencher com o PGR da obra" };
+            for (var i = 0; i < matriz.Length && i < exig.Count; i++)
+                if (matriz[i] is 'O' or 'C')
+                    f.Exigencias.Add(new FuncaoExigencia { FuncaoObraId = f.Id, ExigenciaId = exig[i].Id, Obrigatoriedade = matriz[i] == 'O' ? Obrigatoriedade.Obrigatorio : Obrigatoriedade.ConformeAtividade });
+            db.Funcoes.Add(f);
+        }
+        var m = new ModeloInspecao { EmpresaId = empresaId, Tipo = TipoModelo.SST, Codigo = "IS-CANTEIRO", Titulo = "Canteiro geral – semanal", Situacao = SituacaoModelo.Vigente, LiberaMedicao = false };
+        foreach (var c in ChecklistCanteiro)
+            m.Itens.Add(new ItemVerificacao { ModeloInspecaoId = m.Id, Ordem = int.Parse(c.Ordem), Descricao = c.Item, Referencia = c.Ref, Metodo = "Visual", Criterio = "Conforme NR", Foto = FotoItem.SoEmNaoConformidade });
+        db.ModelosInspecao.Add(m);
+    }
+
+    private static async Task AplicarNotificacoesAsync(QualyHubDbContext db, Guid empresaId, CancellationToken ct)
+    {
+        if (await db.RegrasNotificacao.IgnoreQueryFilters().AnyAsync(x => x.EmpresaId == empresaId, ct)) return;
+        void N(string evento, string? antec, string? rep, string dest, CanalNotificacao canal, string modelo) =>
+            db.RegrasNotificacao.Add(new RegraNotificacao { EmpresaId = empresaId, Evento = evento, Antecedencia = antec, Repeticao = rep, Destinatarios = dest, Canal = canal, ModeloMensagem = modelo });
+        N("Aprovação pendente", null, "a cada 24 h", "Aprovador da etapa", CanalNotificacao.Pendencias | CanalNotificacao.Email, "{documento} aguarda sua aprovação: {link}");
+        N("Prazo de aprovação estourado", null, null, "Aprovador + escalonamento", CanalNotificacao.Pendencias | CanalNotificacao.Email, "{documento} está atrasado na sua alçada.");
+        N("Documento do fornecedor vencendo", "30 dias", "a cada 7 dias até renovar", "Fornecedor (link do portal) · Comprador", CanalNotificacao.Email, "Seu documento {documento} vence em {data}. Envie a renovação: {link}");
+        N("Documento recusado", null, null, "Fornecedor", CanalNotificacao.Email, "O documento {documento} foi recusado: {motivo}. Reenvie pelo portal: {link}");
+        N("Nova revisão publicada", null, null, "Leitura obrigatória", CanalNotificacao.Pendencias | CanalNotificacao.Email, "{documento} {revisao} publicado. Confirme a leitura: {link}");
+        N("GRD sem confirmação", "1 dia", "diária", "Fornecedor · Qualidade", CanalNotificacao.Email, "Confirme o recebimento da {grd}: {link}");
+        N("RNC / ação corretiva vencida", null, "diária", "Responsável", CanalNotificacao.Pendencias, "{rnc} venceu em {data}.");
+        N("Calibração a vencer", "30 dias", null, "Responsável do equipamento", CanalNotificacao.Pendencias, "{equipamento} vence em {data}.");
+        N("ASO / treinamento vencendo", "30 dias", "semanal", "Empresa terceira · SST", CanalNotificacao.Pendencias | CanalNotificacao.Email, "{colaborador}: {exigencia} vence em {data}.");
+        N("PT sem encerramento", null, "fim do turno", "Emitente da PT", CanalNotificacao.Pendencias, "{pt} ainda não foi encerrada.");
     }
 }

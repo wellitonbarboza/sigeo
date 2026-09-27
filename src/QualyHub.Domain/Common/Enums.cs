@@ -1,7 +1,7 @@
 namespace QualyHub.Domain.Common;
 
 // ───────── Acesso e aprovação ─────────
-public enum PerfilUsuario { Administrador = 1, Diretoria, Engenharia, Qualidade, Suprimentos, Financeiro, Campo, Terceiro, Almoxarifado }
+public enum PerfilUsuario { Administrador = 1, Diretoria, Engenharia, Qualidade, Suprimentos, Financeiro, Campo, Terceiro, Almoxarifado, Seguranca }
 
 public enum StatusAprovacao { Rascunho = 0, EmAprovacao = 1, Aprovado = 2, Reprovado = 3, Cancelado = 4 }
 
@@ -11,7 +11,7 @@ public enum DecisaoAprovacao { Pendente = 0, Aprovado = 1, Reprovado = 2, Devolv
 public enum EntidadeAprovavel
 {
     Pedido = 1, Medicao = 2, DocumentoSgq = 3, AvaliacaoFornecedor = 4,
-    Requisicao = 5, Cotacao = 6, Contrato = 7, Pagamento = 8
+    Requisicao = 5, Cotacao = 6, Contrato = 7, Pagamento = 8, Aditivo = 9
 }
 
 // ───────── Cadastros / fornecedores ─────────
@@ -126,18 +126,61 @@ public enum EventoDocumentoTipo
     CopiaDistribuida, CopiaRecolhida, ArquivoMovido, PermissaoAlterada, LeituraConfirmada, ExclusaoLogica
 }
 
-// ───────── Qualidade (fichas, RNC) ─────────
-public enum TipoFicha { FVS = 1, FVM = 2 }
-
-public enum StatusFicha { Rascunho = 0, Enviada = 1, Aprovada = 2, Reprovada = 3, AprovadaAposReinspecao = 4 }
-
+// ───────── Qualidade da obra (Q01–Q15) ─────────
+public enum TipoModelo { FVS = 1, FVM = 2, SST = 3 }
+public enum SituacaoModelo { Rascunho = 0, Vigente = 1, EmRevisao = 2, Obsoleto = 3 }
 public enum ResultadoItem { NaoAvaliado = 0, Conforme = 1, NaoConforme = 2, NaoAplica = 3 }
+public enum FotoItem { Opcional = 0, Obrigatoria = 1, SoEmNaoConformidade = 2 }
+public enum StatusFvs { EmInspecao = 1, Aprovada = 2, Reprovada = 3, Reinspecao = 4, Liberada = 5, Cancelada = 6 }
+public enum OrigemRegistro { Web = 1, CelularOnline = 2, CelularOffline = 3 }
+public enum OrigemRnc { Fvs = 1, FvmRecebimento = 2, AuditoriaInterna = 3, AuditoriaExterna = 4, ReclamacaoCliente = 5, Fornecedor = 6, ProcessoInterno = 7, InspecaoSeguranca = 8 }
+public enum ClassificacaoRnc { Servico = 1, Material = 2, Projeto = 3, Sistema = 4, ReclamacaoCliente = 5, Seguranca = 6 }
+public enum Gravidade { Baixa = 1, Media = 2, Alta = 3, RiscoGraveIminente = 4 }
+public enum StatusRnc { Aberta = 1, EmTratamento = 2, AguardandoEficacia = 3, Encerrada = 4, Cancelada = 5 }
+public enum MetodoAnalise { CincoPorques = 1, Ishikawa = 2, Outro = 3 }
+public enum StatusAcaoCorretiva { EmAnalise = 1, EmExecucao = 2, AguardandoEficacia = 3, Encerrada = 4 }
+public enum StatusItemPlano { Pendente = 1, Feito = 2, Cancelado = 3 }
+public enum TipoEquipamento { Trena = 1, Nivel = 2, Prumo = 3, Esquadro = 4, Balanca = 5, Termometro = 6, Outro = 99 }
+public enum TipoControleEquipamento { CalibracaoExterna = 1, VerificacaoInterna = 2, Padrao = 3 }
+public enum StatusEquipamento { EmUso = 1, VenceEmBreve = 2, Bloqueado = 3, EmCalibracao = 4, Baixado = 5 }
+public enum ResultadoCalibracao { Aprovado = 1, Reprovado = 2 }
+public enum StatusAuditoria { Planejada = 1, EmExecucao = 2, RelatorioEmitido = 3, Encerrada = 4 }
+public enum TipoConstatacao { NaoAvaliado = 0, Conforme = 1, NaoConformidade = 2, OportunidadeMelhoria = 3, Observacao = 4 }
+public enum MomentoEnsaio { NaChegada = 1, Posterior = 2 }
+public enum ExecutanteEnsaio { Obra = 1, LaboratorioExterno = 2 }
+public enum AcaoReprovacaoEnsaio { RecusarCarga = 1, AbrirRnc = 2, RncComLocais = 3 }
+public enum SituacaoEnsaio { Aguardando = 1, Aprovado = 2, Reprovado = 3 }
+public enum StatusLote { EmVerificacao = 1, EmQuarentena = 2, Liberado = 3, Devolvido = 4, AceitoSobConcessao = 5 }
 
-public enum TipoResposta { ConformeNaoConforme = 1, Numero = 2, Texto = 3, Data = 4, Foto = 5 }
+// ───────── Segurança e pessoas (S01–S13) ─────────
+public enum VinculoColaborador { Proprio = 1, Terceiro = 2 }
+public enum SituacaoColaborador { Apto = 1, AptoComRestricao = 2, Pendente = 3, Bloqueado = 4, DesligadoDaObra = 5 }
+public enum TipoExigencia { Documento = 1, ExameAso = 2, Treinamento = 3, Epi = 4 }
+public enum EfeitoVencimento { BloqueiaPessoa = 1, RestringeAtividade = 2, SoAlerta = 3 }
+public enum Obrigatoriedade { Obrigatorio = 1, ConformeAtividade = 2 }
+public enum ConclusaoAso { Apto = 1, Inapto = 2 }
+[Flags] public enum AtividadeRisco { Nenhuma = 0, Altura = 1, EspacoConfinado = 2, Eletrico = 4, OperacaoEquipamento = 8, AQuente = 16, Icamento = 32, Andaime = 64 }
+public enum OrigemDocColaborador { PortalFornecedor = 1, Sst = 2, Rh = 3 }
+public enum ValidacaoDoc { Aguardando = 1, Validado = 2, Recusado = 3 }
+public enum TipoTreinamento { NR = 1, Integracao = 2, Sgq = 3, Outro = 4 }
+public enum MetodoEficaciaTreinamento { Prova = 1, ObservacaoEmCampo = 2, NaoSeAplica = 3 }
+public enum StatusTurma { Programada = 1, Concluida = 2, Cancelada = 3 }
+public enum ResultadoParticipante { Aprovado = 1, Reprovado = 2, NaoCompareceu = 3 }
+public enum MotivoEntregaEpi { PrimeiraEntrega = 1, TrocaDesgaste = 2, Perda = 3, Dano = 4 }
+public enum StatusInspecaoSst { EmAndamento = 1, EmTratamento = 2, Concluida = 3 }
+public enum TipoPermissaoTrabalho { Altura = 1, AQuente = 2, Eletrico = 3, EspacoConfinado = 4, Icamento = 5 }
+public enum StatusPermissaoTrabalho { Rascunho = 1, AguardandoLiberacao = 2, Liberada = 3, Suspensa = 4, Encerrada = 5 }
+public enum PapelPt { Executante = 1, Vigia = 2, SupervisorEntrada = 3, Resgate = 4 }
+public enum TipoOcorrencia { QuaseAcidente = 1, Incidente = 2, AcidenteSemAfastamento = 3, AcidenteComAfastamento = 4, DanoMaterial = 5 }
+public enum StatusOcorrencia { Registrada = 1, EmInvestigacao = 2, Encerrada = 3 }
 
-public enum StatusRnc { Aberta = 1, EmTratativa = 2, AguardandoEficacia = 3, Encerrada = 4 }
-
-public enum OrigemRnc { Ficha = 1, AuditoriaInterna = 2, AuditoriaExterna = 3, Cliente = 4, Fornecedor = 5, Outra = 99 }
+// ───────── Contratos: aditivo e notificações (T28, T27) ─────────
+public enum TipoAditivo { Valor = 1, Prazo = 2, Escopo = 3, Combinado = 4 }
+public enum StatusAditivo { EmElaboracao = 1, AguardandoAprovacao = 2, AguardandoAssinaturas = 3, Vigente = 4, Reprovado = 5 }
+public enum StatusObra { Planejamento = 1, EmExecucao = 2, Concluida = 3, Operacao = 4 }
+public enum MomentoDocumento { Cadastro = 1, PorContrato = 2, PorEntrega = 3 }
+public enum StatusSolicitacaoDoc { Enviada = 1, Acessada = 2, Parcial = 3, Concluida = 4, Expirada = 5 }
+[Flags] public enum CanalNotificacao { Nenhum = 0, Pendencias = 1, Email = 2, WhatsApp = 4 }
 
 // ───────── Importação ─────────
 public enum TipoImportacao { Fornecedores = 1, Funcionarios = 2, Pedidos = 3, Medicoes = 4, Servicos = 5, Materiais = 6, Produtos = 7 }

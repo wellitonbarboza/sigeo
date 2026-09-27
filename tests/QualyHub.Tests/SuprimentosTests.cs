@@ -189,9 +189,11 @@ public class SuprimentosTests
         m.CalcularNota(Fake.P);
 
         var r = TravasQualidade.VerificarMedicao(m, [], Fake.Hoje);
-        Assert.Contains(r.Bloqueios, b => b.Contains("sem FVS aprovada"));
+        Assert.Contains(r.Bloqueios, b => b.Contains("sem FVS liberada"));
 
-        var fvs = new Ficha { Tipo = TipoFicha.FVS, ServicoControladoId = s.Id, Status = StatusFicha.Aprovada };
+        var aprovadaNaoLiberada = new Fvs { ServicoControladoId = s.Id, Status = StatusFvs.Aprovada };
+        Assert.False(TravasQualidade.VerificarMedicao(m, [aprovadaNaoLiberada], Fake.Hoje).Liberado);
+        var fvs = new Fvs { ServicoControladoId = s.Id, Status = StatusFvs.Liberada };
         Assert.True(TravasQualidade.VerificarMedicao(m, [fvs], Fake.Hoje).Liberado);
     }
 

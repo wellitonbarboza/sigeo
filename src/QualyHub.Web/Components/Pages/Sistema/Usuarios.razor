@@ -27,8 +27,11 @@
                         <Coluna T="Alcada" Titulo="Documento" Valor="a => a.Entidade" />
                         <Coluna T="Alcada" Titulo="Ordem" Valor="a => a.Ordem" Largura="70px" />
                         <Coluna T="Alcada" Titulo="Etapa" Valor="a => a.NomeEtapa" />
-                        <Coluna T="Alcada" Titulo="Perfil aprovador" Valor="a => a.PerfilAprovador" />
-                        <Coluna T="Alcada" Titulo="Usuário específico" Valor="a => a.UsuarioAprovadorId == null ? null : NomeUsuario(a.UsuarioAprovadorId.Value)" />
+                        <Coluna T="Alcada" Titulo="Condição" Valor="a => a.Condicao" />
+                        <Coluna T="Alcada" Titulo="Aprovador" Valor='a => a.EngenheiroDaObra ? "Engenheiro responsável da obra" : a.UsuarioAprovadorId != null ? NomeUsuario(a.UsuarioAprovadorId.Value) : De(a.PerfilAprovador)' />
+                        <Coluna T="Alcada" Titulo="Substituto" Valor="a => a.SubstitutoUsuarioId == null ? null : NomeUsuario(a.SubstitutoUsuarioId.Value)" />
+                        <Coluna T="Alcada" Titulo="Prazo (h)" Valor="a => a.PrazoHoras" Alinhar="num" />
+                        <Coluna T="Alcada" Titulo="Escalona para" Valor="a => a.EscalonaPara" />
                         <Coluna T="Alcada" Titulo="Valor de" Valor="a => a.ValorMinimo" Formato="C2" Alinhar="num" />
                         <Coluna T="Alcada" Titulo="Valor até" Valor="a => a.ValorMaximo" Formato="C2" Alinhar="num" />
                         <Coluna T="Alcada" Titulo="Obra" Valor='a => a.ObraId == null ? "Todas" : NomeObra(a.ObraId.Value)' />
@@ -52,7 +55,7 @@
             }
         </div>
     </ChildContent>
-    <Faixa><b>Alçadas</b><span>Etapas por documento, valor e obra — congeladas no envio</span><span>Limite por usuário: aprova só até o valor configurado</span><span>Delegação com período · quem solicita não aprova (segregação)</span></Faixa>
+    <Faixa><b>Tela 28 · Usuários, perfis e alçadas</b><span>Aprovações por regra configurável, não fixas no código · congeladas no envio</span><span>Limite por usuário: aprova só até o valor configurado</span><span>Delegação com período · quem solicita não aprova (segregação)</span></Faixa>
 </Pagina>
 
 <Modal @bind-Aberto="_abertoU" Titulo="Usuário">
@@ -114,6 +117,11 @@
                 <Campo Rotulo="Nome da etapa" Classe="s4"><input @bind="_a.NomeEtapa" placeholder="ex.: Engenheiro da Obra" disabled="@(!Perfil())" /></Campo>
                 <Campo Rotulo="Perfil aprovador" Obrigatorio Classe="s6"><select @bind="_a.PerfilAprovador" disabled="@(!Perfil())">@foreach (var p in Enum.GetValues<PerfilUsuario>()) { <option value="@p">@De(p)</option> }</select></Campo>
                 <Campo Rotulo="Usuário específico (opcional)" Classe="s6"><select @bind="_a.UsuarioAprovadorId" disabled="@(!Perfil())"><option value="">Qualquer do perfil</option>@foreach (var u in _usuariosOp) { <option value="@u.Id">@u.Texto</option> }</select></Campo>
+                <Campo Rotulo="Condição (descrição)" Classe="s6"><input @bind="_a.Condicao" placeholder="ex.: tipo = Serviço; valor > R$ 1.000" disabled="@(!Perfil())" /></Campo>
+                <Campo Rotulo="" Classe="s6"><label><input type="checkbox" @bind="_a.EngenheiroDaObra" disabled="@(!Perfil())" /> Aprovador = engenheiro responsável da obra (cadastro da obra)</label></Campo>
+                <Campo Rotulo="Substituto" Classe="s4"><select @bind="_a.SubstitutoUsuarioId" disabled="@(!Perfil())"><option value="">—</option>@foreach (var u in _usuariosOp) { <option value="@u.Id">@u.Texto</option> }</select></Campo>
+                <Campo Rotulo="Prazo (h)" Classe="s4"><input type="number" @bind="_a.PrazoHoras" disabled="@(!Perfil())" /></Campo>
+                <Campo Rotulo="Escalona para" Classe="s4"><select @bind="_a.EscalonaPara" disabled="@(!Perfil())"><option value="">—</option>@foreach (var p in Enum.GetValues<PerfilUsuario>()) { <option value="@p">@De(p)</option> }</select></Campo>
                 <Campo Rotulo="Valor a partir de" Classe="s4"><input type="number" step="0.01" @bind="_a.ValorMinimo" disabled="@(!Perfil())" /></Campo>
                 <Campo Rotulo="Valor até" Classe="s4"><input type="number" step="0.01" @bind="_a.ValorMaximo" disabled="@(!Perfil())" /></Campo>
                 <Campo Rotulo="Obra" Classe="s4"><select @bind="_a.ObraId" disabled="@(!Perfil())"><option value="">Todas</option>@foreach (var o in _obras) { <option value="@o.Id">@o.Texto</option> }</select></Campo>

@@ -1,0 +1,125 @@
+@page "/obra/acoes"
+@inherits PaginaBase
+@inject QualidadeObraServico Qob
+@inject NavigationManager Nav
+
+<Pagina Titulo="Ações corretivas" Grade="_grade" AoAtualizar="Carregar">
+    <ChildContent>
+        <div class="pagina">
+            <Grade T="AcaoCorretiva" @ref="_grade" Itens="_itens" AoClicar="a => Abrir(a.Id)" NomeExportacao="acoes-corretivas" CriadoPor="a => a.CriadoPor">
+                <Colunas>
+                    <Coluna T="AcaoCorretiva" Titulo="Nº" Valor="a => a.Numero" Largura="90px" />
+                    <Coluna T="AcaoCorretiva" Titulo="RNC de origem" Valor="a => a.RncsOrigem" />
+                    <Coluna T="AcaoCorretiva" Titulo="Problema" Valor="a => a.Problema" />
+                    <Coluna T="AcaoCorretiva" Titulo="Responsável" Valor="a => a.ResponsavelNome" />
+                    <Coluna T="AcaoCorretiva" Titulo="Prazo" Valor="a => a.Prazo" />
+                    <Coluna T="AcaoCorretiva" Titulo="Eficácia" Valor='a => a.ResultadoEficacia == Eficacia.NaoVerificada ? $"verificar em {a.DataEficacia:dd/MM}" : De(a.ResultadoEficacia)' />
+                    <Coluna T="AcaoCorretiva" Titulo="Status" Valor="a => a.Status"><Modelo><Selo Texto="@De(context.Status)" Tom="@Tom(context.Status)" /></Modelo></Coluna>
+                </Colunas>
+            </Grade>
+        </div>
+    </ChildContent>
+    <Faixa><b>Tela 37 · Ação corretiva</b><span>Causa raiz (5 porquês / Ishikawa), plano e verificação de eficácia</span><span>Pode revisar documento (ITS) e modelo de FVS · investigação de acidentes</span></Faixa>
+</Pagina>
+
+<Modal @bind-Aberto="_aberto" Titulo="@($"{_a?.Numero} — ação corretiva · {_a?.RncsOrigem}")" Tamanho="grande">
+    <ChildContent>
+        @if (_a is not null)
+        {
+            <Erros Lista="ErrosForm" />
+            <Etapas Itens="Passos()" />
+            <div class="duas-caixas" style="grid-template-columns: 2fr 1fr">
+                <div>
+                    <div class="form">
+                        <Campo Rotulo="Problema" Obrigatorio Classe="s12"><input @bind="_a.Problema" disabled="@Encerrada" /></Campo>
+                        <Campo Rotulo="Método de análise" Classe="s4"><select @bind="_a.MetodoAnalise" disabled="@Encerrada">@foreach (var m in Enum.GetValues<MetodoAnalise>()) { <option value="@m">@De(m)</option> }</select></Campo>
+                        <Campo Rotulo="Responsável" Classe="s4"><select @bind="_a.ResponsavelId" disabled="@Encerrada"><option value="">—</option>@foreach (var u in _usuarios) { <option value="@u.Id">@u.Texto</option> }</select></Campo>
+                        <Campo Rotulo="Prazo" Classe="s4"><input type="date" @bind="_a.Prazo" disabled="@Encerrada" /></Campo>
+                        <Campo Rotulo="Análise de causa" Obrigatorio Classe="s12"><textarea rows="5" @bind="_a.AnaliseCausa" placeholder="1. Por que…?&#10;2. Por que…?" disabled="@Encerrada"></textarea></Campo>
+                        <Campo Rotulo="Causa raiz" Obrigatorio Classe="s12"><input @bind="_a.CausaRaiz" disabled="@Encerrada" /></Campo>
+                    </div>
+                    <div class="secao"><Icone Nome="lista" /> Plano de ação @if (!Encerrada) { <span class="acao"><button class="btn sec pq" @onclick="() => _a.Itens.Add(new AcaoCorretivaItem { AcaoCorretivaId = _a.Id, Prazo = Hoje.AddDays(7) })"><Icone Nome="mais" Tam="14" /> Ação</button></span> }</div>
+                    <table class="itens">
+                        <thead><tr><th>Ação</th><th>Responsável</th><th>Prazo</th><th>Revisar documento</th><th>Status</th><th></th></tr></thead>
+                        <tbody>
+                            @foreach (var i in _a.Itens)
+                            {
+                                <tr>
+                                    <td><input @bind="i.Acao" disabled="@Encerrada" /></td>
+                                    <td style="width:150px"><input @bind="i.Responsavel" disabled="@Encerrada" /></td>
+                                    <td style="width:140px"><input type="date" @bind="i.Prazo" disabled="@Encerrada" /></td>
+                                    <td><select @bind="i.DocumentoId" disabled="@Encerrada"><option value="">—</option>@foreach (var d in _docs) { <option value="@d.Id">@d.Texto</option> }</select>
+                                        @if (i.DocumentoId is { } did) { <a href="sgq/documentos?id=@did" title="Abrir documento para nova revisão"><Icone Nome="seta-dir" Tam="14" /></a> }</td>
+                                    <td style="width:120px"><select @bind="i.Status" disabled="@Encerrada">@foreach (var s in Enum.GetValues<StatusItemPlano>()) { <option value="@s">@De(s)</option> }</select></td>
+                                    <td>@if (!Encerrada) { <button class="icone-btn" @onclick="() => _a.Itens.Remove(i)"><Icone Nome="lixeira" Tam="16" /></button> }</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                <div>
+                    <div class="caixa-sec"><div class="secao"><Icone Nome="clipe" /> Ligações</div>
+                        <p style="font-size:13px">RNC: @(_a.RncsOrigem ?? "—")<br />@foreach (var r in _rncs) { <a href="obra/rnc?id=@r.Id">@r.Numero</a> <span class="mudo">@r.Referencia</span><br /> }</p></div>
+                    <div class="caixa-sec" style="margin-top:12px"><div class="secao"><Icone Nome="check-circulo" /> Verificação de eficácia</div>
+                        <div class="form">
+                            <Campo Rotulo="Data prevista" Obrigatorio Classe="s12"><input type="date" @bind="_a.DataEficacia" disabled="@Encerrada" /></Campo>
+                            <Campo Rotulo="Critério" Obrigatorio Classe="s12"><textarea @bind="_a.CriterioEficacia" disabled="@Encerrada"></textarea></Campo>
+                            <Campo Rotulo="Resultado" Classe="s12"><select @bind="_a.ResultadoEficacia" disabled="@(Encerrada || _a.Status != StatusAcaoCorretiva.AguardandoEficacia)">@foreach (var e in Enum.GetValues<Eficacia>()) { <option value="@e">@De(e)</option> }</select></Campo>
+                            <Campo Rotulo="" Classe="s12"><label><input type="checkbox" @bind="_a.AtualizaSgq" disabled="@Encerrada" /> Atualiza riscos / SGQ (análise crítica)</label></Campo>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    </ChildContent>
+    <Rodape>@if (_a is not null && !Encerrada) { <button class="btn prim" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="16" /> Salvar</button> }</Rodape>
+</Modal>
+
+@code {
+    private Grade<AcaoCorretiva>? _grade;
+    private List<AcaoCorretiva>? _itens;
+    private AcaoCorretiva? _a;
+    private List<Rnc> _rncs = [];
+    private bool _aberto;
+    private List<Opcao> _usuarios = [], _docs = [];
+    private bool Encerrada => _a?.Status == StatusAcaoCorretiva.Encerrada;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _usuarios = await Cat.UsuariosAsync(); _docs = await Cat.DocumentosSgqAsync();
+        await Carregar();
+        if (Nav.Uri.Contains("?id=") && Guid.TryParse(Nav.Uri.Split("?id=")[1], out var id)) await Abrir(id);
+    }
+
+    private async Task Carregar()
+    {
+        await using var db = Fabrica.Criar();
+        _itens = await db.AcoesCorretivas.AsNoTracking().OrderByDescending(a => a.Numero).ToListAsync();
+    }
+
+    private async Task Abrir(Guid id)
+    {
+        await using var db = Fabrica.Criar();
+        _a = await db.AcoesCorretivas.AsNoTracking().Include(a => a.Itens).FirstAsync(a => a.Id == id);
+        _rncs = await db.Rncs.AsNoTracking().Where(r => r.AcaoCorretivaId == id).ToListAsync();
+        ErrosForm = null; _aberto = true;
+    }
+
+    private List<Etapas.Passo> Passos()
+    {
+        var s = _a!.Status;
+        return
+        [
+            new("Registro", _a.RncsOrigem, "feita"),
+            new("Análise de causa", De(_a.MetodoAnalise), string.IsNullOrWhiteSpace(_a.CausaRaiz) ? "atual" : "feita"),
+            new("Plano de ação", $"{_a.Itens.Count} ações", s == StatusAcaoCorretiva.EmExecucao ? "atual" : s is StatusAcaoCorretiva.AguardandoEficacia or StatusAcaoCorretiva.Encerrada ? "feita" : "pendente"),
+            new("Verificação de eficácia", Data(_a.DataEficacia), s == StatusAcaoCorretiva.AguardandoEficacia ? "atual" : s == StatusAcaoCorretiva.Encerrada ? "feita" : "pendente"),
+        ];
+    }
+
+    private async Task Salvar()
+    {
+        _a!.ResponsavelNome = _usuarios.FirstOrDefault(u => u.Id == _a.ResponsavelId)?.Texto ?? _a.ResponsavelNome;
+        if (await Executar(() => Qob.SalvarAcaoCorretivaAsync(_a), "Ação corretiva salva.")) { await Carregar(); await Abrir(_a.Id); }
+    }
+}

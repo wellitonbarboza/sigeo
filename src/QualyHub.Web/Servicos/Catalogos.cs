@@ -76,6 +76,44 @@ public sealed class Catalogos(FabricaDb fabrica)
         return await db.Pastas.AsNoTracking().OrderBy(o => o.Ordem).Select(o => new Opcao(o.Id, o.Nome)).ToListAsync();
     });
 
+    public Task<List<Opcao>> LocaisAsync(Guid obraId) => Cache($"locais:{obraId}", async () =>
+    {
+        await using var db = fabrica.Criar();
+        return await db.Locais.AsNoTracking().Where(l => l.ObraId == obraId).OrderBy(l => l.Codigo).Select(l => new Opcao(l.Id, l.Nome, l.Tipo)).ToListAsync();
+    });
+
+    public Task<List<Opcao>> ModelosAsync(TipoModelo tipo, bool soVigentes = true) => Cache($"modelos:{tipo}:{soVigentes}", async () =>
+    {
+        await using var db = fabrica.Criar();
+        return await db.ModelosInspecao.AsNoTracking().Where(m => m.Tipo == tipo && (!soVigentes || m.Situacao == SituacaoModelo.Vigente))
+            .OrderBy(m => m.Codigo).Select(m => new Opcao(m.Id, m.Codigo + " – " + m.Titulo, m.ServicoControladoId.ToString())).ToListAsync();
+    });
+
+    public Task<List<Opcao>> FuncoesAsync() => Cache("funcoes", async () =>
+    {
+        await using var db = fabrica.Criar();
+        return await db.Funcoes.AsNoTracking().Where(f => f.Ativa).OrderBy(f => f.Descricao).Select(f => new Opcao(f.Id, f.Descricao)).ToListAsync();
+    });
+
+    public Task<List<Opcao>> ColaboradoresAsync() => Cache("colab", async () =>
+    {
+        await using var db = fabrica.Criar();
+        return await db.Colaboradores.AsNoTracking().Where(c => c.DataSaida == null).OrderBy(c => c.Nome).Select(c => new Opcao(c.Id, c.Nome, c.Situacao.ToString())).ToListAsync();
+    });
+
+    public Task<List<Opcao>> ContratosAtivosAsync() => Cache("ctr", async () =>
+    {
+        await using var db = fabrica.Criar();
+        return await db.Contratos.AsNoTracking().Where(k => k.Status == StatusContrato.Ativo).OrderBy(k => k.Numero)
+            .Select(k => new Opcao(k.Id, k.Numero + " – " + k.Fornecedor.RazaoSocial, k.FornecedorId.ToString())).ToListAsync();
+    });
+
+    public Task<List<Opcao>> DocumentosSgqAsync() => Cache("docsgq", async () =>
+    {
+        await using var db = fabrica.Criar();
+        return await db.Documentos.AsNoTracking().OrderBy(d => d.Codigo).Select(d => new Opcao(d.Id, d.Codigo + " – " + d.Titulo)).ToListAsync();
+    });
+
     public Task<List<Opcao>> TiposDocFornecedorAsync() => Cache("tipodoc", async () =>
     {
         await using var db = fabrica.Criar();

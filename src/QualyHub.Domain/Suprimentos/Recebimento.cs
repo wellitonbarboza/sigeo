@@ -25,8 +25,27 @@ public class Recebimento : EntidadeDaObra, IHistoricoTemporal
     public DestinoRecebimento Destino { get; set; } = DestinoRecebimento.Aceito;
     public string? ComunicadoA { get; set; }
     public DateTimeOffset? ComunicadoEm { get; set; }
-    /// <summary>Ficha FVM detalhada (checklist do modelo), quando o material controlado tiver modelo próprio.</summary>
-    public Guid? FichaFvmId { get; set; }
+    public Guid? ModeloFvmId { get; set; }
+    public StatusLote StatusLote { get; set; } = StatusLote.EmVerificacao;
+    public bool QuarentenaAteEnsaio { get; set; }
+    public bool RastrearAplicacao { get; set; }
+    public Guid? RncId { get; set; }
+    public ICollection<Qualidade.FvmItem> FvmItens { get; set; } = [];
+    public ICollection<Qualidade.EnsaioRecebimento> Ensaios { get; set; } = [];
+    public ICollection<Qualidade.AplicacaoLote> Aplicacoes { get; set; } = [];
+
+    /// <summary>Checklist do modelo com item bloqueante não conforme reprova a FVM (critério "qualidade").</summary>
+    public void AplicarChecklist()
+    {
+        if (FvmItens.Count == 0) return;
+        foreach (var i in FvmItens.Where(i => i.ValorMin is not null || i.ValorMax is not null))
+            if (decimal.TryParse(i.ValorMedido?.Replace(',', '.'), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var v))
+                i.Resultado = (i.ValorMin is null || v >= i.ValorMin) && (i.ValorMax is null || v <= i.ValorMax) ? ResultadoItem.Conforme : ResultadoItem.NaoConforme;
+        if (FvmItens.Any(i => i.Bloqueia && i.Resultado == ResultadoItem.NaoConforme)) FvmQualidade = ResultadoCriterio.Reprovado;
+        else if (FvmItens.All(i => i.Resultado != ResultadoItem.NaoAvaliado) && FvmQualidade == ResultadoCriterio.NaoAvaliado) FvmQualidade = ResultadoCriterio.Aprovado;
+    }
+
+    public decimal QuantidadeRecebida => Itens.Sum(i => i.QtdRecebida);
 
     public ICollection<RecebimentoItem> Itens { get; set; } = [];
 
@@ -57,6 +76,10 @@ public class Recebimento : EntidadeDaObra, IHistoricoTemporal
             if (string.IsNullOrWhiteSpace(i.Lote)) e.Add($"{i.Descricao}: material controlado exige lote/corrida.");
             if (!i.DocumentosRecebidos) e.Add($"{i.Descricao}: material controlado exige os documentos (certificado, laudo, FISPQ…).");
         }
+        foreach (var i in FvmItens.Where(i => i.Resultado == ResultadoItem.NaoAvaliado))
+            e.Add($"FVM: avalie o item {i.Ordem} ({i.Descricao}).");
+        foreach (var i in FvmItens.Where(i => i.Resultado is ResultadoItem.NaoConforme or ResultadoItem.NaoAplica && string.IsNullOrWhiteSpace(i.Observacao)))
+            e.Add($"FVM item {i.Ordem}: observação obrigatória para Não conforme / N/A.");
         if (Destino == DestinoRecebimento.Aceito && FvmAprovada == false)
             e.Add("FVM reprovada: destino deve ser 'Aceito com ressalva' ou 'Devolvido'.");
         return e;

@@ -112,7 +112,7 @@ public class MedicaoItem : Entidade
     public decimal ValorPeriodo { get; set; }
     /// <summary>Número da FVS (texto) ou ficha vinculada.</summary>
     public string? FvsRef { get; set; }
-    public Guid? FichaFvsId { get; set; }
+    public Guid? FvsId { get; set; }
 }
 
 /// <summary>T16 · Plano de ação do fornecedor (aberto por nota de medição, FVM reprovada, avaliação semestral ou reclamação).</summary>
@@ -155,6 +155,7 @@ public class AvaliacaoSemestral : EntidadeAuditavel, IHistoricoTemporal
     public int QtdMedicoes { get; set; }
     public decimal? NotaMedia { get; set; }
     public int PlanosAbertos { get; set; }
+    public int QtdRnc { get; set; }
     public DecisaoSemestral? Decisao { get; set; }
     public string? Participantes { get; set; }
     public DateOnly? DataReuniao { get; set; }

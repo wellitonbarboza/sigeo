@@ -35,7 +35,7 @@
             <div class="form">
                 <Campo Rotulo="Empresa" Classe="s6"><input readonly value="@Usuario.EmpresaNome" /></Campo>
                 <Campo Rotulo="Obra / empreendimento" Obrigatorio Classe="s4">
-                    <select @bind="_r.ObraId" disabled="@(!Editavel)"><option value="@Guid.Empty">Selecione…</option>@foreach (var o in _obras) { <option value="@o.Id">@o.Texto</option> }</select>
+                    <select @bind="_r.ObraId" @bind:after="EnderecoDaObra" disabled="@(!Editavel)"><option value="@Guid.Empty">Selecione…</option>@foreach (var o in _obras) { <option value="@o.Id">@o.Texto</option> }</select>
                 </Campo>
                 <Campo Rotulo="Tipo" Obrigatorio Classe="s2">
                     <select @bind="_r.Tipo" disabled="@(!Editavel)">@foreach (var t in Enum.GetValues<TipoRequisicao>()) { <option value="@t">@De(t)</option> }</select>
@@ -204,6 +204,13 @@
                 reprov && r.AprovadoEngenheiroEm is not null ? "erro" : Est(r.AprovadoDiretorEm is not null, r.Status == StatusRequisicao.AguardandoDiretorTecnico)),
             new("Cotação", "Comprador", Est(r.Status is StatusRequisicao.EmCotacao or StatusRequisicao.PedidoEmitido or StatusRequisicao.Concluida, r.Status == StatusRequisicao.Autorizada)),
         ];
+    }
+
+    private async Task EnderecoDaObra()
+    {
+        if (!string.IsNullOrWhiteSpace(_r!.EnderecoEntrega)) return;
+        await using var db = Fabrica.Criar();
+        _r.EnderecoEntrega = await db.Obras.Where(o => o.Id == _r.ObraId).Select(o => o.EnderecoEntrega).FirstOrDefaultAsync();
     }
 
     private void AddItem() => _r!.Itens.Add(new RequisicaoItem { RequisicaoId = _r.Id, Quantidade = 1 });

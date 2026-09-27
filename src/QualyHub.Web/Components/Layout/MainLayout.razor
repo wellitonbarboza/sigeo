@@ -11,41 +11,19 @@
         </div>
         <nav>
             <ul class="menu">
-                <li class="grupo"><NavLink href="" Match="NavLinkMatch.All"><Icone Nome="casa" /> Início</NavLink></li>
-
-                <li class="grupo"><a><Icone Nome="cadastro" /> Cadastro</a></li>
-                <li class="item"><NavLink href="fornecedores" Match="NavLinkMatch.All"><Icone Nome="predio" Tam="16" /> Fornecedores</NavLink></li>
-                <li class="item"><NavLink href="fornecedores/qualificacao"><Icone Nome="selo" Tam="16" /> Qualificação Fornec.</NavLink></li>
-                <li class="item"><NavLink href="fornecedores/documentos"><Icone Nome="arquivo" Tam="16" /> Docs. do Fornecedor</NavLink></li>
-                <li class="item"><NavLink href="cadastros/obras"><Icone Nome="casa" Tam="16" /> Obras e centros de custo</NavLink></li>
-                <li class="item"><NavLink href="cadastros/produtos"><Icone Nome="caixa" Tam="16" /> Produtos</NavLink></li>
-                <li class="item"><NavLink href="cadastros/controlados"><Icone Nome="escudo-check" Tam="16" /> Materiais e serviços controlados</NavLink></li>
-
-                <li class="grupo"><a><Icone Nome="carrinho" /> Suprimentos</a></li>
-                <li class="item"><NavLink href="requisicoes"><Icone Nome="prancheta" Tam="16" /> Requisição</NavLink></li>
-                <li class="item"><NavLink href="cotacoes"><Icone Nome="calculadora" Tam="16" /> Orçamentos</NavLink></li>
-                <li class="item"><NavLink href="pedidos"><Icone Nome="sacola" Tam="16" /> Pedidos</NavLink></li>
-                <li class="item"><NavLink href="contratos"><Icone Nome="contrato" Tam="16" /> Contratos</NavLink></li>
-                <li class="item"><NavLink href="recebimentos"><Icone Nome="caixa" Tam="16" /> Recebimento / FVM</NavLink></li>
-                <li class="item"><NavLink href="medicoes"><Icone Nome="regua" Tam="16" /> Medições</NavLink></li>
-                <li class="item"><NavLink href="pagamentos"><Icone Nome="dinheiro" Tam="16" /> Liberação Pagamento</NavLink></li>
-
-                <li class="grupo"><a><Icone Nome="medalha" /> Qualidade</a></li>
-                <li class="item"><NavLink href="sgq/documentos"><Icone Nome="pasta" Tam="16" /> Documentos SGQ</NavLink></li>
-                <li class="item"><NavLink href="sgq/copias"><Icone Nome="impressora" Tam="16" /> Cópias Controladas</NavLink></li>
-                <li class="item"><NavLink href="sgq/lista-mestra"><Icone Nome="lista" Tam="16" /> Lista Mestra</NavLink></li>
-                <li class="item"><NavLink href="sgq/externos"><Icone Nome="livro" Tam="16" /> Documentos Externos</NavLink></li>
-                <li class="item"><NavLink href="fornecedores/avaliacao"><Icone Nome="grafico" Tam="16" /> Avaliação Fornec.</NavLink></li>
-                <li class="item"><NavLink href="fornecedores/planos"><Icone Nome="alvo" Tam="16" /> Planos de Ação</NavLink></li>
-                <li class="item"><NavLink href="sgq/grd"><Icone Nome="enviar" Tam="16" /> GRD</NavLink></li>
-                <li class="item"><NavLink href="sgq/leituras"><Icone Nome="livro" Tam="16" /> Leituras / Ciência</NavLink></li>
-                <li class="item"><NavLink href="sgq/registros"><Icone Nome="arquivo-morto" Tam="16" /> Registros (Retenção)</NavLink></li>
-
-                <li class="grupo"><a><Icone Nome="engrenagem" /> Sistema</a></li>
-                <li class="item"><NavLink href="sistema/usuarios"><Icone Nome="pessoa" Tam="16" /> Usuários e alçadas</NavLink></li>
-                <li class="item"><NavLink href="sistema/parametros"><Icone Nome="ferramenta" Tam="16" /> Parâmetros e listas</NavLink></li>
-                <li class="item"><NavLink href="sistema/permissoes"><Icone Nome="escudo" Tam="16" /> Permissões SGQ</NavLink></li>
-                <li class="item"><NavLink href="sistema/log"><Icone Nome="relogio" Tam="16" /> Log de Auditoria</NavLink></li>
+                <li class="grupo"><NavLink href="" Match="NavLinkMatch.All"><Icone Nome="casa" /> Minhas pendências</NavLink></li>
+                <li class="grupo"><NavLink href="painel"><Icone Nome="grafico" /> Painel de indicadores</NavLink></li>
+                @foreach (var g in _grupos)
+                {
+                    <li class="grupo"><a class="dobra @(Aberto(g.Id) ? "aberto" : "")" @onclick="() => Alternar(g.Id)"><Icone Nome="@g.Icone" /> @g.Titulo <span class="seta">›</span></a></li>
+                    @if (Aberto(g.Id))
+                    {
+                        @foreach (var (href, icone, texto) in g.Itens)
+                        {
+                            <li class="item"><NavLink href="@href" Match="NavLinkMatch.All"><Icone Nome="@icone" Tam="16" /> @texto</NavLink></li>
+                        }
+                    }
+                }
             </ul>
         </nav>
         <div class="usuario-box">
@@ -67,6 +45,38 @@
 
 @code {
     private string _tema = "claro";
+    private sealed record Grupo(string Id, string Titulo, string Icone, (string Href, string Icone, string Texto)[] Itens);
+    private readonly HashSet<string> _abertos = [];
+    private static readonly Grupo[] _grupos =
+    [
+        new("cad", "Cadastro", "cadastro", [("fornecedores", "predio", "Fornecedores"), ("fornecedores/qualificacao", "selo", "Qualificação Fornec."), ("fornecedores/documentos", "arquivo", "Docs. do Fornecedor"),
+            ("cadastros/controlados", "escudo-check", "Materiais/Serv. Control."), ("cadastros/obras", "casa", "Obras e Centros de Custo"), ("cadastros/produtos", "caixa", "Produtos")]),
+        new("sup", "Suprimentos", "carrinho", [("requisicoes", "prancheta", "Requisição"), ("cotacoes", "calculadora", "Orçamentos"), ("pedidos", "sacola", "Pedidos"), ("contratos", "contrato", "Contratos"),
+            ("recebimentos", "caixa", "Recebimento / FVM"), ("medicoes", "regua", "Medições"), ("pagamentos", "dinheiro", "Liberação Pagamento")]),
+        new("sgq", "Qualidade", "medalha", [("sgq/documentos", "pasta", "Documentos SGQ"), ("sgq/copias", "impressora", "Cópias Controladas"), ("sgq/lista-mestra", "lista", "Lista Mestra"),
+            ("sgq/externos", "livro", "Documentos Externos"), ("fornecedores/avaliacao", "grafico", "Avaliação Fornec."), ("fornecedores/planos", "alvo", "Planos de Ação"),
+            ("sgq/grd", "enviar", "GRD"), ("sgq/leituras", "livro", "Leituras / Ciência"), ("sgq/registros", "arquivo-morto", "Registros (Retenção)")]),
+        new("qob", "Qualidade da Obra", "escudo-check", [("obra/mapa", "tabela", "Mapa de Inspeções"), ("obra/fvs", "prancheta", "FVS – Inspeções"), ("obra/modelos/fvs", "lista", "Modelos de FVS"),
+            ("obra/modelos/fvm", "caixa", "Modelos de FVM"), ("obra/rnc", "x-circulo", "Não Conformidades"), ("obra/acoes", "ferramenta", "Ações Corretivas"),
+            ("obra/equipamentos", "regua", "Equip. de Medição"), ("obra/auditorias", "lupa", "Auditorias Internas")]),
+        new("sst", "Segurança e Pessoas", "pessoa", [("sst/colaboradores", "pessoa", "Colaboradores"), ("sst/exigencias", "tabela", "Exigências por Função"), ("sst/documentos", "arquivo", "Docs. do Colaborador"),
+            ("sst/treinamentos", "livro", "Treinamentos"), ("sst/epi", "escudo", "Entrega de EPI"), ("sst/inspecoes", "prancheta", "Inspeções de Segurança"),
+            ("sst/pt", "chave", "Permissão de Trabalho"), ("sst/ocorrencias", "alerta", "Ocorrências e Acidentes"), ("sst/painel", "grafico", "Painel SST")]),
+        new("sis", "Sistema", "engrenagem", [("sistema/usuarios", "pessoa", "Usuários e Alçadas"), ("sistema/parametros", "ferramenta", "Parâmetros e Notificações"),
+            ("sistema/permissoes", "escudo", "Permissões SGQ"), ("sistema/log", "relogio", "Log de Auditoria")]),
+    ];
+
+    [Inject] private NavigationManager Nav { get; set; } = default!;
+
+    protected override void OnInitialized()
+    {
+        var rel = Nav.ToBaseRelativePath(Nav.Uri).Split('?')[0];
+        foreach (var g in _grupos) if (g.Itens.Any(i => rel.StartsWith(i.Href))) _abertos.Add(g.Id);
+        if (_abertos.Count == 0) _abertos.Add("sup");
+    }
+
+    private bool Aberto(string id) => _abertos.Contains(id);
+    private void Alternar(string id) { if (!_abertos.Remove(id)) _abertos.Add(id); }
 
     protected override async Task OnAfterRenderAsync(bool primeira)
     {

@@ -25,6 +25,13 @@ public class Obra : EntidadeAuditavel, IOrigemObraPrima
     public string? Uf { get; set; }
     public DateOnly? DataInicio { get; set; }
     public DateOnly? DataPrevistaTermino { get; set; }
+    public string? EmpresaSpe { get; set; }
+    public string? EnderecoEntrega { get; set; }
+    public Guid? EngenheiroId { get; set; }
+    public Guid? AdministrativoId { get; set; }
+    public Guid? AlmoxarifeId { get; set; }
+    public Guid? PqoDocumentoId { get; set; }
+    public StatusObra Status { get; set; } = StatusObra.EmExecucao;
     public bool Ativa { get; set; } = true;
     public string? CodigoObraPrima { get; set; }
     public Guid? UltimaImportacaoId { get; set; }
@@ -39,7 +46,11 @@ public class Local : EntidadeDaObra
     public Local? LocalPai { get; set; }
     public string Tipo { get; set; } = "Pavimento"; // Torre, Bloco, Pavimento, Unidade, Área comum
     public string Nome { get; set; } = string.Empty;
+    public string Codigo { get; set; } = string.Empty;
     public int Ordem { get; set; }
+    public decimal? Quantidade { get; set; }
+    public string? Unidade { get; set; }
+    public string QrToken { get; set; } = Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(10)).ToLowerInvariant();
     public ICollection<Local> Filhos { get; set; } = [];
 }
 
@@ -49,6 +60,7 @@ public class CentroCusto : EntidadeAuditavel
     public string Codigo { get; set; } = string.Empty;
     public string Nome { get; set; } = string.Empty;
     public Guid? ObraId { get; set; }
+    public decimal? Orcamento { get; set; }
     public bool Ativo { get; set; } = true;
 }
 
@@ -94,6 +106,11 @@ public class Alcada : EntidadeAuditavel
     public Guid? UsuarioAprovadorId { get; set; }
     public decimal? ValorMinimo { get; set; }
     public decimal? ValorMaximo { get; set; }
+    public string? Condicao { get; set; }
+    public bool EngenheiroDaObra { get; set; }
+    public Guid? SubstitutoUsuarioId { get; set; }
+    public int? PrazoHoras { get; set; }
+    public PerfilUsuario? EscalonaPara { get; set; }
     public bool Ativa { get; set; } = true;
 
     public bool SeAplica(decimal valor, Guid? obraId) =>
@@ -123,6 +140,18 @@ public class ItemLista : EntidadeAuditavel
     public bool Ativo { get; set; } = true;
 }
 
+/// <summary>T27 · Regra de notificação por evento (quem recebe, quando, por qual canal).</summary>
+public class RegraNotificacao : EntidadeAuditavel
+{
+    public string Evento { get; set; } = string.Empty;
+    public string? Antecedencia { get; set; }
+    public string? Repeticao { get; set; }
+    public string Destinatarios { get; set; } = string.Empty;
+    public CanalNotificacao Canal { get; set; } = CanalNotificacao.Pendencias;
+    public string ModeloMensagem { get; set; } = string.Empty;
+    public bool Ativa { get; set; } = true;
+}
+
 /// <summary>Chaves dos parâmetros e valores padrão (carga inicial genérica, editável).</summary>
 public static class Parametros
 {
@@ -148,6 +177,23 @@ public static class Parametros
     public const string PrazoCheckoutDias = "SGQ.PRAZO_CHECKOUT_DIAS";
     public const string VerificacaoExternosMeses = "SGQ.VERIFICACAO_EXTERNOS_MESES";
     public const string RetencaoPadraoPerc = "CTR.RETENCAO_PADRAO_PERC";
+    public const string LimiteAditivoPerc = "CTR.LIMITE_ADITIVO_PERC";
+    public const string ValidadeLinkPortalDias = "SUP.VALIDADE_LINK_PORTAL_DIAS";
+    public const string PrazoValidarDocDias = "SUP.PRAZO_VALIDAR_DOC_DIAS";
+    public const string MetaFvs1aInspecaoPerc = "QOB.META_FVS_1A_PERC";
+    public const string PrazoCorrecaoFvsDias = "QOB.PRAZO_CORRECAO_FVS_DIAS";
+    public const string PrazoTratarRncDias = "QOB.PRAZO_RNC_DIAS";
+    public const string PrazoEficaciaAcDias = "QOB.PRAZO_EFICACIA_AC_DIAS";
+    public const string AlertaCalibracaoDias = "QOB.ALERTA_CALIBRACAO_DIAS";
+    public const string PeriodicidadeCalibracaoMeses = "QOB.PERIODICIDADE_CALIBRACAO_MESES";
+    public const string PeriodicidadeVerificacaoMeses = "QOB.PERIODICIDADE_VERIFICACAO_MESES";
+    public const string AuditoriasPorAno = "QOB.AUDITORIAS_ANO";
+    public const string ReincidenciasAc = "QOB.REINCIDENCIAS_AC";
+    public const string AlertaVencimentoSstDias = "SST.ALERTA_VENCIMENTO_DIAS";
+    public const string AlertaCaDias = "SST.ALERTA_CA_DIAS";
+    public const string MetaAptosPerc = "SST.META_APTOS_PERC";
+    public const string MetaConformidadeInspecaoPerc = "SST.META_CONFORMIDADE_PERC";
+    public const string FrequenciaInspecaoDias = "SST.FREQUENCIA_INSPECAO_DIAS";
 
     /// <summary>Padrão genérico SiAC/PBQP-H (sem dados de empresa). Chave → (valor, unidade, descrição, grupo).</summary>
     public static readonly IReadOnlyDictionary<string, (decimal Valor, string Unidade, string Descricao, string Grupo)> Padrao =
@@ -175,6 +221,23 @@ public static class Parametros
             [PrazoRecolhimentoDias] = (3m, "dias", "Prazo para recolher cópia obsoleta", "Documentos do SGQ"),
             [PrazoCheckoutDias] = (5m, "dias", "Prazo máximo de check-out", "Documentos do SGQ"),
             [VerificacaoExternosMeses] = (6m, "meses", "Verificação de atualização de documentos externos", "Documentos do SGQ"),
+            [LimiteAditivoPerc] = (25m, "%", "Alerta quando aditivos acumulados passam deste % do contrato", "Contratos"),
+            [ValidadeLinkPortalDias] = (15m, "dias", "Validade do link do portal do fornecedor", "Suprimentos"),
+            [PrazoValidarDocDias] = (2m, "dias úteis", "Prazo para validar documento enviado pelo portal", "Suprimentos"),
+            [MetaFvs1aInspecaoPerc] = (85m, "%", "Meta de FVS aprovadas na 1ª inspeção", "Qualidade da obra"),
+            [PrazoCorrecaoFvsDias] = (3m, "dias", "Prazo padrão para correção de FVS reprovada", "Qualidade da obra"),
+            [PrazoTratarRncDias] = (7m, "dias", "Prazo padrão para tratar RNC", "Qualidade da obra"),
+            [PrazoEficaciaAcDias] = (30m, "dias", "Prazo para verificar eficácia da ação corretiva", "Qualidade da obra"),
+            [AlertaCalibracaoDias] = (30m, "dias", "Alerta de calibração a vencer", "Qualidade da obra"),
+            [PeriodicidadeCalibracaoMeses] = (12m, "meses", "Periodicidade padrão – calibração externa", "Qualidade da obra"),
+            [PeriodicidadeVerificacaoMeses] = (6m, "meses", "Periodicidade padrão – verificação interna", "Qualidade da obra"),
+            [AuditoriasPorAno] = (1m, "un", "Auditorias internas por ano (mínimo)", "Qualidade da obra"),
+            [ReincidenciasAc] = (2m, "RNC", "Reincidências (mesmo serviço/prestador em 90 dias) que obrigam ação corretiva", "Qualidade da obra"),
+            [AlertaVencimentoSstDias] = (30m, "dias", "Alerta de vencimento de documento/ASO/treinamento", "Segurança e pessoas"),
+            [AlertaCaDias] = (60m, "dias", "Alerta de validade de CA de EPI", "Segurança e pessoas"),
+            [MetaAptosPerc] = (95m, "%", "Meta de colaboradores aptos", "Segurança e pessoas"),
+            [MetaConformidadeInspecaoPerc] = (90m, "%", "Meta de conformidade das inspeções de segurança", "Segurança e pessoas"),
+            [FrequenciaInspecaoDias] = (7m, "dias", "Frequência mínima de inspeção geral do canteiro", "Segurança e pessoas"),
         };
 }
 

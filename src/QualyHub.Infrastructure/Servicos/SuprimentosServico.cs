@@ -5,6 +5,7 @@ using QualyHub.Domain.Common;
 using QualyHub.Domain.Estrutura;
 using QualyHub.Domain.Regras;
 using QualyHub.Domain.Suprimentos;
+using QualyHub.Domain.Qualidade;
 using QualyHub.Infrastructure.Contexto;
 using QualyHub.Infrastructure.Dados;
 
@@ -252,8 +253,43 @@ public sealed class SuprimentosServico(FabricaDb fabrica, AprovacaoServico aprov
             r.FornecedorId = ped.FornecedorId;
             r.ObraId = ped.ObraId;
         }
+        r.AplicarChecklist();
         ValidacaoException.Se(r.Validar());
         r.Numero = await Numerador.ProximoAsync(db, "Recebimento", ct);
+        // Modelo de FVM vigente do material controlado (Q01): quarentena, rastreabilidade e ensaios previstos (Q12 → Q14).
+        var matId = r.Itens.Select(i => i.MaterialControladoId).FirstOrDefault(i => i is not null);
+        if (matId is not null)
+        {
+            var modelo = await db.ModelosInspecao.AsNoTracking().Include(m => m.Ensaios)
+                .FirstOrDefaultAsync(m => m.Tipo == TipoModelo.FVM && m.MaterialControladoId == matId && m.Situacao == SituacaoModelo.Vigente, ct);
+            if (modelo is not null)
+            {
+                r.ModeloFvmId = modelo.Id; r.QuarentenaAteEnsaio = modelo.QuarentenaAteEnsaio; r.RastrearAplicacao = modelo.RastrearAplicacao;
+                if (r.Destino != DestinoRecebimento.Devolvido)
+                    foreach (var x in modelo.Ensaios)
+                        r.Ensaios.Add(new Domain.Qualidade.EnsaioRecebimento
+                        {
+                            RecebimentoId = r.Id, EnsaioModeloId = x.Id, Ensaio = x.Ensaio, Criterio = x.Criterio, AcaoReprovacao = x.AcaoReprovacao,
+                            Amostra = $"{r.Numero}-{x.Ensaio[..Math.Min(3, x.Ensaio.Length)].ToUpperInvariant()}", DataColeta = Hoje,
+                            DataPrevista = Hoje.AddDays(x.Momento == MomentoEnsaio.Posterior ? x.MaiorPrazo() : 0)
+                        });
+            }
+        }
+        foreach (var i in r.FvmItens) i.RecebimentoId = r.Id;
+        r.StatusLote = Domain.Qualidade.RegrasQualidadeObra.StatusDoLote(r.FvmAprovada == true, r.Destino == DestinoRecebimento.Devolvido,
+            r.Destino == DestinoRecebimento.AceitoComRessalva, r.QuarentenaAteEnsaio, [.. r.Ensaios]);
+        if (r.FvmAprovada == false)
+        {
+            var rnc = new Domain.Qualidade.Rnc
+            {
+                Numero = $"RNC-{await Numerador.ProximoAsync(db, "Rnc", ct):0000}", Origem = OrigemRnc.FvmRecebimento, Referencia = $"Recebimento {r.Numero} · NF {r.NumeroNotaFiscal ?? r.ChaveNFe}",
+                ReferenciaId = r.Id, ObraId = r.ObraId, FornecedorId = r.FornecedorId, Classificacao = ClassificacaoRnc.Material, Gravidade = Gravidade.Media,
+                Descricao = r.Ocorrencia ?? "FVM reprovada", Disposicao = r.Destino == DestinoRecebimento.Devolvido ? "Devolução ao fornecedor" : "Aceite sob concessão",
+                Concessao = r.Destino == DestinoRecebimento.AceitoComRessalva ? "Aceito com ressalva no recebimento — confirmar com engenharia" : null,
+                ResponsavelId = usuario.UsuarioId, ResponsavelNome = usuario.Nome, Prazo = Hoje.AddDays(7), Status = StatusRnc.EmTratamento
+            };
+            db.Rncs.Add(rnc); r.RncId = rnc.Id;
+        }
         r.RecebidoPorUsuarioId = usuario.UsuarioId;
         r.RecebidoPorNome = usuario.Nome;
         if (r.FvmAprovada == false || r.TemDivergencia)
@@ -295,14 +331,19 @@ public sealed class SuprimentosServico(FabricaDb fabrica, AprovacaoServico aprov
         return m.Id;
     }
 
-    public async Task SalvarMedicaoAsync(Guid id, IReadOnlyDictionary<Guid, (decimal Qtd, string? Fvs)> quantidades,
+    public async Task SalvarMedicaoAsync(Guid id, IReadOnlyDictionary<Guid, (decimal Qtd, Guid? LocalId, Guid? FvsId)> quantidades,
         decimal? escopo, decimal? material, decimal? servico, decimal? limpeza, decimal? docSeg, DateOnly? reuniao, CancellationToken ct = default)
     {
         await using var db = fabrica.Criar();
         var m = await CarregarMedicaoAsync(db, id, ct);
         if (m.Status is not (StatusMedicao.EmElaboracao or StatusMedicao.Reprovada)) throw new RegraDeNegocioException("Medição já enviada.");
         foreach (var i in m.Itens)
-            if (quantidades.TryGetValue(i.Id, out var q)) { i.QtdPeriodo = q.Qtd; i.FvsRef = q.Fvs; }
+            if (quantidades.TryGetValue(i.Id, out var q))
+            {
+                i.QtdPeriodo = q.Qtd; i.FvsId = q.FvsId; i.LocalId = q.LocalId;
+                i.FvsRef = q.FvsId is { } fid ? await db.Fvss.Where(f => f.Id == fid).Select(f => f.Numero).FirstOrDefaultAsync(ct) : null;
+                if (q.FvsId is { } fv && q.LocalId is null) i.LocalId = await db.Fvss.Where(f => f.Id == fv).Select(f => (Guid?)f.LocalId).FirstOrDefaultAsync(ct);
+            }
         m.NotaEscopo = escopo; m.NotaMaterial = material; m.NotaServico = servico; m.NotaLimpeza = limpeza; m.NotaDocSeg = docSeg; m.DataReuniao = reuniao;
         var anteriores = await db.Medicoes.AsNoTracking().Include(x => x.Itens).Where(x => x.ContratoId == m.ContratoId && x.Id != m.Id).ToListAsync(ct);
         m.Recalcular(anteriores);
@@ -316,7 +357,7 @@ public sealed class SuprimentosServico(FabricaDb fabrica, AprovacaoServico aprov
     {
         await using var db = fabrica.Criar();
         var m = await CarregarMedicaoAsync(db, id, ct);
-        var fvs = await db.Fichas.AsNoTracking().Where(f => f.ObraId == m.ObraId && f.Tipo == TipoFicha.FVS).ToListAsync(ct);
+        var fvs = await db.Fvss.AsNoTracking().Where(f => f.ObraId == m.ObraId && f.Status == StatusFvs.Liberada).ToListAsync(ct);
         var trava = TravasQualidade.VerificarMedicao(m, fvs, Hoje);
         m.Bloqueios = trava.Resumo;
         if (!trava.Liberado) { await db.SaveChangesAsync(ct); ValidacaoException.Se(trava.Bloqueios); }
@@ -423,7 +464,11 @@ public sealed class SuprimentosServico(FabricaDb fabrica, AprovacaoServico aprov
         {
             var a = existentes.FirstOrDefault(x => x.FornecedorId == fid);
             if (a is null) { a = new AvaliacaoSemestral { Periodo = periodo, FornecedorId = fid }; db.AvaliacoesSemestrais.Add(a); }
-            if (a.Decisao is null) a.Consolidar(recs, meds, planos);
+            if (a.Decisao is null)
+            {
+                a.Consolidar(recs, meds, planos);
+                a.QtdRnc = await db.Rncs.CountAsync(r => r.FornecedorId == fid && r.CriadoEm >= iniDt && r.CriadoEm <= fimDt, ct);
+            }
         }
         await db.SaveChangesAsync(ct);
         return fornecedores.Count;
@@ -448,6 +493,64 @@ public sealed class SuprimentosServico(FabricaDb fabrica, AprovacaoServico aprov
                 });
                 break;
         }
+        await db.SaveChangesAsync(ct);
+    }
+
+    // ───────── T28 Aditivo ─────────
+
+    public async Task<Aditivo> NovoAditivoAsync(Guid contratoId, CancellationToken ct = default)
+    {
+        await using var db = fabrica.Criar();
+        var k = await db.Contratos.AsNoTracking().FirstAsync(x => x.Id == contratoId, ct);
+        if (k.Status != StatusContrato.Ativo) throw new RegraDeNegocioException("Aditivo só em contrato ativo.");
+        if (await db.Aditivos.AnyAsync(a => a.ContratoId == contratoId && (a.Status == StatusAditivo.EmElaboracao || a.Status == StatusAditivo.AguardandoAprovacao || a.Status == StatusAditivo.AguardandoAssinaturas), ct))
+            throw new RegraDeNegocioException("Já existe aditivo em andamento neste contrato.");
+        var n = await db.Aditivos.CountAsync(a => a.ContratoId == contratoId, ct) + 1;
+        return new Aditivo { ContratoId = k.Id, ObraId = k.ObraId, Numero = $"AD-{n:00}" };
+    }
+
+    public async Task<Guid> SalvarAditivoAsync(Aditivo a, CancellationToken ct = default)
+    {
+        await using var db = fabrica.Criar();
+        var k = await db.Contratos.Include(x => x.Itens).AsNoTracking().FirstAsync(x => x.Id == a.ContratoId, ct);
+        if (a.Status != StatusAditivo.EmElaboracao) throw new RegraDeNegocioException("Aditivo fora de elaboração não pode ser alterado.");
+        foreach (var i in a.Itens)
+        {
+            i.AditivoId = a.Id;
+            if (k.Itens.FirstOrDefault(x => x.Id == i.ContratoItemId) is { } ci) { i.QtdOriginal = ci.Quantidade; i.PrecoOriginal = ci.PrecoUnitario; }
+        }
+        ValidacaoException.Se(a.Validar(k));
+        var original = await OriginalAsync(db, k, ct);
+        var anteriores = await db.Aditivos.Where(x => x.ContratoId == k.Id && x.Status == StatusAditivo.Vigente && x.Id != a.Id).SumAsync(x => x.Valor, ct);
+        a.Calcular(original, anteriores);
+        a.Contrato = null;
+        await Grafo.SalvarAsync(db, a, nameof(Aditivo.Itens));
+        await db.SaveChangesAsync(ct);
+        return a.Id;
+    }
+
+    /// <summary>Valor original = valor atual − aditivos vigentes (os itens do contrato já refletem os aditivos aplicados).</summary>
+    private static async Task<decimal> OriginalAsync(QualyHubDbContext db, Contrato k, CancellationToken ct) =>
+        k.ValorTotal - await db.Aditivos.Where(x => x.ContratoId == k.Id && x.Status == StatusAditivo.Vigente).SumAsync(x => x.Valor, ct);
+
+    public async Task EnviarAditivoAsync(Guid id, CancellationToken ct = default)
+    {
+        await using var db = fabrica.Criar();
+        var a = await db.Aditivos.Include(x => x.Itens).FirstAsync(x => x.Id == id, ct);
+        var k = await db.Contratos.Include(x => x.Fornecedor).FirstAsync(x => x.Id == a.ContratoId, ct);
+        await aprovacoes.EnviarAsync(db, EntidadeAprovavel.Aditivo, a.Id, a.ObraId, $"{k.Numero} · {a.Numero} – {k.Fornecedor.NomeExibicao}", Math.Abs(a.Valor), ct);
+        a.Status = StatusAditivo.AguardandoAprovacao;
+        await db.SaveChangesAsync(ct);
+    }
+
+    public async Task AssinarAditivoAsync(Guid id, DateOnly empresa, DateOnly fornecedor, CancellationToken ct = default)
+    {
+        await using var db = fabrica.Criar();
+        var a = await db.Aditivos.Include(x => x.Itens).FirstAsync(x => x.Id == id, ct);
+        if (a.Status != StatusAditivo.AguardandoAssinaturas) throw new RegraDeNegocioException("Aditivo não está aguardando assinaturas.");
+        var k = await db.Contratos.Include(x => x.Itens).FirstAsync(x => x.Id == a.ContratoId, ct);
+        a.AssinaturaEmpresa = empresa; a.AssinaturaFornecedor = fornecedor;
+        a.Aplicar(k);
         await db.SaveChangesAsync(ct);
     }
 

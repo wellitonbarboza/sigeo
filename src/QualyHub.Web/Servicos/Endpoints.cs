@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using Microsoft.EntityFrameworkCore;
 using QualyHub.Domain.Common;
 using QualyHub.Domain.Estrutura;
@@ -19,6 +21,13 @@ public static class Endpoints
             await using (var check = sistema.Criar(Guid.Empty, "Setup"))
                 if (await check.Empresas.AnyAsync()) return Results.Redirect("/");
             string V(string k) => f[k].ToString().Trim();
+            // Proteção da primeira execução: fora de desenvolvimento exige o código guardado no Key Vault
+            // (segredo CodigoConfiguracaoInicial) — quem só conhece a URL não consegue "tomar" o sistema vazio.
+            var codigo = app.Configuration["CodigoConfiguracaoInicial"];
+            if (!app.Environment.IsDevelopment() && string.IsNullOrWhiteSpace(codigo)) return Results.Forbid();
+            if (!string.IsNullOrWhiteSpace(codigo) && !CryptographicOperations.FixedTimeEquals(Encoding.UTF8.GetBytes(V("codigoSetup")), Encoding.UTF8.GetBytes(codigo)))
+                return Results.Redirect("/configuracao-inicial?erro=codigo");
+            if (Autenticacao.ModoEntra(app.Configuration) && !Guid.TryParse(V("oid"), out _)) return Results.Redirect("/configuracao-inicial?erro=oid");
             if (V("razao") == "" || V("nome") == "" || V("email") == "") return Results.Redirect("/configuracao-inicial?erro=1");
 
             var empresa = new Empresa { RazaoSocial = V("razao"), NomeFantasia = V("fantasia") is { Length: > 0 } nf ? nf : V("razao"), Cnpj = V("cnpj"), Codigo = V("codigo"), NivelSiac = V("nivel") is { Length: > 0 } n ? n : "B" };

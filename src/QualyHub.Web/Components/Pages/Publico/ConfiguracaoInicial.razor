@@ -2,6 +2,8 @@
 @attribute [AllowAnonymous]
 @attribute [ExcludeFromInteractiveRouting]
 @layout LayoutPublico
+@inject IConfiguration Cfg
+@inject IWebHostEnvironment Env
 
 <PageTitle>Configuração inicial · QualyHub</PageTitle>
 <div class="login">
@@ -9,17 +11,21 @@
         <div style="background:#2f3a4b;border-radius:10px;width:fit-content"><Logo /></div>
         <h1>Configuração inicial</h1>
         <p class="mudo">O banco está vazio. Cadastre a empresa e o administrador. O sistema aplica a carga padrão SiAC (parâmetros, listas, materiais e serviços controlados, tipos de documento, pastas do SGQ, retenção e alçadas) — tudo editável depois. Nenhum dado de outra empresa é carregado.</p>
-        @if (Erro is not null) { <div class="alerta erro">Preencha os campos obrigatórios.</div> }
+        @if (Erro is not null) { <div class="alerta erro">@(Erro switch { "codigo" => "Código de configuração inválido.", "oid" => "Informe o ObjectId do administrador no Entra ID (login Microsoft).", _ => "Preencha os campos obrigatórios." })</div> }
         <form method="post" action="configuracao-inicial/salvar" class="form" style="margin-top:14px">
             <div class="campo s8"><label>Razão social<span class="req">*</span></label><input name="razao" required /></div>
             <div class="campo s4"><label>CNPJ</label><input name="cnpj" placeholder="00.000.000/0000-00" /></div>
             <div class="campo s6"><label>Nome fantasia</label><input name="fantasia" /></div>
             <div class="campo s3"><label>Código</label><input name="codigo" placeholder="ex.: F001" /></div>
             <div class="campo s3"><label>Nível SiAC</label><select name="nivel"><option>B</option><option>A</option></select></div>
+            @if (!Env.IsDevelopment() || !string.IsNullOrWhiteSpace(Cfg["CodigoConfiguracaoInicial"]))
+            {
+                <div class="campo s12"><label>Código de configuração<span class="req">*</span></label><input name="codigoSetup" type="password" autocomplete="off" required /><span class="ajuda">Segredo "CodigoConfiguracaoInicial" do Key Vault, criado no deploy. Só o responsável pela implantação tem acesso.</span></div>
+            }
             <div class="campo s12"><div class="secao"><Icone Nome="pessoa" /> Administrador</div></div>
             <div class="campo s6"><label>Nome<span class="req">*</span></label><input name="nome" required /></div>
             <div class="campo s6"><label>E-mail<span class="req">*</span></label><input name="email" type="email" required /></div>
-            <div class="campo s12"><label>ObjectId no Entra ID (opcional)</label><input name="oid" placeholder="00000000-0000-0000-0000-000000000000" /><span class="ajuda">Necessário para login Microsoft em produção. Pode ser informado depois em Sistema › Usuários.</span></div>
+            <div class="campo s12"><label>ObjectId no Entra ID@(Autenticacao.ModoEntra(Cfg) ? "" : " (opcional)")@if (Autenticacao.ModoEntra(Cfg)) {<span class="req">*</span>}</label><input name="oid" placeholder="00000000-0000-0000-0000-000000000000" /><span class="ajuda">Necessário para login Microsoft em produção. Pode ser informado depois em Sistema › Usuários.</span></div>
             <div class="campo s12" style="align-items:flex-end"><button class="btn prim" type="submit">Criar e entrar</button></div>
         </form>
     </div>

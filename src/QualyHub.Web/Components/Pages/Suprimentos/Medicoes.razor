@@ -55,7 +55,7 @@
             </div>
             <div class="secao"><Icone Nome="regua" /> Quantidades do período</div>
             <table class="itens">
-                <thead><tr><th>Item</th><th>Descrição</th><th>UN</th><th class="num">Contratado</th><th class="num">Anterior</th><th>No período</th><th class="num">Acumulado</th><th class="num">% exec.</th><th>FVS (serv. controlado)</th></tr></thead>
+                <thead><tr><th>Item</th><th>Descrição</th><th>UN</th><th class="num">Contratado</th><th class="num">Anterior</th><th>No período</th><th class="num">Acumulado</th><th class="num">% exec.</th><th>FVS liberada (serv. controlado)</th></tr></thead>
                 <tbody>
                     @foreach (var i in _m.Itens.OrderBy(i => i.ContratoItem.Item))
                     {
@@ -63,16 +63,18 @@
                         <tr>
                             <td>@i.ContratoItem.Item</td><td>@i.ContratoItem.Descricao</td><td>@i.ContratoItem.Unidade</td>
                             <td class="num">@Num(i.ContratoItem.Quantidade, 3)</td><td class="num">@Num(i.QtdAnterior, 3)</td>
-                            <td style="width:110px"><input type="number" step="0.001" value="@q.Qtd" @onchange="e => _qtd[i.Id] = (decimal.TryParse(e.Value?.ToString(), System.Globalization.CultureInfo.InvariantCulture, out var d) ? d : 0, q.Fvs)" disabled="@(!Editavel)" /></td>
+                            <td style="width:110px"><input type="number" step="0.001" value="@q.Qtd" @onchange="e => _qtd[i.Id] = (decimal.TryParse(e.Value?.ToString(), System.Globalization.CultureInfo.InvariantCulture, out var d) ? d : 0, q.LocalId, q.FvsId)" disabled="@(!Editavel)" /></td>
                             <td class="num">@Num(i.QtdAcumulada, 3)</td>
                             <td class="num"><div class="barra"><span style="width:@(Math.Min(100, i.PercExecutado).ToString(System.Globalization.CultureInfo.InvariantCulture))%"></span></div>@Num(i.PercExecutado, 1)%</td>
-                            <td>@if (i.ContratoItem.ServicoControladoId is not null) { <input value="@q.Fvs" placeholder="nº FVS" @onchange="e => _qtd[i.Id] = (_qtd[i.Id].Qtd, e.Value?.ToString())" disabled="@(!Editavel)" /> } else { <span class="mudo">—</span> }</td>
+                            <td>@if (i.ContratoItem.ServicoControladoId is not null) { <select value="@q.FvsId" @onchange="e => _qtd[i.Id] = (_qtd[i.Id].Qtd, null, Guid.TryParse(e.Value?.ToString(), out var g) ? g : null)" disabled="@(!Editavel)"><option value="">FVS liberada…</option>@foreach (var f in _fvsLib.Where(f => f.ServicoControladoId == i.ContratoItem.ServicoControladoId)) { <option value="@f.Id">@f.Numero · @_locNomes.GetValueOrDefault(f.LocalId)</option> }</select> } else { <span class="mudo">—</span> }</td>
                         </tr>
                     }
                 </tbody>
             </table>
 
+            @if (_colabBloq > 0) { <div class="alerta aviso"><Icone Nome="alerta" /> @_colabBloq colaborador(es) desta empresa bloqueado(s) na obra no período (ASO/integração) — verificar antes de aprovar.</div> }
             <div class="secao"><Icone Nome="grafico" /> Avaliação do prestador (0 a 10)</div>
+            @if (_sugestao is not null) { <div class="alerta info"><Icone Nome="info" /> @_sugestao</div> }
             <div class="criterios">
                 @foreach (var (nome, peso, get, set, opcional) in Notas())
                 {
@@ -119,7 +121,11 @@
     private ParametrosVigentes? _p;
     private bool _aberto, _nova;
     private int _versao;
-    private Dictionary<Guid, (decimal Qtd, string? Fvs)> _qtd = [];
+    private Dictionary<Guid, (decimal Qtd, Guid? LocalId, Guid? FvsId)> _qtd = [];
+    private List<Fvs> _fvsLib = [];
+    private Dictionary<Guid, string> _locNomes = [];
+    private int _colabBloq;
+    private string? _sugestao;
     private List<Opcao> _contratos = [];
     private Guid? _novoContrato;
     private DateOnly _ini, _fim;
@@ -170,7 +176,15 @@
     {
         await using var db = Fabrica.Criar();
         _m = await SuprimentosServico.CarregarMedicaoAsync(db, id, default);
-        _qtd = _m.Itens.ToDictionary(i => i.Id, i => (i.QtdPeriodo, i.FvsRef));
+        _qtd = _m.Itens.ToDictionary(i => i.Id, i => (i.QtdPeriodo, i.LocalId, i.FvsId));
+        var fornId = _m.Contrato.FornecedorId;
+        _fvsLib = await db.Fvss.AsNoTracking().Include(f => f.Itens).Where(f => f.ObraId == _m.ObraId && f.FornecedorId == fornId).ToListAsync();
+        _locNomes = await db.Locais.AsNoTracking().Where(l => l.ObraId == _m.ObraId).ToDictionaryAsync(l => l.Id, l => l.Nome);
+        var doPeriodo = _fvsLib.Where(f => f.Status != StatusFvs.EmInspecao && DateOnly.FromDateTime(f.DataInspecao.Date) <= _m.PeriodoFim && DateOnly.FromDateTime(f.DataInspecao.Date) >= _m.PeriodoInicio.AddDays(-30)).ToList();
+        var rncs = await db.Rncs.AsNoTracking().CountAsync(r => r.FornecedorId == fornId && r.Origem == OrigemRnc.Fvs);
+        _sugestao = doPeriodo.Count == 0 ? null : $"Qualidade do serviço sugerida pelas FVS: {10m * doPeriodo.Count(f => f.Aprovada1aInspecao) / doPeriodo.Count:0.0} ({doPeriodo.Count(f => f.Aprovada1aInspecao)}/{doPeriodo.Count} aprovadas na 1ª inspeção; {rncs} RNC de FVS do prestador).";
+        _fvsLib = _fvsLib.Where(f => f.Status == StatusFvs.Liberada).ToList();
+        _colabBloq = await db.Colaboradores.CountAsync(c => c.FornecedorId == fornId && c.ObraId == _m.ObraId && c.Situacao == SituacaoColaborador.Bloqueado && (c.DataSaida == null || c.DataSaida >= _m.PeriodoInicio));
         ErrosForm = null; _versao++; _aberto = true;
     }
 
