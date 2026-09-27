@@ -1,9 +1,19 @@
 @page "/cadastros/produtos"
 @inherits PaginaBase
+@inject QualyHub.Infrastructure.Importacao.ImportadorProdutosExpertData ImpProd
 
 <Pagina Titulo="Produtos (insumos)" Grade="_grade" AoNovo="Novo" AoAtualizar="Carregar">
     <ChildContent>
         <div class="pagina">
+            <div class="kpis">
+                <Kpi Rotulo="Produtos ativos" Valor="@_itens?.Count(p => p.Ativo)" />
+                <Kpi Rotulo="A classificar" Valor="@_itens?.Count(p => p.Ativo && p.AClassificar)" Sub="grupo 'A Cadastrar' ou vazio" Tom="aviso" />
+                <Kpi Rotulo="Sem NCM" Valor="@_itens?.Count(p => p.Ativo && string.IsNullOrEmpty(p.Ncm))" Sub="não casa com a NF-e" Tom="aviso" />
+                <Kpi Rotulo="Vinculados a controlado" Valor="@_itens?.Count(p => p.MaterialControladoId != null)" Tom="ok" />
+            </div>
+            <div class="barra-acoes">
+                <label class="btn sec pq" style="cursor:pointer" title="Planilha 'Export Produto Genérico' do ExpertData (.xlsx)"><Icone Nome="upload" Tam="14" /> Importar planilha (ExpertData)<InputFile OnChange="Prever" accept=".xlsx" style="display:none" /></label>
+            </div>
             <Grade T="Produto" @ref="_grade" Itens="_itens" AoClicar="Abrir" NomeExportacao="produtos" CriadoPor="p => p.CriadoPor">
                 <Colunas>
                     <Coluna T="Produto" Titulo="Código" Valor="p => p.Codigo" Largura="110px" />
@@ -11,6 +21,13 @@
                     <Coluna T="Produto" Titulo="UN" Valor="p => p.Unidade" Largura="60px" />
                     <Coluna T="Produto" Titulo="Grupo" Valor="p => p.Grupo" />
                     <Coluna T="Produto" Titulo="Subgrupo" Valor="p => p.SubGrupo" />
+                    <Coluna T="Produto" Titulo="NCM" Valor="p => p.Ncm" Largura="100px" />
+                    <Coluna T="Produto" Titulo="Descrição completa" Valor="p => p.DescricaoCompleta" Visivel="false" />
+                    <Coluna T="Produto" Titulo="Marca" Valor="p => p.Marca" Visivel="false" />
+                    <Coluna T="Produto" Titulo="Referência" Valor="p => p.Referencia" Visivel="false" />
+                    <Coluna T="Produto" Titulo="EAN" Valor="p => p.Ean" Visivel="false" />
+                    <Coluna T="Produto" Titulo="Qtd/emb." Valor="p => p.QuantidadePorEmbalagem" Alinhar="num" Visivel="false" />
+                    <Coluna T="Produto" Titulo="Origem" Valor="p => p.OrigemSistema" Visivel="false" />
                     <Coluna T="Produto" Titulo="Lead time (dias)" Valor="p => p.LeadTimeDias" Alinhar="num" />
                     <Coluna T="Produto" Titulo="Preço ref." Valor="p => p.PrecoReferencia" Formato="C2" Alinhar="num" />
                     <Coluna T="Produto" Titulo="Material controlado" Valor="p => p.MaterialControlado == null ? null : p.MaterialControlado.Nome" />
@@ -28,11 +45,17 @@
         {
             <Erros Lista="ErrosForm" />
             <div class="form">
-                <Campo Rotulo="Código" Obrigatorio Classe="s4"><input @bind="_p.Codigo" /></Campo>
-                <Campo Rotulo="Nome" Obrigatorio Classe="s8"><input @bind="_p.Nome" /></Campo>
-                <Campo Rotulo="Unidade" Obrigatorio Classe="s3"><input @bind="_p.Unidade" /></Campo>
-                <Campo Rotulo="Grupo" Classe="s5"><input @bind="_p.Grupo" /></Campo>
-                <Campo Rotulo="Subgrupo" Classe="s4"><input @bind="_p.SubGrupo" /></Campo>
+                <Campo Rotulo="Código" Obrigatorio Classe="s3"><input @bind="_p.Codigo" /></Campo>
+                <Campo Rotulo="Descrição genérica" Obrigatorio Classe="s7" Ajuda="Nunca coloque a marca na descrição genérica."><input @bind="_p.Nome" /></Campo>
+                <Campo Rotulo="Unidade" Obrigatorio Classe="s2"><input @bind="_p.Unidade" list="unidades" /><datalist id="unidades">@foreach (var u in new[] { "UN", "PC", "KG", "M", "M2", "M3", "L", "CX", "RL", "SC", "PAR", "BR", "GL", "CJ", "JG", "TON", "VB", "H" }) { <option>@u</option> }</datalist></Campo>
+                <Campo Rotulo="Descrição completa" Classe="s12"><textarea @bind="_p.DescricaoCompleta" rows="2"></textarea></Campo>
+                <Campo Rotulo="Grupo" Classe="s4"><input @bind="_p.Grupo" list="grupos" /><datalist id="grupos">@foreach (var g in _grupos) { <option>@g</option> }</datalist></Campo>
+                <Campo Rotulo="Subgrupo" Classe="s4"><input @bind="_p.SubGrupo" list="subgrupos" /><datalist id="subgrupos">@foreach (var g in _subgrupos.Where(x => x.Grupo == _p.Grupo)) { <option>@g.Sub</option> }</datalist></Campo>
+                <Campo Rotulo="NCM" Classe="s2" Ajuda="8 dígitos"><input @bind="_p.Ncm" maxlength="10" inputmode="numeric" /></Campo>
+                <Campo Rotulo="Qtd. por embalagem" Classe="s2" Ajuda="Pacote/caixa"><input type="number" step="0.001" @bind="_p.QuantidadePorEmbalagem" /></Campo>
+                <Campo Rotulo="Marca" Classe="s4"><input @bind="_p.Marca" /></Campo>
+                <Campo Rotulo="Referência do fabricante" Classe="s4"><input @bind="_p.Referencia" /></Campo>
+                <Campo Rotulo="EAN (código de barras)" Classe="s4"><input @bind="_p.Ean" maxlength="14" inputmode="numeric" /></Campo>
                 <Campo Rotulo="Lead time (dias)" Classe="s3"><input type="number" @bind="_p.LeadTimeDias" /></Campo>
                 <Campo Rotulo="Preço de referência (R$/un)" Classe="s3"><input type="number" step="0.01" @bind="_p.PrecoReferencia" /></Campo>
                 <Campo Rotulo="Material controlado" Classe="s9"><select @bind="_p.MaterialControladoId"><option value="">(não controlado)</option>@foreach (var m in _materiais) { <option value="@m.Id">@m.Texto</option> }</select></Campo>
@@ -43,6 +66,37 @@
     <Rodape><button class="btn prim" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="16" /> Salvar</button></Rodape>
 </Modal>
 
+<Modal @bind-Aberto="_abertoImp" Titulo="Importar produtos — planilha ExpertData (produto genérico)" Tamanho="grande">
+    <ChildContent>
+        @if (_previa is not null)
+        {
+            <div class="kpis">
+                <Kpi Rotulo="Novos" Valor="@_previa.Novos" Tom="ok" Sub="recebem código P000001…" />
+                <Kpi Rotulo="Atualizar" Valor="@_previa.Atualizar" Tom="info" Sub="NCM, descrição, classificação" />
+                <Kpi Rotulo="Duplicados no arquivo" Valor="@_previa.Duplicados" Tom="aviso" Sub="mesma descrição + unidade" />
+                <Kpi Rotulo="A classificar" Valor="@_previa.AClassificar" Tom="aviso" Sub="grupo 'A Cadastrar'" />
+                <Kpi Rotulo="Vínculo automático" Valor="@_previa.Controlados" Tom="ok" Sub="material controlado" />
+            </div>
+            @if (_previa.UnidadesConvertidas.Count > 0)
+            {
+                <div class="alerta info"><Icone Nome="info" /> Unidades padronizadas: @string.Join(" · ", _previa.UnidadesConvertidas.Select(kv => $"{kv.Key} → {kv.Value}"))</div>
+            }
+            <div class="filtros-rapidos">@foreach (var f in new[] { "Todos", "Inserir", "Atualizar", "Duplicado", "Erro" }) { <label><input type="radio" name="fprod" checked="@(_filtroImp == f)" @onchange="() => _filtroImp = f" /> @f</label> }</div>
+            <div style="max-height:360px;overflow:auto">
+                <table class="itens"><thead><tr><th>Linha</th><th>Descrição genérica</th><th>UN</th><th>Grupo › Subgrupo</th><th>Ação</th><th>Detalhe</th></tr></thead>
+                    <tbody>@foreach (var l in _previa.Linhas.Where(l => _filtroImp == "Todos" || l.Acao == _filtroImp).Take(500))
+                    {
+                        <tr><td>@l.Linha</td><td>@l.Nome</td><td>@l.Unidade</td><td>@l.Grupo › @l.SubGrupo</td><td><Selo Texto="@l.Acao" Tom="@(l.Acao switch { "Inserir" => "ok", "Atualizar" => "info", "Erro" => "erro", "Duplicado" => "aviso", _ => "neutro" })" /></td><td class="mudo">@l.Detalhe</td></tr>
+                    }</tbody></table>
+                @if (_previa.Linhas.Count(l => _filtroImp == "Todos" || l.Acao == _filtroImp) > 500) { <p class="mudo">Mostrando as primeiras 500 linhas.</p> }
+            </div>
+        }
+    </ChildContent>
+    <Rodape>
+        @if (_previa is not null && _previa.Novos + _previa.Atualizar > 0) { <button class="btn prim" disabled="@Ocupado" @onclick="ConfirmarImportacao"><Icone Nome="check" Tam="16" /> Importar @(_previa.Novos + _previa.Atualizar) produto(s)</button> }
+    </Rodape>
+</Modal>
+
 @code {
     private Grade<Produto>? _grade;
     private List<Produto>? _itens;
@@ -50,12 +104,45 @@
     private bool _aberto;
     private List<Opcao> _materiais = [];
 
+    private List<string> _grupos = [];
+    private List<(string? Grupo, string Sub)> _subgrupos = [];
+    private bool _abertoImp;
+    private byte[]? _arquivoImp;
+    private QualyHub.Infrastructure.Importacao.PreviaImportacaoProdutos? _previa;
+    private string _filtroImp = "Todos";
+
     protected override async Task OnInitializedAsync() { _materiais = await Cat.MateriaisAsync(); await Carregar(); }
+
+    private async Task Prever(InputFileChangeEventArgs e)
+    {
+        await Executar(async () =>
+        {
+            if (e.File.Size > 30 * 1024 * 1024) throw new RegraDeNegocioException("Planilha acima de 30 MB.");
+            using var ms = new MemoryStream();
+            await e.File.OpenReadStream(30 * 1024 * 1024).CopyToAsync(ms);
+            _arquivoImp = ms.ToArray();
+            _previa = await ImpProd.PreverAsync(new MemoryStream(_arquivoImp));
+            _filtroImp = "Todos"; _abertoImp = true;
+        });
+    }
+
+    private async Task ConfirmarImportacao()
+    {
+        (int Inseridos, int Atualizados) r = default;
+        if (await Executar(async () => r = await ImpProd.ImportarAsync(new MemoryStream(_arquivoImp!))))
+        {
+            Notif.Sucesso($"{r.Inseridos} produto(s) incluído(s) e {r.Atualizados} atualizado(s).");
+            _abertoImp = false; _previa = null; _arquivoImp = null;
+            await Carregar();
+        }
+    }
 
     private async Task Carregar()
     {
         await using var db = Fabrica.Criar();
         _itens = await db.Produtos.AsNoTracking().Include(p => p.MaterialControlado).OrderBy(p => p.Nome).ToListAsync();
+        _grupos = _itens.Where(p => !string.IsNullOrWhiteSpace(p.Grupo)).Select(p => p.Grupo!).Distinct().Order().ToList();
+        _subgrupos = _itens.Where(p => !string.IsNullOrWhiteSpace(p.SubGrupo)).Select(p => (p.Grupo, p.SubGrupo!)).Distinct().OrderBy(x => x.Item2).ToList();
     }
 
     private void Novo() { _p = new Produto(); ErrosForm = null; _aberto = true; }
@@ -70,6 +157,12 @@
             if (string.IsNullOrWhiteSpace(_p.Nome)) e.Add("Informe o nome.");
             if (_p.LeadTimeDias < 0) e.Add("Lead time não pode ser negativo.");
             if (_p.PrecoReferencia is < 0) e.Add("Preço de referência não pode ser negativo.");
+            _p.Ncm = string.IsNullOrWhiteSpace(_p.Ncm) ? null : new string(_p.Ncm.Where(char.IsDigit).ToArray());
+            if (_p.Ncm is { Length: not 8 }) e.Add("NCM deve ter 8 dígitos.");
+            else if (_p.Ncm is not null && _p.Ncm.Trim('0').Length == 0) _p.Ncm = null;
+            _p.Ean = string.IsNullOrWhiteSpace(_p.Ean) ? null : new string(_p.Ean.Where(char.IsDigit).ToArray());
+            if (_p.Ean is { Length: not (8 or 12 or 13 or 14) }) e.Add("EAN deve ter 8, 12, 13 ou 14 dígitos.");
+            if (_p.QuantidadePorEmbalagem is <= 0) e.Add("Quantidade por embalagem deve ser maior que zero.");
             ValidacaoException.Se(e);
             await using var db = Fabrica.Criar();
             _p.MaterialControlado = null;

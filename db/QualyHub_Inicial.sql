@@ -5181,3 +5181,80 @@ END;
 COMMIT;
 GO
 
+BEGIN TRANSACTION;
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260927180428_ProdutoCadastroCompleto'
+)
+BEGIN
+    ALTER TABLE [qh].[Produtos] ADD [DescricaoCompleta] nvarchar(max) NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260927180428_ProdutoCadastroCompleto'
+)
+BEGIN
+    ALTER TABLE [qh].[Produtos] ADD [Ean] nvarchar(20) NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260927180428_ProdutoCadastroCompleto'
+)
+BEGIN
+    ALTER TABLE [qh].[Produtos] ADD [Marca] nvarchar(400) NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260927180428_ProdutoCadastroCompleto'
+)
+BEGIN
+    ALTER TABLE [qh].[Produtos] ADD [Ncm] nvarchar(10) NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260927180428_ProdutoCadastroCompleto'
+)
+BEGIN
+    ALTER TABLE [qh].[Produtos] ADD [OrigemSistema] nvarchar(400) NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260927180428_ProdutoCadastroCompleto'
+)
+BEGIN
+    ALTER TABLE [qh].[Produtos] ADD [QuantidadePorEmbalagem] decimal(18,4) NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260927180428_ProdutoCadastroCompleto'
+)
+BEGIN
+    ALTER TABLE [qh].[Produtos] ADD [Referencia] nvarchar(400) NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260927180428_ProdutoCadastroCompleto'
+)
+BEGIN
+    CREATE INDEX [IX_Produtos_Ncm] ON [qh].[Produtos] ([Ncm]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260927180428_ProdutoCadastroCompleto'
+)
+BEGIN
+    INSERT INTO [qh].[__Migracoes] ([MigrationId], [ProductVersion])
+    VALUES (N'20260927180428_ProdutoCadastroCompleto', N'10.0.12');
+END;
+
+COMMIT;
+GO
+

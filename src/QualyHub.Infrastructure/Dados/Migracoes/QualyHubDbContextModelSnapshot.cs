@@ -1162,6 +1162,13 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                         .HasMaxLength(150)
                         .HasColumnType("nvarchar(150)");
 
+                    b.Property<string>("DescricaoCompleta")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Ean")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
                     b.Property<Guid>("EmpresaId")
                         .HasColumnType("uniqueidentifier");
 
@@ -1182,17 +1189,37 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                     b.Property<int>("LeadTimeDias")
                         .HasColumnType("int");
 
+                    b.Property<string>("Marca")
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
+
                     b.Property<Guid?>("MaterialControladoId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Ncm")
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
 
                     b.Property<string>("Nome")
                         .IsRequired()
                         .HasMaxLength(400)
                         .HasColumnType("nvarchar(400)");
 
+                    b.Property<string>("OrigemSistema")
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
+
                     b.Property<decimal?>("PrecoReferencia")
                         .HasPrecision(18, 4)
                         .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal?>("QuantidadePorEmbalagem")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<string>("Referencia")
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
 
                     b.Property<byte[]>("RowVersion")
                         .IsConcurrencyToken()
@@ -1217,6 +1244,8 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                     b.HasIndex("EmpresaId");
 
                     b.HasIndex("MaterialControladoId");
+
+                    b.HasIndex("Ncm");
 
                     b.HasIndex("EmpresaId", "Codigo")
                         .IsUnique()

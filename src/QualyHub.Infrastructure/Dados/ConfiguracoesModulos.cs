@@ -126,6 +126,10 @@ internal sealed class ProdutoCfg : IEntityTypeConfiguration<Produto>
     public void Configure(EntityTypeBuilder<Produto> b)
     {
         b.HasIndex(x => new { x.EmpresaId, x.Codigo }).IsUnique().HasFilter("[Excluido] = 0");
+        b.HasIndex(x => x.Ncm);
+        b.Property(x => x.Ncm).HasMaxLength(10);
+        b.Property(x => x.Ean).HasMaxLength(20);
+        b.Ignore(x => x.AClassificar);
         b.HasOne(x => x.MaterialControlado).WithMany().HasForeignKey(x => x.MaterialControladoId);
     }
 }

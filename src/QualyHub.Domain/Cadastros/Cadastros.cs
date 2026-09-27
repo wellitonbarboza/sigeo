@@ -281,6 +281,19 @@ public class Produto : EntidadeAuditavel, IOrigemObraPrima
     public string Unidade { get; set; } = "UN";
     public string? Grupo { get; set; }
     public string? SubGrupo { get; set; }
+    /// <summary>Descrição completa (especificação resumida). A "genérica" é o Nome — nunca com marca.</summary>
+    public string? DescricaoCompleta { get; set; }
+    /// <summary>NCM (8 dígitos) — casa o produto com os itens da NF-e.</summary>
+    public string? Ncm { get; set; }
+    public string? Marca { get; set; }
+    /// <summary>Referência / código do fabricante.</summary>
+    public string? Referencia { get; set; }
+    public string? Ean { get; set; }
+    /// <summary>Quantidade por embalagem (caixa, pacote, fardo).</summary>
+    public decimal? QuantidadePorEmbalagem { get; set; }
+    public string? OrigemSistema { get; set; }
+    /// <summary>Grupo "A Cadastrar" (ou vazio) = produto criado pela NF/importação que ainda precisa ser classificado.</summary>
+    public bool AClassificar => string.IsNullOrWhiteSpace(Grupo) || Grupo.Equals("A Cadastrar", StringComparison.OrdinalIgnoreCase);
     /// <summary>Prazo de fornecimento (lead time) usado no cronograma de suprimentos.</summary>
     public int LeadTimeDias { get; set; }
     /// <summary>Preço de referência (tabela interna/orçamento da obra) — base da "economia vs. referência" na cotação.</summary>
