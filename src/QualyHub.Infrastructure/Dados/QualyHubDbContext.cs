@@ -2,6 +2,7 @@ using System.Reflection;
 using Microsoft.EntityFrameworkCore;
 using QualyHub.Domain.Aprovacoes;
 using QualyHub.Domain.Cadastros;
+using QualyHub.Domain.Colaboracao;
 using QualyHub.Domain.Common;
 using QualyHub.Domain.Estrutura;
 using QualyHub.Domain.Importacao;
@@ -109,6 +110,10 @@ public class QualyHubDbContext(DbContextOptions<QualyHubDbContext> options, IUsu
     public DbSet<PermissaoTrabalho> PermissoesTrabalho => Set<PermissaoTrabalho>();
     public DbSet<ExecutantePt> ExecutantesPt => Set<ExecutantePt>();
     public DbSet<Ocorrencia> Ocorrencias => Set<Ocorrencia>();
+    public DbSet<Nota> Notas => Set<Nota>();
+    public DbSet<Tarefa> Tarefas => Set<Tarefa>();
+    public DbSet<TarefaProrrogacao> TarefaProrrogacoes => Set<TarefaProrrogacao>();
+    public DbSet<TarefaLeitura> TarefaLeituras => Set<TarefaLeitura>();
     // Contratos e sistema (T27, T28)
     public DbSet<Aditivo> Aditivos => Set<Aditivo>();
     public DbSet<AditivoItem> AditivoItens => Set<AditivoItem>();
@@ -184,7 +189,7 @@ public class QualyHubDbContext(DbContextOptions<QualyHubDbContext> options, IUsu
          "Ocorrencia", "Bloqueios", "Participantes", "DocumentosExigidos", "Motivo", "Detalhe", "Emails", "Relacionados",
          "DistribuicaoPadrao", "LeituraObrigatoria", "EficaciaComentario", "Protecao", "Armazenamento", "Recuperacao", "Descarte", "Assinatura",
          "Evidencia", "AnaliseCausa", "CausaRaiz", "Conteudo", "Medidas", "Paralisacao", "Riscos", "Resumo", "ModeloMensagem", "Pergunta", "Escopo",
-         "AvaliacaoImpacto", "LocaisAfetados", "RncsOrigem", "Pendencias", "Concessao", "ItensSolicitados", "Destinatarios", "SubGrupos", "Ensaios"];
+         "AvaliacaoImpacto", "LocaisAfetados", "RncsOrigem", "Pendencias", "Concessao", "ItensSolicitados", "Destinatarios", "SubGrupos", "Ensaios", "Texto", "Resolucao"];
 
     private static bool TextoLongo(string nome) => PrefixosLongos.Any(p => nome.StartsWith(p, StringComparison.Ordinal));
 

@@ -97,6 +97,7 @@
                 @if (_m.PlanoAcaoId is not null) { <div class="campo s4"><button class="btn sec" @onclick='() => Nav.NavigateTo("fornecedores/planos")'><Icone Nome="alvo" Tam="16" /> Ver plano de ação</button></div> }
                 @if (!string.IsNullOrEmpty(_m.MotivoReprovacao)) { <div class="campo s12"><div class="alerta erro">Reprovação: @_m.MotivoReprovacao</div></div> }
             </div>
+            @if (_m.CriadoEm != default) { <Notas Entidade="Medicao" EntidadeId="_m.Id" /> }
             <Autorizacoes Entidade="EntidadeAprovavel.Medicao" EntidadeId="_m.Id" Versao="_versao" AoDecidir="Recarregar" />
         }
     </ChildContent>

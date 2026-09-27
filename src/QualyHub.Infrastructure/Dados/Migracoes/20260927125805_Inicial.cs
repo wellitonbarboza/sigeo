@@ -791,6 +791,30 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                 .Annotation("SqlServer:TemporalPeriodStartColumnName", "PeriodStart");
 
             migrationBuilder.CreateTable(
+                name: "Notas",
+                schema: "qh",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Entidade = table.Column<string>(type: "nvarchar(60)", maxLength: 60, nullable: false),
+                    EntidadeId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Texto = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    EmpresaId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    CriadoEm = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: false),
+                    CriadoPor = table.Column<string>(type: "nvarchar(150)", maxLength: 150, nullable: false),
+                    AlteradoEm = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: true),
+                    AlteradoPor = table.Column<string>(type: "nvarchar(150)", maxLength: 150, nullable: true),
+                    Excluido = table.Column<bool>(type: "bit", nullable: false),
+                    ExcluidoEm = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: true),
+                    ExcluidoPor = table.Column<string>(type: "nvarchar(150)", maxLength: 150, nullable: true),
+                    RowVersion = table.Column<byte[]>(type: "rowversion", rowVersion: true, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Notas", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Obras",
                 schema: "qh",
                 columns: table => new
@@ -1145,6 +1169,53 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                 })
                 .Annotation("SqlServer:IsTemporal", true)
                 .Annotation("SqlServer:TemporalHistoryTableName", "SolicitacaoAprovacao_Historico")
+                .Annotation("SqlServer:TemporalHistoryTableSchema", "qh_hist")
+                .Annotation("SqlServer:TemporalPeriodEndColumnName", "PeriodEnd")
+                .Annotation("SqlServer:TemporalPeriodStartColumnName", "PeriodStart");
+
+            migrationBuilder.CreateTable(
+                name: "Tarefas",
+                schema: "qh",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Numero = table.Column<int>(type: "int", nullable: false),
+                    Titulo = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
+                    Descricao = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    Tipo = table.Column<string>(type: "nvarchar(60)", maxLength: 60, nullable: true),
+                    Prioridade = table.Column<string>(type: "nvarchar(40)", maxLength: 40, nullable: false),
+                    ObraId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    ResponsavelId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    ResponsavelNome = table.Column<string>(type: "nvarchar(400)", maxLength: 400, nullable: false),
+                    PrazoOriginal = table.Column<DateOnly>(type: "date", nullable: false),
+                    Prazo = table.Column<DateOnly>(type: "date", nullable: false),
+                    Status = table.Column<string>(type: "nvarchar(40)", maxLength: 40, nullable: false),
+                    Resolucao = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    ConcluidaEm = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: true),
+                    ConcluidaPor = table.Column<string>(type: "nvarchar(400)", maxLength: 400, nullable: true),
+                    OrigemEntidade = table.Column<string>(type: "nvarchar(60)", maxLength: 60, nullable: true),
+                    OrigemId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    OrigemDescricao = table.Column<string>(type: "nvarchar(400)", maxLength: 400, nullable: true),
+                    PeriodEnd = table.Column<DateTime>(type: "datetime2", nullable: false)
+                        .Annotation("SqlServer:TemporalIsPeriodEndColumn", true),
+                    PeriodStart = table.Column<DateTime>(type: "datetime2", nullable: false)
+                        .Annotation("SqlServer:TemporalIsPeriodStartColumn", true),
+                    EmpresaId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    CriadoEm = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: false),
+                    CriadoPor = table.Column<string>(type: "nvarchar(150)", maxLength: 150, nullable: false),
+                    AlteradoEm = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: true),
+                    AlteradoPor = table.Column<string>(type: "nvarchar(150)", maxLength: 150, nullable: true),
+                    Excluido = table.Column<bool>(type: "bit", nullable: false),
+                    ExcluidoEm = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: true),
+                    ExcluidoPor = table.Column<string>(type: "nvarchar(150)", maxLength: 150, nullable: true),
+                    RowVersion = table.Column<byte[]>(type: "rowversion", rowVersion: true, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Tarefas", x => x.Id);
+                })
+                .Annotation("SqlServer:IsTemporal", true)
+                .Annotation("SqlServer:TemporalHistoryTableName", "Tarefa_Historico")
                 .Annotation("SqlServer:TemporalHistoryTableSchema", "qh_hist")
                 .Annotation("SqlServer:TemporalPeriodEndColumnName", "PeriodEnd")
                 .Annotation("SqlServer:TemporalPeriodStartColumnName", "PeriodStart");
@@ -1549,6 +1620,7 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                     Grupo = table.Column<string>(type: "nvarchar(400)", maxLength: 400, nullable: true),
                     SubGrupo = table.Column<string>(type: "nvarchar(400)", maxLength: 400, nullable: true),
                     LeadTimeDias = table.Column<int>(type: "int", nullable: false),
+                    PrecoReferencia = table.Column<decimal>(type: "decimal(18,4)", precision: 18, scale: 4, nullable: true),
                     MaterialControladoId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
                     Ativo = table.Column<bool>(type: "bit", nullable: false),
                     CodigoObraPrima = table.Column<string>(type: "nvarchar(60)", maxLength: 60, nullable: true),
@@ -1827,6 +1899,55 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                         column: x => x.PermissaoTrabalhoId,
                         principalSchema: "qh",
                         principalTable: "PermissoesTrabalho",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "TarefaLeituras",
+                schema: "qh",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    TarefaId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    UsuarioId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Nome = table.Column<string>(type: "nvarchar(400)", maxLength: 400, nullable: false),
+                    LidaEm = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_TarefaLeituras", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_TarefaLeituras_Tarefas_TarefaId",
+                        column: x => x.TarefaId,
+                        principalSchema: "qh",
+                        principalTable: "Tarefas",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "TarefaProrrogacoes",
+                schema: "qh",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    TarefaId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    PrazoAnterior = table.Column<DateOnly>(type: "date", nullable: false),
+                    NovoPrazo = table.Column<DateOnly>(type: "date", nullable: false),
+                    Dias = table.Column<int>(type: "int", nullable: false),
+                    Justificativa = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    Usuario = table.Column<string>(type: "nvarchar(400)", maxLength: 400, nullable: false),
+                    Em = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_TarefaProrrogacoes", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_TarefaProrrogacoes_Tarefas_TarefaId",
+                        column: x => x.TarefaId,
+                        principalSchema: "qh",
+                        principalTable: "Tarefas",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
                 });
@@ -3310,7 +3431,9 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                     ValorNegociado = table.Column<decimal>(type: "decimal(18,4)", precision: 18, scale: 4, nullable: true),
                     Entrega = table.Column<DateOnly>(type: "date", nullable: true),
                     MaterialControlado = table.Column<bool>(type: "bit", nullable: false),
-                    AtendeEspecificacao = table.Column<bool>(type: "bit", nullable: true)
+                    AtendeEspecificacao = table.Column<bool>(type: "bit", nullable: true),
+                    PrecoUltimo = table.Column<decimal>(type: "decimal(18,4)", precision: 18, scale: 4, nullable: true),
+                    PrecoReferencia = table.Column<decimal>(type: "decimal(18,4)", precision: 18, scale: 4, nullable: true)
                 },
                 constraints: table =>
                 {
@@ -4773,6 +4896,18 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                 filter: "[Excluido] = 0");
 
             migrationBuilder.CreateIndex(
+                name: "IX_Notas_EmpresaId",
+                schema: "qh",
+                table: "Notas",
+                column: "EmpresaId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Notas_Entidade_EntidadeId",
+                schema: "qh",
+                table: "Notas",
+                columns: new[] { "Entidade", "EntidadeId" });
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Obras_EmpresaId",
                 schema: "qh",
                 table: "Obras",
@@ -5314,6 +5449,45 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                 column: "ObraId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_TarefaLeituras_TarefaId_UsuarioId",
+                schema: "qh",
+                table: "TarefaLeituras",
+                columns: new[] { "TarefaId", "UsuarioId" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_TarefaProrrogacoes_TarefaId",
+                schema: "qh",
+                table: "TarefaProrrogacoes",
+                column: "TarefaId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Tarefas_EmpresaId",
+                schema: "qh",
+                table: "Tarefas",
+                column: "EmpresaId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Tarefas_EmpresaId_Numero",
+                schema: "qh",
+                table: "Tarefas",
+                columns: new[] { "EmpresaId", "Numero" },
+                unique: true,
+                filter: "[Excluido] = 0");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Tarefas_OrigemEntidade_OrigemId",
+                schema: "qh",
+                table: "Tarefas",
+                columns: new[] { "OrigemEntidade", "OrigemId" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Tarefas_ResponsavelId_Status",
+                schema: "qh",
+                table: "Tarefas",
+                columns: new[] { "ResponsavelId", "Status" });
+
+            migrationBuilder.CreateIndex(
                 name: "IX_TiposDocumento_EmpresaId",
                 schema: "qh",
                 table: "TiposDocumento",
@@ -5651,6 +5825,10 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                 schema: "qh");
 
             migrationBuilder.DropTable(
+                name: "Notas",
+                schema: "qh");
+
+            migrationBuilder.DropTable(
                 name: "Ocorrencias",
                 schema: "qh")
                 .Annotation("SqlServer:IsTemporal", true)
@@ -5722,6 +5900,14 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
 
             migrationBuilder.DropTable(
                 name: "SolicitacaoCopiaItens",
+                schema: "qh");
+
+            migrationBuilder.DropTable(
+                name: "TarefaLeituras",
+                schema: "qh");
+
+            migrationBuilder.DropTable(
+                name: "TarefaProrrogacoes",
                 schema: "qh");
 
             migrationBuilder.DropTable(
@@ -5871,6 +6057,15 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
             migrationBuilder.DropTable(
                 name: "SolicitacoesCopia",
                 schema: "qh");
+
+            migrationBuilder.DropTable(
+                name: "Tarefas",
+                schema: "qh")
+                .Annotation("SqlServer:IsTemporal", true)
+                .Annotation("SqlServer:TemporalHistoryTableName", "Tarefa_Historico")
+                .Annotation("SqlServer:TemporalHistoryTableSchema", "qh_hist")
+                .Annotation("SqlServer:TemporalPeriodEndColumnName", "PeriodEnd")
+                .Annotation("SqlServer:TemporalPeriodStartColumnName", "PeriodStart");
 
             migrationBuilder.DropTable(
                 name: "Usuarios",

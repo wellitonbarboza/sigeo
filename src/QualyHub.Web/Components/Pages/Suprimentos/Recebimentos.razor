@@ -154,6 +154,7 @@
                     <p class="mudo">Recebido: @Num(_r.QuantidadeRecebida, 3) · aplicado: @Num(_r.Aplicacoes.Sum(a => a.Quantidade), 3). Ensaio reprovado abre RNC já com os locais onde o lote foi aplicado.</p>
                 }
                 <Anexos Entidade="Recebimento" EntidadeId="_r.Id" Categoria="Documentos" Titulo="Nota fiscal, certificados, laudos, fotos" />
+                @if (_r.CriadoEm != default) { <Notas Entidade="Recebimento" EntidadeId="_r.Id" /> }
             }
         }
     </ChildContent>

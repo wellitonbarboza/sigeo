@@ -2,6 +2,7 @@
 @inherits PaginaBase
 @inject SuprimentosServico Sup
 @inject NavigationManager Nav
+@inject IJSRuntime JS
 
 <Pagina Titulo="Orçamentos (cotação)" Grade="_grade" AoAtualizar="Carregar">
     <ChildContent>
@@ -32,13 +33,16 @@
             <div class="kpis">
                 <Kpi Rotulo="Valor estimado" Valor="@Moeda(_c.ValorEstimado)" Sub="@($"faixa {_c.FaixaAlcada(_p!)}")" />
                 <Kpi Rotulo="Propostas" Valor="@($"{_c.PropostasRecebidas}/{_c.PropostasExigidas}")" Tom="@(_c.PropostasRecebidas >= _c.PropostasExigidas ? "ok" : "aviso")" Sub="recebidas / exigidas" />
-                <Kpi Rotulo="Economia negociada" Valor="@Moeda(_c.Itens.Where(i => i.FornecedorId == _c.FornecedorVencedorId).Sum(i => i.Economia))" Tom="ok" />
+                <Kpi Rotulo="Economia negociada" Valor="@Moeda(Econ.Negociada)" Sub="@($"{Econ.NegociadaPerc:0.0}% vs. ofertado")" Tom="ok" />
+                <Kpi Rotulo="Economia vs. último preço" Valor="@(Econ.VsUltimo is { } u ? Moeda(u) : "—")" Sub="@(Econ.VsUltimoPerc is { } up ? $"{up:0.0}% vs. última compra" : "sem compra anterior")" Tom="@(Econ.VsUltimo is < 0 ? "erro" : "ok")" />
+                <Kpi Rotulo="Economia vs. referência" Valor="@(Econ.VsReferencia is { } r ? Moeda(r) : "—")" Sub="@(Econ.VsReferenciaPerc is { } rp ? $"{rp:0.0}% vs. preço de referência" : "produto sem preço de referência")" Tom="@(Econ.VsReferencia is < 0 ? "erro" : "ok")" />
                 <Kpi Rotulo="Status" Valor="@De(_c.Status)" />
             </div>
+            @if (_c.FornecedorVencedorId is null) { <p class="mudo" style="margin-top:-6px">Economias calculadas sobre o menor preço de cada item até escolher o vencedor.</p> }
 
             <div class="secao"><Icone Nome="predio" /> Fornecedores convidados</div>
             <table class="itens">
-                <thead><tr><th>Fornecedor</th><th>Qualificação na data</th><th>Status</th><th>Resposta</th><th>Condição pagto.</th><th>Validade proposta</th><th>Frete (R$)</th><th>Total</th></tr></thead>
+                <thead><tr><th>Fornecedor</th><th>Qualificação na data</th><th>Status</th><th>Resposta</th><th>Condição pagto.</th><th>Validade proposta</th><th>Frete (R$)</th><th>Total</th><th>Link da proposta</th></tr></thead>
                 <tbody>
                     @foreach (var f in _c.Fornecedores)
                     {
@@ -54,6 +58,7 @@
                             <td style="width:140px"><input type="date" @bind="f.ValidadeProposta" disabled="@(!Editavel)" /></td>
                             <td style="width:110px"><input type="number" step="0.01" @bind="f.ValorFrete" disabled="@(!Editavel)" /></td>
                             <td class="num">@Moeda(total)</td>
+                            <td>@if (Editavel) { <button class="btn sec pq" title="Copia o link para o fornecedor preencher preços, prazo e frete (sem login)" @onclick="() => CopiarLink(f)"><Icone Nome="enviar" Tam="14" /> Copiar link</button> }</td>
                         </tr>
                     }
                 </tbody>
@@ -63,10 +68,10 @@
             <div style="overflow:auto">
                 <table class="itens mapa">
                     <thead>
-                        <tr><th>Item</th><th>UN</th><th>Quant.</th>
+                        <tr><th>Item</th><th>UN</th><th>Quant.</th><th title="Último preço unitário pago pelo mesmo produto">Último</th><th title="Preço de referência do cadastro do produto">Ref.</th>
                             @foreach (var f in _c.Fornecedores) { <th colspan="2" style="text-align:center">@Nome(f.FornecedorId)</th> }
                         </tr>
-                        <tr><th></th><th></th><th></th>@foreach (var _ in _c.Fornecedores) { <th>Ofertado</th><th>Negociado</th> }</tr>
+                        <tr><th></th><th></th><th></th><th></th><th></th>@foreach (var _ in _c.Fornecedores) { <th>Ofertado</th><th>Negociado</th> }</tr>
                     </thead>
                     <tbody>
                         @foreach (var g in _c.Itens.GroupBy(i => i.RequisicaoItemId))
@@ -76,12 +81,17 @@
                             <tr>
                                 <td>@primeiro.Descricao @if (primeiro.MaterialControlado) { <Selo Texto="controlado" Tom="info" /> }</td>
                                 <td>@primeiro.Unidade</td><td class="num">@Num(primeiro.Quantidade, 3)</td>
+                                <td class="num mudo">@(primeiro.PrecoUltimo is { } pu ? Moeda(pu) : "—")</td>
+                                <td class="num mudo">@(primeiro.PrecoReferencia is { } pr ? Moeda(pr) : "—")</td>
                                 @foreach (var f in _c.Fornecedores)
                                 {
                                     var it = g.FirstOrDefault(i => i.FornecedorId == f.FornecedorId);
                                     if (it is null) { <td></td><td></td> continue; }
                                     <td class="@(it.ValorTotal > 0 && it.ValorTotal == menor ? "melhor" : "")" style="width:110px"><input type="number" step="0.01" @bind="it.ValorOfertado" @bind:after="Recalcular" disabled="@(!Editavel)" /></td>
-                                    <td style="width:110px"><input type="number" step="0.01" @bind="it.ValorNegociado" @bind:after="Recalcular" disabled="@(!Editavel)" /></td>
+                                    <td style="width:120px"><input type="number" step="0.01" @bind="it.ValorNegociado" @bind:after="Recalcular" disabled="@(!Editavel)" />
+                                        @if (it.EconomiaVsUltimo is { } eu) { <span class="econ @(eu >= 0 ? "pos" : "neg")" title="vs. último preço">últ. @Moeda(eu)</span> }
+                                        @if (it.EconomiaVsReferencia is { } er) { <span class="econ @(er >= 0 ? "pos" : "neg")" title="vs. referência">ref. @Moeda(er)</span> }
+                                    </td>
                                 }
                             </tr>
                         }
@@ -106,6 +116,7 @@
                 }
             </div>
             <Anexos Entidade="Cotacao" EntidadeId="_c.Id" Categoria="Proposta" Titulo="Propostas dos fornecedores" SomenteLeitura="!Editavel" />
+            @if (_c.CriadoEm != default) { <Notas Entidade="Cotacao" EntidadeId="_c.Id" /> }
             <Autorizacoes Entidade="EntidadeAprovavel.Cotacao" EntidadeId="_c.Id" Versao="_versao" AoDecidir="Recarregar" />
         }
     </ChildContent>
@@ -142,6 +153,19 @@
     private decimal Total(Guid f) => _c!.Itens.Where(i => i.FornecedorId == f).Sum(i => i.ValorTotal) + (_c.Fornecedores.First(x => x.FornecedorId == f).ValorFrete ?? 0);
     private void Recalcular() => _c!.Recalcular(_p!);
 
+    /// <summary>Itens do vencedor (ou, sem vencedor, o menor preço de cada item) — base das 3 economias.</summary>
+    private EconomiaCotacao Econ => EconomiaCotacao.Calcular(_c!.FornecedorVencedorId is { } v
+        ? _c.Itens.Where(i => i.FornecedorId == v)
+        : _c.Itens.Where(i => i.ValorUnitarioFinal > 0).GroupBy(i => i.RequisicaoItemId).Select(g => g.OrderBy(i => i.ValorTotal).First()));
+
+    private async Task CopiarLink(CotacaoFornecedor f)
+    {
+        var url = $"{Nav.BaseUri}cotacao/{f.LinkResposta}";
+        try { await JS.InvokeVoidAsync("navigator.clipboard.writeText", url); Notif.Sucesso($"Link copiado para {Nome(f.FornecedorId)}. Envie por e-mail/WhatsApp."); }
+        catch { Notif.Aviso($"Copie o link: {url}"); }
+        if (f.Status == StatusConvite.Convidado && _c!.Status == StatusCotacao.Aberto) _c.Status = StatusCotacao.AguardandoPropostas;
+    }
+
     protected override async Task OnInitializedAsync()
     {
         await using (var db = Fabrica.Criar()) _p = await ParametrosServico.CarregarAsync(db);
@@ -165,6 +189,7 @@
         var ids = _c.Fornecedores.Select(f => f.FornecedorId).ToList();
         _nomes = await db.Fornecedores.AsNoTracking().Where(f => ids.Contains(f.Id)).ToDictionaryAsync(f => f.Id, f => f.NomeFantasia ?? f.RazaoSocial);
         _c.Recalcular(_p!);
+        await SuprimentosServico.PrecosReferenciaAsync(db, _c);
         ErrosForm = null; _versao++; _aberto = true;
     }
 

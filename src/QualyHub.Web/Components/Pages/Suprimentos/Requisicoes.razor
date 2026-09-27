@@ -115,6 +115,7 @@
             @if (_r.Numero > 0)
             {
                 @if (_r.Tipo == TipoRequisicao.Servico) { <Anexos Entidade="Requisicao" EntidadeId="_r.Id" Categoria="Escopo" Titulo="Edital / escopo (projetos, memoriais, croquis, ITS)" SomenteLeitura="!Editavel" /> }
+                @if (_r.CriadoEm != default) { <Notas Entidade="Requisicao" EntidadeId="_r.Id" /> }
                 <Autorizacoes Entidade="EntidadeAprovavel.Requisicao" EntidadeId="_r.Id" Versao="_versao" AoDecidir="Recarregar" />
             }
         }

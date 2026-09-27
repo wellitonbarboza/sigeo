@@ -86,8 +86,36 @@ public sealed class SuprimentosServico(FabricaDb fabrica, AprovacaoServico aprov
             if (f.Status == StatusConvite.Convidado && c.Itens.Any(i => i.FornecedorId == f.FornecedorId && i.ValorOfertado > 0))
             { f.Status = StatusConvite.Respondido; f.DataResposta ??= Hoje; }
         c.Recalcular(p);
+        await PrecosReferenciaAsync(db, c, ct);
         await Grafo.SalvarAsync(db, c, nameof(Cotacao.Fornecedores), nameof(Cotacao.Itens));
         await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Fotografa, por item, o último preço pago pelo mesmo produto (pedido de outra cotação) e o preço de referência do cadastro.
+    /// Base das 3 economias do mapa (vs. ofertado, vs. último, vs. referência).
+    /// </summary>
+    public static async Task PrecosReferenciaAsync(QualyHubDbContext db, Cotacao c, CancellationToken ct = default)
+    {
+        var reqIds = c.Itens.Where(i => i.RequisicaoItemId != null).Select(i => i.RequisicaoItemId!.Value).Distinct().ToList();
+        if (reqIds.Count == 0) return;
+        var prodPorReq = await db.Set<RequisicaoItem>().AsNoTracking().Where(r => reqIds.Contains(r.Id) && r.ProdutoId != null)
+                                 .ToDictionaryAsync(r => r.Id, r => r.ProdutoId!.Value, ct);
+        var prodIds = prodPorReq.Values.Distinct().ToList();
+        if (prodIds.Count == 0) return;
+        var refs = await db.Produtos.AsNoTracking().Where(x => prodIds.Contains(x.Id)).ToDictionaryAsync(x => x.Id, x => x.PrecoReferencia, ct);
+        var ultimos = await (from pi in db.PedidoItens.AsNoTracking()
+                             join pe in db.Pedidos.AsNoTracking() on pi.PedidoId equals pe.Id
+                             where pi.ProdutoId != null && prodIds.Contains(pi.ProdutoId.Value) && pe.CotacaoId != c.Id && pi.ValorUnitario > 0
+                             orderby pe.CriadoEm descending
+                             select new { Prod = pi.ProdutoId!.Value, pi.ValorUnitario }).ToListAsync(ct);
+        var ultimo = ultimos.GroupBy(x => x.Prod).ToDictionary(g => g.Key, g => g.First().ValorUnitario);
+        foreach (var i in c.Itens)
+        {
+            if (i.RequisicaoItemId is not { } rid || !prodPorReq.TryGetValue(rid, out var pid)) continue;
+            i.PrecoUltimo = ultimo.TryGetValue(pid, out var u) ? u : null;
+            i.PrecoReferencia = refs.GetValueOrDefault(pid);
+        }
     }
 
     public async Task EnviarCotacaoAprovacaoAsync(Guid id, CancellationToken ct = default)

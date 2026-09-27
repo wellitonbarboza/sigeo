@@ -370,3 +370,17 @@ pre.json { background: var(--superficie-2); border: 1px solid var(--borda); bord
 .pilula { display: inline-block; min-width: 22px; padding: 2px 7px; border-radius: 99px; font-weight: 800; font-size: 12px; }
 .pilula.ok { background: var(--ok-suave); color: var(--ok-texto); } .pilula.info { background: var(--info-suave); color: var(--info-texto); }
 table.matriz th { font-size: 11px; white-space: normal; min-width: 70px; }
+
+/* Notas (histórico de comentários) */
+.nota-nova { display: flex; gap: 8px; align-items: flex-end; margin-bottom: 8px; }
+.nota-nova textarea { flex: 1; min-height: 44px; }
+ul.notas { list-style: none; margin: 0 0 8px; padding: 0; max-height: 260px; overflow: auto; }
+ul.notas li { border-left: 3px solid var(--primaria); background: var(--superficie-2); padding: 6px 10px; margin-bottom: 6px; border-radius: 4px; }
+.nota-cab { font-size: 12px; margin-bottom: 2px; }
+.nota-txt { white-space: pre-wrap; font-size: 13px; }
+/* Economias da cotação */
+.econ { font-size: 11px; display: block; }
+.econ.pos { color: var(--ok, #1a7f37); }
+.econ.neg { color: var(--erro, #c62828); }
+.filtros-rapidos { display: flex; gap: 18px; padding: 8px 2px 12px; font-size: 13.5px; }
+.filtros-rapidos label { display: flex; gap: 6px; align-items: center; cursor: pointer; }

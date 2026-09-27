@@ -3,6 +3,7 @@ using QualyHub.Domain.Aprovacoes;
 using QualyHub.Domain.Cadastros;
 using QualyHub.Domain.Common;
 using QualyHub.Domain.Regras;
+using QualyHub.Domain.Suprimentos;
 using QualyHub.Infrastructure.Contexto;
 using QualyHub.Infrastructure.Dados;
 
@@ -30,6 +31,12 @@ public sealed record SessaoPortal(Guid EmpresaId, string EmpresaNome, Fornecedor
     public IReadOnlyList<ColaboradorPortal> Colaboradores { get; init; } = [];
     public IReadOnlyList<(Guid Id, string Nome)> Exigencias { get; init; } = [];
 }
+
+/// <summary>Proposta de cotação preenchida pelo fornecedor no portal (link da cotação, sem login).</summary>
+public sealed record PropostaPortal(string EmpresaNome, string FornecedorNome, int CotacaoNumero, string CotacaoNome, string? EnderecoEntrega,
+    TipoFrete Frete, bool Aberta, CotacaoFornecedor Convite, IReadOnlyList<CotacaoItem> Itens);
+
+public sealed record ItemPropostaPortal(Guid ItemId, decimal ValorUnitario, DateOnly? Entrega);
 
 /// <summary>Funcionário da empresa terceira visto no portal (aba Funcionários): só nome, função e pendências — sem CPF.</summary>
 public sealed record ColaboradorPortal(Guid Id, string Nome, string Funcao, string Situacao, string? Pendencias);
@@ -178,6 +185,67 @@ public sealed class PortalServico(FabricaSistema sistema, FabricaDb fabrica, IAr
         d.ValidadoPorUsuarioId = usuario.UsuarioId; d.ValidadoEm = relogio.GetUtcNow();
         d.MotivoRecusa = aprovado ? null : motivo;
         d.Status = aprovado ? StatusDocumentoCalculo.Calcular(d.DataValidade, true, d.TipoDocumento.DiasAlertaAntesVencimento, DateOnly.FromDateTime(relogio.GetLocalNow().Date)) : StatusDocumento.Reprovado;
+        await db.SaveChangesAsync(ct);
+    }
+
+    // ---------------- Proposta de cotação pelo link ----------------
+    private static bool CotacaoAberta(Cotacao c) => c.Status is StatusCotacao.Aberto or StatusCotacao.AguardandoPropostas or StatusCotacao.EmAnalise or StatusCotacao.ReprovadoVoltaCotacao;
+
+    private async Task<(Guid EmpresaId, Guid CotacaoId)?> LocalizarConviteAsync(Guid token, CancellationToken ct)
+    {
+        await using var busca = sistema.Criar(Guid.Empty, "PortalCotacao");
+        var r = await (from cf in busca.Set<CotacaoFornecedor>().IgnoreQueryFilters().AsNoTracking()
+                       join c in busca.Cotacoes.IgnoreQueryFilters().AsNoTracking() on cf.CotacaoId equals c.Id
+                       where cf.LinkResposta == token && !c.Excluido
+                       select new { c.EmpresaId, c.Id }).FirstOrDefaultAsync(ct);
+        return r is null ? null : (r.EmpresaId, r.Id);
+    }
+
+    public async Task<PropostaPortal?> AbrirPropostaAsync(Guid token, CancellationToken ct = default)
+    {
+        if (await LocalizarConviteAsync(token, ct) is not { } loc) return null;
+        await using var db = sistema.Criar(loc.EmpresaId, "PortalCotacao");
+        var c = await db.Cotacoes.IgnoreQueryFilters().AsNoTracking().Include(x => x.Fornecedores).Include(x => x.Itens).FirstAsync(x => x.Id == loc.CotacaoId, ct);
+        var conv = c.Fornecedores.First(f => f.LinkResposta == token);
+        var forn = await db.Fornecedores.IgnoreQueryFilters().AsNoTracking().Where(f => f.Id == conv.FornecedorId).Select(f => f.RazaoSocial).FirstAsync(ct);
+        var emp = await db.Empresas.AsNoTracking().Where(e => e.Id == loc.EmpresaId).Select(e => e.NomeFantasia != "" ? e.NomeFantasia : e.RazaoSocial).FirstAsync(ct);
+        var itens = c.Itens.Where(i => i.FornecedorId == conv.FornecedorId).OrderBy(i => i.Descricao).ToList();
+        return new PropostaPortal(emp, forn, c.Numero, c.Nome, c.EnderecoEntrega, c.Frete, CotacaoAberta(c) && conv.Status != StatusConvite.Declinou, conv, itens);
+    }
+
+    public async Task EnviarPropostaAsync(Guid token, IReadOnlyList<ItemPropostaPortal> itens, decimal? frete, string? condicao, DateOnly? validade,
+        DateOnly? prazoEntrega, CancellationToken ct = default)
+    {
+        if (await LocalizarConviteAsync(token, ct) is not { } loc) throw new RegraDeNegocioException("Link inválido.");
+        await using var db = sistema.Criar(loc.EmpresaId, "PortalCotacao");
+        var c = await db.Cotacoes.IgnoreQueryFilters().Include(x => x.Fornecedores).Include(x => x.Itens).FirstAsync(x => x.Id == loc.CotacaoId, ct);
+        if (!CotacaoAberta(c)) throw new RegraDeNegocioException("Esta cotação já foi encerrada. Fale com o setor de Suprimentos.");
+        var conv = c.Fornecedores.First(f => f.LinkResposta == token);
+        var hoje = DateOnly.FromDateTime(relogio.GetLocalNow().Date);
+        var erros = new List<string>();
+        var meus = c.Itens.Where(i => i.FornecedorId == conv.FornecedorId).ToDictionary(i => i.Id);
+        foreach (var it in itens)
+        {
+            if (!meus.TryGetValue(it.ItemId, out var ci)) { erros.Add("Item não pertence a esta proposta."); continue; }
+            if (it.ValorUnitario < 0) erros.Add($"{ci.Descricao}: valor negativo.");
+            if (it.Entrega is { } e && e < hoje) erros.Add($"{ci.Descricao}: entrega no passado.");
+        }
+        if (!itens.Any(i => i.ValorUnitario > 0)) erros.Add("Informe o preço de pelo menos um item.");
+        if (frete is < 0) erros.Add("Frete negativo.");
+        if (validade is { } v && v < hoje) erros.Add("Validade da proposta no passado.");
+        ValidacaoException.Se(erros);
+
+        foreach (var it in itens)
+        {
+            var ci = meus[it.ItemId];
+            ci.ValorOfertado = Math.Round(it.ValorUnitario, 4);
+            ci.Entrega = it.Entrega ?? prazoEntrega;
+        }
+        conv.ValorFrete = frete; conv.CondicaoPagamento = string.IsNullOrWhiteSpace(condicao) ? null : condicao.Trim();
+        conv.ValidadeProposta = validade; conv.PrazoEntregaOfertado = prazoEntrega;
+        conv.Status = StatusConvite.Respondido; conv.DataResposta = hoje;
+        if (c.Status is StatusCotacao.Aberto or StatusCotacao.AguardandoPropostas) c.Status = StatusCotacao.EmAnalise;
+        c.Recalcular(await ParametrosServico.CarregarAsync(db, ct));
         await db.SaveChangesAsync(ct);
     }
 }

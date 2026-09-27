@@ -13,6 +13,7 @@
                 <Kpi Rotulo="Aprovações pendentes" Valor="@_aprovar.Count" Sub="@($"{_aprovar.Count(a => a.Atrasada)} fora do prazo")" Tom="@(_aprovar.Count > 0 ? "aviso" : "ok")" />
                 <Kpi Rotulo="Pagamentos a liberar" Valor="@_pagamentos.Count" Sub="@Moeda(_pagamentos.Sum(p => p.Valor))" Tom="info" />
                 <Kpi Rotulo="Alertas" Valor="@_alertas.Sum(a => a.Qtd)" Sub="documentos, prazos e vencimentos" Tom="@(_alertas.Any(a => a.Tom == "erro") ? "erro" : "aviso")" />
+                <Kpi Rotulo="Minhas tarefas" Valor="@_tarefas.Count" Sub="@($"{_tarefas.Count(t => t.Atrasada(Hoje))} atrasada(s)")" Tom="@(_tarefas.Any(t => t.Atrasada(Hoje)) ? "erro" : "info")" />
                 <Kpi Rotulo="Minhas leituras" Valor="@_leituras.Count" Sub="@(_leituras.Count == 0 ? "em dia" : $"prazo {_leituras.Min(l => l.Prazo):dd/MM}")" />
             </div>
             <Abas Itens="Abas" @bind-Ativa="_aba" />
@@ -41,6 +42,12 @@
                     @foreach (var a in _alertas) { <a class="alerta @a.Tom" href="@a.Link"><Icone Nome="alerta" /> <b>&nbsp;@a.Qtd&nbsp;</b> @a.Texto</a> }
                     @if (_alertas.Count == 0) { <div class="alerta ok"><Icone Nome="check" /> Nenhum alerta. Tudo em dia.</div> }
                 </div>
+            }
+            else if (_aba == "tarefas")
+            {
+                <table class="itens"><thead><tr><th>Nº</th><th>Título</th><th>Solicitante</th><th>Prioridade</th><th>Prazo</th><th>Status</th></tr></thead>
+                    <tbody>@foreach (var t in _tarefas) { <tr style="cursor:pointer" @onclick='() => Nav.NavigateTo($"tarefas?id={t.Id}")'><td>@t.Numero</td><td>@t.Titulo @if (t.Leituras.Count == 0) { <Selo Texto="nova" Tom="info" /> }</td><td>@t.CriadoPor</td><td><Selo Texto="@De(t.Prioridade)" Tom="@Tom(t.Prioridade)" /></td><td class="@(t.Atrasada(Hoje) ? "texto-erro" : "")">@Data(t.Prazo)</td><td><Selo Texto="@De(t.Status)" Tom="@Tom(t.Status)" /></td></tr> }
+                    @if (_tarefas.Count == 0) { <tr><td colspan="6" class="mudo">Nenhuma tarefa aberta para você.</td></tr> }</tbody></table>
             }
             else if (_aba == "leituras")
             {
@@ -101,6 +108,7 @@
     private List<(decimal Valor, Guid Id)> _pagamentos = [];
     private List<(string Texto, int Qtd, string Tom, string Link)> _alertas = [];
     private List<(string Documento, DateOnly Prazo)> _leituras = [];
+    private List<QualyHub.Domain.Colaboracao.Tarefa> _tarefas = [];
     private List<SolicitacaoAprovacao> _meus = [];
     private (string Substituto, DateTimeOffset Fim)? _delegacao;
     private List<Opcao> _usuarios = [];
@@ -108,7 +116,7 @@
     private bool _vazio, _abertoDel;
     private string _aba = "aprovar";
     private List<(string, string)> Abas => [("aprovar", $"Aprovar ({_aprovar.Count(a => a.Entidade != EntidadeAprovavel.Pagamento)})"), ("pagar", $"Liberar pagamento ({_pagamentos.Count})"),
-        ("alertas", $"Alertas ({_alertas.Sum(a => a.Qtd)})"), ("leituras", $"Leituras ({_leituras.Count})"), ("meus", "Acompanhar (meus pedidos)")];
+        ("tarefas", $"Tarefas ({_tarefas.Count})"), ("alertas", $"Alertas ({_alertas.Sum(a => a.Qtd)})"), ("leituras", $"Leituras ({_leituras.Count})"), ("meus", "Acompanhar (meus pedidos)")];
     private static string Saudacao() => DateTime.Now.Hour < 12 ? "Bom dia" : DateTime.Now.Hour < 18 ? "Boa tarde" : "Boa noite";
     private static string Espera(DateTimeOffset d) { var h = (DateTimeOffset.UtcNow - d).TotalHours; return h < 24 ? $"{h:0} h" : $"{h / 24:0} dia(s)"; }
 
@@ -134,6 +142,8 @@
         var eu = Usuario.UsuarioId;
         _leituras = (await db.Ciencias.AsNoTracking().Include(c => c.Revisao).ThenInclude(r => r.Documento).Where(c => c.UsuarioId == eu && c.LidoEm == null).ToListAsync())
             .Select(c => ($"{c.Revisao.Documento.Codigo} {c.Revisao.Rotulo} – {c.Revisao.Documento.Titulo}", c.Prazo)).ToList();
+        _tarefas = await db.Tarefas.AsNoTracking().Include(t => t.Leituras).Where(t => t.ResponsavelId == eu && (t.Status == StatusTarefa.Aberta || t.Status == StatusTarefa.EmAndamento))
+                                   .OrderBy(t => t.Prazo).ToListAsync();
         var ha60 = agora.AddDays(-60);
         _meus = await db.SolicitacoesAprovacao.AsNoTracking().Include(s => s.Etapas).Where(s => s.SolicitanteUsuarioId == eu && s.EnviadoEm >= ha60).OrderByDescending(s => s.EnviadoEm).Take(50).ToListAsync();
         var del = await db.DelegacoesAprovacao.AsNoTracking().Where(d => d.TitularUsuarioId == eu && !d.Revogada && d.Inicio <= agora && d.Fim > agora).FirstOrDefaultAsync();
@@ -153,6 +163,7 @@
         A(await db.AcoesCorretivas.CountAsync(a => a.Status == StatusAcaoCorretiva.AguardandoEficacia && a.DataEficacia <= Hoje), "ação(ões) corretiva(s) com eficácia a verificar", "aviso", "obra/acoes");
         A((await db.Equipamentos.AsNoTracking().ToListAsync()).Count(e => e.Status(Hoje, p.Int(Parametros.AlertaCalibracaoDias)) is StatusEquipamento.VenceEmBreve or StatusEquipamento.Bloqueado), "equipamento(s) de medição vencendo ou bloqueados", "aviso", "obra/equipamentos");
         A(await db.EnsaiosRecebimento.CountAsync(x => x.Situacao == SituacaoEnsaio.Aguardando && x.DataPrevista < Hoje), "ensaio(s) de recebimento com resultado atrasado", "erro", "recebimentos");
+        A(await db.Tarefas.CountAsync(t => (t.Status == StatusTarefa.Aberta || t.Status == StatusTarefa.EmAndamento) && t.Prazo < Hoje), "tarefa(s) atrasada(s) na empresa", "erro", "tarefas");
         A(await db.PlanosAcao.CountAsync(x => x.Status != StatusPlanoAcao.Concluida && x.Prazo < Hoje), "plano(s) de ação de fornecedor vencido(s)", "erro", "fornecedores/planos");
         A(await db.Contratos.CountAsync(k => k.Status == StatusContrato.Ativo && k.VigenciaFim <= Hoje.AddDays(30)), "contrato(s) vencendo em 30 dias", "aviso", "contratos");
         A(await db.Colaboradores.CountAsync(c => c.Situacao == SituacaoColaborador.Bloqueado && (c.DataSaida == null || c.DataSaida > Hoje)), "colaborador(es) bloqueados (ASO/integração)", "erro", "sst/colaboradores");

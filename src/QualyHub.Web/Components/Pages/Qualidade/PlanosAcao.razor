@@ -51,6 +51,7 @@
                     <Campo Rotulo="Comentário" Classe="s8"><input @bind="_comentario" disabled="@Concluido" /></Campo>
                 </div>
                 <Anexos Entidade="PlanoAcao" EntidadeId="_p.Id" Categoria="Evidencia" Titulo="Evidências" SomenteLeitura="Concluido" />
+                @if (_p.CriadoEm != default) { <Notas Entidade="PlanoAcao" EntidadeId="_p.Id" /> }
             }
         }
     </ChildContent>

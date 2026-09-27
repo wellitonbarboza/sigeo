@@ -56,11 +56,13 @@
             @if (_r.Origem == OrigemRnc.Fvs && _r.ReferenciaId is { } fid) { <div class="alerta aviso"><Icone Nome="alerta" /> Etapa seguinte do local bloqueada até a reinspeção da <a href="obra/fvs?id=@fid">&nbsp;FVS&nbsp;</a> ser aprovada. Prestador avisado (conta na nota de qualidade do serviço da medição).</div> }
             @if (_r.AcaoCorretivaId is { } ac) { <div class="alerta info"><Icone Nome="ferramenta" /> Ação corretiva <a href="obra/acoes?id=@ac">&nbsp;@_acs.GetValueOrDefault(ac)</a></div> }
             @if (!Novo_) { <Anexos Entidade="Rnc" EntidadeId="_r.Id" Categoria="Evidencia" Titulo="Evidências e fotos" SomenteLeitura="Encerrada" /> }
+            @if (_r.CriadoEm != default) { <Notas Entidade="Rnc" EntidadeId="_r.Id" /> }
         }
     </ChildContent>
     <Rodape>
         @if (_r is not null && !Encerrada)
         {
+            @if (!Novo_) { <a class="btn sec" href="@($"tarefas?origem=Rnc&origemId={_r.Id}&desc={Uri.EscapeDataString($"RNC {_r.Numero}")}&titulo={Uri.EscapeDataString($"Tratar {_r.Numero}")}&tipo=Qualidade")"><Icone Nome="lista" Tam="16" /> Criar tarefa</a> }
             @if (!Novo_ && _r.AcaoCorretivaId is null) { <button class="btn sec" disabled="@Ocupado" @onclick="AbrirAc"><Icone Nome="ferramenta" Tam="16" /> Abrir ação corretiva</button> }
             @if (!Novo_) { <button class="btn ok" disabled="@Ocupado" @onclick="Encerrar"><Icone Nome="check" Tam="16" /> Encerrar RNC</button> }
             <button class="btn prim" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="16" /> Salvar</button>

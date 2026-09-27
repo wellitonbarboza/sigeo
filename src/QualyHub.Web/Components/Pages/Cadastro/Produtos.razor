@@ -12,6 +12,7 @@
                     <Coluna T="Produto" Titulo="Grupo" Valor="p => p.Grupo" />
                     <Coluna T="Produto" Titulo="Subgrupo" Valor="p => p.SubGrupo" />
                     <Coluna T="Produto" Titulo="Lead time (dias)" Valor="p => p.LeadTimeDias" Alinhar="num" />
+                    <Coluna T="Produto" Titulo="Preço ref." Valor="p => p.PrecoReferencia" Formato="C2" Alinhar="num" />
                     <Coluna T="Produto" Titulo="Material controlado" Valor="p => p.MaterialControlado == null ? null : p.MaterialControlado.Nome" />
                     <Coluna T="Produto" Titulo="Ativo" Valor="p => p.Ativo" />
                 </Colunas>
@@ -33,6 +34,7 @@
                 <Campo Rotulo="Grupo" Classe="s5"><input @bind="_p.Grupo" /></Campo>
                 <Campo Rotulo="Subgrupo" Classe="s4"><input @bind="_p.SubGrupo" /></Campo>
                 <Campo Rotulo="Lead time (dias)" Classe="s3"><input type="number" @bind="_p.LeadTimeDias" /></Campo>
+                <Campo Rotulo="Preço de referência (R$/un)" Classe="s3"><input type="number" step="0.01" @bind="_p.PrecoReferencia" /></Campo>
                 <Campo Rotulo="Material controlado" Classe="s9"><select @bind="_p.MaterialControladoId"><option value="">(não controlado)</option>@foreach (var m in _materiais) { <option value="@m.Id">@m.Texto</option> }</select></Campo>
                 <Campo Rotulo="" Classe="s12"><label><input type="checkbox" @bind="_p.Ativo" /> Ativo</label></Campo>
             </div>
@@ -67,6 +69,7 @@
             if (string.IsNullOrWhiteSpace(_p!.Codigo)) e.Add("Informe o código.");
             if (string.IsNullOrWhiteSpace(_p.Nome)) e.Add("Informe o nome.");
             if (_p.LeadTimeDias < 0) e.Add("Lead time não pode ser negativo.");
+            if (_p.PrecoReferencia is < 0) e.Add("Preço de referência não pode ser negativo.");
             ValidacaoException.Se(e);
             await using var db = Fabrica.Criar();
             _p.MaterialControlado = null;

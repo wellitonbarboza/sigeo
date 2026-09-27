@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using QualyHub.Domain.Colaboracao;
 using QualyHub.Domain.Qualidade;
 using QualyHub.Domain.Sst;
 using QualyHub.Domain.Suprimentos;
@@ -51,4 +52,33 @@ internal sealed class ColaboradorCfg : IEntityTypeConfiguration<Colaborador>
 internal sealed class AditivoCfg : IEntityTypeConfiguration<Aditivo>
 {
     public void Configure(EntityTypeBuilder<Aditivo> b) => b.HasIndex(x => new { x.ContratoId, x.Numero });
+}
+
+internal sealed class NotaCfg : IEntityTypeConfiguration<Nota>
+{
+    public void Configure(EntityTypeBuilder<Nota> b)
+    {
+        b.Property(x => x.Entidade).HasMaxLength(60);
+        b.HasIndex(x => new { x.Entidade, x.EntidadeId });
+    }
+}
+
+internal sealed class TarefaCfg : IEntityTypeConfiguration<Tarefa>
+{
+    public void Configure(EntityTypeBuilder<Tarefa> b)
+    {
+        b.HasIndex(x => new { x.EmpresaId, x.Numero }).IsUnique().HasFilter("[Excluido] = 0");
+        b.HasIndex(x => new { x.ResponsavelId, x.Status });
+        b.HasIndex(x => new { x.OrigemEntidade, x.OrigemId });
+        b.Property(x => x.Titulo).HasMaxLength(200);
+        b.Property(x => x.Tipo).HasMaxLength(60);
+        b.Property(x => x.OrigemEntidade).HasMaxLength(60);
+        b.Property(x => x.Status).HasMaxLength(20);
+        b.Property(x => x.Prioridade).HasMaxLength(20);
+    }
+}
+
+internal sealed class TarefaLeituraCfg : IEntityTypeConfiguration<TarefaLeitura>
+{
+    public void Configure(EntityTypeBuilder<TarefaLeitura> b) => b.HasIndex(x => new { x.TarefaId, x.UsuarioId }).IsUnique();
 }

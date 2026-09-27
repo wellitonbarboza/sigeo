@@ -45,6 +45,9 @@ public static class CargaPadrao
 
     public static readonly string[] CondicoesPagamento = ["À vista", "28 dias", "30/60 dias", "30/60/90 dias", "Contra medição"];
 
+    public static readonly string[] TiposTarefa =
+        ["Compras", "Contratos", "Qualidade", "Segurança do trabalho", "Documentos do SGQ", "Obra", "Financeiro", "Outros"];
+
     public static readonly string[] Funcoes =
     [
         "Diretor Técnico", "Diretoria", "Engenheiro da Obra", "Mestre de Obras", "Administrativo de Obra", "Comprador", "Almoxarife",
@@ -139,6 +142,7 @@ public static class CargaPadrao
         Lista(TipoLista.EmissorExterno, Emissores);
         Lista(TipoLista.CondicaoPagamento, CondicoesPagamento);
         Lista(TipoLista.Funcao, Funcoes);
+        Lista(TipoLista.TipoTarefa, TiposTarefa);
 
         var tipos = await db.TiposDocumento.IgnoreQueryFilters().Where(t => t.EmpresaId == empresaId).Select(t => t.Nome).ToListAsync(ct);
         foreach (var t in TiposDocumentoFornecedor.Where(t => !tipos.Contains(t.Nome)))

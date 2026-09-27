@@ -70,9 +70,11 @@
                     </div>
                 </div>
             </div>
+            @if (_a.CriadoEm != default) { <Notas Entidade="AcaoCorretiva" EntidadeId="_a.Id" /> }
         }
     </ChildContent>
-    <Rodape>@if (_a is not null && !Encerrada) { <button class="btn prim" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="16" /> Salvar</button> }</Rodape>
+    <Rodape>@if (_a is not null && !Encerrada && _a.CriadoEm != default) { <a class="btn sec" href="@($"tarefas?origem=AcaoCorretiva&origemId={_a.Id}&desc={Uri.EscapeDataString($"Ação corretiva {_a.Numero}")}&titulo={Uri.EscapeDataString($"Executar ação da {_a.Numero}")}&tipo=Qualidade")"><Icone Nome="lista" Tam="16" /> Criar tarefa</a> }
+        @if (_a is not null && !Encerrada) { <button class="btn prim" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="16" /> Salvar</button> }</Rodape>
 </Modal>
 
 @code {

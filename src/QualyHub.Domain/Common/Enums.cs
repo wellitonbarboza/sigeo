@@ -193,5 +193,8 @@ public enum AcaoLinhaImportacao { Inserir = 1, Atualizar = 2, SemAlteracao = 3, 
 public enum TipoLista
 {
     Atividade = 1, CategoriaServico = 2, CriterioQualificacao = 3, ProcessoArea = 4, TipoDocumentoSgq = 5,
-    EmissorExterno = 6, CondicaoPagamento = 7, Funcao = 8
+    EmissorExterno = 6, CondicaoPagamento = 7, Funcao = 8, TipoTarefa = 9
 }
+
+public enum PrioridadeTarefa { Baixa, Normal, Alta, Urgente }
+public enum StatusTarefa { Aberta, EmAndamento, Concluida, Cancelada }

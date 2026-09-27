@@ -105,6 +105,7 @@
                         <p class="mudo">Só os itens não conformes são reinspecionados. Aprovada → liberação do engenheiro para a próxima etapa e para a medição.</p>
                     </div>
                 </div>
+                @if (_f.CriadoEm != default) { <Notas Entidade="Fvs" EntidadeId="_f.Id" /> }
             }
         }
     </ChildContent>

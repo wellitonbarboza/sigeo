@@ -59,6 +59,7 @@
                 <div class="form"><Campo Rotulo="Resumo para a análise crítica (SiAC 9.3)" Classe="s12"><textarea @bind="_resumo"></textarea></Campo></div>
             }
             @if (!string.IsNullOrEmpty(_a.Codigo)) { <Anexos Entidade="Auditoria" EntidadeId="_a.Id" Categoria="Relatorio" Titulo="Relatório e evidências" /> }
+            @if (_a.CriadoEm != default) { <Notas Entidade="Auditoria" EntidadeId="_a.Id" /> }
         }
     </ChildContent>
     <Rodape>

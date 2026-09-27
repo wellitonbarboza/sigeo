@@ -66,7 +66,7 @@ app.Use(async (ctx, next) =>
 {
     var p = ctx.Request.Path.Value ?? "";
     if (p == "/saude") { await next(); return; }
-    if (!p.StartsWith("/configuracao-inicial") && !p.StartsWith("/_") && !p.Contains('.') && !p.StartsWith("/portal") && !p.StartsWith("/qr"))
+    if (!p.StartsWith("/configuracao-inicial") && !p.StartsWith("/_") && !p.Contains('.') && !p.StartsWith("/portal") && !p.StartsWith("/cotacao/") && !p.StartsWith("/qr"))
     {
         await using var db = ctx.RequestServices.GetRequiredService<FabricaSistema>().Criar(Guid.Empty, "Web");
         if (!await db.Empresas.AnyAsync()) { ctx.Response.Redirect("/configuracao-inicial"); return; }

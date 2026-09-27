@@ -108,6 +108,7 @@
             else if (_aba == "anexos" && !string.IsNullOrEmpty(_k.Numero))
             {
                 <Anexos Entidade="Contrato" EntidadeId="_k.Id" Categoria="Contrato" Titulo="Contrato assinado, proposta, projetos e memoriais" SomenteLeitura="false" />
+                @if (_k.CriadoEm != default) { <Notas Entidade="Contrato" EntidadeId="_k.Id" /> }
             }
             else if (_aba == "aditivos")
             {

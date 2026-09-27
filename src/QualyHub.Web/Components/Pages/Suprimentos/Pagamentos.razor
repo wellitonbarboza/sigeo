@@ -79,6 +79,7 @@
             @if (!Novo_)
             {
                 <Anexos Entidade="Pagamento" EntidadeId="_l.Id" Categoria="NF" Titulo="Nota fiscal e boletos" />
+                @if (_l.CriadoEm != default) { <Notas Entidade="Pagamento" EntidadeId="_l.Id" /> }
                 <Autorizacoes Entidade="EntidadeAprovavel.Pagamento" EntidadeId="_l.Id" Versao="_versao" AoDecidir="Recarregar" />
             }
         }

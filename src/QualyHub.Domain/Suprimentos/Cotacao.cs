@@ -85,9 +85,39 @@ public class CotacaoItem : Entidade
     /// <summary>Confirma que o ofertado atende à especificação técnica (obrigatório em item controlado).</summary>
     public bool? AtendeEspecificacao { get; set; }
 
+    /// <summary>Último preço unitário pago pelo mesmo produto (pedido anterior) — fotografado ao abrir/salvar.</summary>
+    public decimal? PrecoUltimo { get; set; }
+    /// <summary>Preço de referência do produto na data da cotação.</summary>
+    public decimal? PrecoReferencia { get; set; }
+
     public decimal ValorUnitarioFinal => ValorNegociado ?? ValorOfertado;
     public decimal ValorTotal => Math.Round(ValorUnitarioFinal * Quantidade, 2);
+    /// <summary>Economia negociada: ofertado × negociado.</summary>
     public decimal Economia => ValorNegociado is { } n ? Math.Round((ValorOfertado - n) * Quantidade, 2) : 0;
+    /// <summary>Economia vs. último preço pago (negativo = pagou mais caro que da última vez).</summary>
+    public decimal? EconomiaVsUltimo => PrecoUltimo is { } u && ValorUnitarioFinal > 0 ? Math.Round((u - ValorUnitarioFinal) * Quantidade, 2) : null;
+    /// <summary>Economia vs. preço de referência do sistema.</summary>
+    public decimal? EconomiaVsReferencia => PrecoReferencia is { } r && ValorUnitarioFinal > 0 ? Math.Round((r - ValorUnitarioFinal) * Quantidade, 2) : null;
+}
+
+/// <summary>Resumo das 3 economias do vencedor (padrão ExpertData): valor e % sobre a base.</summary>
+public sealed record EconomiaCotacao(decimal Negociada, decimal NegociadaPerc, decimal? VsUltimo, decimal? VsUltimoPerc, decimal? VsReferencia, decimal? VsReferenciaPerc, decimal Total)
+{
+    public static EconomiaCotacao Calcular(IEnumerable<CotacaoItem> itensVencedor)
+    {
+        var l = itensVencedor.Where(i => i.ValorUnitarioFinal > 0).ToList();
+        var total = l.Sum(i => i.ValorTotal);
+        static decimal Perc(decimal econ, decimal baseV) => baseV == 0 ? 0 : Math.Round(econ / baseV * 100, 1);
+        var ofertado = l.Sum(i => Math.Round(i.ValorOfertado * i.Quantidade, 2));
+        var neg = l.Sum(i => i.Economia);
+        var comUlt = l.Where(i => i.EconomiaVsUltimo is not null).ToList();
+        var comRef = l.Where(i => i.EconomiaVsReferencia is not null).ToList();
+        decimal? ult = comUlt.Count == 0 ? null : comUlt.Sum(i => i.EconomiaVsUltimo!.Value);
+        decimal? rf = comRef.Count == 0 ? null : comRef.Sum(i => i.EconomiaVsReferencia!.Value);
+        var baseUlt = comUlt.Sum(i => Math.Round(i.PrecoUltimo!.Value * i.Quantidade, 2));
+        var baseRef = comRef.Sum(i => Math.Round(i.PrecoReferencia!.Value * i.Quantidade, 2));
+        return new EconomiaCotacao(neg, Perc(neg, ofertado), ult, ult is null ? null : Perc(ult.Value, baseUlt), rf, rf is null ? null : Perc(rf.Value, baseRef), total);
+    }
 }
 
 /// <summary>T07 · Pedido de compra (ou referência a contrato). 2ª aprovação do Diretor antes da compra; registra envio e cópias.</summary>

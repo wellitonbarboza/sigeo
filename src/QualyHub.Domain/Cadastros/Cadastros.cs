@@ -257,6 +257,8 @@ public class Produto : EntidadeAuditavel, IOrigemObraPrima
     public string? SubGrupo { get; set; }
     /// <summary>Prazo de fornecimento (lead time) usado no cronograma de suprimentos.</summary>
     public int LeadTimeDias { get; set; }
+    /// <summary>Preço de referência (tabela interna/orçamento da obra) — base da "economia vs. referência" na cotação.</summary>
+    public decimal? PrecoReferencia { get; set; }
     public Guid? MaterialControladoId { get; set; }
     public MaterialControlado? MaterialControlado { get; set; }
     public bool Ativo { get; set; } = true;

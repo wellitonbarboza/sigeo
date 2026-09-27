@@ -12,7 +12,7 @@ GO
 BEGIN TRANSACTION;
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     IF SCHEMA_ID(N'qh') IS NULL EXEC(N'CREATE SCHEMA [qh];');
@@ -20,7 +20,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     IF SCHEMA_ID(N'qh_hist') IS NULL EXEC(N'CREATE SCHEMA [qh_hist];');
@@ -28,7 +28,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[AcoesCorretivas] (
@@ -66,7 +66,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[Alcadas] (
@@ -100,7 +100,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[Anexos] (
@@ -128,7 +128,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[Auditoria] (
@@ -151,7 +151,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[AuditoriasInternas] (
@@ -183,7 +183,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[Colaboradores] (
@@ -222,7 +222,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[DocumentosColaborador] (
@@ -259,7 +259,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[DocumentosExternos] (
@@ -291,7 +291,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[Empresas] (
@@ -309,7 +309,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[EntregasEpi] (
@@ -340,7 +340,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[Epis] (
@@ -366,7 +366,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[Equipamentos] (
@@ -403,7 +403,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[EventosDocumento] (
@@ -425,7 +425,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[Exigencias] (
@@ -455,7 +455,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[Fornecedores] (
@@ -502,7 +502,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[Funcoes] (
@@ -526,7 +526,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[InspecoesSeguranca] (
@@ -559,7 +559,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[LayoutsImportacao] (
@@ -586,7 +586,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[Listas] (
@@ -611,7 +611,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[LotesImportacao] (
@@ -645,7 +645,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[MateriaisControlados] (
@@ -681,7 +681,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[ModelosInspecao] (
@@ -721,7 +721,30 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
+)
+BEGIN
+    CREATE TABLE [qh].[Notas] (
+        [Id] uniqueidentifier NOT NULL,
+        [Entidade] nvarchar(60) NOT NULL,
+        [EntidadeId] uniqueidentifier NOT NULL,
+        [Texto] nvarchar(max) NOT NULL,
+        [EmpresaId] uniqueidentifier NOT NULL,
+        [CriadoEm] datetimeoffset NOT NULL,
+        [CriadoPor] nvarchar(150) NOT NULL,
+        [AlteradoEm] datetimeoffset NULL,
+        [AlteradoPor] nvarchar(150) NULL,
+        [Excluido] bit NOT NULL,
+        [ExcluidoEm] datetimeoffset NULL,
+        [ExcluidoPor] nvarchar(150) NULL,
+        [RowVersion] rowversion NOT NULL,
+        CONSTRAINT [PK_Notas] PRIMARY KEY ([Id])
+    );
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[Obras] (
@@ -758,7 +781,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[Ocorrencias] (
@@ -796,7 +819,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[Parametros] (
@@ -824,7 +847,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[Pastas] (
@@ -848,7 +871,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[PermissoesTrabalho] (
@@ -886,7 +909,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[RegrasNotificacao] (
@@ -913,7 +936,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[RegrasRetencao] (
@@ -941,7 +964,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[Rncs] (
@@ -985,7 +1008,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[Sequencias] (
@@ -1000,7 +1023,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[SolicitacoesAprovacao] (
@@ -1034,7 +1057,47 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
+)
+BEGIN
+    CREATE TABLE [qh].[Tarefas] (
+        [Id] uniqueidentifier NOT NULL,
+        [Numero] int NOT NULL,
+        [Titulo] nvarchar(200) NOT NULL,
+        [Descricao] nvarchar(max) NULL,
+        [Tipo] nvarchar(60) NULL,
+        [Prioridade] nvarchar(40) NOT NULL,
+        [ObraId] uniqueidentifier NULL,
+        [ResponsavelId] uniqueidentifier NOT NULL,
+        [ResponsavelNome] nvarchar(400) NOT NULL,
+        [PrazoOriginal] date NOT NULL,
+        [Prazo] date NOT NULL,
+        [Status] nvarchar(40) NOT NULL,
+        [Resolucao] nvarchar(max) NULL,
+        [ConcluidaEm] datetimeoffset NULL,
+        [ConcluidaPor] nvarchar(400) NULL,
+        [OrigemEntidade] nvarchar(60) NULL,
+        [OrigemId] uniqueidentifier NULL,
+        [OrigemDescricao] nvarchar(400) NULL,
+        [PeriodEnd] datetime2 GENERATED ALWAYS AS ROW END HIDDEN NOT NULL,
+        [PeriodStart] datetime2 GENERATED ALWAYS AS ROW START HIDDEN NOT NULL,
+        [EmpresaId] uniqueidentifier NOT NULL,
+        [CriadoEm] datetimeoffset NOT NULL,
+        [CriadoPor] nvarchar(150) NOT NULL,
+        [AlteradoEm] datetimeoffset NULL,
+        [AlteradoPor] nvarchar(150) NULL,
+        [Excluido] bit NOT NULL,
+        [ExcluidoEm] datetimeoffset NULL,
+        [ExcluidoPor] nvarchar(150) NULL,
+        [RowVersion] rowversion NOT NULL,
+        CONSTRAINT [PK_Tarefas] PRIMARY KEY ([Id]),
+        PERIOD FOR SYSTEM_TIME([PeriodStart], [PeriodEnd])
+    ) WITH (SYSTEM_VERSIONING = ON (HISTORY_TABLE = [qh_hist].[Tarefa_Historico]));
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[TiposDocumento] (
@@ -1070,7 +1133,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[Treinamentos] (
@@ -1098,7 +1161,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[Turmas] (
@@ -1129,7 +1192,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[Usuarios] (
@@ -1156,7 +1219,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[AcaoCorretivaItens] (
@@ -1175,7 +1238,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[Constatacoes] (
@@ -1194,7 +1257,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[Calibracoes] (
@@ -1216,7 +1279,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[AvaliacoesSemestrais] (
@@ -1252,7 +1315,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[LinksPortal] (
@@ -1285,7 +1348,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[FuncaoExigencias] (
@@ -1301,7 +1364,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[InspecaoSegurancaItens] (
@@ -1325,7 +1388,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[LinhasImportacao] (
@@ -1344,7 +1407,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[Produtos] (
@@ -1355,6 +1418,7 @@ BEGIN
         [Grupo] nvarchar(400) NULL,
         [SubGrupo] nvarchar(400) NULL,
         [LeadTimeDias] int NOT NULL,
+        [PrecoReferencia] decimal(18,4) NULL,
         [MaterialControladoId] uniqueidentifier NULL,
         [Ativo] bit NOT NULL,
         [CodigoObraPrima] nvarchar(60) NULL,
@@ -1375,7 +1439,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[EnsaiosModelo] (
@@ -1396,7 +1460,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[ItensVerificacao] (
@@ -1419,7 +1483,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[CentrosCusto] (
@@ -1445,7 +1509,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[Locais] (
@@ -1476,7 +1540,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[PlanosAcao] (
@@ -1514,7 +1578,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[SolicitacoesCopia] (
@@ -1546,7 +1610,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[ExecutantesPt] (
@@ -1564,7 +1628,42 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
+)
+BEGIN
+    CREATE TABLE [qh].[TarefaLeituras] (
+        [Id] uniqueidentifier NOT NULL,
+        [TarefaId] uniqueidentifier NOT NULL,
+        [UsuarioId] uniqueidentifier NOT NULL,
+        [Nome] nvarchar(400) NOT NULL,
+        [LidaEm] datetimeoffset NOT NULL,
+        CONSTRAINT [PK_TarefaLeituras] PRIMARY KEY ([Id]),
+        CONSTRAINT [FK_TarefaLeituras_Tarefas_TarefaId] FOREIGN KEY ([TarefaId]) REFERENCES [qh].[Tarefas] ([Id]) ON DELETE NO ACTION
+    );
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260927125805_Inicial'
+)
+BEGIN
+    CREATE TABLE [qh].[TarefaProrrogacoes] (
+        [Id] uniqueidentifier NOT NULL,
+        [TarefaId] uniqueidentifier NOT NULL,
+        [PrazoAnterior] date NOT NULL,
+        [NovoPrazo] date NOT NULL,
+        [Dias] int NOT NULL,
+        [Justificativa] nvarchar(max) NOT NULL,
+        [Usuario] nvarchar(400) NOT NULL,
+        [Em] datetimeoffset NOT NULL,
+        CONSTRAINT [PK_TarefaProrrogacoes] PRIMARY KEY ([Id]),
+        CONSTRAINT [FK_TarefaProrrogacoes_Tarefas_TarefaId] FOREIGN KEY ([TarefaId]) REFERENCES [qh].[Tarefas] ([Id]) ON DELETE NO ACTION
+    );
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[FornecedorDocumentos] (
@@ -1606,7 +1705,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[Participantes] (
@@ -1624,7 +1723,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[DelegacoesAprovacao] (
@@ -1661,7 +1760,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[LimitesAprovacao] (
@@ -1691,7 +1790,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[Permissoes] (
@@ -1726,7 +1825,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[UsuariosObras] (
@@ -1741,7 +1840,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[Requisicoes] (
@@ -1788,7 +1887,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[Fvs] (
@@ -1835,7 +1934,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[EtapasAprovacao] (
@@ -1860,7 +1959,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[Cotacoes] (
@@ -1906,7 +2005,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[FvsItens] (
@@ -1933,7 +2032,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[Contratos] (
@@ -1983,7 +2082,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[CotacaoFornecedores] (
@@ -2007,7 +2106,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[Aditivos] (
@@ -2046,7 +2145,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[Medicoes] (
@@ -2100,7 +2199,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[Pedidos] (
@@ -2153,7 +2252,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[AditivoItens] (
@@ -2175,7 +2274,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[Grds] (
@@ -2207,7 +2306,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[Pagamentos] (
@@ -2255,7 +2354,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[Recebimentos] (
@@ -2304,7 +2403,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[AplicacoesLote] (
@@ -2323,7 +2422,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[EnsaiosRecebimento] (
@@ -2359,7 +2458,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[FvmItens] (
@@ -2383,7 +2482,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[Checkouts] (
@@ -2410,7 +2509,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[Ciencias] (
@@ -2438,7 +2537,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[ContratoItens] (
@@ -2457,7 +2556,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[MedicaoItens] (
@@ -2481,7 +2580,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[ContratoServicos] (
@@ -2495,7 +2594,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[Copias] (
@@ -2536,7 +2635,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[CotacaoItens] (
@@ -2552,6 +2651,8 @@ BEGIN
         [Entrega] date NULL,
         [MaterialControlado] bit NOT NULL,
         [AtendeEspecificacao] bit NULL,
+        [PrecoUltimo] decimal(18,4) NULL,
+        [PrecoReferencia] decimal(18,4) NULL,
         CONSTRAINT [PK_CotacaoItens] PRIMARY KEY ([Id]),
         CONSTRAINT [FK_CotacaoItens_Cotacoes_CotacaoId] FOREIGN KEY ([CotacaoId]) REFERENCES [qh].[Cotacoes] ([Id]) ON DELETE NO ACTION,
         CONSTRAINT [FK_CotacaoItens_Fornecedores_FornecedorId] FOREIGN KEY ([FornecedorId]) REFERENCES [qh].[Fornecedores] ([Id]) ON DELETE NO ACTION
@@ -2560,7 +2661,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[Documentos] (
@@ -2608,7 +2709,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[DocumentosRelacionados] (
@@ -2623,7 +2724,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[Revisoes] (
@@ -2669,7 +2770,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[ServicosControlados] (
@@ -2698,7 +2799,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[EtapasRevisao] (
@@ -2720,7 +2821,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[GrdItens] (
@@ -2735,7 +2836,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[SolicitacaoCopiaItens] (
@@ -2752,7 +2853,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[Qualificacoes] (
@@ -2795,7 +2896,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[RequisicaoItens] (
@@ -2827,7 +2928,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[PedidoItens] (
@@ -2855,7 +2956,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE TABLE [qh].[RecebimentoItens] (
@@ -2878,7 +2979,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_AcaoCorretivaItens_AcaoCorretivaId] ON [qh].[AcaoCorretivaItens] ([AcaoCorretivaId]);
@@ -2886,7 +2987,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_AcoesCorretivas_EmpresaId] ON [qh].[AcoesCorretivas] ([EmpresaId]);
@@ -2894,7 +2995,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_AditivoItens_AditivoId] ON [qh].[AditivoItens] ([AditivoId]);
@@ -2902,7 +3003,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Aditivos_ContratoId_Numero] ON [qh].[Aditivos] ([ContratoId], [Numero]);
@@ -2910,7 +3011,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Aditivos_EmpresaId] ON [qh].[Aditivos] ([EmpresaId]);
@@ -2918,7 +3019,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Aditivos_EmpresaId_ObraId] ON [qh].[Aditivos] ([EmpresaId], [ObraId]);
@@ -2926,7 +3027,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Alcadas_EmpresaId] ON [qh].[Alcadas] ([EmpresaId]);
@@ -2934,7 +3035,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Anexos_EmpresaId] ON [qh].[Anexos] ([EmpresaId]);
@@ -2942,7 +3043,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Anexos_Entidade_EntidadeId] ON [qh].[Anexos] ([Entidade], [EntidadeId]);
@@ -2950,7 +3051,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_AplicacoesLote_RecebimentoId] ON [qh].[AplicacoesLote] ([RecebimentoId]);
@@ -2958,7 +3059,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Auditoria_Entidade_EntidadeId] ON [qh].[Auditoria] ([Entidade], [EntidadeId]);
@@ -2966,7 +3067,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Auditoria_Quando] ON [qh].[Auditoria] ([Quando]);
@@ -2974,7 +3075,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_AuditoriasInternas_EmpresaId] ON [qh].[AuditoriasInternas] ([EmpresaId]);
@@ -2982,7 +3083,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_AvaliacoesSemestrais_EmpresaId] ON [qh].[AvaliacoesSemestrais] ([EmpresaId]);
@@ -2990,7 +3091,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     EXEC(N'CREATE UNIQUE INDEX [IX_AvaliacoesSemestrais_EmpresaId_Periodo_FornecedorId] ON [qh].[AvaliacoesSemestrais] ([EmpresaId], [Periodo], [FornecedorId]) WHERE [Excluido] = 0');
@@ -2998,7 +3099,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_AvaliacoesSemestrais_FornecedorId] ON [qh].[AvaliacoesSemestrais] ([FornecedorId]);
@@ -3006,7 +3107,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Calibracoes_EquipamentoMedicaoId] ON [qh].[Calibracoes] ([EquipamentoMedicaoId]);
@@ -3014,7 +3115,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_CentrosCusto_EmpresaId] ON [qh].[CentrosCusto] ([EmpresaId]);
@@ -3022,7 +3123,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     EXEC(N'CREATE UNIQUE INDEX [IX_CentrosCusto_EmpresaId_Codigo] ON [qh].[CentrosCusto] ([EmpresaId], [Codigo]) WHERE [Excluido] = 0');
@@ -3030,7 +3131,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_CentrosCusto_ObraId] ON [qh].[CentrosCusto] ([ObraId]);
@@ -3038,7 +3139,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     EXEC(N'CREATE UNIQUE INDEX [IX_Checkouts_DocumentoRevisaoId] ON [qh].[Checkouts] ([DocumentoRevisaoId]) WHERE [CheckinEm] IS NULL AND [LiberadoForcadoPor] IS NULL AND [Excluido] = 0');
@@ -3046,7 +3147,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Checkouts_EmpresaId] ON [qh].[Checkouts] ([EmpresaId]);
@@ -3054,7 +3155,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     EXEC(N'CREATE UNIQUE INDEX [IX_Ciencias_DocumentoRevisaoId_UsuarioId] ON [qh].[Ciencias] ([DocumentoRevisaoId], [UsuarioId]) WHERE [Excluido] = 0');
@@ -3062,7 +3163,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Ciencias_EmpresaId] ON [qh].[Ciencias] ([EmpresaId]);
@@ -3070,7 +3171,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Ciencias_UsuarioId] ON [qh].[Ciencias] ([UsuarioId]);
@@ -3078,7 +3179,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Colaboradores_EmpresaId] ON [qh].[Colaboradores] ([EmpresaId]);
@@ -3086,7 +3187,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Colaboradores_EmpresaId_ObraId] ON [qh].[Colaboradores] ([EmpresaId], [ObraId]);
@@ -3094,7 +3195,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Colaboradores_ObraId_CpfHash] ON [qh].[Colaboradores] ([ObraId], [CpfHash]);
@@ -3102,7 +3203,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Constatacoes_AuditoriaInternaId] ON [qh].[Constatacoes] ([AuditoriaInternaId]);
@@ -3110,7 +3211,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_ContratoItens_ContratoId] ON [qh].[ContratoItens] ([ContratoId]);
@@ -3118,7 +3219,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_ContratoItens_ServicoControladoId] ON [qh].[ContratoItens] ([ServicoControladoId]);
@@ -3126,7 +3227,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Contratos_CentroCustoId] ON [qh].[Contratos] ([CentroCustoId]);
@@ -3134,7 +3235,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Contratos_CotacaoId] ON [qh].[Contratos] ([CotacaoId]);
@@ -3142,7 +3243,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Contratos_EmpresaId] ON [qh].[Contratos] ([EmpresaId]);
@@ -3150,7 +3251,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     EXEC(N'CREATE UNIQUE INDEX [IX_Contratos_EmpresaId_Numero] ON [qh].[Contratos] ([EmpresaId], [Numero]) WHERE [Excluido] = 0');
@@ -3158,7 +3259,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Contratos_EmpresaId_ObraId] ON [qh].[Contratos] ([EmpresaId], [ObraId]);
@@ -3166,7 +3267,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Contratos_FornecedorId] ON [qh].[Contratos] ([FornecedorId]);
@@ -3174,7 +3275,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Contratos_ObraId] ON [qh].[Contratos] ([ObraId]);
@@ -3182,7 +3283,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Contratos_RequisicaoId] ON [qh].[Contratos] ([RequisicaoId]);
@@ -3190,7 +3291,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE UNIQUE INDEX [IX_ContratoServicos_ContratoId_ServicoControladoId] ON [qh].[ContratoServicos] ([ContratoId], [ServicoControladoId]);
@@ -3198,7 +3299,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_ContratoServicos_ServicoControladoId] ON [qh].[ContratoServicos] ([ServicoControladoId]);
@@ -3206,7 +3307,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Copias_DocumentoRevisaoId] ON [qh].[Copias] ([DocumentoRevisaoId]);
@@ -3214,7 +3315,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Copias_EmpresaId] ON [qh].[Copias] ([EmpresaId]);
@@ -3222,7 +3323,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     EXEC(N'CREATE UNIQUE INDEX [IX_Copias_EmpresaId_NumeroCopia] ON [qh].[Copias] ([EmpresaId], [NumeroCopia]) WHERE [Excluido] = 0');
@@ -3230,7 +3331,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Copias_GrdId] ON [qh].[Copias] ([GrdId]);
@@ -3238,7 +3339,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Copias_ObraId] ON [qh].[Copias] ([ObraId]);
@@ -3246,7 +3347,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE UNIQUE INDEX [IX_Copias_QrToken] ON [qh].[Copias] ([QrToken]);
@@ -3254,7 +3355,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Copias_SolicitacaoCopiaId] ON [qh].[Copias] ([SolicitacaoCopiaId]);
@@ -3262,7 +3363,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE UNIQUE INDEX [IX_CotacaoFornecedores_CotacaoId_FornecedorId] ON [qh].[CotacaoFornecedores] ([CotacaoId], [FornecedorId]);
@@ -3270,7 +3371,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_CotacaoFornecedores_FornecedorId] ON [qh].[CotacaoFornecedores] ([FornecedorId]);
@@ -3278,7 +3379,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE UNIQUE INDEX [IX_CotacaoFornecedores_LinkResposta] ON [qh].[CotacaoFornecedores] ([LinkResposta]);
@@ -3286,7 +3387,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_CotacaoItens_CotacaoId] ON [qh].[CotacaoItens] ([CotacaoId]);
@@ -3294,7 +3395,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_CotacaoItens_FornecedorId] ON [qh].[CotacaoItens] ([FornecedorId]);
@@ -3302,7 +3403,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_CotacaoItens_RequisicaoItemId] ON [qh].[CotacaoItens] ([RequisicaoItemId]);
@@ -3310,7 +3411,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Cotacoes_EmpresaId] ON [qh].[Cotacoes] ([EmpresaId]);
@@ -3318,7 +3419,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     EXEC(N'CREATE UNIQUE INDEX [IX_Cotacoes_EmpresaId_Numero] ON [qh].[Cotacoes] ([EmpresaId], [Numero]) WHERE [Excluido] = 0');
@@ -3326,7 +3427,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Cotacoes_EmpresaId_ObraId] ON [qh].[Cotacoes] ([EmpresaId], [ObraId]);
@@ -3334,7 +3435,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Cotacoes_FornecedorVencedorId] ON [qh].[Cotacoes] ([FornecedorVencedorId]);
@@ -3342,7 +3443,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Cotacoes_ObraId] ON [qh].[Cotacoes] ([ObraId]);
@@ -3350,7 +3451,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Cotacoes_RequisicaoId] ON [qh].[Cotacoes] ([RequisicaoId]);
@@ -3358,7 +3459,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_DelegacoesAprovacao_EmpresaId] ON [qh].[DelegacoesAprovacao] ([EmpresaId]);
@@ -3366,7 +3467,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_DelegacoesAprovacao_ObraId] ON [qh].[DelegacoesAprovacao] ([ObraId]);
@@ -3374,7 +3475,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_DelegacoesAprovacao_SubstitutoUsuarioId_Inicio_Fim] ON [qh].[DelegacoesAprovacao] ([SubstitutoUsuarioId], [Inicio], [Fim]);
@@ -3382,7 +3483,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_DelegacoesAprovacao_TitularUsuarioId] ON [qh].[DelegacoesAprovacao] ([TitularUsuarioId]);
@@ -3390,7 +3491,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Documentos_EmpresaId] ON [qh].[Documentos] ([EmpresaId]);
@@ -3398,7 +3499,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     EXEC(N'CREATE UNIQUE INDEX [IX_Documentos_EmpresaId_Codigo] ON [qh].[Documentos] ([EmpresaId], [Codigo]) WHERE [Excluido] = 0');
@@ -3406,7 +3507,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Documentos_ObraId] ON [qh].[Documentos] ([ObraId]);
@@ -3414,7 +3515,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Documentos_PastaId] ON [qh].[Documentos] ([PastaId]);
@@ -3422,7 +3523,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Documentos_ProximaAnalise] ON [qh].[Documentos] ([ProximaAnalise]);
@@ -3430,7 +3531,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Documentos_RegraRetencaoId] ON [qh].[Documentos] ([RegraRetencaoId]);
@@ -3438,7 +3539,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Documentos_RevisaoVigenteId] ON [qh].[Documentos] ([RevisaoVigenteId]);
@@ -3446,7 +3547,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_DocumentosColaborador_EmpresaId] ON [qh].[DocumentosColaborador] ([EmpresaId]);
@@ -3454,7 +3555,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_DocumentosExternos_EmpresaId] ON [qh].[DocumentosExternos] ([EmpresaId]);
@@ -3462,7 +3563,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     EXEC(N'CREATE UNIQUE INDEX [IX_DocumentosExternos_EmpresaId_Identificacao_Edicao] ON [qh].[DocumentosExternos] ([EmpresaId], [Identificacao], [Edicao]) WHERE [Excluido] = 0');
@@ -3470,7 +3571,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE UNIQUE INDEX [IX_DocumentosRelacionados_DocumentoId_RelacionadoId] ON [qh].[DocumentosRelacionados] ([DocumentoId], [RelacionadoId]);
@@ -3478,7 +3579,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_DocumentosRelacionados_RelacionadoId] ON [qh].[DocumentosRelacionados] ([RelacionadoId]);
@@ -3486,7 +3587,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE UNIQUE INDEX [IX_Empresas_Cnpj] ON [qh].[Empresas] ([Cnpj]);
@@ -3494,7 +3595,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_EnsaiosModelo_ModeloInspecaoId] ON [qh].[EnsaiosModelo] ([ModeloInspecaoId]);
@@ -3502,7 +3603,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_EnsaiosRecebimento_EmpresaId] ON [qh].[EnsaiosRecebimento] ([EmpresaId]);
@@ -3510,7 +3611,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_EnsaiosRecebimento_RecebimentoId] ON [qh].[EnsaiosRecebimento] ([RecebimentoId]);
@@ -3518,7 +3619,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_EntregasEpi_EmpresaId] ON [qh].[EntregasEpi] ([EmpresaId]);
@@ -3526,7 +3627,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Epis_EmpresaId] ON [qh].[Epis] ([EmpresaId]);
@@ -3534,7 +3635,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Equipamentos_EmpresaId] ON [qh].[Equipamentos] ([EmpresaId]);
@@ -3542,7 +3643,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     EXEC(N'CREATE UNIQUE INDEX [IX_Equipamentos_EmpresaId_Codigo] ON [qh].[Equipamentos] ([EmpresaId], [Codigo]) WHERE [Excluido] = 0');
@@ -3550,7 +3651,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_EtapasAprovacao_DelegacaoAprovacaoId] ON [qh].[EtapasAprovacao] ([DelegacaoAprovacaoId]);
@@ -3558,7 +3659,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_EtapasAprovacao_PerfilAprovador_Decisao] ON [qh].[EtapasAprovacao] ([PerfilAprovador], [Decisao]);
@@ -3566,7 +3667,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_EtapasAprovacao_SolicitacaoAprovacaoId] ON [qh].[EtapasAprovacao] ([SolicitacaoAprovacaoId]);
@@ -3574,7 +3675,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_EtapasAprovacao_UsuarioAprovadorId] ON [qh].[EtapasAprovacao] ([UsuarioAprovadorId]);
@@ -3582,7 +3683,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_EtapasRevisao_DocumentoRevisaoId] ON [qh].[EtapasRevisao] ([DocumentoRevisaoId]);
@@ -3590,7 +3691,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_EventosDocumento_DocumentoId] ON [qh].[EventosDocumento] ([DocumentoId]);
@@ -3598,7 +3699,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_EventosDocumento_EmpresaId_DataHora] ON [qh].[EventosDocumento] ([EmpresaId], [DataHora]);
@@ -3606,7 +3707,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_ExecutantesPt_PermissaoTrabalhoId] ON [qh].[ExecutantesPt] ([PermissaoTrabalhoId]);
@@ -3614,7 +3715,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Exigencias_EmpresaId] ON [qh].[Exigencias] ([EmpresaId]);
@@ -3622,7 +3723,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_FornecedorDocumentos_DataValidade] ON [qh].[FornecedorDocumentos] ([DataValidade]);
@@ -3630,7 +3731,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_FornecedorDocumentos_EmpresaId] ON [qh].[FornecedorDocumentos] ([EmpresaId]);
@@ -3638,7 +3739,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_FornecedorDocumentos_FornecedorId] ON [qh].[FornecedorDocumentos] ([FornecedorId]);
@@ -3646,7 +3747,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_FornecedorDocumentos_TipoDocumentoExigidoId] ON [qh].[FornecedorDocumentos] ([TipoDocumentoExigidoId]);
@@ -3654,7 +3755,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Fornecedores_EmpresaId] ON [qh].[Fornecedores] ([EmpresaId]);
@@ -3662,7 +3763,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     EXEC(N'CREATE UNIQUE INDEX [IX_Fornecedores_EmpresaId_CpfCnpj] ON [qh].[Fornecedores] ([EmpresaId], [CpfCnpj]) WHERE [Excluido] = 0 AND [CpfCnpj] <> ''''');
@@ -3670,7 +3771,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Fornecedores_EmpresaId_RazaoSocial] ON [qh].[Fornecedores] ([EmpresaId], [RazaoSocial]);
@@ -3678,7 +3779,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_FuncaoExigencias_ExigenciaId] ON [qh].[FuncaoExigencias] ([ExigenciaId]);
@@ -3686,7 +3787,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_FuncaoExigencias_FuncaoObraId] ON [qh].[FuncaoExigencias] ([FuncaoObraId]);
@@ -3694,7 +3795,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Funcoes_EmpresaId] ON [qh].[Funcoes] ([EmpresaId]);
@@ -3702,7 +3803,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_FvmItens_RecebimentoId] ON [qh].[FvmItens] ([RecebimentoId]);
@@ -3710,7 +3811,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Fvs_EmpresaId] ON [qh].[Fvs] ([EmpresaId]);
@@ -3718,7 +3819,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     EXEC(N'CREATE UNIQUE INDEX [IX_Fvs_EmpresaId_Numero] ON [qh].[Fvs] ([EmpresaId], [Numero]) WHERE [Excluido] = 0');
@@ -3726,7 +3827,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Fvs_EmpresaId_ObraId] ON [qh].[Fvs] ([EmpresaId], [ObraId]);
@@ -3734,7 +3835,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Fvs_LocalId_ServicoControladoId_Status] ON [qh].[Fvs] ([LocalId], [ServicoControladoId], [Status]);
@@ -3742,7 +3843,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Fvs_ModeloInspecaoId] ON [qh].[Fvs] ([ModeloInspecaoId]);
@@ -3750,7 +3851,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_FvsItens_FvsId] ON [qh].[FvsItens] ([FvsId]);
@@ -3758,7 +3859,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_GrdItens_DocumentoRevisaoId] ON [qh].[GrdItens] ([DocumentoRevisaoId]);
@@ -3766,7 +3867,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_GrdItens_GrdId] ON [qh].[GrdItens] ([GrdId]);
@@ -3774,7 +3875,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Grds_ContratoId] ON [qh].[Grds] ([ContratoId]);
@@ -3782,7 +3883,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Grds_EmpresaId] ON [qh].[Grds] ([EmpresaId]);
@@ -3790,7 +3891,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     EXEC(N'CREATE UNIQUE INDEX [IX_Grds_EmpresaId_Numero] ON [qh].[Grds] ([EmpresaId], [Numero]) WHERE [Excluido] = 0');
@@ -3798,7 +3899,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Grds_FornecedorId] ON [qh].[Grds] ([FornecedorId]);
@@ -3806,7 +3907,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Grds_PedidoId] ON [qh].[Grds] ([PedidoId]);
@@ -3814,7 +3915,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE UNIQUE INDEX [IX_Grds_TokenConfirmacao] ON [qh].[Grds] ([TokenConfirmacao]);
@@ -3822,7 +3923,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_InspecaoSegurancaItens_InspecaoSegurancaId] ON [qh].[InspecaoSegurancaItens] ([InspecaoSegurancaId]);
@@ -3830,7 +3931,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_InspecoesSeguranca_EmpresaId] ON [qh].[InspecoesSeguranca] ([EmpresaId]);
@@ -3838,7 +3939,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_InspecoesSeguranca_EmpresaId_ObraId] ON [qh].[InspecoesSeguranca] ([EmpresaId], [ObraId]);
@@ -3846,7 +3947,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_ItensVerificacao_ModeloInspecaoId] ON [qh].[ItensVerificacao] ([ModeloInspecaoId]);
@@ -3854,7 +3955,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_LayoutsImportacao_EmpresaId] ON [qh].[LayoutsImportacao] ([EmpresaId]);
@@ -3862,7 +3963,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_LimitesAprovacao_EmpresaId] ON [qh].[LimitesAprovacao] ([EmpresaId]);
@@ -3870,7 +3971,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_LimitesAprovacao_ObraId] ON [qh].[LimitesAprovacao] ([ObraId]);
@@ -3878,7 +3979,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     EXEC(N'CREATE UNIQUE INDEX [IX_LimitesAprovacao_UsuarioId_Entidade_ObraId] ON [qh].[LimitesAprovacao] ([UsuarioId], [Entidade], [ObraId]) WHERE [Excluido] = 0 AND [Ativo] = 1');
@@ -3886,7 +3987,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_LinhasImportacao_LoteImportacaoId] ON [qh].[LinhasImportacao] ([LoteImportacaoId]);
@@ -3894,7 +3995,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_LinksPortal_EmpresaId] ON [qh].[LinksPortal] ([EmpresaId]);
@@ -3902,7 +4003,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_LinksPortal_FornecedorId] ON [qh].[LinksPortal] ([FornecedorId]);
@@ -3910,7 +4011,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE UNIQUE INDEX [IX_LinksPortal_TokenHash] ON [qh].[LinksPortal] ([TokenHash]);
@@ -3918,7 +4019,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Listas_EmpresaId] ON [qh].[Listas] ([EmpresaId]);
@@ -3926,7 +4027,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     EXEC(N'CREATE UNIQUE INDEX [IX_Listas_EmpresaId_Tipo_Nome] ON [qh].[Listas] ([EmpresaId], [Tipo], [Nome]) WHERE [Excluido] = 0');
@@ -3934,7 +4035,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Locais_EmpresaId] ON [qh].[Locais] ([EmpresaId]);
@@ -3942,7 +4043,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Locais_EmpresaId_ObraId] ON [qh].[Locais] ([EmpresaId], [ObraId]);
@@ -3950,7 +4051,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Locais_LocalPaiId] ON [qh].[Locais] ([LocalPaiId]);
@@ -3958,7 +4059,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Locais_ObraId] ON [qh].[Locais] ([ObraId]);
@@ -3966,7 +4067,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_LotesImportacao_EmpresaId] ON [qh].[LotesImportacao] ([EmpresaId]);
@@ -3974,7 +4075,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_LotesImportacao_EmpresaId_ArquivoHashSha256] ON [qh].[LotesImportacao] ([EmpresaId], [ArquivoHashSha256]);
@@ -3982,7 +4083,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_MateriaisControlados_EmpresaId] ON [qh].[MateriaisControlados] ([EmpresaId]);
@@ -3990,7 +4091,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     EXEC(N'CREATE UNIQUE INDEX [IX_MateriaisControlados_EmpresaId_Codigo] ON [qh].[MateriaisControlados] ([EmpresaId], [Codigo]) WHERE [Excluido] = 0');
@@ -3998,7 +4099,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_MedicaoItens_ContratoItemId] ON [qh].[MedicaoItens] ([ContratoItemId]);
@@ -4006,7 +4107,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_MedicaoItens_LocalId] ON [qh].[MedicaoItens] ([LocalId]);
@@ -4014,7 +4115,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_MedicaoItens_MedicaoId] ON [qh].[MedicaoItens] ([MedicaoId]);
@@ -4022,7 +4123,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     EXEC(N'CREATE UNIQUE INDEX [IX_Medicoes_ContratoId_NumeroMedicao] ON [qh].[Medicoes] ([ContratoId], [NumeroMedicao]) WHERE [Excluido] = 0');
@@ -4030,7 +4131,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Medicoes_EmpresaId] ON [qh].[Medicoes] ([EmpresaId]);
@@ -4038,7 +4139,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Medicoes_EmpresaId_ObraId] ON [qh].[Medicoes] ([EmpresaId], [ObraId]);
@@ -4046,7 +4147,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Medicoes_ObraId] ON [qh].[Medicoes] ([ObraId]);
@@ -4054,7 +4155,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Medicoes_PlanoAcaoId] ON [qh].[Medicoes] ([PlanoAcaoId]);
@@ -4062,7 +4163,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_ModelosInspecao_EmpresaId] ON [qh].[ModelosInspecao] ([EmpresaId]);
@@ -4070,7 +4171,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     EXEC(N'CREATE UNIQUE INDEX [IX_ModelosInspecao_EmpresaId_Codigo] ON [qh].[ModelosInspecao] ([EmpresaId], [Codigo]) WHERE [Excluido] = 0');
@@ -4078,7 +4179,23 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
+)
+BEGIN
+    CREATE INDEX [IX_Notas_EmpresaId] ON [qh].[Notas] ([EmpresaId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260927125805_Inicial'
+)
+BEGIN
+    CREATE INDEX [IX_Notas_Entidade_EntidadeId] ON [qh].[Notas] ([Entidade], [EntidadeId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Obras_EmpresaId] ON [qh].[Obras] ([EmpresaId]);
@@ -4086,7 +4203,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     EXEC(N'CREATE UNIQUE INDEX [IX_Obras_EmpresaId_Codigo] ON [qh].[Obras] ([EmpresaId], [Codigo]) WHERE [Excluido] = 0');
@@ -4094,7 +4211,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Ocorrencias_EmpresaId] ON [qh].[Ocorrencias] ([EmpresaId]);
@@ -4102,7 +4219,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Ocorrencias_EmpresaId_ObraId] ON [qh].[Ocorrencias] ([EmpresaId], [ObraId]);
@@ -4110,7 +4227,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Pagamentos_ChaveNFe] ON [qh].[Pagamentos] ([ChaveNFe]);
@@ -4118,7 +4235,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Pagamentos_ContratoId] ON [qh].[Pagamentos] ([ContratoId]);
@@ -4126,7 +4243,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Pagamentos_EmpresaId] ON [qh].[Pagamentos] ([EmpresaId]);
@@ -4134,7 +4251,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     EXEC(N'CREATE UNIQUE INDEX [IX_Pagamentos_EmpresaId_Numero] ON [qh].[Pagamentos] ([EmpresaId], [Numero]) WHERE [Excluido] = 0');
@@ -4142,7 +4259,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Pagamentos_FornecedorId] ON [qh].[Pagamentos] ([FornecedorId]);
@@ -4150,7 +4267,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Pagamentos_MedicaoId] ON [qh].[Pagamentos] ([MedicaoId]);
@@ -4158,7 +4275,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Pagamentos_ObraId] ON [qh].[Pagamentos] ([ObraId]);
@@ -4166,7 +4283,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Pagamentos_PedidoId] ON [qh].[Pagamentos] ([PedidoId]);
@@ -4174,7 +4291,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Parametros_EmpresaId] ON [qh].[Parametros] ([EmpresaId]);
@@ -4182,7 +4299,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     EXEC(N'CREATE UNIQUE INDEX [IX_Parametros_EmpresaId_Chave] ON [qh].[Parametros] ([EmpresaId], [Chave]) WHERE [Excluido] = 0');
@@ -4190,7 +4307,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Participantes_TurmaId] ON [qh].[Participantes] ([TurmaId]);
@@ -4198,7 +4315,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Pastas_EmpresaId] ON [qh].[Pastas] ([EmpresaId]);
@@ -4206,7 +4323,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Pastas_PastaPaiId] ON [qh].[Pastas] ([PastaPaiId]);
@@ -4214,7 +4331,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_PedidoItens_CodigoInsumo] ON [qh].[PedidoItens] ([CodigoInsumo]);
@@ -4222,7 +4339,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_PedidoItens_MaterialControladoId] ON [qh].[PedidoItens] ([MaterialControladoId]);
@@ -4230,7 +4347,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_PedidoItens_PedidoId] ON [qh].[PedidoItens] ([PedidoId]);
@@ -4238,7 +4355,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_PedidoItens_ProdutoId] ON [qh].[PedidoItens] ([ProdutoId]);
@@ -4246,7 +4363,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_PedidoItens_RequisicaoItemId] ON [qh].[PedidoItens] ([RequisicaoItemId]);
@@ -4254,7 +4371,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Pedidos_ContratoId] ON [qh].[Pedidos] ([ContratoId]);
@@ -4262,7 +4379,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Pedidos_CotacaoId] ON [qh].[Pedidos] ([CotacaoId]);
@@ -4270,7 +4387,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Pedidos_EmpresaId] ON [qh].[Pedidos] ([EmpresaId]);
@@ -4278,7 +4395,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     EXEC(N'CREATE UNIQUE INDEX [IX_Pedidos_EmpresaId_Numero] ON [qh].[Pedidos] ([EmpresaId], [Numero]) WHERE [Excluido] = 0');
@@ -4286,7 +4403,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Pedidos_EmpresaId_ObraId] ON [qh].[Pedidos] ([EmpresaId], [ObraId]);
@@ -4294,7 +4411,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Pedidos_FornecedorId] ON [qh].[Pedidos] ([FornecedorId]);
@@ -4302,7 +4419,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Pedidos_ObraId] ON [qh].[Pedidos] ([ObraId]);
@@ -4310,7 +4427,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Pedidos_RequisicaoId] ON [qh].[Pedidos] ([RequisicaoId]);
@@ -4318,7 +4435,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Permissoes_EmpresaId] ON [qh].[Permissoes] ([EmpresaId]);
@@ -4326,7 +4443,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Permissoes_Escopo_AlvoId] ON [qh].[Permissoes] ([Escopo], [AlvoId]);
@@ -4334,7 +4451,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Permissoes_UsuarioId] ON [qh].[Permissoes] ([UsuarioId]);
@@ -4342,7 +4459,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_PermissoesTrabalho_EmpresaId] ON [qh].[PermissoesTrabalho] ([EmpresaId]);
@@ -4350,7 +4467,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_PermissoesTrabalho_EmpresaId_ObraId] ON [qh].[PermissoesTrabalho] ([EmpresaId], [ObraId]);
@@ -4358,7 +4475,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_PlanosAcao_EmpresaId] ON [qh].[PlanosAcao] ([EmpresaId]);
@@ -4366,7 +4483,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     EXEC(N'CREATE UNIQUE INDEX [IX_PlanosAcao_EmpresaId_Numero] ON [qh].[PlanosAcao] ([EmpresaId], [Numero]) WHERE [Excluido] = 0');
@@ -4374,7 +4491,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_PlanosAcao_FornecedorId_Status] ON [qh].[PlanosAcao] ([FornecedorId], [Status]);
@@ -4382,7 +4499,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_PlanosAcao_ObraId] ON [qh].[PlanosAcao] ([ObraId]);
@@ -4390,7 +4507,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Produtos_EmpresaId] ON [qh].[Produtos] ([EmpresaId]);
@@ -4398,7 +4515,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     EXEC(N'CREATE UNIQUE INDEX [IX_Produtos_EmpresaId_Codigo] ON [qh].[Produtos] ([EmpresaId], [Codigo]) WHERE [Excluido] = 0');
@@ -4406,7 +4523,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Produtos_MaterialControladoId] ON [qh].[Produtos] ([MaterialControladoId]);
@@ -4414,7 +4531,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Qualificacoes_DataValidade] ON [qh].[Qualificacoes] ([DataValidade]);
@@ -4422,7 +4539,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Qualificacoes_EmpresaId] ON [qh].[Qualificacoes] ([EmpresaId]);
@@ -4430,7 +4547,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Qualificacoes_FornecedorId_DataQualificacao] ON [qh].[Qualificacoes] ([FornecedorId], [DataQualificacao]);
@@ -4438,7 +4555,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Qualificacoes_MaterialControladoId] ON [qh].[Qualificacoes] ([MaterialControladoId]);
@@ -4446,7 +4563,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Qualificacoes_ServicoControladoId] ON [qh].[Qualificacoes] ([ServicoControladoId]);
@@ -4454,7 +4571,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_RecebimentoItens_PedidoItemId] ON [qh].[RecebimentoItens] ([PedidoItemId]);
@@ -4462,7 +4579,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_RecebimentoItens_RecebimentoId] ON [qh].[RecebimentoItens] ([RecebimentoId]);
@@ -4470,7 +4587,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Recebimentos_ContratoId] ON [qh].[Recebimentos] ([ContratoId]);
@@ -4478,7 +4595,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Recebimentos_EmpresaId] ON [qh].[Recebimentos] ([EmpresaId]);
@@ -4486,7 +4603,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     EXEC(N'CREATE UNIQUE INDEX [IX_Recebimentos_EmpresaId_Numero] ON [qh].[Recebimentos] ([EmpresaId], [Numero]) WHERE [Excluido] = 0');
@@ -4494,7 +4611,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Recebimentos_EmpresaId_ObraId] ON [qh].[Recebimentos] ([EmpresaId], [ObraId]);
@@ -4502,7 +4619,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Recebimentos_FornecedorId_DataRecebimento] ON [qh].[Recebimentos] ([FornecedorId], [DataRecebimento]);
@@ -4510,7 +4627,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Recebimentos_ObraId] ON [qh].[Recebimentos] ([ObraId]);
@@ -4518,7 +4635,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Recebimentos_PedidoId] ON [qh].[Recebimentos] ([PedidoId]);
@@ -4526,7 +4643,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_RegrasNotificacao_EmpresaId] ON [qh].[RegrasNotificacao] ([EmpresaId]);
@@ -4534,7 +4651,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_RegrasRetencao_EmpresaId] ON [qh].[RegrasRetencao] ([EmpresaId]);
@@ -4542,7 +4659,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_RequisicaoItens_MaterialControladoId] ON [qh].[RequisicaoItens] ([MaterialControladoId]);
@@ -4550,7 +4667,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_RequisicaoItens_ProdutoId] ON [qh].[RequisicaoItens] ([ProdutoId]);
@@ -4558,7 +4675,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_RequisicaoItens_RequisicaoId] ON [qh].[RequisicaoItens] ([RequisicaoId]);
@@ -4566,7 +4683,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_RequisicaoItens_ServicoControladoId] ON [qh].[RequisicaoItens] ([ServicoControladoId]);
@@ -4574,7 +4691,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Requisicoes_CentroCustoId] ON [qh].[Requisicoes] ([CentroCustoId]);
@@ -4582,7 +4699,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Requisicoes_EmpresaId] ON [qh].[Requisicoes] ([EmpresaId]);
@@ -4590,7 +4707,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     EXEC(N'CREATE UNIQUE INDEX [IX_Requisicoes_EmpresaId_Numero] ON [qh].[Requisicoes] ([EmpresaId], [Numero]) WHERE [Excluido] = 0');
@@ -4598,7 +4715,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Requisicoes_EmpresaId_ObraId] ON [qh].[Requisicoes] ([EmpresaId], [ObraId]);
@@ -4606,7 +4723,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Requisicoes_EmpresaId_Status] ON [qh].[Requisicoes] ([EmpresaId], [Status]);
@@ -4614,7 +4731,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Requisicoes_ObraId] ON [qh].[Requisicoes] ([ObraId]);
@@ -4622,7 +4739,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     EXEC(N'CREATE UNIQUE INDEX [IX_Revisoes_DocumentoId_Revisao] ON [qh].[Revisoes] ([DocumentoId], [Revisao]) WHERE [Excluido] = 0');
@@ -4630,7 +4747,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Revisoes_EmpresaId] ON [qh].[Revisoes] ([EmpresaId]);
@@ -4638,7 +4755,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Rncs_EmpresaId] ON [qh].[Rncs] ([EmpresaId]);
@@ -4646,7 +4763,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     EXEC(N'CREATE UNIQUE INDEX [IX_Rncs_EmpresaId_Numero] ON [qh].[Rncs] ([EmpresaId], [Numero]) WHERE [Excluido] = 0');
@@ -4654,7 +4771,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Rncs_FornecedorId_Status] ON [qh].[Rncs] ([FornecedorId], [Status]);
@@ -4662,7 +4779,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE UNIQUE INDEX [IX_Sequencias_EmpresaId_Chave] ON [qh].[Sequencias] ([EmpresaId], [Chave]);
@@ -4670,7 +4787,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_ServicosControlados_DocumentoItsId] ON [qh].[ServicosControlados] ([DocumentoItsId]);
@@ -4678,7 +4795,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_ServicosControlados_EmpresaId] ON [qh].[ServicosControlados] ([EmpresaId]);
@@ -4686,7 +4803,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     EXEC(N'CREATE UNIQUE INDEX [IX_ServicosControlados_EmpresaId_Codigo] ON [qh].[ServicosControlados] ([EmpresaId], [Codigo]) WHERE [Excluido] = 0');
@@ -4694,7 +4811,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_SolicitacaoCopiaItens_DocumentoRevisaoId] ON [qh].[SolicitacaoCopiaItens] ([DocumentoRevisaoId]);
@@ -4702,7 +4819,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_SolicitacaoCopiaItens_SolicitacaoCopiaId] ON [qh].[SolicitacaoCopiaItens] ([SolicitacaoCopiaId]);
@@ -4710,7 +4827,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_SolicitacoesAprovacao_EmpresaId] ON [qh].[SolicitacoesAprovacao] ([EmpresaId]);
@@ -4718,7 +4835,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_SolicitacoesAprovacao_EmpresaId_Status] ON [qh].[SolicitacoesAprovacao] ([EmpresaId], [Status]);
@@ -4726,7 +4843,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_SolicitacoesAprovacao_Entidade_EntidadeId] ON [qh].[SolicitacoesAprovacao] ([Entidade], [EntidadeId]);
@@ -4734,7 +4851,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_SolicitacoesAprovacao_SolicitanteUsuarioId] ON [qh].[SolicitacoesAprovacao] ([SolicitanteUsuarioId]);
@@ -4742,7 +4859,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_SolicitacoesCopia_EmpresaId] ON [qh].[SolicitacoesCopia] ([EmpresaId]);
@@ -4750,7 +4867,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     EXEC(N'CREATE UNIQUE INDEX [IX_SolicitacoesCopia_EmpresaId_Numero] ON [qh].[SolicitacoesCopia] ([EmpresaId], [Numero]) WHERE [Excluido] = 0');
@@ -4758,7 +4875,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_SolicitacoesCopia_ObraId] ON [qh].[SolicitacoesCopia] ([ObraId]);
@@ -4766,7 +4883,55 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
+)
+BEGIN
+    CREATE UNIQUE INDEX [IX_TarefaLeituras_TarefaId_UsuarioId] ON [qh].[TarefaLeituras] ([TarefaId], [UsuarioId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260927125805_Inicial'
+)
+BEGIN
+    CREATE INDEX [IX_TarefaProrrogacoes_TarefaId] ON [qh].[TarefaProrrogacoes] ([TarefaId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260927125805_Inicial'
+)
+BEGIN
+    CREATE INDEX [IX_Tarefas_EmpresaId] ON [qh].[Tarefas] ([EmpresaId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260927125805_Inicial'
+)
+BEGIN
+    EXEC(N'CREATE UNIQUE INDEX [IX_Tarefas_EmpresaId_Numero] ON [qh].[Tarefas] ([EmpresaId], [Numero]) WHERE [Excluido] = 0');
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260927125805_Inicial'
+)
+BEGIN
+    CREATE INDEX [IX_Tarefas_OrigemEntidade_OrigemId] ON [qh].[Tarefas] ([OrigemEntidade], [OrigemId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260927125805_Inicial'
+)
+BEGIN
+    CREATE INDEX [IX_Tarefas_ResponsavelId_Status] ON [qh].[Tarefas] ([ResponsavelId], [Status]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_TiposDocumento_EmpresaId] ON [qh].[TiposDocumento] ([EmpresaId]);
@@ -4774,7 +4939,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Treinamentos_EmpresaId] ON [qh].[Treinamentos] ([EmpresaId]);
@@ -4782,7 +4947,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Turmas_EmpresaId] ON [qh].[Turmas] ([EmpresaId]);
@@ -4790,7 +4955,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_Usuarios_EmpresaId] ON [qh].[Usuarios] ([EmpresaId]);
@@ -4798,7 +4963,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE UNIQUE INDEX [IX_Usuarios_EntraObjectId] ON [qh].[Usuarios] ([EntraObjectId]);
@@ -4806,7 +4971,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE INDEX [IX_UsuariosObras_ObraId] ON [qh].[UsuariosObras] ([ObraId]);
@@ -4814,7 +4979,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     CREATE UNIQUE INDEX [IX_UsuariosObras_UsuarioId_ObraId] ON [qh].[UsuariosObras] ([UsuarioId], [ObraId]);
@@ -4822,7 +4987,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     ALTER TABLE [qh].[Checkouts] ADD CONSTRAINT [FK_Checkouts_Revisoes_DocumentoRevisaoId] FOREIGN KEY ([DocumentoRevisaoId]) REFERENCES [qh].[Revisoes] ([Id]) ON DELETE NO ACTION;
@@ -4830,7 +4995,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     ALTER TABLE [qh].[Ciencias] ADD CONSTRAINT [FK_Ciencias_Revisoes_DocumentoRevisaoId] FOREIGN KEY ([DocumentoRevisaoId]) REFERENCES [qh].[Revisoes] ([Id]) ON DELETE NO ACTION;
@@ -4838,7 +5003,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     ALTER TABLE [qh].[ContratoItens] ADD CONSTRAINT [FK_ContratoItens_ServicosControlados_ServicoControladoId] FOREIGN KEY ([ServicoControladoId]) REFERENCES [qh].[ServicosControlados] ([Id]) ON DELETE NO ACTION;
@@ -4846,7 +5011,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     ALTER TABLE [qh].[ContratoServicos] ADD CONSTRAINT [FK_ContratoServicos_ServicosControlados_ServicoControladoId] FOREIGN KEY ([ServicoControladoId]) REFERENCES [qh].[ServicosControlados] ([Id]) ON DELETE NO ACTION;
@@ -4854,7 +5019,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     ALTER TABLE [qh].[Copias] ADD CONSTRAINT [FK_Copias_Revisoes_DocumentoRevisaoId] FOREIGN KEY ([DocumentoRevisaoId]) REFERENCES [qh].[Revisoes] ([Id]) ON DELETE NO ACTION;
@@ -4862,7 +5027,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     ALTER TABLE [qh].[CotacaoItens] ADD CONSTRAINT [FK_CotacaoItens_RequisicaoItens_RequisicaoItemId] FOREIGN KEY ([RequisicaoItemId]) REFERENCES [qh].[RequisicaoItens] ([Id]) ON DELETE NO ACTION;
@@ -4870,7 +5035,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     ALTER TABLE [qh].[Documentos] ADD CONSTRAINT [FK_Documentos_Revisoes_RevisaoVigenteId] FOREIGN KEY ([RevisaoVigenteId]) REFERENCES [qh].[Revisoes] ([Id]) ON DELETE NO ACTION;
@@ -4878,11 +5043,11 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [qh].[__Migracoes]
-    WHERE [MigrationId] = N'20260927110343_Inicial'
+    WHERE [MigrationId] = N'20260927125805_Inicial'
 )
 BEGIN
     INSERT INTO [qh].[__Migracoes] ([MigrationId], [ProductVersion])
-    VALUES (N'20260927110343_Inicial', N'10.0.12');
+    VALUES (N'20260927125805_Inicial', N'10.0.12');
 END;
 
 COMMIT;

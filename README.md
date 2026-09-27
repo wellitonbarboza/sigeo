@@ -16,7 +16,8 @@ Modelo e telas seguem o mesmo padrão do sistema de referência (Azure + Blazor)
 | Qualidade | Documentos do SGQ (árvore, revisões, check-out, etapas com assinatura) · Cópias controladas e solicitações · Lista mestra · Externos · Avaliação semestral · Planos de ação · GRD · Leituras · Registros (retenção) | D01–D13, T16, T17 |
 | Qualidade da Obra | Mapa de inspeções · FVS (inspeção, reinspeção, liberação) · Modelos de FVS/FVM · Não conformidades (RNC) · Ações corretivas · Equipamentos de medição (calibração) · Auditorias internas · Tela de campo `/campo/fvs/{id}` e QR do local `/campo/local/{qr}` | Q01–Q15 |
 | Segurança e Pessoas | Colaboradores (próprios e terceiros, CPF mascarado) · Exigências por função · Documentos do colaborador · Treinamentos · Entrega de EPI (CA) · Inspeções de segurança · Permissão de trabalho · Ocorrências e acidentes · Painel SST | S01–S13 |
-| Painéis | Minhas pendências (com delegação) · Painel de indicadores | T19–T28 |
+| Painéis | Minhas pendências (com delegação e tarefas) · Painel de indicadores | T19–T28 |
+| Colaboração | Tarefas internas (prazo, prorrogação justificada, confirmação de leitura, origem RNC/AC) · Notas por registro (histórico imutável) | padrão ExpertData |
 | Sistema | Usuários, limites, alçadas e delegações · Parâmetros e listas · Permissões do SGQ · Log de auditoria | — |
 | Público (sem login) | Portal do fornecedor `/portal/{token}` · Verificação de cópia `/qr/{token}` · Confirmação de GRD `/grd/confirmar/{token}` | — |
 
@@ -28,6 +29,7 @@ Modelo e telas seguem o mesmo padrão do sistema de referência (Azure + Blazor)
 - **Documentos do SGQ**: elaboração → análise crítica → aprovação → publicação; revisão publicada é imutável; a anterior vira obsoleta e as cópias físicas entram em recolhimento; leitura obrigatória gerada na publicação; todo acesso vai para o log.
 - **Qualidade da obra**: FVS não conforme abre RNC e bloqueia a etapa seguinte do local; medição de serviço controlado só com **FVS liberada**; FVS só com equipamento calibrado; lote em quarentena até o ensaio; revisão da ITS coloca o modelo em revisão.
 - **SST**: situação do colaborador calculada pelas exigências da função (ASO, NR, integração, EPI); PT só com executantes aptos para a atividade; EPI com CA vencido é bloqueado.
+- **Cotação com 3 economias** (vs. ofertado, vs. último preço pago, vs. preço de referência) e **proposta do fornecedor pelo link** `/cotacao/{token}` (sem login; preços, prazo, frete, condição e validade).
 - **Aditivos de contrato**: limite de 25% (parametrizável), aprovação por alçada e aplicação no saldo do contrato.
 - **Rastreabilidade**: `AuditoriaInterceptor` (antes/depois) + tabelas temporais; exclusão sempre lógica.
 

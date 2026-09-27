@@ -66,6 +66,7 @@
             {
                 <div class="form" style="margin-top:12px"><Campo Rotulo="Cópia do e-mail de envio para (Engenheiro, Almoxarife…)" Classe="s12"><input @bind="_emails" placeholder="email1@exemplo.com; email2@exemplo.com" /></Campo></div>
             }
+            @if (_p.CriadoEm != default) { <Notas Entidade="Pedido" EntidadeId="_p.Id" /> }
             <Autorizacoes Entidade="EntidadeAprovavel.Pedido" EntidadeId="_p.Id" Versao="_versao" AoDecidir="Recarregar" />
         }
     </ChildContent>
