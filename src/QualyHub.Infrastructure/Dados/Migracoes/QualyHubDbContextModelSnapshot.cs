@@ -400,6 +400,79 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                             }));
                 });
 
+            modelBuilder.Entity("QualyHub.Domain.Cadastros.CategoriaProduto", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset?>("AlteradoEm")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("AlteradoPor")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<bool>("Ativo")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTimeOffset>("CriadoEm")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("CriadoPor")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("Excluido")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTimeOffset?>("ExcluidoEm")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("ExcluidoPor")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<Guid?>("PaiId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<string>("Sigla")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("nvarchar(3)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EmpresaId");
+
+                    b.HasIndex("PaiId");
+
+                    b.HasIndex("EmpresaId", "PaiId", "Nome")
+                        .IsUnique()
+                        .HasFilter("[Excluido] = 0");
+
+                    b.HasIndex("EmpresaId", "PaiId", "Sigla")
+                        .IsUnique()
+                        .HasFilter("[Excluido] = 0");
+
+                    b.ToTable("CategoriasProduto", "qh");
+                });
+
             modelBuilder.Entity("QualyHub.Domain.Cadastros.Fornecedor", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1147,6 +1220,10 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
 
                     b.Property<string>("Codigo")
                         .IsRequired()
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
+
+                    b.Property<string>("CodigoAnterior")
                         .HasMaxLength(400)
                         .HasColumnType("nvarchar(400)");
 
@@ -8826,6 +8903,16 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("QualyHub.Domain.Cadastros.CategoriaProduto", b =>
+                {
+                    b.HasOne("QualyHub.Domain.Cadastros.CategoriaProduto", "Pai")
+                        .WithMany("Subgrupos")
+                        .HasForeignKey("PaiId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Pai");
+                });
+
             modelBuilder.Entity("QualyHub.Domain.Cadastros.FornecedorContato", b =>
                 {
                     b.HasOne("QualyHub.Domain.Cadastros.Fornecedor", "Fornecedor")
@@ -9731,6 +9818,11 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
             modelBuilder.Entity("QualyHub.Domain.Aprovacoes.SolicitacaoAprovacao", b =>
                 {
                     b.Navigation("Etapas");
+                });
+
+            modelBuilder.Entity("QualyHub.Domain.Cadastros.CategoriaProduto", b =>
+                {
+                    b.Navigation("Subgrupos");
                 });
 
             modelBuilder.Entity("QualyHub.Domain.Cadastros.Fornecedor", b =>

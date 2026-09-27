@@ -292,6 +292,8 @@ public class Produto : EntidadeAuditavel, IOrigemObraPrima
     /// <summary>Quantidade por embalagem (caixa, pacote, fardo).</summary>
     public decimal? QuantidadePorEmbalagem { get; set; }
     public string? OrigemSistema { get; set; }
+    /// <summary>Código antes da última recodificação (provisório → definitivo, ou reclassificação antes do 1º uso).</summary>
+    public string? CodigoAnterior { get; set; }
     /// <summary>Grupo "A Cadastrar" (ou vazio) = produto criado pela NF/importação que ainda precisa ser classificado.</summary>
     public bool AClassificar => string.IsNullOrWhiteSpace(Grupo) || Grupo.Equals("A Cadastrar", StringComparison.OrdinalIgnoreCase);
     /// <summary>Prazo de fornecimento (lead time) usado no cronograma de suprimentos.</summary>

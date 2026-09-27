@@ -1,0 +1,80 @@
+@page "/cadastros/categorias"
+@inherits PaginaBase
+@inject CodigosProdutoServico Codigos
+
+<PageTitle>Categorias de produto · QualyHub</PageTitle>
+<div class="tela">
+    <div class="topo"><h1>Categorias de produto e siglas</h1>
+        <div class="direita"><button class="btn sec pq" disabled="@Ocupado" @onclick="GerarDosProdutos" title="Cria os grupos/subgrupos que aparecem nos produtos, com sigla sugerida (não altera códigos)"><Icone Nome="mais" Tam="14" /> Gerar a partir dos produtos</button></div></div>
+    <div class="miolo"><div class="pagina">
+        <div class="alerta info"><Icone Nome="info" /> Código do produto = <b>SIGLA DO GRUPO</b>-<b>SIGLA DO SUBGRUPO</b>-<b>0000</b> (ex.: HID-CNX-0001). Ao mudar uma sigla, os produtos ainda não usados são recodificados; os já usados mantêm o código (fica o anterior guardado). Subgrupos duplicados por grafia podem ser mesclados.</div>
+        <Erros Lista="ErrosForm" />
+        <table class="itens">
+            <thead><tr><th style="width:90px">Sigla</th><th>Grupo › Subgrupo</th><th class="num">Produtos</th><th>Ações</th></tr></thead>
+            <tbody>
+                @foreach (var g in _cats.Where(c => c.PaiId == null).OrderBy(c => c.Nome))
+                {
+                    <tr style="background:var(--superficie-2)">
+                        <td><input value="@g.Sigla" maxlength="3" style="width:64px;text-transform:uppercase;font-weight:700" @onchange="e => Sigla(g, e.Value?.ToString())" /></td>
+                        <td><b>@g.Nome</b></td><td class="num"><b>@_qtd.Where(q => q.Key.Grupo == g.Nome).Sum(q => q.Value)</b></td><td></td>
+                    </tr>
+                    @foreach (var s in _cats.Where(c => c.PaiId == g.Id).OrderBy(c => c.Nome))
+                    {
+                        <tr>
+                            <td style="padding-left:18px"><input value="@s.Sigla" maxlength="3" style="width:64px;text-transform:uppercase" @onchange="e => Sigla(s, e.Value?.ToString())" /></td>
+                            <td style="padding-left:18px">› @s.Nome <span class="mudo">(@g.Sigla-@s.Sigla-0001)</span></td>
+                            <td class="num">@_qtd.GetValueOrDefault((g.Nome, s.Nome))</td>
+                            <td><select @onchange="e => Mesclar(s, e.Value?.ToString())"><option value="">Mesclar em…</option>@foreach (var d in _cats.Where(c => c.PaiId == g.Id && c.Id != s.Id).OrderBy(c => c.Nome)) { <option value="@d.Id">@d.Nome</option> }</select></td>
+                        </tr>
+                    }
+                }
+                @if (_cats.Count == 0) { <tr><td colspan="4" class="mudo">Nenhuma categoria. Importe produtos ou clique em "Gerar a partir dos produtos".</td></tr> }
+            </tbody>
+        </table>
+    </div></div>
+</div>
+
+@code {
+    private List<CategoriaProduto> _cats = [];
+    private Dictionary<(string? Grupo, string? Sub), int> _qtd = [];
+
+    protected override Task OnInitializedAsync() => Carregar();
+
+    private async Task Carregar()
+    {
+        await using var db = Fabrica.Criar();
+        _cats = await db.CategoriasProduto.AsNoTracking().Where(c => c.Ativo).ToListAsync();
+        _qtd = (await db.Produtos.AsNoTracking().GroupBy(p => new { p.Grupo, p.SubGrupo }).Select(g => new { g.Key.Grupo, g.Key.SubGrupo, N = g.Count() }).ToListAsync())
+               .ToDictionary(x => (x.Grupo, x.SubGrupo), x => x.N);
+    }
+
+    private async Task Sigla(CategoriaProduto c, string? nova)
+    {
+        int n = 0;
+        if (await Executar(async () => n = await Codigos.AlterarSiglaAsync(c.Id, nova ?? ""), null))
+            Notif.Sucesso($"Sigla alterada. {n} produto(s) recodificado(s).");
+        await Carregar();
+    }
+
+    private async Task Mesclar(CategoriaProduto origem, string? destino)
+    {
+        if (!Guid.TryParse(destino, out var d)) return;
+        int n = 0;
+        if (await Executar(async () => n = await Codigos.MesclarAsync(origem.Id, d), null)) Notif.Sucesso($"Subgrupo mesclado: {n} produto(s) movido(s).");
+        await Carregar();
+    }
+
+    private async Task GerarDosProdutos()
+    {
+        await Executar(async () =>
+        {
+            await using var db = Fabrica.Criar();
+            var cache = new CodigosProdutoServico.Cache();
+            var pares = await db.Produtos.AsNoTracking().Where(p => p.Grupo != null && p.SubGrupo != null && p.Grupo != "A Cadastrar" && p.SubGrupo != "A Cadastrar")
+                                .Select(p => new { p.Grupo, p.SubGrupo }).Distinct().ToListAsync();
+            foreach (var x in pares) await CodigosProdutoServico.GarantirCategoriasAsync(db, x.Grupo!, x.SubGrupo!, cache);
+            await db.SaveChangesAsync();
+        }, "Categorias geradas com siglas sugeridas — revise e ajuste.");
+        await Carregar();
+    }
+}

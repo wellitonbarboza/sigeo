@@ -112,6 +112,7 @@ public class QualyHubDbContext(DbContextOptions<QualyHubDbContext> options, IUsu
     public DbSet<Ocorrencia> Ocorrencias => Set<Ocorrencia>();
     public DbSet<Nota> Notas => Set<Nota>();
     public DbSet<FornecedorContato> FornecedorContatos => Set<FornecedorContato>();
+    public DbSet<CategoriaProduto> CategoriasProduto => Set<CategoriaProduto>();
     public DbSet<Tarefa> Tarefas => Set<Tarefa>();
     public DbSet<TarefaProrrogacao> TarefaProrrogacoes => Set<TarefaProrrogacao>();
     public DbSet<TarefaLeitura> TarefaLeituras => Set<TarefaLeitura>();

@@ -5258,3 +5258,81 @@ END;
 COMMIT;
 GO
 
+BEGIN TRANSACTION;
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260927182223_CodigoProdutoPadronizado'
+)
+BEGIN
+    ALTER TABLE [qh].[Produtos] ADD [CodigoAnterior] nvarchar(400) NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260927182223_CodigoProdutoPadronizado'
+)
+BEGIN
+    CREATE TABLE [qh].[CategoriasProduto] (
+        [Id] uniqueidentifier NOT NULL,
+        [PaiId] uniqueidentifier NULL,
+        [Nome] nvarchar(120) NOT NULL,
+        [Sigla] nvarchar(3) NOT NULL,
+        [Ativo] bit NOT NULL,
+        [EmpresaId] uniqueidentifier NOT NULL,
+        [CriadoEm] datetimeoffset NOT NULL,
+        [CriadoPor] nvarchar(150) NOT NULL,
+        [AlteradoEm] datetimeoffset NULL,
+        [AlteradoPor] nvarchar(150) NULL,
+        [Excluido] bit NOT NULL,
+        [ExcluidoEm] datetimeoffset NULL,
+        [ExcluidoPor] nvarchar(150) NULL,
+        [RowVersion] rowversion NOT NULL,
+        CONSTRAINT [PK_CategoriasProduto] PRIMARY KEY ([Id]),
+        CONSTRAINT [FK_CategoriasProduto_CategoriasProduto_PaiId] FOREIGN KEY ([PaiId]) REFERENCES [qh].[CategoriasProduto] ([Id]) ON DELETE NO ACTION
+    );
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260927182223_CodigoProdutoPadronizado'
+)
+BEGIN
+    CREATE INDEX [IX_CategoriasProduto_EmpresaId] ON [qh].[CategoriasProduto] ([EmpresaId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260927182223_CodigoProdutoPadronizado'
+)
+BEGIN
+    EXEC(N'CREATE UNIQUE INDEX [IX_CategoriasProduto_EmpresaId_PaiId_Nome] ON [qh].[CategoriasProduto] ([EmpresaId], [PaiId], [Nome]) WHERE [Excluido] = 0');
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260927182223_CodigoProdutoPadronizado'
+)
+BEGIN
+    EXEC(N'CREATE UNIQUE INDEX [IX_CategoriasProduto_EmpresaId_PaiId_Sigla] ON [qh].[CategoriasProduto] ([EmpresaId], [PaiId], [Sigla]) WHERE [Excluido] = 0');
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260927182223_CodigoProdutoPadronizado'
+)
+BEGIN
+    CREATE INDEX [IX_CategoriasProduto_PaiId] ON [qh].[CategoriasProduto] ([PaiId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260927182223_CodigoProdutoPadronizado'
+)
+BEGIN
+    INSERT INTO [qh].[__Migracoes] ([MigrationId], [ProductVersion])
+    VALUES (N'20260927182223_CodigoProdutoPadronizado', N'10.0.12');
+END;
+
+COMMIT;
+GO
+

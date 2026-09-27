@@ -1,6 +1,7 @@
 @page "/cadastros/produtos"
 @inherits PaginaBase
 @inject QualyHub.Infrastructure.Importacao.ImportadorProdutosExpertData ImpProd
+@inject CodigosProdutoServico Codigos
 
 <Pagina Titulo="Produtos (insumos)" Grade="_grade" AoNovo="Novo" AoAtualizar="Carregar">
     <ChildContent>
@@ -12,6 +13,8 @@
                 <Kpi Rotulo="Vinculados a controlado" Valor="@_itens?.Count(p => p.MaterialControladoId != null)" Tom="ok" />
             </div>
             <div class="barra-acoes">
+                <a class="btn sec pq" href="cadastros/categorias"><Icone Nome="lista" Tam="14" /> Categorias e siglas</a>
+                <button class="btn sec pq" disabled="@Ocupado" @onclick="PreverPadronizacao" title="Aplica o padrão GRUPO-SUBGRUPO-0000 aos produtos ainda não usados"><Icone Nome="atualizar" Tam="14" /> Padronizar códigos</button>
                 <label class="btn sec pq" style="cursor:pointer" title="Planilha 'Export Produto Genérico' do ExpertData (.xlsx)"><Icone Nome="upload" Tam="14" /> Importar planilha (ExpertData)<InputFile OnChange="Prever" accept=".xlsx" style="display:none" /></label>
             </div>
             <Grade T="Produto" @ref="_grade" Itens="_itens" AoClicar="Abrir" NomeExportacao="produtos" CriadoPor="p => p.CriadoPor">
@@ -27,6 +30,7 @@
                     <Coluna T="Produto" Titulo="Referência" Valor="p => p.Referencia" Visivel="false" />
                     <Coluna T="Produto" Titulo="EAN" Valor="p => p.Ean" Visivel="false" />
                     <Coluna T="Produto" Titulo="Qtd/emb." Valor="p => p.QuantidadePorEmbalagem" Alinhar="num" Visivel="false" />
+                    <Coluna T="Produto" Titulo="Código anterior" Valor="p => p.CodigoAnterior" Visivel="false" />
                     <Coluna T="Produto" Titulo="Origem" Valor="p => p.OrigemSistema" Visivel="false" />
                     <Coluna T="Produto" Titulo="Lead time (dias)" Valor="p => p.LeadTimeDias" Alinhar="num" />
                     <Coluna T="Produto" Titulo="Preço ref." Valor="p => p.PrecoReferencia" Formato="C2" Alinhar="num" />
@@ -45,7 +49,7 @@
         {
             <Erros Lista="ErrosForm" />
             <div class="form">
-                <Campo Rotulo="Código" Obrigatorio Classe="s3"><input @bind="_p.Codigo" /></Campo>
+                <Campo Rotulo="Código" Classe="s3" Ajuda="@(_p.CriadoEm == default ? "Gerado ao salvar: GRUPO-SUBGRUPO-0000" : _p.CodigoAnterior is null ? "Fixo após o 1º uso" : $"Anterior: {_p.CodigoAnterior}")"><input readonly value="@(string.IsNullOrEmpty(_p.Codigo) ? "(automático)" : _p.Codigo)" /></Campo>
                 <Campo Rotulo="Descrição genérica" Obrigatorio Classe="s7" Ajuda="Nunca coloque a marca na descrição genérica."><input @bind="_p.Nome" /></Campo>
                 <Campo Rotulo="Unidade" Obrigatorio Classe="s2"><input @bind="_p.Unidade" list="unidades" /><datalist id="unidades">@foreach (var u in new[] { "UN", "PC", "KG", "M", "M2", "M3", "L", "CX", "RL", "SC", "PAR", "BR", "GL", "CJ", "JG", "TON", "VB", "H" }) { <option>@u</option> }</datalist></Campo>
                 <Campo Rotulo="Descrição completa" Classe="s12"><textarea @bind="_p.DescricaoCompleta" rows="2"></textarea></Campo>
@@ -66,12 +70,32 @@
     <Rodape><button class="btn prim" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="16" /> Salvar</button></Rodape>
 </Modal>
 
+<Modal @bind-Aberto="_abertoPad" Titulo="Padronizar códigos de produto" Tamanho="media">
+    <ChildContent>
+        @if (_pad is not null)
+        {
+            <div class="kpis">
+                <Kpi Rotulo="Recodificar" Valor="@_pad.Recodificados" Tom="info" Sub="GRUPO-SUBGRUPO-0000" />
+                <Kpi Rotulo="Provisórios" Valor="@_pad.Provisorios" Tom="aviso" Sub="TMP- (sem classificação)" />
+                <Kpi Rotulo="Mantidos (já usados)" Valor="@_pad.MantidosPorUso" Sub="código congelado" />
+            </div>
+            <div class="alerta info"><Icone Nome="info" /> O código anterior fica guardado no produto. A sequência continua do último código de cada categoria. Revise as siglas em "Categorias e siglas" antes, se quiser.</div>
+            @if (_pad.Amostra.Count > 0)
+            {
+                <table class="itens"><thead><tr><th>De</th><th>Para</th><th>Produto</th></tr></thead>
+                    <tbody>@foreach (var a in _pad.Amostra) { <tr><td class="mudo">@a.De</td><td><b>@a.Para</b></td><td>@a.Produto</td></tr> }</tbody></table>
+            }
+        }
+    </ChildContent>
+    <Rodape>@if (_pad is not null && _pad.Recodificados + _pad.Provisorios > 0) { <button class="btn prim" disabled="@Ocupado" @onclick="AplicarPadronizacao"><Icone Nome="check" Tam="16" /> Padronizar @(_pad.Recodificados + _pad.Provisorios) código(s)</button> }</Rodape>
+</Modal>
+
 <Modal @bind-Aberto="_abertoImp" Titulo="Importar produtos — planilha ExpertData (produto genérico)" Tamanho="grande">
     <ChildContent>
         @if (_previa is not null)
         {
             <div class="kpis">
-                <Kpi Rotulo="Novos" Valor="@_previa.Novos" Tom="ok" Sub="recebem código P000001…" />
+                <Kpi Rotulo="Novos" Valor="@_previa.Novos" Tom="ok" Sub="código HID-CNX-0001 (ou TMP-)" />
                 <Kpi Rotulo="Atualizar" Valor="@_previa.Atualizar" Tom="info" Sub="NCM, descrição, classificação" />
                 <Kpi Rotulo="Duplicados no arquivo" Valor="@_previa.Duplicados" Tom="aviso" Sub="mesma descrição + unidade" />
                 <Kpi Rotulo="A classificar" Valor="@_previa.AClassificar" Tom="aviso" Sub="grupo 'A Cadastrar'" />
@@ -104,6 +128,15 @@
     private bool _aberto;
     private List<Opcao> _materiais = [];
 
+    private bool _abertoPad;
+    private ResultadoPadronizacao? _pad;
+    private async Task PreverPadronizacao() { if (await Executar(async () => _pad = await Codigos.PadronizarAsync(false))) _abertoPad = true; }
+    private async Task AplicarPadronizacao()
+    {
+        ResultadoPadronizacao? r = null;
+        if (await Executar(async () => r = await Codigos.PadronizarAsync(true)))
+        { Notif.Sucesso($"{r!.Recodificados + r.Provisorios} código(s) padronizado(s)."); _abertoPad = false; await Carregar(); }
+    }
     private List<string> _grupos = [];
     private List<(string? Grupo, string Sub)> _subgrupos = [];
     private bool _abertoImp;
@@ -153,8 +186,8 @@
         var ok = await Executar(async () =>
         {
             var e = new List<string>();
-            if (string.IsNullOrWhiteSpace(_p!.Codigo)) e.Add("Informe o código.");
-            if (string.IsNullOrWhiteSpace(_p.Nome)) e.Add("Informe o nome.");
+            if (string.IsNullOrWhiteSpace(_p!.Nome)) e.Add("Informe a descrição genérica.");
+            if (!string.IsNullOrWhiteSpace(_p.Grupo) && !_p.AClassificar && string.IsNullOrWhiteSpace(_p.SubGrupo)) e.Add("Informe o subgrupo (o código usa grupo + subgrupo).");
             if (_p.LeadTimeDias < 0) e.Add("Lead time não pode ser negativo.");
             if (_p.PrecoReferencia is < 0) e.Add("Preço de referência não pode ser negativo.");
             _p.Ncm = string.IsNullOrWhiteSpace(_p.Ncm) ? null : new string(_p.Ncm.Where(char.IsDigit).ToArray());
@@ -166,6 +199,7 @@
             ValidacaoException.Se(e);
             await using var db = Fabrica.Criar();
             _p.MaterialControlado = null;
+            await CodigosProdutoServico.AplicarAoSalvarAsync(db, _p, new CodigosProdutoServico.Cache());
             await Grafo.SalvarAsync(db, _p);
             await db.SaveChangesAsync();
         }, "Produto salvo.");

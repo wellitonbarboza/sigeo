@@ -121,6 +121,18 @@ internal sealed class MaterialCfg : IEntityTypeConfiguration<MaterialControlado>
     }
 }
 
+internal sealed class CategoriaProdutoCfg : IEntityTypeConfiguration<CategoriaProduto>
+{
+    public void Configure(EntityTypeBuilder<CategoriaProduto> b)
+    {
+        b.Property(x => x.Sigla).HasMaxLength(3);
+        b.Property(x => x.Nome).HasMaxLength(120);
+        b.HasOne(x => x.Pai).WithMany(x => x.Subgrupos).HasForeignKey(x => x.PaiId);
+        b.HasIndex(x => new { x.EmpresaId, x.PaiId, x.Sigla }).IsUnique().HasFilter("[Excluido] = 0");
+        b.HasIndex(x => new { x.EmpresaId, x.PaiId, x.Nome }).IsUnique().HasFilter("[Excluido] = 0");
+    }
+}
+
 internal sealed class ProdutoCfg : IEntityTypeConfiguration<Produto>
 {
     public void Configure(EntityTypeBuilder<Produto> b)

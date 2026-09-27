@@ -24,7 +24,7 @@ public sealed record PreviaImportacaoProdutos(IReadOnlyList<LinhaProdutoPlanilha
 /// <summary>
 /// Importa a planilha "Export Produto Genérico" do ExpertData (GRUPO, SUB-GRUPO, DESCRIÇÃO GENÉRICA, UN, NCMID, DESCRIÇÃO COMPLETA).
 /// Chave = descrição genérica normalizada + unidade padronizada (a planilha não tem código): repetidos no arquivo são ignorados.
-/// Novos recebem código sequencial (P000001). Unidades equivalentes são padronizadas (UND/UNID → UN, PEC/PEÇA → PC, MT → M…).
+/// Novos recebem o código padronizado da categoria (HID-CNX-0001) ou provisório (TMP-000001) se "A Cadastrar". Unidades equivalentes são padronizadas (UND/UNID → UN, PEC/PEÇA → PC, MT → M…).
 /// NCM só é aceito com 8 dígitos e diferente de 00000000 (o export usa zero para "sem NCM"). Produto cujo sub-grupo está listado num material controlado é vinculado a ele automaticamente.
 /// Campo vazio na planilha nunca apaga dado do QualyHub.
 /// </summary>
@@ -162,15 +162,23 @@ public sealed class ImportadorProdutosExpertData(FabricaDb fabrica)
     {
         await using var db = fabrica.Criar();
         var (_, _, validos) = await AnalisarAsync(arquivo, db, true, ct);
+        db.ChangeTracker.AutoDetectChangesEnabled = false; // lote grande
         int ins = 0, upd = 0;
+        var cache = new CodigosProdutoServico.Cache();
         foreach (var (r, atual, ctrl) in validos)
         {
-            if (atual is not null) { if (Aplicar(atual, r, ctrl).Count > 0) upd++; continue; }
-            var p = new Produto { Codigo = $"P{await Numerador.ProximoAsync(db, "Produto", ct):000000}", Nome = r.Nome.Trim(), Unidade = r.Un, Ativo = true };
+            if (atual is not null)
+            {
+                if (Aplicar(atual, r, ctrl).Count > 0) { upd++; await CodigosProdutoServico.AplicarAoSalvarAsync(db, atual, cache, ct); }
+                continue;
+            }
+            var p = new Produto { Nome = r.Nome.Trim(), Unidade = r.Un, Ativo = true };
             Aplicar(p, r, ctrl);
+            p.Codigo = await CodigosProdutoServico.GerarAsync(db, p, cache, ct);
             db.Produtos.Add(p);
             ins++;
         }
+        db.ChangeTracker.AutoDetectChangesEnabled = true;
         await db.SaveChangesAsync(ct);
         return (ins, upd);
     }
