@@ -37,6 +37,9 @@ param orcamentoMensal int = 500
 @description('E-mails que recebem alertas de orçamento.')
 param emailsAlerta array
 
+@description('Cria o orçamento com alerta de custo (desligue se a assinatura não suportar Consumption budgets).')
+param criarOrcamento bool = true
+
 @description('Início do orçamento: primeiro dia do mês corrente (yyyy-MM-01).')
 param orcamentoInicio string
 
@@ -268,7 +271,7 @@ resource rWebKv 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
 }
 
 // ---------------------------- Orçamento e alerta de custo ---------------------------
-resource orcamento 'Microsoft.Consumption/budgets@2023-11-01' = {
+resource orcamento 'Microsoft.Consumption/budgets@2023-11-01' = if (criarOrcamento) {
   name: 'orc-${nome}'
   properties: {
     category: 'Cost'
