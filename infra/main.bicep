@@ -22,7 +22,7 @@ param sqlAdminGrupoObjectId string
 param sqlAdminGrupoNome string
 
 @description('SKU do plano. B1 atende o MVP; subir para B2/S1/P0v3 quando houver uso real.')
-@allowed([ 'B1', 'B2', 'B3', 'S1', 'P0v3', 'P1v3' ])
+@allowed([ 'F1', 'B1', 'B2', 'B3', 'S1', 'P0v3', 'P1v3' ])
 param appServiceSku string = 'B1'
 
 @description('vCores máximos do SQL serverless (0.5 a 2 cobre o MVP).')
@@ -227,7 +227,7 @@ resource web 'Microsoft.Web/sites@2023-12-01' = {
     clientAffinityEnabled: true // Blazor Server: mantém o circuito SignalR na mesma instância
     siteConfig: {
       linuxFxVersion: 'DOTNETCORE|10.0'
-      alwaysOn: true
+      alwaysOn: appServiceSku != 'F1' // F1 (gratuito) não permite Always On
       webSocketsEnabled: true      // Blazor Server
       http20Enabled: true
       minTlsVersion: '1.2'

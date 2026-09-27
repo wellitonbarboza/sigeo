@@ -26,8 +26,11 @@ read -r -p "  Assinatura a usar [Enter = $SUB]: " s; SUB="${s:-$SUB}"
 az account set --subscription "$SUB"
 TENANT=$(az account show --query tenantId -o tsv)
 EU=$(az ad signed-in-user show --query id -o tsv)
-read -r -p "  E-mail para alerta de custo: " EMAIL
+while [[ -z "${EMAIL:-}" || "$EMAIL" != *@*.* ]]; do read -r -p "  E-mail para alerta de custo (obrigatório): " EMAIL; done
 read -r -p "  Orçamento mensal (moeda da assinatura) [500]: " ORC; ORC="${ORC:-500}"
+echo "  Plano do App Service: B1 (~US\$13/mês, recomendado) ou F1 (gratuito, para teste: dorme sem uso, 60 min CPU/dia)."
+read -r -p "  Plano [${SKU:-B1}]: " s; SKU="${s:-${SKU:-B1}}"
+echo "  Região atual: $LOCAL (mude com LOCAL=eastus2 bash deploy-cloudshell.sh)"
 echo "  Assinatura $SUB · tenant $TENANT · grupo de recursos $RG · região $LOCAL"
 
 titulo "2/7 Grupo administrador do SQL ($GRUPO_DBA)"
@@ -54,11 +57,13 @@ DEP="qualyhub-$(date +%Y%m%d%H%M)"
 if ! az deployment group create -g "$RG" -n "$DEP" --template-file main.json \
       --parameters ambiente="$AMBIENTE" sqlAdminGrupoObjectId="$GRUPO_ID" sqlAdminGrupoNome="$GRUPO_DBA" \
                    orcamentoInicio="$(date +%Y-%m-01)" orcamentoMensal="$ORC" emailsAlerta="[\"$EMAIL\"]" \
-                   entraClientId="$CLIENT_ID" entraTenantId="$TENANT" -o none; then
+                   entraClientId="$CLIENT_ID" entraTenantId="$TENANT" appServiceSku="$SKU" -o none; then
   echo "  Falhou. Se o erro for no orçamento (Consumption), tentando sem ele…"
+  echo "  (Se o erro for 'SubscriptionIsOverQuotaForSku', a assinatura não tem cota para $SKU nesta região:"
+  echo "   peça cota em Portal › Cotas › App Service, ou rode de novo com o plano F1.)"
   az deployment group create -g "$RG" -n "$DEP-b" --template-file main.json \
       --parameters ambiente="$AMBIENTE" sqlAdminGrupoObjectId="$GRUPO_ID" sqlAdminGrupoNome="$GRUPO_DBA" criarOrcamento=false \
-                   orcamentoInicio="$(date +%Y-%m-01)" emailsAlerta="[\"$EMAIL\"]" entraClientId="$CLIENT_ID" entraTenantId="$TENANT" -o none
+                   orcamentoInicio="$(date +%Y-%m-01)" emailsAlerta="[\"$EMAIL\"]" entraClientId="$CLIENT_ID" entraTenantId="$TENANT" appServiceSku="$SKU" -o none
   DEP="$DEP-b"
 fi
 out() { az deployment group show -g "$RG" -n "$DEP" --query "properties.outputs.$1.value" -o tsv; }
