@@ -5053,3 +5053,131 @@ END;
 COMMIT;
 GO
 
+BEGIN TRANSACTION;
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260927170352_FornecedorCadastroCompleto'
+)
+BEGIN
+    ALTER TABLE [qh].[Fornecedores] ADD [CapitalSocial] decimal(18,4) NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260927170352_FornecedorCadastroCompleto'
+)
+BEGIN
+    ALTER TABLE [qh].[Fornecedores] ADD [DataFundacao] date NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260927170352_FornecedorCadastroCompleto'
+)
+BEGIN
+    ALTER TABLE [qh].[Fornecedores] ADD [Mei] bit NOT NULL DEFAULT CAST(0 AS bit);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260927170352_FornecedorCadastroCompleto'
+)
+BEGIN
+    ALTER TABLE [qh].[Fornecedores] ADD [OptanteSimples] bit NOT NULL DEFAULT CAST(0 AS bit);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260927170352_FornecedorCadastroCompleto'
+)
+BEGIN
+    ALTER TABLE [qh].[Fornecedores] ADD [OrigemAlteradoEm] datetimeoffset NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260927170352_FornecedorCadastroCompleto'
+)
+BEGIN
+    ALTER TABLE [qh].[Fornecedores] ADD [OrigemAlteradoPor] nvarchar(400) NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260927170352_FornecedorCadastroCompleto'
+)
+BEGIN
+    ALTER TABLE [qh].[Fornecedores] ADD [OrigemCriadoEm] datetimeoffset NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260927170352_FornecedorCadastroCompleto'
+)
+BEGIN
+    ALTER TABLE [qh].[Fornecedores] ADD [OrigemCriadoPor] nvarchar(400) NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260927170352_FornecedorCadastroCompleto'
+)
+BEGIN
+    ALTER TABLE [qh].[Fornecedores] ADD [OrigemSistema] nvarchar(400) NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260927170352_FornecedorCadastroCompleto'
+)
+BEGIN
+    ALTER TABLE [qh].[Fornecedores] ADD [Site] nvarchar(400) NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260927170352_FornecedorCadastroCompleto'
+)
+BEGIN
+    ALTER TABLE [qh].[Fornecedores] ADD [Telefone0800] nvarchar(400) NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260927170352_FornecedorCadastroCompleto'
+)
+BEGIN
+    CREATE TABLE [qh].[FornecedorContatos] (
+        [Id] uniqueidentifier NOT NULL,
+        [FornecedorId] uniqueidentifier NOT NULL,
+        [Nome] nvarchar(400) NOT NULL,
+        [Funcao] nvarchar(400) NULL,
+        [Telefone] nvarchar(400) NULL,
+        [Celular] nvarchar(400) NULL,
+        [Email] nvarchar(400) NULL,
+        [Principal] bit NOT NULL,
+        CONSTRAINT [PK_FornecedorContatos] PRIMARY KEY ([Id]),
+        CONSTRAINT [FK_FornecedorContatos_Fornecedores_FornecedorId] FOREIGN KEY ([FornecedorId]) REFERENCES [qh].[Fornecedores] ([Id]) ON DELETE NO ACTION
+    );
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260927170352_FornecedorCadastroCompleto'
+)
+BEGIN
+    CREATE INDEX [IX_FornecedorContatos_FornecedorId] ON [qh].[FornecedorContatos] ([FornecedorId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260927170352_FornecedorCadastroCompleto'
+)
+BEGIN
+    INSERT INTO [qh].[__Migracoes] ([MigrationId], [ProductVersion])
+    VALUES (N'20260927170352_FornecedorCadastroCompleto', N'10.0.12');
+END;
+
+COMMIT;
+GO
+

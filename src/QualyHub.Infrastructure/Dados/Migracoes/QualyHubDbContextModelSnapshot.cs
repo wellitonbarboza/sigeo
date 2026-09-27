@@ -420,6 +420,10 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                         .HasMaxLength(400)
                         .HasColumnType("nvarchar(400)");
 
+                    b.Property<decimal?>("CapitalSocial")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
                     b.Property<string>("Cep")
                         .HasMaxLength(9)
                         .HasColumnType("nvarchar(9)");
@@ -453,6 +457,9 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                         .HasMaxLength(150)
                         .HasColumnType("nvarchar(150)");
 
+                    b.Property<DateOnly?>("DataFundacao")
+                        .HasColumnType("date");
+
                     b.Property<string>("Emails")
                         .HasColumnType("nvarchar(max)");
 
@@ -481,6 +488,9 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                         .HasMaxLength(400)
                         .HasColumnType("nvarchar(400)");
 
+                    b.Property<bool>("Mei")
+                        .HasColumnType("bit");
+
                     b.Property<string>("NaturezaJuridica")
                         .HasMaxLength(400)
                         .HasColumnType("nvarchar(400)");
@@ -494,6 +504,27 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                         .HasColumnType("decimal(18,4)");
 
                     b.Property<string>("Numero")
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
+
+                    b.Property<bool>("OptanteSimples")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTimeOffset?>("OrigemAlteradoEm")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("OrigemAlteradoPor")
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
+
+                    b.Property<DateTimeOffset?>("OrigemCriadoEm")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("OrigemCriadoPor")
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
+
+                    b.Property<string>("OrigemSistema")
                         .HasMaxLength(400)
                         .HasColumnType("nvarchar(400)");
 
@@ -522,6 +553,10 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("rowversion");
 
+                    b.Property<string>("Site")
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
+
                     b.Property<string>("SituacaoCadastral")
                         .HasMaxLength(400)
                         .HasColumnType("nvarchar(400)");
@@ -530,6 +565,10 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                         .IsRequired()
                         .HasMaxLength(40)
                         .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("Telefone0800")
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
 
                     b.Property<string>("Telefones")
                         .HasMaxLength(400)
@@ -569,6 +608,46 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                                     .HasPeriodEnd("PeriodEnd")
                                     .HasColumnName("PeriodEnd");
                             }));
+                });
+
+            modelBuilder.Entity("QualyHub.Domain.Cadastros.FornecedorContato", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Celular")
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
+
+                    b.Property<string>("Email")
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
+
+                    b.Property<Guid>("FornecedorId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Funcao")
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
+
+                    b.Property<bool>("Principal")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Telefone")
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FornecedorId");
+
+                    b.ToTable("FornecedorContatos", "qh");
                 });
 
             modelBuilder.Entity("QualyHub.Domain.Cadastros.FornecedorDocumento", b =>
@@ -8718,6 +8797,17 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("QualyHub.Domain.Cadastros.FornecedorContato", b =>
+                {
+                    b.HasOne("QualyHub.Domain.Cadastros.Fornecedor", "Fornecedor")
+                        .WithMany("Contatos")
+                        .HasForeignKey("FornecedorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Fornecedor");
+                });
+
             modelBuilder.Entity("QualyHub.Domain.Cadastros.FornecedorDocumento", b =>
                 {
                     b.HasOne("QualyHub.Domain.Cadastros.Fornecedor", "Fornecedor")
@@ -9616,6 +9706,8 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
 
             modelBuilder.Entity("QualyHub.Domain.Cadastros.Fornecedor", b =>
                 {
+                    b.Navigation("Contatos");
+
                     b.Navigation("Documentos");
 
                     b.Navigation("Qualificacoes");

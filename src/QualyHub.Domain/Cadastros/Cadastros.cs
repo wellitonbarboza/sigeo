@@ -33,6 +33,19 @@ public class TipoDocumentoExigido : EntidadeAuditavel
 }
 
 /// <summary>T08 · Fornecedor (dados da Receita + tipo de fornecimento + status de qualificação).</summary>
+/// <summary>Contato do fornecedor (comercial, financeiro, técnico, SST…).</summary>
+public class FornecedorContato : Entidade
+{
+    public Guid FornecedorId { get; set; }
+    public Fornecedor Fornecedor { get; set; } = null!;
+    public string Nome { get; set; } = string.Empty;
+    public string? Funcao { get; set; }
+    public string? Telefone { get; set; }
+    public string? Celular { get; set; }
+    public string? Email { get; set; }
+    public bool Principal { get; set; }
+}
+
 public class Fornecedor : EntidadeAuditavel, IOrigemObraPrima, IHistoricoTemporal
 {
     public string CpfCnpj { get; set; } = string.Empty;
@@ -54,6 +67,18 @@ public class Fornecedor : EntidadeAuditavel, IOrigemObraPrima, IHistoricoTempora
     public string? Porte { get; set; }
     public string? SituacaoCadastral { get; set; }
     public string? Cnae { get; set; }
+    public decimal? CapitalSocial { get; set; }
+    public DateOnly? DataFundacao { get; set; }
+    public string? Telefone0800 { get; set; }
+    public string? Site { get; set; }
+    public bool OptanteSimples { get; set; }
+    public bool Mei { get; set; }
+    /// <summary>Sistema de origem do cadastro (ex.: "ExpertData", "Obra Prima") e trilha de quem criou/alterou lá.</summary>
+    public string? OrigemSistema { get; set; }
+    public string? OrigemCriadoPor { get; set; }
+    public DateTimeOffset? OrigemCriadoEm { get; set; }
+    public string? OrigemAlteradoPor { get; set; }
+    public DateTimeOffset? OrigemAlteradoEm { get; set; }
     public TipoFornecimento TipoFornecimento { get; set; }
     public StatusQualificacao StatusQualificacao { get; set; } = StatusQualificacao.EmQualificacao;
     /// <summary>Desqualificado = inativo no sistema.</summary>
@@ -65,6 +90,7 @@ public class Fornecedor : EntidadeAuditavel, IOrigemObraPrima, IHistoricoTempora
 
     public ICollection<FornecedorDocumento> Documentos { get; set; } = [];
     public ICollection<FornecedorQualificacao> Qualificacoes { get; set; } = [];
+    public ICollection<FornecedorContato> Contatos { get; set; } = [];
 
     public string NomeExibicao => string.IsNullOrWhiteSpace(NomeFantasia) ? RazaoSocial : NomeFantasia!;
 

@@ -3,6 +3,7 @@
 @inject SuprimentosServico Sup
 @inject PortalServico Portal
 @inject NavigationManager Nav
+@inject QualyHub.Infrastructure.Importacao.ImportadorFornecedoresExpertData ImpExpert
 
 <Pagina Titulo="Fornecedores" Grade="_grade" AoNovo="Novo" AoAtualizar="Carregar">
     <ChildContent>
@@ -12,6 +13,9 @@
                 <Kpi Rotulo="Qualificados" Valor="@_itens?.Count(f => f.StatusQualificacao == StatusQualificacao.Qualificado)" Tom="ok" />
                 <Kpi Rotulo="Qualificação vencida" Valor="@_itens?.Count(f => f.StatusQualificacao == StatusQualificacao.Vencida)" Sub="reconsultar" Tom="erro" />
                 <Kpi Rotulo="Sem e-mail" Valor="@_itens?.Count(f => string.IsNullOrWhiteSpace(f.Emails))" Sub="bloqueia envio de pedido" Tom="aviso" />
+            </div>
+            <div class="barra-acoes">
+                <label class="btn sec pq" style="cursor:pointer" title="Planilha 'Export' do cadastro de fornecedores do ExpertData (.xlsx)"><Icone Nome="upload" Tam="14" /> Importar planilha (ExpertData)<InputFile OnChange="Prever" accept=".xlsx" style="display:none" /></label>
             </div>
             <Grade T="Fornecedor" @ref="_grade" Itens="_itens" AoClicar="Editar" NomeExportacao="fornecedores" CriadoPor="f => f.CriadoPor">
                 <Acoes><button title="Editar" @onclick="() => Editar(context)"><Icone Nome="editar" Tam="16" /></button><button title="Qualificação" @onclick='() => Nav.NavigateTo($"fornecedores/qualificacao?f={context.Id}")'><Icone Nome="selo" Tam="16" /></button></Acoes>
@@ -24,6 +28,15 @@
                     <Coluna T="Fornecedor" Titulo="Status de qualificação" Valor="f => f.StatusQualificacao"><Modelo><Selo Texto="@De(context.StatusQualificacao)" Tom="@Tom(context.StatusQualificacao)" /></Modelo></Coluna>
                     <Coluna T="Fornecedor" Titulo="Nota média" Valor="f => f.NotaMedia" Alinhar="num" />
                     <Coluna T="Fornecedor" Titulo="Ativo" Valor="f => f.Ativo" />
+                    <Coluna T="Fornecedor" Titulo="Telefones" Valor="f => f.Telefones" Visivel="false" />
+                    <Coluna T="Fornecedor" Titulo="E-mails" Valor="f => f.Emails" Visivel="false" />
+                    <Coluna T="Fornecedor" Titulo="Porte" Valor="f => f.Porte" Visivel="false" />
+                    <Coluna T="Fornecedor" Titulo="Situação cadastral" Valor="f => f.SituacaoCadastral" Visivel="false" />
+                    <Coluna T="Fornecedor" Titulo="CNAE" Valor="f => f.Cnae" Visivel="false" />
+                    <Coluna T="Fornecedor" Titulo="Capital social" Valor="f => f.CapitalSocial" Formato="C2" Alinhar="num" Visivel="false" />
+                    <Coluna T="Fornecedor" Titulo="Fundação" Valor="f => f.DataFundacao" Visivel="false" />
+                    <Coluna T="Fornecedor" Titulo="MEI" Valor="f => f.Mei" Visivel="false" />
+                    <Coluna T="Fornecedor" Titulo="Origem" Valor="f => f.OrigemSistema" Visivel="false" />
                     <Coluna T="Fornecedor" Titulo="Criado por" Valor="f => f.CriadoPor" Visivel="false" />
                     <Coluna T="Fornecedor" Titulo="Criado em" Valor="f => f.CriadoEm" Visivel="false" />
                 </Colunas>
@@ -44,8 +57,13 @@
                 <Campo Rotulo="Nome fantasia" Classe="s3"><input @bind="_f.NomeFantasia" /></Campo>
                 <Campo Rotulo="Inscrição estadual" Classe="s3"><input @bind="_f.InscricaoEstadual" /></Campo>
                 <Campo Rotulo="Inscrição municipal" Classe="s3"><input @bind="_f.InscricaoMunicipal" /></Campo>
-                <Campo Rotulo="Porte" Classe="s3"><input @bind="_f.Porte" /></Campo>
-                <Campo Rotulo="CNAE" Classe="s3"><input @bind="_f.Cnae" /></Campo>
+                <Campo Rotulo="Porte" Classe="s3"><input @bind="_f.Porte" list="portes" /><datalist id="portes"><option>Micro Empresa</option><option>Pequeno Porte</option><option>Demais</option></datalist></Campo>
+                <Campo Rotulo="Natureza jurídica" Classe="s4"><input @bind="_f.NaturezaJuridica" /></Campo>
+                <Campo Rotulo="Situação cadastral (Receita)" Classe="s3"><input @bind="_f.SituacaoCadastral" list="situacoes" /><datalist id="situacoes"><option>Ativa</option><option>Suspensa</option><option>Inapta</option><option>Baixada</option><option>Nula</option></datalist></Campo>
+                <Campo Rotulo="Capital social (R$)" Classe="s2"><input type="number" step="0.01" @bind="_f.CapitalSocial" /></Campo>
+                <Campo Rotulo="Fundação" Classe="s3"><input type="date" @bind="_f.DataFundacao" /></Campo>
+                <Campo Rotulo="CNAE principal" Classe="s9"><input @bind="_f.Cnae" /></Campo>
+                <Campo Rotulo="Regime" Classe="s3"><div class="checks"><label><input type="checkbox" @bind="_f.OptanteSimples" /> Simples</label><label><input type="checkbox" @bind="_f.Mei" /> MEI</label></div></Campo>
                 <Campo Rotulo="CEP" Classe="s2"><input @bind="_f.Cep" /></Campo>
                 <Campo Rotulo="Endereço" Classe="s5"><input @bind="_f.Endereco" /></Campo>
                 <Campo Rotulo="Número" Classe="s2"><input @bind="_f.Numero" /></Campo>
@@ -53,7 +71,9 @@
                 <Campo Rotulo="Bairro" Classe="s4"><input @bind="_f.Bairro" /></Campo>
                 <Campo Rotulo="Cidade" Classe="s6"><input @bind="_f.Cidade" /></Campo>
                 <Campo Rotulo="UF" Classe="s2"><input @bind="_f.Uf" maxlength="2" /></Campo>
-                <Campo Rotulo="Telefones" Classe="s6"><input @bind="_f.Telefones" /></Campo>
+                <Campo Rotulo="Telefones" Classe="s4"><input @bind="_f.Telefones" /></Campo>
+                <Campo Rotulo="Telefone 0800" Classe="s2"><input @bind="_f.Telefone0800" /></Campo>
+                <Campo Rotulo="Site" Classe="s6"><input @bind="_f.Site" placeholder="https://" /></Campo>
                 <Campo Rotulo="E-mails" Obrigatorio Classe="s6" Ajuda="Obrigatório para envio de pedido e contrato. Separe por ;"><input @bind="_f.Emails" /></Campo>
                 <Campo Rotulo="Tipo de fornecimento" Obrigatorio Classe="s12">
                     <div class="checks">
@@ -67,6 +87,22 @@
                 <Campo Rotulo="Nota média (6 meses)" Classe="s4"><input readonly value="@Num(_f.NotaMedia)" /></Campo>
                 <Campo Rotulo="Ativo" Classe="s4"><div class="checks"><label><input type="checkbox" @bind="_f.Ativo" /> Ativo</label></div></Campo>
             </div>
+            <div class="secao"><Icone Nome="pessoa" /> Contatos <span class="acao"><button class="btn sec pq" @onclick="() => _f.Contatos.Add(new FornecedorContato { FornecedorId = _f.Id, Principal = _f.Contatos.Count == 0 })"><Icone Nome="mais" Tam="14" /> Contato</button></span></div>
+            @if (_f.Contatos.Count == 0) { <div class="mudo" style="padding:4px 2px 8px">Nenhum contato. Cadastre ao menos o comercial (recebe pedidos e cotações).</div> }
+            else
+            {
+                <table class="itens"><thead><tr><th>Nome</th><th>Função / setor</th><th>Telefone</th><th>Celular</th><th>E-mail</th><th>Principal</th><th></th></tr></thead>
+                    <tbody>@foreach (var c in _f.Contatos)
+                    {
+                        <tr><td><input @bind="c.Nome" /></td><td><input @bind="c.Funcao" list="funcoesContato" /></td><td><input @bind="c.Telefone" /></td><td><input @bind="c.Celular" /></td><td><input @bind="c.Email" type="email" /></td>
+                            <td style="text-align:center"><input type="checkbox" @bind="c.Principal" /></td><td><button class="btn sec pq" title="Remover" @onclick="() => _f.Contatos.Remove(c)"><Icone Nome="lixeira" Tam="14" /></button></td></tr>
+                    }</tbody></table>
+                <datalist id="funcoesContato"><option>Comercial</option><option>Financeiro</option><option>Técnico</option><option>Qualidade</option><option>Segurança do trabalho</option><option>Logística</option></datalist>
+            }
+            @if (_f.OrigemSistema is not null)
+            {
+                <p class="mudo" style="margin-top:8px">Origem: <b>@_f.OrigemSistema</b>@(_f.OrigemCriadoPor is null ? "" : $" · criado por {_f.OrigemCriadoPor}")@(_f.OrigemCriadoEm is { } oc ? $" em {oc:dd/MM/yyyy HH:mm}" : "")@(_f.OrigemAlteradoPor is null ? "" : $" · alterado por {_f.OrigemAlteradoPor}")@(_f.OrigemAlteradoEm is { } oa ? $" em {oa:dd/MM/yyyy HH:mm}" : "")</p>
+            }
             @if (_link is not null)
             {
                 <div class="alerta info"><Icone Nome="cadeado" /> <div>Link do portal (@_link.Value.Codigo, válido por 15 dias): <b>@_link.Value.Url</b><br /><span class="mudo">Envie ao fornecedor. Ele envia os documentos sem login; você valida em Docs. do Fornecedor.</span></div></div>
@@ -79,7 +115,62 @@
     </Rodape>
 </Modal>
 
+<Modal @bind-Aberto="_abertoImp" Titulo="Importar fornecedores — planilha ExpertData" Tamanho="grande">
+    <ChildContent>
+        @if (_previa is not null)
+        {
+            <div class="kpis">
+                <Kpi Rotulo="Novos" Valor="@_previa.Novos" Tom="ok" />
+                <Kpi Rotulo="Atualizar" Valor="@_previa.Atualizar" Tom="info" Sub="campo vazio não apaga dado" />
+                <Kpi Rotulo="Sem alteração" Valor="@_previa.SemAlteracao" />
+                <Kpi Rotulo="Com erro (ignorados)" Valor="@_previa.ComErro" Tom="@(_previa.ComErro > 0 ? "erro" : "ok")" />
+            </div>
+            <div class="alerta info"><Icone Nome="info" /> Tipo de fornecimento e qualificação não vêm da planilha: os novos entram "Em qualificação" e sem tipo — classifique depois. Fornecedor sem e-mail fica bloqueado para envio de pedido.</div>
+            <div class="filtros-rapidos">@foreach (var f in new[] { "Todos", "Inserir", "Atualizar", "Erro" }) { <label><input type="radio" name="fimp" checked="@(_filtroImp == f)" @onchange="() => _filtroImp = f" /> @f</label> }</div>
+            <div style="max-height:360px;overflow:auto">
+                <table class="itens"><thead><tr><th>Linha</th><th>CPF / CNPJ</th><th>Nome</th><th>Ação</th><th>Detalhe</th></tr></thead>
+                    <tbody>@foreach (var l in _previa.Linhas.Where(l => _filtroImp == "Todos" || l.Acao == _filtroImp).Take(500))
+                    {
+                        <tr><td>@l.Linha</td><td>@l.Documento</td><td>@l.Nome</td><td><Selo Texto="@l.Acao" Tom="@(l.Acao switch { "Inserir" => "ok", "Atualizar" => "info", "Erro" => "erro", _ => "neutro" })" /></td><td class="mudo">@string.Join("; ", l.Erros.Concat(l.Alteracoes))</td></tr>
+                    }</tbody></table>
+            </div>
+        }
+    </ChildContent>
+    <Rodape>
+        @if (_previa is not null && _previa.Novos + _previa.Atualizar > 0) { <button class="btn prim" disabled="@Ocupado" @onclick="ConfirmarImportacao"><Icone Nome="check" Tam="16" /> Importar @(_previa.Novos + _previa.Atualizar) fornecedor(es)</button> }
+    </Rodape>
+</Modal>
+
 @code {
+    private bool _abertoImp;
+    private byte[]? _arquivoImp;
+    private QualyHub.Infrastructure.Importacao.PreviaImportacaoFornecedores? _previa;
+    private string _filtroImp = "Todos";
+
+    private async Task Prever(InputFileChangeEventArgs e)
+    {
+        await Executar(async () =>
+        {
+            if (e.File.Size > 20 * 1024 * 1024) throw new RegraDeNegocioException("Planilha acima de 20 MB.");
+            using var ms = new MemoryStream();
+            await e.File.OpenReadStream(20 * 1024 * 1024).CopyToAsync(ms);
+            _arquivoImp = ms.ToArray();
+            _previa = await ImpExpert.PreverAsync(new MemoryStream(_arquivoImp));
+            _filtroImp = "Todos"; _abertoImp = true;
+        });
+    }
+
+    private async Task ConfirmarImportacao()
+    {
+        (int Inseridos, int Atualizados) r = default;
+        if (await Executar(async () => r = await ImpExpert.ImportarAsync(new MemoryStream(_arquivoImp!))))
+        {
+            Notif.Sucesso($"{r.Inseridos} fornecedor(es) incluído(s) e {r.Atualizados} atualizado(s).");
+            _abertoImp = false; _previa = null; _arquivoImp = null;
+            await Carregar();
+        }
+    }
+
     private Grade<Fornecedor>? _grade;
     private List<Fornecedor>? _itens;
     private Fornecedor? _f;
@@ -95,7 +186,12 @@
     }
 
     private void Novo() { _f = new Fornecedor(); _novo = true; _link = null; ErrosForm = null; _aberto = true; }
-    private void Editar(Fornecedor f) { _f = f; _novo = false; _link = null; ErrosForm = null; _aberto = true; }
+    private async Task Editar(Fornecedor f)
+    {
+        await using var db = Fabrica.Criar();
+        _f = await db.Fornecedores.AsNoTracking().Include(x => x.Contatos).FirstAsync(x => x.Id == f.Id);
+        _novo = false; _link = null; ErrosForm = null; _aberto = true;
+    }
     private void Marcar(TipoFornecimento t, bool on) => _f!.TipoFornecimento = on ? _f.TipoFornecimento | t : _f.TipoFornecimento & ~t;
 
     private async Task Salvar()
@@ -110,10 +206,13 @@
             if (string.IsNullOrWhiteSpace(_f.RazaoSocial)) e.Add("Informe a razão social.");
             if (_f.TipoFornecimento == TipoFornecimento.Nenhum) e.Add("Informe o tipo de fornecimento.");
             if (string.IsNullOrWhiteSpace(_f.Emails)) e.Add("Informe ao menos um e-mail.");
+            if (_f.Contatos.Any(c => string.IsNullOrWhiteSpace(c.Nome))) e.Add("Contato sem nome.");
+            if (_f.CapitalSocial is < 0) e.Add("Capital social negativo.");
             ValidacaoException.Se(e);
             if (!_f.Ativo && _f.StatusQualificacao != StatusQualificacao.Desqualificado) { }
             await using var db = Fabrica.Criar();
-            if (_novo) db.Fornecedores.Add(_f); else db.Fornecedores.Update(_f);
+            foreach (var c in _f.Contatos) c.FornecedorId = _f.Id;
+            await Grafo.SalvarAsync(db, _f, nameof(Fornecedor.Contatos));
             await db.SaveChangesAsync();
         }, "Fornecedor salvo.");
         if (ok) { _aberto = false; await Carregar(); }
