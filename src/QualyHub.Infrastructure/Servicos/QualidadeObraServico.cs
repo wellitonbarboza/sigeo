@@ -31,28 +31,17 @@ public sealed class QualidadeObraServico(FabricaDb fabrica, IUsuarioAtual usuari
         await using var db = fabrica.Criar();
         if (await db.Locais.AnyAsync(x => x.ObraId == l.ObraId && x.Codigo == l.Codigo && x.Id != l.Id, ct)) e.Add($"Código {l.Codigo} já existe nesta obra.");
         if (l.LocalPaiId == l.Id) e.Add("Local não pode ser pai de si mesmo.");
+        // Quadra, prédio, pavimento e unidade nascem só pelo gerador do empreendimento (estrutura das SPEs).
+        var gerados = new[] { "Quadra", "Prédio", "Pavimento", "Unidade" };
+        var existente = await db.Locais.AsNoTracking().FirstOrDefaultAsync(x => x.Id == l.Id, ct);
+        if (existente is null && gerados.Contains(l.Tipo)) e.Add("Quadra, prédio, pavimento e unidade são criados pelo gerador do empreendimento.");
+        if (existente is not null && gerados.Contains(existente.Tipo) && (existente.Codigo != l.Codigo || existente.Tipo != l.Tipo || existente.LocalPaiId != l.LocalPaiId))
+            e.Add("Local gerado pela estrutura das SPEs: só a descrição pode ser alterada.");
         Checar(e);
         l.LocalPai = null; l.Filhos = [];
         await Grafo.SalvarAsync(db, l);
         await db.SaveChangesAsync(ct);
         return l.Id;
-    }
-
-    /// <summary>Gera a árvore padrão (torres × pavimentos) a partir de uma especificação simples.</summary>
-    public async Task<int> GerarLocaisAsync(Guid obraId, string torre, int pavimentos, bool terreo, CancellationToken ct = default)
-    {
-        if (pavimentos is < 0 or > 80) throw new RegraDeNegocioException("Informe de 0 a 80 pavimentos.");
-        await using var db = fabrica.Criar();
-        var sigla = new string(torre.Where(char.IsLetterOrDigit).ToArray()).ToUpperInvariant();
-        if (await db.Locais.AnyAsync(x => x.ObraId == obraId && x.Codigo == sigla, ct)) throw new RegraDeNegocioException($"Já existe o local {sigla}.");
-        var t = new Local { ObraId = obraId, Tipo = "Torre", Nome = torre, Codigo = sigla, Ordem = await db.Locais.CountAsync(x => x.ObraId == obraId && x.LocalPaiId == null, ct) + 1 };
-        db.Locais.Add(t);
-        var n = 1;
-        if (terreo) db.Locais.Add(new Local { ObraId = obraId, LocalPaiId = t.Id, Tipo = "Pavimento", Nome = $"{torre} › Térreo", Codigo = $"{sigla}-T", Ordem = 0 });
-        for (var p = 1; p <= pavimentos; p++, n++)
-            db.Locais.Add(new Local { ObraId = obraId, LocalPaiId = t.Id, Tipo = "Pavimento", Nome = $"{torre} › Pav. {p}", Codigo = $"{sigla}-P{p:00}", Ordem = p });
-        await db.SaveChangesAsync(ct);
-        return pavimentos + (terreo ? 1 : 0) + 1;
     }
 
     // ───────── Modelos (Q01/Q02/Q12) ─────────

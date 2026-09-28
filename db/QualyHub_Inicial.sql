@@ -5691,3 +5691,32 @@ END;
 COMMIT;
 GO
 
+BEGIN TRANSACTION;
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260928120141_ObraSemEmpresaSpe'
+)
+BEGIN
+    EXEC sp_rename N'[qh].[Obras].[EmpresaSpe]', N'Observacoes', 'COLUMN';
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260928120141_ObraSemEmpresaSpe'
+)
+BEGIN
+    UPDATE qh.Obras SET Observacoes = N'Empresa/SPE (cadastro antigo): ' + Observacoes WHERE Observacoes IS NOT NULL AND LTRIM(Observacoes) <> N''
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260928120141_ObraSemEmpresaSpe'
+)
+BEGIN
+    INSERT INTO [qh].[__Migracoes] ([MigrationId], [ProductVersion])
+    VALUES (N'20260928120141_ObraSemEmpresaSpe', N'10.0.12');
+END;
+
+COMMIT;
+GO
+

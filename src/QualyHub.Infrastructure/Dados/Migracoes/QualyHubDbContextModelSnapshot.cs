@@ -4069,10 +4069,6 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                     b.Property<Guid>("EmpresaId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("EmpresaSpe")
-                        .HasMaxLength(400)
-                        .HasColumnType("nvarchar(400)");
-
                     b.Property<string>("Endereco")
                         .HasMaxLength(400)
                         .HasColumnType("nvarchar(400)");
@@ -4096,6 +4092,10 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
 
                     b.Property<string>("Nome")
                         .IsRequired()
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
+
+                    b.Property<string>("Observacoes")
                         .HasMaxLength(400)
                         .HasColumnType("nvarchar(400)");
 

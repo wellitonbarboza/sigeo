@@ -5,7 +5,9 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 RG="${RG:-rg-qualyhub-prd}"
-WEB=$(az webapp list -g "$RG" --query "[0].name" -o tsv)
+# Prefere o endereço curto "qualyhub" quando ele já existe (criado por criar-link-qualyhub.sh).
+WEB="${WEB:-$(az webapp list -g "$RG" --query "[?name=='qualyhub'] | [0].name" -o tsv)}"
+[[ -n "$WEB" ]] || WEB=$(az webapp list -g "$RG" --query "[0].name" -o tsv)
 URL="https://$(az webapp show -g "$RG" -n "$WEB" --query defaultHostName -o tsv)"
 read -r -p "Publicar a nova versão em $WEB ($URL)? (s/N) " r; [[ "$r" =~ ^[sS]$ ]] || exit 1
 az webapp deploy -g "$RG" -n "$WEB" --src-path app.zip --type zip -o none

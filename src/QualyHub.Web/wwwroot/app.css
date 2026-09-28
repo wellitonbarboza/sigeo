@@ -386,3 +386,37 @@ ul.notas li { border-left: 3px solid var(--primaria); background: var(--superfic
 .filtros-rapidos { display: flex; gap: 18px; padding: 8px 2px 12px; font-size: 13.5px; }
 .filtros-rapidos label { display: flex; gap: 6px; align-items: center; cursor: pointer; }
 .barra-acoes { display: flex; gap: 8px; justify-content: flex-end; margin: 0 0 10px; }
+
+/* ───── Padrão visual do ecossistema (réplica do layout ExpertData) ───── */
+:root:not([data-tema="escuro"]) {
+    --sidebar: #3a4555; --sidebar-2: #2e3746; --sidebar-texto: #e8edf4; --sidebar-sutil: #aab5c5; --sidebar-ativo: #4b5769;
+    --fundo: #eef0f3; --superficie-2: #f6f7f9; --borda: #e3e6eb;
+    --faixa: #1f3553;
+}
+.app { grid-template-columns: 300px 1fr; }
+.app.recolhido { grid-template-columns: 64px 1fr; }
+.marca { justify-content: center; padding: 16px 18px; min-height: 80px; }
+.marca .nome { font-size: 24px; letter-spacing: .16em; font-weight: 700; }
+.marca .sub { font-size: 12px; letter-spacing: .42em; color: var(--sidebar-texto); margin-top: 4px; }
+.tema { margin: 14px 18px 10px; }
+.menu .grupo > a, .menu .item > a { font-size: 15.5px; padding: 8px 20px; gap: 12px; }
+.menu .item > a { padding-left: 42px; font-size: 15px; }
+.menu svg { color: #8ec5ff; }
+.menu a.active { background: var(--sidebar-ativo); border-left-color: #7dd3fc; font-weight: 500; }
+.topo h1 { font-size: 21px; font-weight: 700; letter-spacing: .01em; text-transform: uppercase; }
+.grade thead th { background: transparent; font-size: 13px; font-weight: 600; color: var(--texto); }
+.grade td { padding: 11px 12px; font-size: 14px; }
+.campo > label { color: var(--texto); font-weight: 700; }
+.campo input, .campo select, .campo textarea, .entrada { border-color: #cdd5e0; border-radius: 6px; min-height: 40px; }
+.campo select, table.itens td select, .barra-filtro select {
+    appearance: none; -webkit-appearance: none; padding-right: 32px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 11px center; background-size: 12px;
+}
+.campo input:focus, .campo select:focus, .campo textarea:focus { border-color: #3b82f6; outline: 2px solid #dbeafe; }
+.campo input[type="checkbox"], .check-linha input { width: 18px; height: 18px; min-height: 0; accent-color: var(--primaria); flex: none; margin: 0; }
+.check-linha { display: flex; align-items: center; gap: 8px; min-height: 40px; font-size: 14px; text-transform: none; letter-spacing: 0; font-weight: 500; color: var(--texto); }
+.janela header h2 { font-size: 21px; font-weight: 700; text-transform: uppercase; letter-spacing: .01em; }
+.btn { font-size: 14px; padding: 9px 20px; }
+.faixa { font-size: 14px; }
+.faixa b { font-weight: 700; }

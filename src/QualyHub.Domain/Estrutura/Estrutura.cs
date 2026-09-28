@@ -25,7 +25,7 @@ public class Obra : EntidadeAuditavel, IOrigemErp
     public string? Uf { get; set; }
     public DateOnly? DataInicio { get; set; }
     public DateOnly? DataPrevistaTermino { get; set; }
-    public string? EmpresaSpe { get; set; }
+    public string? Observacoes { get; set; }
     public string? EnderecoEntrega { get; set; }
     public Guid? EngenheiroId { get; set; }
     public Guid? AdministrativoId { get; set; }
