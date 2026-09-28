@@ -56,16 +56,7 @@ az role assignment create --assignee-object-id "$MI" --assignee-principal-type S
 GRUPO_ID=$(az ad group show --group "$GRUPO_DBA" --query id -o tsv)
 az ad group member check --group "$GRUPO_ID" --member-id "$MI" --query value -o tsv | grep -qi true || az ad group member add --group "$GRUPO_ID" --member-id "$MI"
 
-titulo "5/6 Login Microsoft no novo endereço"
-CLIENT_ID=$(az webapp config appsettings list -g "$RG" -n "$ANTIGO" --query "[?name=='AzureAd__ClientId'].value | [0]" -o tsv)
-URIS=$(az ad app show --id "$CLIENT_ID" --query "web.redirectUris" -o tsv | tr '\n' ' ')
-NOVA_URI="https://$NOVO.azurewebsites.net/signin-oidc"
-if [[ " $URIS " == *" $NOVA_URI "* ]]; then echo "  Endereço de retorno já cadastrado."
-else
-  ok "Incluir $NOVA_URI no registro do app (mantém o endereço antigo)." || exit 1
-  # shellcheck disable=SC2086
-  az ad app update --id "$CLIENT_ID" --web-redirect-uris $URIS "$NOVA_URI" -o none
-fi
+titulo "5/6 Permissões"
 echo "  Aguardando as permissões propagarem (40 s)…"; sleep 40
 
 titulo "6/6 Publicar e conferir"
@@ -74,7 +65,7 @@ az webapp deploy -g "$RG" -n "$NOVO" --src-path app.zip --type zip -o none
 for i in $(seq 1 30); do c=$(curl -s -o /dev/null -w "%{http_code}" "https://$NOVO.azurewebsites.net/saude" || true); [[ "$c" == "200" ]] && break; sleep 10; done
 echo "  /saude → $c"
 echo
-echo "  Pronto: https://$NOVO.azurewebsites.net  (entre com a conta Microsoft)"
+echo "  Pronto: https://$NOVO.azurewebsites.net  (entre com login e senha)"
 echo "  O site antigo ($ANTIGO) continua no ar. Depois de conferir o novo endereço:"
 if ok "Parar o site antigo $ANTIGO agora (pode religar com: az webapp start -g $RG -n $ANTIGO)."; then
   az webapp stop -g "$RG" -n "$ANTIGO" -o none && echo "  $ANTIGO parado."

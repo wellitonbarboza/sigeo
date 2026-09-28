@@ -3792,6 +3792,80 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                     b.ToTable("CentrosCusto", "qh");
                 });
 
+            modelBuilder.Entity("QualyHub.Domain.Estrutura.CredencialUsuario", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset?>("AlteradoEm")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("AlteradoPor")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<DateTimeOffset?>("BloqueadoAte")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset>("CriadoEm")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("CriadoPor")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("Excluido")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTimeOffset?>("ExcluidoEm")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("ExcluidoPor")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateTimeOffset?>("SenhaAlteradaEm")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("SenhaHash")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<int>("TentativasFalhas")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("TrocarSenhaNoProximoAcesso")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTimeOffset?>("UltimoAcessoEm")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("UsuarioId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EmpresaId");
+
+                    b.HasIndex("UsuarioId")
+                        .IsUnique()
+                        .HasFilter("[Excluido] = 0");
+
+                    b.ToTable("CredenciaisUsuario", "qh");
+                });
+
             modelBuilder.Entity("QualyHub.Domain.Estrutura.Empresa", b =>
                 {
                     b.Property<Guid>("Id")
@@ -4335,9 +4409,6 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                     b.Property<Guid>("EmpresaId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<Guid>("EntraObjectId")
-                        .HasColumnType("uniqueidentifier");
-
                     b.Property<bool>("Excluido")
                         .HasColumnType("bit");
 
@@ -4351,6 +4422,11 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                     b.Property<string>("Funcao")
                         .HasMaxLength(400)
                         .HasColumnType("nvarchar(400)");
+
+                    b.Property<string>("Login")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
 
                     b.Property<string>("Nome")
                         .IsRequired()
@@ -4372,8 +4448,9 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
 
                     b.HasIndex("EmpresaId");
 
-                    b.HasIndex("EntraObjectId")
-                        .IsUnique();
+                    b.HasIndex("Login")
+                        .IsUnique()
+                        .HasFilter("[Excluido] = 0 AND [Login] <> ''");
 
                     b.ToTable("Usuarios", "qh");
                 });
@@ -9589,6 +9666,15 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                         .WithMany()
                         .HasForeignKey("ObraId")
                         .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("QualyHub.Domain.Estrutura.CredencialUsuario", b =>
+                {
+                    b.HasOne("QualyHub.Domain.Estrutura.Usuario", null)
+                        .WithMany()
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("QualyHub.Domain.Estrutura.Local", b =>

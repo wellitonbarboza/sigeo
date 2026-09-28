@@ -1,5 +1,6 @@
 @page "/sistema/usuarios"
 @inherits PaginaBase
+@inject ContaServico Conta
 
 <Pagina Titulo="Usuários, alçadas e delegações" Grade="GradeAtual" AoNovo="Novo" AoAtualizar="Carregar">
     <ChildContent>
@@ -11,7 +12,9 @@
                 <Grade T="Usuario" @ref="_gU" Itens="_usuarios" AoClicar="AbrirUsuario" NomeExportacao="usuarios">
                     <Colunas>
                         <Coluna T="Usuario" Titulo="Nome" Valor="u => u.Nome" />
+                        <Coluna T="Usuario" Titulo="Login" Valor="u => u.Login" />
                         <Coluna T="Usuario" Titulo="E-mail" Valor="u => u.Email" />
+                        <Coluna T="Usuario" Titulo="Acesso" Valor="u => SituacaoAcesso(u.Id)" />
                         <Coluna T="Usuario" Titulo="Perfil" Valor="u => u.Perfil" />
                         <Coluna T="Usuario" Titulo="Função" Valor="u => u.Funcao" />
                         <Coluna T="Usuario" Titulo="Obras" Valor='u => u.AcessoTodasObras ? "Todas" : string.Join(", ", u.Obras.Select(o => NomeObra(o.ObraId)))' />
@@ -64,8 +67,9 @@
         {
             <Erros Lista="ErrosForm" />
             <div class="form">
-                <Campo Rotulo="Nome" Obrigatorio Classe="s6"><input @bind="_u.Nome" disabled="@(!Perfil())" /></Campo>
-                <Campo Rotulo="E-mail (login Microsoft)" Obrigatorio Classe="s6"><input type="email" @bind="_u.Email" disabled="@(!Perfil())" /></Campo>
+                <Campo Rotulo="Nome" Obrigatorio Classe="s5"><input id="usu-nome" @bind="_u.Nome" disabled="@(!Perfil())" /></Campo>
+                <Campo Rotulo="Login" Obrigatorio Classe="s3" Ajuda="Letras, números, ponto, hífen e sublinhado"><input id="usu-login" @bind="_u.Login" autocomplete="off" style="text-transform:lowercase" disabled="@(!Perfil())" /></Campo>
+                <Campo Rotulo="E-mail" Obrigatorio Classe="s4"><input id="usu-email" type="email" @bind="_u.Email" disabled="@(!Perfil())" /></Campo>
                 <Campo Rotulo="Perfil" Obrigatorio Classe="s4"><select @bind="_u.Perfil" disabled="@(!Perfil())">@foreach (var p in Enum.GetValues<PerfilUsuario>()) { <option value="@p">@De(p)</option> }</select></Campo>
                 <Campo Rotulo="Função (nome exibido nas aprovações)" Classe="s5"><select @bind="_u.Funcao" disabled="@(!Perfil())"><option value="">—</option>@foreach (var f in _funcoes) { <option>@f</option> }</select></Campo>
                 <Campo Rotulo="" Classe="s3"><label><input type="checkbox" @bind="_u.Ativo" disabled="@(!Perfil())" /> Ativo</label></Campo>
@@ -82,6 +86,26 @@
                     </div>
                 </Campo>
             </div>
+            @if (_u.CriadoEm != default)
+            {
+                <div class="secao"><Icone Nome="cadeado" /> Senha e acesso</div>
+                <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+                    <span>@SituacaoAcesso(_u.Id)</span>
+                    @if (Perfil())
+                    {
+                        <button class="btn sec pq" id="usu-gerar-senha" disabled="@Ocupado" @onclick="GerarSenha"><Icone Nome="chave" Tam="14" /> @(_credenciais.ContainsKey(_u.Id) ? "Gerar nova senha provisória" : "Gerar senha provisória")</button>
+                        @if (_credenciais.TryGetValue(_u.Id, out var cr) && cr.BloqueadoAte > DateTimeOffset.UtcNow) { <button class="btn sec pq" disabled="@Ocupado" @onclick="Desbloquear">Desbloquear</button> }
+                    }
+                </div>
+                @if (_senhaGerada is not null)
+                {
+                    <div class="alerta aviso" style="flex-direction:column;align-items:stretch">
+                        <div><b>Senha provisória de @_u.Login</b> — anote e entregue ao usuário. Ela não será mostrada de novo; no primeiro acesso ele define a própria senha.</div>
+                        <div class="senha-gerada" id="senha-gerada">@_senhaGerada</div>
+                    </div>
+                }
+            }
+            else { <div class="alerta info"><Icone Nome="info" /> Salve o usuário para gerar a senha provisória.</div> }
             <div class="secao"><Icone Nome="dinheiro" /> Limites de aprovação (valor máximo que este usuário aprova)
                 @if (Perfil()) { <span class="acao"><button class="btn sec pq" @onclick="() => _u.LimitesAprovacao.Add(new LimiteAprovacao { UsuarioId = _u.Id, Entidade = EntidadeAprovavel.Pedido })"><Icone Nome="mais" Tam="14" /> Limite</button></span> }
             </div>
@@ -189,6 +213,7 @@
         _usuarios = await db.Usuarios.AsNoTracking().Include(u => u.Obras).Include(u => u.LimitesAprovacao).OrderBy(u => u.Nome).ToListAsync();
         _alcadas = await db.Alcadas.AsNoTracking().OrderBy(a => a.Entidade).ThenBy(a => a.Ordem).ToListAsync();
         _delegacoes = await db.DelegacoesAprovacao.AsNoTracking().OrderByDescending(d => d.Inicio).ToListAsync();
+        _credenciais = await Conta.SituacaoAsync();
         _usuariosOp = _usuarios.Where(u => u.Ativo).Select(u => new Opcao(u.Id, $"{u.Nome} ({De(u.Perfil)})")).ToList();
     }
 
@@ -198,13 +223,35 @@
         ErrosForm = null;
         switch (_aba)
         {
-            case "usuarios": _u = new Usuario { Perfil = PerfilUsuario.Campo, EntraObjectId = Guid.NewGuid() }; _abertoU = true; break;
+            case "usuarios": _u = new Usuario { Perfil = PerfilUsuario.Campo }; _senhaGerada = null; _abertoU = true; break;
             case "alcadas": _a = new Alcada { Entidade = EntidadeAprovavel.Pedido, Ordem = 1, PerfilAprovador = PerfilUsuario.Diretoria }; _abertoA = true; break;
             default: _d = new DelegacaoAprovacao { Inicio = DateTimeOffset.Now, Fim = DateTimeOffset.Now.AddDays(15) }; _abertoD = true; break;
         }
     }
 
-    private void AbrirUsuario(Usuario u) { _u = u; ErrosForm = null; _abertoU = true; }
+    private void AbrirUsuario(Usuario u) { _u = u; ErrosForm = null; _senhaGerada = null; _abertoU = true; }
+
+    private Dictionary<Guid, CredencialUsuario> _credenciais = [];
+    private string? _senhaGerada;
+
+    private string SituacaoAcesso(Guid id)
+    {
+        if (!_credenciais.TryGetValue(id, out var c)) return "Sem senha";
+        if (c.BloqueadoAte > DateTimeOffset.UtcNow) return $"Bloqueado até {Rotulos.DataHora(c.BloqueadoAte.Value)}";
+        if (c.TrocarSenhaNoProximoAcesso) return "Senha provisória (troca pendente)";
+        return c.UltimoAcessoEm is { } a ? $"Último acesso {Rotulos.DataHora(a)}" : "Senha definida";
+    }
+
+    private async Task GerarSenha()
+    {
+        string? senha = null;
+        if (await Executar(async () => senha = await Conta.DefinirSenhaProvisoriaAsync(_u!.Id), null)) { _senhaGerada = senha; _credenciais = await Conta.SituacaoAsync(); }
+    }
+
+    private async Task Desbloquear()
+    {
+        if (await Executar(() => Conta.DesbloquearAsync(_u!.Id), "Usuário desbloqueado.")) _credenciais = await Conta.SituacaoAsync();
+    }
 
     private void AlternarObra(Guid obra, bool marcado)
     {
@@ -215,22 +262,34 @@
 
     private async Task SalvarUsuario()
     {
+        var novo = _u!.CriadoEm == default;
         var ok = await Executar(async () =>
         {
             var e = new List<string>();
             if (string.IsNullOrWhiteSpace(_u!.Nome)) e.Add("Informe o nome.");
             if (string.IsNullOrWhiteSpace(_u.Email) || !_u.Email.Contains('@')) e.Add("Informe um e-mail válido.");
+            _u.Login = PoliticaSenha.NormalizarLogin(_u.Login);
+            _u.Email = _u.Email.Trim().ToLowerInvariant();
+            e.AddRange(PoliticaSenha.ValidarLogin(_u.Login));
             if (_u.LimitesAprovacao.Any(l => l.ValorMaximo < 0)) e.Add("Limite não pode ser negativo.");
             if (_u.Id == Usuario.UsuarioId && _u.Perfil != PerfilUsuario.Administrador) e.Add("Você não pode remover o próprio perfil de Administrador.");
             ValidacaoException.Se(e);
             await using var db = Fabrica.Criar();
             if (await db.Usuarios.AnyAsync(x => x.Email == _u.Email && x.Id != _u.Id)) throw new RegraDeNegocioException("E-mail já cadastrado.");
+            if (await db.Usuarios.IgnoreQueryFilters().AnyAsync(x => x.Login == _u.Login && x.Id != _u.Id && !x.Excluido)) throw new RegraDeNegocioException("Login já está em uso.");
             foreach (var o in _u.Obras) o.Obra = null!;
             if (_u.AcessoTodasObras) _u.Obras.Clear();
             await Grafo.SalvarAsync(db, _u, nameof(QualyHub.Domain.Estrutura.Usuario.Obras), nameof(QualyHub.Domain.Estrutura.Usuario.LimitesAprovacao));
             await db.SaveChangesAsync();
         }, "Usuário salvo.");
-        if (ok) { _abertoU = false; await Carregar(); }
+        if (ok)
+        {
+            var id = _u!.Id;
+            await Carregar();
+            // Usuário novo: mantém aberto para gerar a senha provisória.
+            if (novo && _usuarios.FirstOrDefault(x => x.Id == id) is { } salvo) { _u = salvo; Notif.Sucesso("Usuário criado. Gere a senha provisória."); }
+            else _abertoU = false;
+        }
     }
 
     private async Task SalvarAlcada()

@@ -58,7 +58,9 @@ if (!app.Environment.IsDevelopment())
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
 app.UseHttpsRedirection();
 app.UseAuthentication();
+Autenticacao.UsarTrocaObrigatoria(app);
 app.UseAuthorization();
+app.UseRateLimiter();
 app.UseAntiforgery();
 
 // Primeira execução: sem empresa cadastrada → configuração inicial.

@@ -15,8 +15,9 @@ public static class Endpoints
     public static void Mapear(WebApplication app)
     {
         // Configuração inicial (banco vazio): cria a empresa, o administrador e aplica a carga padrão SiAC.
-        app.MapPost("/configuracao-inicial/salvar", async (HttpContext http, FabricaSistema sistema) =>
+        app.MapPost("/configuracao-inicial/salvar", async (HttpContext http, FabricaSistema sistema, Microsoft.AspNetCore.Antiforgery.IAntiforgery af) =>
         {
+            if (!await af.IsRequestValidAsync(http)) return Results.Redirect("/configuracao-inicial?erro=1");
             var f = await http.Request.ReadFormAsync();
             await using (var check = sistema.Criar(Guid.Empty, "Setup"))
                 if (await check.Empresas.AnyAsync()) return Results.Redirect("/");
@@ -27,8 +28,12 @@ public static class Endpoints
             if (!app.Environment.IsDevelopment() && string.IsNullOrWhiteSpace(codigo)) return Results.Forbid();
             if (!string.IsNullOrWhiteSpace(codigo) && !CryptographicOperations.FixedTimeEquals(Encoding.UTF8.GetBytes(V("codigoSetup")), Encoding.UTF8.GetBytes(codigo)))
                 return Results.Redirect("/configuracao-inicial?erro=codigo");
-            if (Autenticacao.ModoEntra(app.Configuration) && !Guid.TryParse(V("oid"), out _)) return Results.Redirect("/configuracao-inicial?erro=oid");
             if (V("razao") == "" || V("nome") == "" || V("email") == "") return Results.Redirect("/configuracao-inicial?erro=1");
+            var login = PoliticaSenha.NormalizarLogin(V("login"));
+            var senha = f["senha"].ToString();
+            var errosSenha = PoliticaSenha.ValidarLogin(login).Concat(PoliticaSenha.Validar(senha, login, V("nome"))).ToList();
+            if (senha != f["confirmacao"].ToString()) errosSenha.Add("A confirmação não confere com a senha.");
+            if (errosSenha.Count > 0) return Results.Redirect("/configuracao-inicial?erro=senha&msg=" + Uri.EscapeDataString(string.Join(" ", errosSenha)));
 
             var empresa = new Empresa { RazaoSocial = V("razao"), NomeFantasia = V("fantasia") is { Length: > 0 } nf ? nf : V("razao"), Cnpj = V("cnpj"), Codigo = V("codigo"), NivelSiac = V("nivel") is { Length: > 0 } n ? n : "B" };
             await using var db = sistema.Criar(empresa.Id, "Setup");
@@ -36,14 +41,15 @@ public static class Endpoints
             var admin = new Usuario
             {
                 EmpresaId = empresa.Id, Nome = V("nome"), Email = V("email"), Perfil = PerfilUsuario.Administrador, Funcao = "Coordenador da Qualidade",
-                AcessoTodasObras = true, EntraObjectId = Guid.TryParse(V("oid"), out var oid) ? oid : Guid.NewGuid()
+                AcessoTodasObras = true, Login = login
             };
             db.Usuarios.Add(admin);
+            ContaServico.DefinirSenha(db, admin, senha, DateTimeOffset.UtcNow);
             await db.SaveChangesAsync();
             await CargaPadrao.AplicarAsync(db, empresa.Id);
-            if (!Autenticacao.ModoEntra(app.Configuration)) await Autenticacao.EntrarLocalAsync(http, admin, empresa.NomeFantasia);
+            await Autenticacao.EntrarAsync(http, admin, empresa.NomeFantasia);
             return Results.Redirect("/");
-        }).DisableAntiforgery();
+        }).DisableAntiforgery().RequireRateLimiting(Autenticacao.PoliticaLogin);
 
         // Download de anexo (sempre autenticado; log de auditoria no acesso a documento do SGQ).
         app.MapGet("/arquivos/anexo/{id:guid}", async (Guid id, FabricaDb fabrica, IArmazenamento arm) =>

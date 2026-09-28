@@ -5705,7 +5705,7 @@ IF NOT EXISTS (
     WHERE [MigrationId] = N'20260928120141_ObraSemEmpresaSpe'
 )
 BEGIN
-    UPDATE qh.Obras SET Observacoes = N'Empresa/SPE (cadastro antigo): ' + Observacoes WHERE Observacoes IS NOT NULL AND LTRIM(Observacoes) <> N''
+    EXEC(N'UPDATE qh.Obras SET Observacoes = N''Empresa/SPE (cadastro antigo): '' + Observacoes WHERE Observacoes IS NOT NULL AND LEN(Observacoes) > 0')
 END;
 
 IF NOT EXISTS (
@@ -5715,6 +5715,112 @@ IF NOT EXISTS (
 BEGIN
     INSERT INTO [qh].[__Migracoes] ([MigrationId], [ProductVersion])
     VALUES (N'20260928120141_ObraSemEmpresaSpe', N'10.0.12');
+END;
+
+COMMIT;
+GO
+
+BEGIN TRANSACTION;
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260928121406_LoginPorSenha'
+)
+BEGIN
+    DROP INDEX [IX_Usuarios_EntraObjectId] ON [qh].[Usuarios];
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260928121406_LoginPorSenha'
+)
+BEGIN
+    DECLARE @var nvarchar(max);
+    SELECT @var = QUOTENAME([d].[name])
+    FROM [sys].[default_constraints] [d]
+    INNER JOIN [sys].[columns] [c] ON [d].[parent_column_id] = [c].[column_id] AND [d].[parent_object_id] = [c].[object_id]
+    WHERE ([d].[parent_object_id] = OBJECT_ID(N'[qh].[Usuarios]') AND [c].[name] = N'EntraObjectId');
+    IF @var IS NOT NULL EXEC(N'ALTER TABLE [qh].[Usuarios] DROP CONSTRAINT ' + @var + ';');
+    ALTER TABLE [qh].[Usuarios] DROP COLUMN [EntraObjectId];
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260928121406_LoginPorSenha'
+)
+BEGIN
+    ALTER TABLE [qh].[Usuarios] ADD [Login] nvarchar(60) NOT NULL DEFAULT N'';
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260928121406_LoginPorSenha'
+)
+BEGIN
+    EXEC(N'
+    WITH x AS (SELECT Id, LOWER(LEFT(LTRIM(RTRIM(Email)), 60)) AS L, ROW_NUMBER() OVER (PARTITION BY LOWER(LTRIM(RTRIM(Email))) ORDER BY CriadoEm) AS N
+               FROM qh.Usuarios WHERE Excluido = 0 AND LEN(Email) > 0)
+    UPDATE u SET Login = x.L FROM qh.Usuarios u JOIN x ON x.Id = u.Id WHERE x.N = 1 AND LEN(u.Login) = 0;')
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260928121406_LoginPorSenha'
+)
+BEGIN
+    CREATE TABLE [qh].[CredenciaisUsuario] (
+        [Id] uniqueidentifier NOT NULL,
+        [UsuarioId] uniqueidentifier NOT NULL,
+        [SenhaHash] nvarchar(300) NOT NULL,
+        [TrocarSenhaNoProximoAcesso] bit NOT NULL,
+        [TentativasFalhas] int NOT NULL,
+        [BloqueadoAte] datetimeoffset NULL,
+        [UltimoAcessoEm] datetimeoffset NULL,
+        [SenhaAlteradaEm] datetimeoffset NULL,
+        [EmpresaId] uniqueidentifier NOT NULL,
+        [CriadoEm] datetimeoffset NOT NULL,
+        [CriadoPor] nvarchar(150) NOT NULL,
+        [AlteradoEm] datetimeoffset NULL,
+        [AlteradoPor] nvarchar(150) NULL,
+        [Excluido] bit NOT NULL,
+        [ExcluidoEm] datetimeoffset NULL,
+        [ExcluidoPor] nvarchar(150) NULL,
+        [RowVersion] rowversion NOT NULL,
+        CONSTRAINT [PK_CredenciaisUsuario] PRIMARY KEY ([Id]),
+        CONSTRAINT [FK_CredenciaisUsuario_Usuarios_UsuarioId] FOREIGN KEY ([UsuarioId]) REFERENCES [qh].[Usuarios] ([Id]) ON DELETE NO ACTION
+    );
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260928121406_LoginPorSenha'
+)
+BEGIN
+    EXEC(N'CREATE UNIQUE INDEX [IX_Usuarios_Login] ON [qh].[Usuarios] ([Login]) WHERE [Excluido] = 0 AND [Login] <> ''''');
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260928121406_LoginPorSenha'
+)
+BEGIN
+    CREATE INDEX [IX_CredenciaisUsuario_EmpresaId] ON [qh].[CredenciaisUsuario] ([EmpresaId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260928121406_LoginPorSenha'
+)
+BEGIN
+    EXEC(N'CREATE UNIQUE INDEX [IX_CredenciaisUsuario_UsuarioId] ON [qh].[CredenciaisUsuario] ([UsuarioId]) WHERE [Excluido] = 0');
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260928121406_LoginPorSenha'
+)
+BEGIN
+    INSERT INTO [qh].[__Migracoes] ([MigrationId], [ProductVersion])
+    VALUES (N'20260928121406_LoginPorSenha', N'10.0.12');
 END;
 
 COMMIT;

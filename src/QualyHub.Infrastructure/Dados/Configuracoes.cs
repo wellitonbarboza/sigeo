@@ -85,11 +85,23 @@ internal sealed class TipologiaCfg : IEntityTypeConfiguration<QualyHub.Domain.En
     }
 }
 
+internal sealed class CredencialUsuarioCfg : IEntityTypeConfiguration<CredencialUsuario>
+{
+    public void Configure(EntityTypeBuilder<CredencialUsuario> b)
+    {
+        b.ToTable("CredenciaisUsuario");
+        b.Property(x => x.SenhaHash).HasMaxLength(300);
+        b.HasIndex(x => x.UsuarioId).IsUnique().HasFilter("[Excluido] = 0");
+        b.HasOne<Usuario>().WithMany().HasForeignKey(x => x.UsuarioId).OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
 internal sealed class UsuarioCfg : IEntityTypeConfiguration<Usuario>
 {
     public void Configure(EntityTypeBuilder<Usuario> b)
     {
-        b.HasIndex(x => x.EntraObjectId).IsUnique();
+        b.Property(x => x.Login).HasMaxLength(60);
+        b.HasIndex(x => x.Login).IsUnique().HasFilter("[Excluido] = 0 AND [Login] <> ''");
         b.Property(x => x.Email).HasMaxLength(200);
         b.HasMany(x => x.Obras).WithOne(x => x.Usuario).HasForeignKey(x => x.UsuarioId);
         b.HasMany(x => x.LimitesAprovacao).WithOne().HasForeignKey(x => x.UsuarioId);

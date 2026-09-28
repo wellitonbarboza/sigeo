@@ -28,6 +28,7 @@ public class QualyHubDbContext(DbContextOptions<QualyHubDbContext> options, IUsu
     public DbSet<Local> Locais => Set<Local>();
     public DbSet<CentroCusto> CentrosCusto => Set<CentroCusto>();
     public DbSet<Usuario> Usuarios => Set<Usuario>();
+    public DbSet<CredencialUsuario> Credenciais => Set<CredencialUsuario>();
     public DbSet<UsuarioObra> UsuariosObras => Set<UsuarioObra>();
     public DbSet<Alcada> Alcadas => Set<Alcada>();
     public DbSet<Parametro> Parametros => Set<Parametro>();

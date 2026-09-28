@@ -74,7 +74,8 @@ public class CentroCusto : EntidadeAuditavel
 /// <summary>Usuário vinculado à identidade do Microsoft Entra ID (ObjectId).</summary>
 public class Usuario : EntidadeAuditavel
 {
-    public Guid EntraObjectId { get; set; }
+    /// <summary>Login de acesso (minúsculo, único no sistema). A senha fica em <see cref="CredencialUsuario"/>.</summary>
+    public string Login { get; set; } = string.Empty;
     public string Nome { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
     public PerfilUsuario Perfil { get; set; }
@@ -85,6 +86,56 @@ public class Usuario : EntidadeAuditavel
     public ICollection<UsuarioObra> Obras { get; set; } = [];
     /// <summary>Limites de aprovação por tipo (e opcionalmente por obra) — "aprova até R$ X".</summary>
     public ICollection<Aprovacoes.LimiteAprovacao> LimitesAprovacao { get; set; } = [];
+}
+
+/// <summary>
+/// Senha do usuário (hash PBKDF2, nunca a senha em si), bloqueio por tentativas e troca obrigatória.
+/// Separada do cadastro para que editar o usuário nunca toque na senha.
+/// </summary>
+public class CredencialUsuario : EntidadeAuditavel
+{
+    public Guid UsuarioId { get; set; }
+    public string SenhaHash { get; set; } = string.Empty;
+    public bool TrocarSenhaNoProximoAcesso { get; set; } = true;
+    public int TentativasFalhas { get; set; }
+    public DateTimeOffset? BloqueadoAte { get; set; }
+    public DateTimeOffset? UltimoAcessoEm { get; set; }
+    public DateTimeOffset? SenhaAlteradaEm { get; set; }
+}
+
+/// <summary>Regras de login e senha (sem dependência de infraestrutura).</summary>
+public static class PoliticaSenha
+{
+    public const int TamanhoMinimo = 10;
+    public const int TamanhoMaximo = 128;
+    public const int MaxTentativas = 5;
+    public static readonly TimeSpan TempoBloqueio = TimeSpan.FromMinutes(15);
+
+    public static string NormalizarLogin(string? login) => (login ?? "").Trim().ToLowerInvariant();
+
+    public static IReadOnlyList<string> ValidarLogin(string? login)
+    {
+        var l = NormalizarLogin(login);
+        var e = new List<string>();
+        if (l.Length is < 3 or > 60) e.Add("Login deve ter de 3 a 60 caracteres.");
+        else if (!l.All(c => char.IsAsciiLetterOrDigit(c) || c is '.' or '_' or '-' or '@')) e.Add("Login aceita letras sem acento, números, ponto, hífen, sublinhado e @");
+        return e;
+    }
+
+    public static IReadOnlyList<string> Validar(string? senha, string? login = null, string? nome = null)
+    {
+        var e = new List<string>();
+        senha ??= "";
+        if (senha.Length < TamanhoMinimo) e.Add($"A senha precisa ter pelo menos {TamanhoMinimo} caracteres.");
+        if (senha.Length > TamanhoMaximo) e.Add($"A senha pode ter no máximo {TamanhoMaximo} caracteres.");
+        if (!senha.Any(char.IsLetter) || !senha.Any(char.IsDigit)) e.Add("A senha precisa ter letras e números.");
+        if (senha.Distinct().Count() < 4) e.Add("A senha é repetitiva demais.");
+        var l = NormalizarLogin(login);
+        if (l.Length >= 3 && senha.Contains(l.Split('@')[0], StringComparison.OrdinalIgnoreCase)) e.Add("A senha não pode conter o login.");
+        foreach (var parte in (nome ?? "").Split(' ', StringSplitOptions.RemoveEmptyEntries).Where(p => p.Length >= 4))
+            if (senha.Contains(parte, StringComparison.OrdinalIgnoreCase)) { e.Add("A senha não pode conter o seu nome."); break; }
+        return e;
+    }
 }
 
 /// <summary>Quais obras cada usuário enxerga (base do filtro de acesso por obra).</summary>

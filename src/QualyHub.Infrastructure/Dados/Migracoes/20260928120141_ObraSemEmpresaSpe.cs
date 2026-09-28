@@ -17,7 +17,8 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                 newName: "Observacoes");
 
             // O texto livre "Empresa / SPE" deu lugar ao cadastro de SPEs; o conteúdo antigo fica nas observações da obra.
-            migrationBuilder.Sql("UPDATE qh.Obras SET Observacoes = N'Empresa/SPE (cadastro antigo): ' + Observacoes WHERE Observacoes IS NOT NULL AND LTRIM(Observacoes) <> N''");
+            // EXEC: a coluna só existe depois do rename — compilar em lote separado evita erro no script idempotente.
+            migrationBuilder.Sql("EXEC(N'UPDATE qh.Obras SET Observacoes = N''Empresa/SPE (cadastro antigo): '' + Observacoes WHERE Observacoes IS NOT NULL AND LEN(Observacoes) > 0')");
         }
 
         /// <inheritdoc />

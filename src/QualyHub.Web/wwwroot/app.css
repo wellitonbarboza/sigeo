@@ -420,3 +420,9 @@ ul.notas li { border-left: 3px solid var(--primaria); background: var(--superfic
 .btn { font-size: 14px; padding: 9px 20px; }
 .faixa { font-size: 14px; }
 .faixa b { font-weight: 700; }
+.login-marca { color: var(--sidebar-texto); background: var(--sidebar); border-radius: 10px; width: fit-content; }
+.login-marca .marca { background: transparent; }
+.usuario-box .conta-links { display: flex; gap: 12px; margin-top: 6px; }
+.usuario-box .conta-links a { color: var(--sidebar-sutil); display: inline-flex; gap: 4px; align-items: center; }
+.usuario-box .conta-links a:hover { color: var(--sidebar-texto); }
+.senha-gerada { font: 700 20px/1.2 ui-monospace, 'Cascadia Mono', Consolas, monospace; letter-spacing: .08em; padding: 10px 14px; background: var(--superficie); border: 1px dashed var(--borda-forte); border-radius: 8px; user-select: all; }

@@ -30,7 +30,7 @@
         <div class="usuario-box">
             <b>@Usuario.Nome</b>
             @Rotulos.De(Enum.TryParse<PerfilUsuario>(Usuario.Perfil, out var p) ? p : PerfilUsuario.Campo) · @Usuario.EmpresaNome
-            <div style="margin-top:8px"><a href="conta/sair" style="color:var(--sidebar-texto)" data-enhance-nav="false"><Icone Nome="sair" Tam="14" /> Sair</a></div>
+            <div class="conta-links"><a href="conta/trocar-senha" data-enhance-nav="false"><Icone Nome="cadeado" Tam="14" /> Alterar senha</a><a href="conta/sair" data-enhance-nav="false"><Icone Nome="sair" Tam="14" /> Sair</a></div>
         </div>
     </aside>
     <main class="principal">

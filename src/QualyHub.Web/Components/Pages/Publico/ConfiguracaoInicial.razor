@@ -8,11 +8,12 @@
 <PageTitle>Configuração inicial · QualyHub</PageTitle>
 <div class="login">
     <div class="caixa" style="width:min(640px,94vw)">
-        <div style="background:#2f3a4b;border-radius:10px;width:fit-content"><Logo /></div>
+        <div class="login-marca"><Logo /></div>
         <h1>Configuração inicial</h1>
         <p class="mudo">O banco está vazio. Cadastre a empresa e o administrador. O sistema aplica a carga padrão SiAC (parâmetros, listas, materiais e serviços controlados, tipos de documento, pastas do SGQ, retenção e alçadas) — tudo editável depois. Nenhum dado de outra empresa é carregado.</p>
-        @if (Erro is not null) { <div class="alerta erro">@(Erro switch { "codigo" => "Código de configuração inválido.", "oid" => "Informe o ObjectId do administrador no Entra ID (login Microsoft).", _ => "Preencha os campos obrigatórios." })</div> }
+        @if (Erro is not null) { <div class="alerta erro">@(Erro switch { "codigo" => "Código de configuração inválido.", "senha" => Msg ?? "Senha inválida.", _ => "Preencha os campos obrigatórios." })</div> }
         <form method="post" action="configuracao-inicial/salvar" class="form" style="margin-top:14px">
+            <AntiforgeryToken />
             <div class="campo s8"><label>Razão social<span class="req">*</span></label><input name="razao" required /></div>
             <div class="campo s4"><label>CNPJ</label><input name="cnpj" placeholder="00.000.000/0000-00" /></div>
             <div class="campo s6"><label>Nome fantasia</label><input name="fantasia" /></div>
@@ -25,11 +26,15 @@
             <div class="campo s12"><div class="secao"><Icone Nome="pessoa" /> Administrador</div></div>
             <div class="campo s6"><label>Nome<span class="req">*</span></label><input name="nome" required /></div>
             <div class="campo s6"><label>E-mail<span class="req">*</span></label><input name="email" type="email" required /></div>
-            <div class="campo s12"><label>ObjectId no Entra ID@(Autenticacao.ModoEntra(Cfg) ? "" : " (opcional)")@if (Autenticacao.ModoEntra(Cfg)) {<span class="req">*</span>}</label><input name="oid" placeholder="00000000-0000-0000-0000-000000000000" /><span class="ajuda">Necessário para login Microsoft em produção. Pode ser informado depois em Sistema › Usuários.</span></div>
+            <div class="campo s4"><label>Login<span class="req">*</span></label><input name="login" autocomplete="username" required placeholder="ex.: welliton" /></div>
+            <div class="campo s4"><label>Senha<span class="req">*</span></label><input name="senha" type="password" autocomplete="new-password" minlength="@PoliticaSenha.TamanhoMinimo" required /></div>
+            <div class="campo s4"><label>Confirme a senha<span class="req">*</span></label><input name="confirmacao" type="password" autocomplete="new-password" required /></div>
+            <div class="campo s12"><span class="ajuda">Mínimo de @PoliticaSenha.TamanhoMinimo caracteres, com letras e números. Os demais usuários são criados em Sistema › Usuários, com senha provisória.</span></div>
             <div class="campo s12" style="align-items:flex-end"><button class="btn prim" type="submit">Criar e entrar</button></div>
         </form>
     </div>
 </div>
 @code {
     [SupplyParameterFromQuery] public string? Erro { get; set; }
+    [SupplyParameterFromQuery] public string? Msg { get; set; }
 }

@@ -15,7 +15,6 @@ AMBIENTE="${3:-prd}"
 RG="${4:-rg-qualyhub-$AMBIENTE}"
 LOCAL="brazilsouth"
 GRUPO_DBA="QualyHub-DBA"
-APP_ENTRA="QualyHub ($AMBIENTE)"
 ETAPAS="${ETAPAS:-1 2 3 4 5 6 7 8}"
 DIR="$(cd "$(dirname "$0")" && pwd)"
 RAIZ="$DIR/.."
@@ -37,13 +36,7 @@ fi
 fi
 GRUPO_ID=${GRUPO_ID:-$(az ad group show --group "$GRUPO_DBA" --query id -o tsv)}
 
-echo "==> 3/8 Registro do app no Entra ID ($APP_ENTRA) — login Microsoft, só contas do tenant"
-CLIENT_ID=$(az ad app list --display-name "$APP_ENTRA" --query "[0].appId" -o tsv)
-if [[ -z "$CLIENT_ID" ]] && quer 3; then
-  CLIENT_ID=$(az ad app create --display-name "$APP_ENTRA" --sign-in-audience AzureADMyOrg \
-    --enable-id-token-issuance true --query appId -o tsv)
-  az ad sp create --id "$CLIENT_ID" -o none
-fi
+echo "==> 3/8 (login por usuário e senha do próprio QualyHub — sem registro de app no Entra ID)"
 
 if quer 4; then
 echo "==> 4/8 Resource group $RG + infraestrutura (Bicep)"
@@ -53,15 +46,11 @@ az deployment group create -g "$RG" -n "qualyhub-$(date +%Y%m%d%H%M)" \
   --parameters "$DIR/main.$AMBIENTE.bicepparam" \
   --parameters ambiente="$AMBIENTE" sqlAdminGrupoObjectId="$GRUPO_ID" sqlAdminGrupoNome="$GRUPO_DBA" \
                orcamentoInicio="$(date +%Y-%m-01)" emailsAlerta="[\"$EMAIL_ALERTA\"]" \
-               entraClientId="$CLIENT_ID" entraTenantId="$TENANT" -o none
+               -o none
 fi
 SAIDA=$(az deployment group list -g "$RG" --query "sort_by([?starts_with(name,'qualyhub-')], &properties.timestamp)[-1].properties.outputs" -o json)
 val() { echo "$SAIDA" | python3 -c "import sys,json; print(json.load(sys.stdin)['$1']['value'])"; }
 WEB=$(val webAppNome); URL=$(val webAppUrl); SQLSRV=$(val sqlServidor); DB=$(val sqlBanco); KV=$(val keyVaultNome)
-
-if [[ -n "$CLIENT_ID" ]]; then
-  az ad app update --id "$CLIENT_ID" --web-redirect-uris "$URL/signin-oidc" --enable-id-token-issuance true -o none
-fi
 
 if quer 5; then
 echo "==> 5/8 Segredos no Key Vault (HMAC do CPF e código da configuração inicial)"
@@ -99,5 +88,5 @@ fi
 echo "==> 8/8 Concluído"
 echo "    Site:  $URL  (saúde: $URL/saude)"
 echo "    SQL:   $SQLSRV / $DB"
-echo "    Login: app '$APP_ENTRA' ($CLIENT_ID). Primeiro acesso → /configuracao-inicial com o código do Key Vault"
+echo "    Primeiro acesso → /configuracao-inicial com o código do Key Vault (cria o administrador com login e senha)"
 echo "           e o ObjectId do administrador: az ad signed-in-user show --query id -o tsv"

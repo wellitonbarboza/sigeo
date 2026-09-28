@@ -14,7 +14,6 @@ AMBIENTE="${AMBIENTE:-prd}"
 RG="${RG:-rg-qualyhub-$AMBIENTE}"
 LOCAL="${LOCAL:-brazilsouth}"
 GRUPO_DBA="QualyHub-DBA"
-APP_ENTRA="QualyHub ($AMBIENTE)"
 
 ok() { read -r -p "  → $1 Confirma? (s/N) " r; [[ "$r" =~ ^[sS]$ ]]; }
 titulo() { echo; echo "================ $1 ================"; }
@@ -41,13 +40,8 @@ if [[ -z "$GRUPO_ID" ]]; then
   az ad group member add --group "$GRUPO_ID" --member-id "$EU"
 else echo "  Já existe ($GRUPO_ID)."; fi
 
-titulo "3/7 Registro do app no Entra ID (login Microsoft)"
-CLIENT_ID=$(az ad app list --display-name "$APP_ENTRA" --query "[0].appId" -o tsv)
-if [[ -z "$CLIENT_ID" ]]; then
-  ok "Registrar o app '$APP_ENTRA' (só contas do seu diretório)." || exit 1
-  CLIENT_ID=$(az ad app create --display-name "$APP_ENTRA" --sign-in-audience AzureADMyOrg --enable-id-token-issuance true --query appId -o tsv)
-  az ad sp create --id "$CLIENT_ID" -o none
-else echo "  Já existe ($CLIENT_ID)."; fi
+titulo "3/7 Login"
+echo "  Login por usuário e senha do próprio QualyHub (sem conta Microsoft)."
 
 titulo "4/7 Infraestrutura (App Service B1, SQL serverless, Storage, Key Vault, App Insights)"
 echo "  Custo estimado: ~R\$150–400/mês (SQL pausa sozinho sem uso)."
@@ -57,18 +51,17 @@ DEP="qualyhub-$(date +%Y%m%d%H%M)"
 if ! az deployment group create -g "$RG" -n "$DEP" --template-file main.json \
       --parameters ambiente="$AMBIENTE" sqlAdminGrupoObjectId="$GRUPO_ID" sqlAdminGrupoNome="$GRUPO_DBA" \
                    orcamentoInicio="$(date +%Y-%m-01)" orcamentoMensal="$ORC" emailsAlerta="[\"$EMAIL\"]" \
-                   entraClientId="$CLIENT_ID" entraTenantId="$TENANT" appServiceSku="$SKU" -o none; then
+                   appServiceSku="$SKU" -o none; then
   echo "  Falhou. Se o erro for no orçamento (Consumption), tentando sem ele…"
   echo "  (Se o erro for 'SubscriptionIsOverQuotaForSku', a assinatura não tem cota para $SKU nesta região:"
   echo "   peça cota em Portal › Cotas › App Service, ou rode de novo com o plano F1.)"
   az deployment group create -g "$RG" -n "$DEP-b" --template-file main.json \
       --parameters ambiente="$AMBIENTE" sqlAdminGrupoObjectId="$GRUPO_ID" sqlAdminGrupoNome="$GRUPO_DBA" criarOrcamento=false \
-                   orcamentoInicio="$(date +%Y-%m-01)" emailsAlerta="[\"$EMAIL\"]" entraClientId="$CLIENT_ID" entraTenantId="$TENANT" appServiceSku="$SKU" -o none
+                   orcamentoInicio="$(date +%Y-%m-01)" emailsAlerta="[\"$EMAIL\"]" appServiceSku="$SKU" -o none
   DEP="$DEP-b"
 fi
 out() { az deployment group show -g "$RG" -n "$DEP" --query "properties.outputs.$1.value" -o tsv; }
 WEB=$(out webAppNome); URL=$(out webAppUrl); KV=$(out keyVaultNome)
-az ad app update --id "$CLIENT_ID" --web-redirect-uris "$URL/signin-oidc" --enable-id-token-issuance true -o none
 echo "  Site: $URL"
 
 titulo "5/7 Permissões e segredos"
@@ -98,6 +91,5 @@ echo "  /saude → $c"
 titulo "7/7 Primeiro acesso"
 echo "  1) Abra $URL/configuracao-inicial"
 echo "  2) Código de configuração: $(az keyvault secret show --vault-name "$KV" -n CodigoConfiguracaoInicial --query value -o tsv)"
-echo "  3) ObjectId do administrador (você): $EU"
-echo "  4) Depois do cadastro, entre com 'Entrar com a conta Microsoft'."
+echo "  3) Cadastre o administrador com login e senha; os demais usuários recebem senha provisória em Sistema › Usuários."
 echo "  Logs, se precisar: az webapp log tail -g $RG -n $WEB"

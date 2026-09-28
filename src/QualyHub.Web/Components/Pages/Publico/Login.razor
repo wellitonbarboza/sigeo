@@ -2,47 +2,38 @@
 @attribute [AllowAnonymous]
 @attribute [ExcludeFromInteractiveRouting]
 @layout LayoutPublico
-@inject FabricaSistema Sistema
-@inject IConfiguration Cfg
-@inject IWebHostEnvironment Env
 
 <PageTitle>Entrar · QualyHub</PageTitle>
 <div class="login">
     <div class="caixa">
-        <div style="background:#2f3a4b;border-radius:10px;width:fit-content"><Logo /></div>
+        <div class="login-marca"><Logo /></div>
         <h1>Entrar no QualyHub</h1>
-        <p class="mudo">Suprimentos, qualidade e documentos do SGQ em um só lugar.</p>
-        @if (Erro is not null) { <div class="alerta erro">Usuário inválido ou inativo.</div> }
-        @if (Autenticacao.ModoEntra(Cfg))
+        <p class="mudo">Suprimentos, qualidade, engenharia e documentos do SGQ em um só lugar.</p>
+        @if (Erro is not null)
         {
-            <a class="btn prim" style="margin-top:16px" href="conta/entrar-microsoft">Entrar com a conta Microsoft</a>
+            <div class="alerta erro" id="login-erro">@(Erro switch
+            {
+                "bloqueado" => "Acesso bloqueado por excesso de tentativas. Aguarde 15 minutos ou peça ao administrador para desbloquear.",
+                "sessao" => "A página ficou aberta por muito tempo. Tente de novo.",
+                "limite" => "Muitas tentativas a partir desta rede. Aguarde 1 minuto e tente de novo.",
+                _ => "Login ou senha inválidos."
+            })</div>
         }
-        else if (Env.IsProduction())
-        {
-            <div class="alerta erro">Configure o Entra ID (AzureAd) para usar em produção.</div>
-        }
-        else
-        {
-            <div class="alerta info" style="margin-top:16px"><Icone Nome="info" /> Modo local de testes: escolha o usuário (sem senha). Em produção o login é pela conta Microsoft (Entra ID).</div>
-            <form method="post" action="conta/entrar" class="usuarios">
-                <input type="hidden" name="retorno" value="@Retorno" />
-                @foreach (var u in _usuarios)
-                {
-                    <button type="submit" name="usuario" value="@u.Id"><b>@u.Nome</b><small>@Rotulos.De(u.Perfil) · @(u.Funcao ?? "—") · @u.Email</small></button>
-                }
-            </form>
-        }
+        @if (Ok == "senha") { <div class="alerta ok">Senha definida. Entre com o seu login.</div> }
+        <form method="post" action="conta/entrar" class="form" style="margin-top:14px" autocomplete="on">
+            <AntiforgeryToken />
+            <input type="hidden" name="retorno" value="@ReturnUrl" />
+            <div class="campo s12"><label for="login">Login ou e-mail</label><input id="login" name="login" value="@LoginInformado" autocomplete="username" required autofocus /></div>
+            <div class="campo s12"><label for="senha">Senha</label><input id="senha" name="senha" type="password" autocomplete="current-password" required /></div>
+            <div class="campo s12"><button class="btn prim" id="entrar" type="submit" style="justify-content:center">Entrar</button></div>
+        </form>
+        <p class="mudo" style="font-size:12.5px;margin-top:14px">Esqueceu a senha? Peça ao administrador do sistema uma senha provisória. Após 5 tentativas erradas o acesso fica bloqueado por 15 minutos.</p>
     </div>
 </div>
 
 @code {
-    [SupplyParameterFromQuery] public string? Retorno { get; set; }
+    [SupplyParameterFromQuery] public string? ReturnUrl { get; set; }
     [SupplyParameterFromQuery] public string? Erro { get; set; }
-    private List<Usuario> _usuarios = [];
-
-    protected override async Task OnInitializedAsync()
-    {
-        await using var db = Sistema.Criar(Guid.Empty, "Login");
-        _usuarios = await db.Usuarios.IgnoreQueryFilters().AsNoTracking().Where(u => u.Ativo && !u.Excluido).OrderBy(u => u.Perfil).ThenBy(u => u.Nome).ToListAsync();
-    }
+    [SupplyParameterFromQuery] public string? Ok { get; set; }
+    [SupplyParameterFromQuery(Name = "login")] public string? LoginInformado { get; set; }
 }

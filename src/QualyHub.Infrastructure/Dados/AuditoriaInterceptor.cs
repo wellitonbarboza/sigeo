@@ -13,7 +13,8 @@ namespace QualyHub.Infrastructure.Dados;
 /// </summary>
 public sealed class AuditoriaInterceptor(IUsuarioAtual usuario, TimeProvider relogio) : SaveChangesInterceptor
 {
-    private static readonly HashSet<string> Ignorados = [nameof(EntidadeAuditavel.RowVersion)];
+    // SenhaHash nunca vai para o log de auditoria (só o fato de ter mudado aparece pela data de alteração).
+    private static readonly HashSet<string> Ignorados = [nameof(EntidadeAuditavel.RowVersion), "SenhaHash"];
     private static readonly JsonSerializerOptions Json = new() { WriteIndented = false };
 
     public override ValueTask<InterceptionResult<int>> SavingChangesAsync(DbContextEventData e, InterceptionResult<int> r, CancellationToken ct = default)

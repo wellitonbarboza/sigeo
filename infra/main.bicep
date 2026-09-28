@@ -43,12 +43,6 @@ param criarOrcamento bool = true
 @description('Início do orçamento: primeiro dia do mês corrente (yyyy-MM-01).')
 param orcamentoInicio string
 
-@description('ClientId (Application ID) do registro do app no Entra ID usado no login. Vazio = site sobe mas recusa iniciar em produção.')
-param entraClientId string = ''
-
-@description('Tenant do Entra ID do login (padrão: o tenant da assinatura).')
-param entraTenantId string = subscription().tenantId
-
 var sufixo = uniqueString(resourceGroup().id)
 var nome = '${prefixo}-${ambiente}'
 var tags = { sistema: 'QualyHub', ambiente: ambiente, gerenciadoPor: 'bicep' }
@@ -240,10 +234,6 @@ resource web 'Microsoft.Web/sites@2023-12-01' = {
         { name: 'ASPNETCORE_ENVIRONMENT', value: ambiente == 'prd' ? 'Production' : 'Staging' }
         { name: 'ASPNETCORE_FORWARDEDHEADERS_ENABLED', value: 'true' } // TLS termina no proxy do App Service
         { name: 'TZ', value: 'America/Sao_Paulo' }
-        { name: 'AzureAd__Instance', value: environment().authentication.loginEndpoint }
-        { name: 'AzureAd__TenantId', value: entraTenantId }
-        { name: 'AzureAd__ClientId', value: entraClientId }
-        { name: 'AzureAd__CallbackPath', value: '/signin-oidc' }
       ]
       connectionStrings: [
         { name: 'QualyHub', connectionString: sqlConn, type: 'SQLAzure' }
