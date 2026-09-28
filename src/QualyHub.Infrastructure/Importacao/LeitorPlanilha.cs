@@ -15,7 +15,7 @@ public sealed record LinhaLida(int NumeroLinha, IReadOnlyDictionary<string, stri
 }
 
 /// <summary>
-/// Lê .xlsx ou .csv exportado do Obra Prima e aplica o mapeamento de colunas do layout.
+/// Lê .xlsx ou .csv exportado do ERP e aplica o mapeamento de colunas do layout.
 /// Cabeçalhos são comparados sem acento/caixa/espaços — tolera pequenas variações entre versões do export.
 /// </summary>
 public static class LeitorPlanilha
@@ -29,7 +29,7 @@ public static class LeitorPlanilha
         {
             ".xlsx" or ".xlsm" => LerExcel(arquivo, layout),
             ".csv" or ".txt" => LerCsv(arquivo, layout),
-            var ext => throw new NotSupportedException($"Formato {ext} não suportado. Exporte do Obra Prima em .xlsx ou .csv.")
+            var ext => throw new NotSupportedException($"Formato {ext} não suportado. Exporte do ERP em .xlsx ou .csv.")
         };
 
         var faltando = mapa.Values.Where(col => !bruto.Cabecalhos.Contains(Normalizar(col))).ToList();

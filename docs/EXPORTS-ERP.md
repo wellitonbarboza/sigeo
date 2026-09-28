@@ -1,8 +1,8 @@
-# Exports do Obra Prima necessários para o QualyHub
+# Exports do ERP necessários para o QualyHub
 
-**Como enviar:** exporte **.xlsx** (preferível) ou **.csv** direto das telas/relatórios do Obra Prima. **Não é necessário compartilhar login e senha.** Os arquivos bastam e são mais seguros. Para os testes, 20 a 50 linhas reais por arquivo são suficientes. **Funcionários podem vir com CPF e nome fictícios.**
+**Como enviar:** exporte **.xlsx** (preferível) ou **.csv** direto das telas/relatórios do ERP. **Não é necessário compartilhar login e senha.** Os arquivos bastam e são mais seguros. Para os testes, 20 a 50 linhas reais por arquivo são suficientes. **Funcionários podem vir com CPF e nome fictícios.**
 
-Para cada arquivo, informe também: o caminho no Obra Prima (menu → relatório), se há filtro de obra/período e a frequência desejada (diária, semanal, por medição).
+Para cada arquivo, informe também: o caminho no ERP (menu → relatório), se há filtro de obra/período e a frequência desejada (diária, semanal, por medição).
 
 | # | Arquivo | Campos mínimos | Uso no QualyHub |
 |---|---|---|---|
@@ -13,10 +13,10 @@ Para cada arquivo, informe também: o caminho no Obra Prima (menu → relatório
 | 5 | **Contratos de empreiteiros** | Nº contrato, Fornecedor, Obra, Escopo, Valor | Vincula serviço controlado ao prestador |
 | 6 | **Medições** (cabeçalho + itens) | Nº medição, Contrato, Período, Valor · Itens: código do item/EAP, descrição, quantidade, valor, **local (se houver)** | Trava de FVS aprovada antes de aprovar |
 | 7 | **Orçamento / EAP** | Código do item, Descrição, Unidade | Cruzar item de medição com **serviço controlado** |
-| 8 | **Funcionários** (se o Obra Prima tiver) | Nome, CPF, Função, Empresa (próprio/terceiro) | Documentos, NRs e acesso à obra |
+| 8 | **Funcionários** (se o ERP tiver) | Nome, CPF, Função, Empresa (próprio/terceiro) | Documentos, NRs e acesso à obra |
 
-## Perguntas técnicas para a N Dalmina / Obra Prima
-1. O Obra Prima tem **API** ou exportação agendada? Se tiver, a importação pode ser automatizada via Azure Functions.
+## Perguntas técnicas para a N Dalmina / ERP
+1. O ERP tem **API** ou exportação agendada? Se tiver, a importação pode ser automatizada via Azure Functions.
 2. A medição traz o **local** (torre/pavimento/unidade)? Sem ele, a trava de FVS vale por serviço, não por local.
 3. O código de insumo e o código de item de orçamento são **estáveis** entre obras?
 4. Quem hoje aprova pedidos e medições, e com quais alçadas de valor?

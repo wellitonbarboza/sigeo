@@ -509,7 +509,7 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                         .HasMaxLength(400)
                         .HasColumnType("nvarchar(400)");
 
-                    b.Property<string>("CodigoObraPrima")
+                    b.Property<string>("CodigoErp")
                         .HasMaxLength(60)
                         .HasColumnType("nvarchar(60)");
 
@@ -1115,7 +1115,7 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                         .HasMaxLength(400)
                         .HasColumnType("nvarchar(400)");
 
-                    b.Property<string>("CodigoObraPrima")
+                    b.Property<string>("CodigoErp")
                         .HasMaxLength(60)
                         .HasColumnType("nvarchar(60)");
 
@@ -1227,7 +1227,7 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                         .HasMaxLength(400)
                         .HasColumnType("nvarchar(400)");
 
-                    b.Property<string>("CodigoObraPrima")
+                    b.Property<string>("CodigoErp")
                         .HasMaxLength(60)
                         .HasColumnType("nvarchar(60)");
 
@@ -1355,7 +1355,7 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                         .HasMaxLength(400)
                         .HasColumnType("nvarchar(400)");
 
-                    b.Property<string>("CodigoObraPrima")
+                    b.Property<string>("CodigoErp")
                         .HasMaxLength(60)
                         .HasColumnType("nvarchar(60)");
 
@@ -3292,6 +3292,131 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                     b.ToTable("SolicitacaoCopiaItens", "qh");
                 });
 
+            modelBuilder.Entity("QualyHub.Domain.Engenharia.Quadra", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset?>("AlteradoEm")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("AlteradoPor")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<decimal?>("AreaTerreno")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<bool>("Ativa")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("CnpjCondominio")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("Codigo")
+                        .IsRequired()
+                        .HasMaxLength(6)
+                        .HasColumnType("nvarchar(6)");
+
+                    b.Property<DateTimeOffset>("CriadoEm")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("CriadoPor")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Endereco")
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
+
+                    b.Property<bool>("Excluido")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTimeOffset?>("ExcluidoEm")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("ExcluidoPor")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<Guid?>("LocalId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Matricula")
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<string>("NomeCondominio")
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
+
+                    b.Property<Guid>("ObraId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Observacoes")
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
+
+                    b.Property<int>("Ordem")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("PeriodEnd")
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("datetime2")
+                        .HasColumnName("PeriodEnd");
+
+                    b.Property<DateTime>("PeriodStart")
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("datetime2")
+                        .HasColumnName("PeriodStart");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EmpresaId");
+
+                    b.HasIndex("LocalId");
+
+                    b.HasIndex("ObraId", "Codigo")
+                        .IsUnique()
+                        .HasFilter("[Excluido] = 0");
+
+                    b.ToTable("Quadras", "qh");
+
+                    b.ToTable(tb => tb.IsTemporal(ttb =>
+                            {
+                                ttb.UseHistoryTable("Quadra_Historico", "qh_hist");
+                                ttb
+                                    .HasPeriodStart("PeriodStart")
+                                    .HasColumnName("PeriodStart");
+                                ttb
+                                    .HasPeriodEnd("PeriodEnd")
+                                    .HasColumnName("PeriodEnd");
+                            }));
+                });
+
             modelBuilder.Entity("QualyHub.Domain.Engenharia.Spe", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3373,6 +3498,9 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                         .HasColumnType("datetime2")
                         .HasColumnName("PeriodStart");
 
+                    b.Property<Guid?>("QuadraId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("RazaoSocial")
                         .IsRequired()
                         .HasMaxLength(400)
@@ -3387,6 +3515,8 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                     b.HasKey("Id");
 
                     b.HasIndex("EmpresaId");
+
+                    b.HasIndex("QuadraId");
 
                     b.HasIndex("EmpresaId", "Cnpj")
                         .IsUnique()
@@ -3918,7 +4048,7 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                         .HasMaxLength(30)
                         .HasColumnType("nvarchar(30)");
 
-                    b.Property<string>("CodigoObraPrima")
+                    b.Property<string>("CodigoErp")
                         .HasMaxLength(60)
                         .HasColumnType("nvarchar(60)");
 
@@ -8281,7 +8411,7 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                         .HasMaxLength(44)
                         .HasColumnType("nvarchar(44)");
 
-                    b.Property<string>("CodigoObraPrima")
+                    b.Property<string>("CodigoErp")
                         .HasMaxLength(60)
                         .HasColumnType("nvarchar(60)");
 
@@ -9435,6 +9565,22 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                         .IsRequired();
 
                     b.Navigation("Revisao");
+                });
+
+            modelBuilder.Entity("QualyHub.Domain.Engenharia.Quadra", b =>
+                {
+                    b.HasOne("QualyHub.Domain.Estrutura.Local", null)
+                        .WithMany()
+                        .HasForeignKey("LocalId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("QualyHub.Domain.Engenharia.Spe", b =>
+                {
+                    b.HasOne("QualyHub.Domain.Engenharia.Quadra", null)
+                        .WithMany()
+                        .HasForeignKey("QuadraId")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("QualyHub.Domain.Estrutura.CentroCusto", b =>

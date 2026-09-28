@@ -16,7 +16,7 @@ public class Empresa : Entidade
     public bool Ativa { get; set; } = true;
 }
 
-public class Obra : EntidadeAuditavel, IOrigemObraPrima
+public class Obra : EntidadeAuditavel, IOrigemErp
 {
     public string Codigo { get; set; } = string.Empty;
     public string Nome { get; set; } = string.Empty;
@@ -33,7 +33,7 @@ public class Obra : EntidadeAuditavel, IOrigemObraPrima
     public Guid? PqoDocumentoId { get; set; }
     public StatusObra Status { get; set; } = StatusObra.EmExecucao;
     public bool Ativa { get; set; } = true;
-    public string? CodigoObraPrima { get; set; }
+    public string? CodigoErp { get; set; }
     public Guid? UltimaImportacaoId { get; set; }
 
     public ICollection<Local> Locais { get; set; } = [];

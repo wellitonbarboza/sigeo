@@ -4,13 +4,13 @@
 **Data:** 25/09/2026
 
 ## Contexto
-Os apps e micro-SaaS existentes rodam em Supabase. A N Dalmina precisa de um sistema complementar ao Obra Prima para a certificação SiAC Nível B. Foi solicitada a construção em Blazor no Azure.
+Os apps e micro-SaaS existentes rodam em Supabase. A N Dalmina precisa de um sistema complementar ao ERP para a certificação SiAC Nível B. Foi solicitada a construção em Blazor no Azure.
 
 ## Decisão proposta
 Criar a **linha corporativa .NET/Azure** com o QualyHub como produto inicial, destinada a clientes que:
 - já usam Microsoft 365 / Entra ID (login único, Teams, SharePoint);
 - exigem ambiente "corporativo" para auditoria, Caixa ou investidores;
-- têm ERP próprio (Obra Prima, Sienge, TOTVS) e precisam de uma camada de qualidade e aprovação.
+- têm ERP próprio (Sienge, TOTVS e outros) e precisam de uma camada de qualidade e aprovação.
 
 Os micro-SaaS, apps pessoais e produtos de ticket baixo **continuam em Supabase**.
 

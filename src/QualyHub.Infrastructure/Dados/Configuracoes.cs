@@ -58,6 +58,21 @@ internal sealed class SpeCfg : IEntityTypeConfiguration<QualyHub.Domain.Engenhar
         b.Property(x => x.PatrimonioAfetacao).HasMaxLength(20);
         b.HasIndex(x => new { x.EmpresaId, x.Cnpj }).IsUnique().HasFilter("[Excluido] = 0");
         b.HasIndex(x => new { x.ObraId, x.Codigo }).IsUnique().HasFilter("[Excluido] = 0");
+        b.HasOne<QualyHub.Domain.Engenharia.Quadra>().WithMany().HasForeignKey(x => x.QuadraId).OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
+internal sealed class QuadraCfg : IEntityTypeConfiguration<QualyHub.Domain.Engenharia.Quadra>
+{
+    public void Configure(EntityTypeBuilder<QualyHub.Domain.Engenharia.Quadra> b)
+    {
+        b.Property(x => x.Codigo).HasMaxLength(6);
+        b.Property(x => x.Nome).HasMaxLength(120);
+        b.Property(x => x.Tipo).HasMaxLength(40);
+        b.Property(x => x.CnpjCondominio).HasMaxLength(20);
+        b.Property(x => x.AreaTerreno).HasPrecision(18, 2);
+        b.HasIndex(x => new { x.ObraId, x.Codigo }).IsUnique().HasFilter("[Excluido] = 0");
+        b.HasOne<Local>().WithMany().HasForeignKey(x => x.LocalId).OnDelete(DeleteBehavior.Restrict);
     }
 }
 

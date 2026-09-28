@@ -6,7 +6,7 @@ using QualyHub.Infrastructure.Importacao;
 
 namespace QualyHub.Infrastructure.Servicos;
 
-public sealed record LinhaResumoSpe(Guid SpeId, string Spe, string Cnpj, int Pavimentos, int Unidades, decimal AreaPrivativa, decimal FracaoSoma,
+public sealed record LinhaResumoSpe(Guid SpeId, string Spe, string? Quadra, string Cnpj, int Pavimentos, int Unidades, decimal AreaPrivativa, decimal FracaoSoma,
     IReadOnlyList<(string Tipologia, int Unidades, decimal Area)> PorTipologia);
 
 /// <summary>Fase 1 do módulo de engenharia: SPE, tipologias, gerador do empreendimento e fração ideal.</summary>
@@ -26,7 +26,39 @@ public sealed class EngenhariaServico(FabricaDb fabrica)
         await using var db = fabrica.Criar();
         if (await db.Spes.AnyAsync(x => x.Id != s.Id && x.Cnpj == s.Cnpj, ct)) throw new RegraDeNegocioException("Já existe SPE com este CNPJ.");
         if (await db.Spes.AnyAsync(x => x.Id != s.Id && x.ObraId == s.ObraId && x.Codigo == s.Codigo, ct)) throw new RegraDeNegocioException("Sigla já usada nesta obra.");
+        if (s.QuadraId is { } qid && !await db.Quadras.AnyAsync(q => q.Id == qid && q.ObraId == s.ObraId, ct)) throw new RegraDeNegocioException("Quadra/condomínio não pertence a esta obra.");
         await Grafo.SalvarAsync(db, s);
+        await db.SaveChangesAsync(ct);
+    }
+
+    public async Task SalvarQuadraAsync(Quadra q, CancellationToken ct = default)
+    {
+        var e = new List<string>();
+        q.Codigo = (q.Codigo ?? "").Trim().ToUpperInvariant();
+        q.Nome = (q.Nome ?? "").Trim();
+        if (q.Nome.Length == 0) e.Add("Informe o nome (ex.: Quadra C).");
+        if (q.Codigo.Length is < 1 or > 6 || !q.Codigo.All(char.IsLetterOrDigit)) e.Add("Sigla de 1 a 6 letras/números (ex.: QC).");
+        if (string.IsNullOrWhiteSpace(q.Tipo)) e.Add("Informe o tipo (quadra, condomínio…).");
+        if (q.ObraId == Guid.Empty) e.Add("Selecione a obra.");
+        if (q.AreaTerreno is < 0) e.Add("Área do terreno não pode ser negativa.");
+        if (!string.IsNullOrWhiteSpace(q.CnpjCondominio))
+        {
+            var doc = Conversor.SomenteDigitos(q.CnpjCondominio);
+            if (!Conversor.CnpjValido(doc)) e.Add("CNPJ do condomínio inválido.");
+            else q.CnpjCondominio = Convert.ToUInt64(doc).ToString(@"00\.000\.000\/0000\-00");
+        }
+        ValidacaoException.Se(e);
+        await using var db = fabrica.Criar();
+        if (await db.Quadras.AnyAsync(x => x.Id != q.Id && x.ObraId == q.ObraId && (x.Codigo == q.Codigo || x.Nome == q.Nome), ct))
+            throw new RegraDeNegocioException("Já existe quadra/condomínio com esta sigla ou nome nesta obra.");
+        var antiga = await db.Quadras.AsNoTracking().Where(x => x.Id == q.Id).Select(x => x.Codigo).FirstOrDefaultAsync(ct);
+        if (q.LocalId is { } lid)
+        {
+            if (antiga is not null && antiga != q.Codigo) throw new RegraDeNegocioException("A sigla não pode mudar depois de gerar prédios e unidades (os códigos já estão em uso).");
+            var local = await db.Locais.FirstOrDefaultAsync(l => l.Id == lid, ct);
+            if (local is not null) local.Nome = q.Nome;
+        }
+        await Grafo.SalvarAsync(db, q);
         await db.SaveChangesAsync(ct);
     }
 
@@ -46,22 +78,25 @@ public sealed class EngenhariaServico(FabricaDb fabrica)
         await db.SaveChangesAsync(ct);
     }
 
-    /// <summary>Gera quadra › prédios › pavimentos › unidades (pavimentos iguais) e distribui a fração ideal por área privativa.</summary>
-    public async Task<int> GerarAsync(Guid obraId, string quadra, string siglaQuadra, IReadOnlyList<(string Nome, Guid SpeId, int Pavimentos, IReadOnlyList<(Guid TipologiaId, int Qtd)> Mix)> predios, CancellationToken ct = default)
+    /// <summary>Gera prédios › pavimentos › unidades dentro da quadra/condomínio cadastrado (pavimentos iguais) e distribui a fração ideal.</summary>
+    public async Task<int> GerarAsync(Guid obraId, Guid quadraId, IReadOnlyList<(string Nome, Guid SpeId, int Pavimentos, IReadOnlyList<(Guid TipologiaId, int Qtd)> Mix)> predios, CancellationToken ct = default)
     {
         await using var db = fabrica.Criar();
-        siglaQuadra = (siglaQuadra ?? "").Trim().ToUpperInvariant();
-        if (siglaQuadra.Length is < 1 or > 6 || !siglaQuadra.All(char.IsLetterOrDigit)) throw new RegraDeNegocioException("Sigla da quadra de 1 a 6 letras/números (ex.: QC).");
+        var quadra = await db.Quadras.FirstOrDefaultAsync(q => q.Id == quadraId && q.ObraId == obraId, ct) ?? throw new RegraDeNegocioException("Selecione a quadra/condomínio.");
         var spes = await db.Spes.Where(s => s.ObraId == obraId).ToDictionaryAsync(s => s.Id, ct);
         var tips = await db.Tipologias.Where(t => t.ObraId == obraId).ToDictionaryAsync(t => t.Id, ct);
         var specs = predios.Select(p => new PredioGerar(p.Nome, p.SpeId, spes.TryGetValue(p.SpeId, out var sp) ? sp.Codigo : "?", p.Pavimentos,
             p.Mix.Where(m => m.Qtd > 0 && tips.ContainsKey(m.TipologiaId)).Select(m => (tips[m.TipologiaId], m.Qtd)).ToList())).ToList();
-        ValidacaoException.Se(GeradorEmpreendimento.Validar(quadra, specs));
-        if (await db.Locais.AnyAsync(l => l.ObraId == obraId && l.Tipo == GeradorEmpreendimento.TipoQuadra && (l.Nome == quadra.Trim() || l.Codigo == siglaQuadra), ct))
-            throw new RegraDeNegocioException("Já existe uma quadra com este nome ou sigla nesta obra.");
+        ValidacaoException.Se(GeradorEmpreendimento.Validar(quadra.Nome, specs));
         var ocupadas = await db.Locais.Where(l => l.ObraId == obraId && l.Tipo == GeradorEmpreendimento.TipoPredio && l.SpeId != null).Select(l => l.SpeId).ToListAsync(ct);
         if (specs.Any(p => ocupadas.Contains(p.SpeId))) throw new RegraDeNegocioException("Uma das SPEs já tem prédio cadastrado (1 prédio = 1 SPE).");
-        var locais = GeradorEmpreendimento.Gerar(obraId, quadra, siglaQuadra, specs);
+        if (specs.Any(p => spes[p.SpeId].QuadraId is { } outra && outra != quadra.Id)) throw new RegraDeNegocioException("Uma das SPEs está vinculada a outra quadra/condomínio.");
+
+        Local? localQuadra = quadra.LocalId is { } lid ? await db.Locais.FirstOrDefaultAsync(l => l.Id == lid, ct) : null;
+        var ordem = localQuadra is null ? 0 : await db.Locais.CountAsync(l => l.LocalPaiId == localQuadra.Id && l.Tipo == GeradorEmpreendimento.TipoPredio, ct);
+        var locais = GeradorEmpreendimento.Gerar(obraId, quadra.Nome, quadra.Codigo, specs, localQuadra, ordem);
+        if (localQuadra is null) quadra.LocalId = locais[0].Id;
+        foreach (var p in specs) spes[p.SpeId].QuadraId = quadra.Id;
         db.Locais.AddRange(locais);
         await db.SaveChangesAsync(ct);
         return locais.Count;
@@ -72,12 +107,13 @@ public sealed class EngenhariaServico(FabricaDb fabrica)
     {
         await using var db = fabrica.Criar();
         var spes = await db.Spes.AsNoTracking().Where(s => s.ObraId == obraId && s.Ativa).OrderBy(s => s.Codigo).ToListAsync(ct);
+        var quadras = await db.Quadras.AsNoTracking().Where(q => q.ObraId == obraId).ToDictionaryAsync(q => q.Id, q => q.Nome, ct);
         var tips = await db.Tipologias.AsNoTracking().Where(t => t.ObraId == obraId).ToDictionaryAsync(t => t.Id, t => t.Codigo, ct);
         var locais = await db.Locais.AsNoTracking().Where(l => l.ObraId == obraId && l.SpeId != null).ToListAsync(ct);
         return spes.Select(s =>
         {
             var us = locais.Where(l => l.SpeId == s.Id && l.Tipo == GeradorEmpreendimento.TipoUnidade).ToList();
-            return new LinhaResumoSpe(s.Id, s.NomeExibicao, s.Cnpj, locais.Count(l => l.SpeId == s.Id && l.Tipo == GeradorEmpreendimento.TipoPavimento), us.Count,
+            return new LinhaResumoSpe(s.Id, s.NomeExibicao, s.QuadraId is { } qd ? quadras.GetValueOrDefault(qd) : null, s.Cnpj, locais.Count(l => l.SpeId == s.Id && l.Tipo == GeradorEmpreendimento.TipoPavimento), us.Count,
                 us.Sum(u => u.AreaPrivativa ?? 0), us.Sum(u => u.FracaoIdeal ?? 0),
                 us.GroupBy(u => u.TipologiaId).Select(g => (g.Key is { } k ? tips.GetValueOrDefault(k, "?") : "—", g.Count(), g.Sum(u => u.AreaPrivativa ?? 0))).OrderBy(x => x.Item1).ToList());
         }).ToList();

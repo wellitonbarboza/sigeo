@@ -79,7 +79,7 @@
                 <Campo Rotulo="Término previsto" Classe="s2"><input type="date" @bind="_o.DataPrevistaTermino" /></Campo>
                 <Campo Rotulo="Cidade" Classe="s4"><input @bind="_o.Cidade" /></Campo>
                 <Campo Rotulo="UF" Classe="s1"><input @bind="_o.Uf" maxlength="2" /></Campo>
-                <Campo Rotulo="Código no ERP" Classe="s3"><input @bind="_o.CodigoObraPrima" /></Campo>
+                <Campo Rotulo="Código no ERP" Classe="s3"><input @bind="_o.CodigoErp" /></Campo>
                 <Campo Rotulo="" Classe="s4"><label><input type="checkbox" @bind="_o.Ativa" /> Ativa</label></Campo>
                 <Campo Rotulo="Engenheiro responsável (1º nível)" Obrigatorio Classe="s3"><select @bind="_o.EngenheiroId"><option value="">—</option>@foreach (var u in _usuarios) { <option value="@u.Id">@u.Texto</option> }</select></Campo>
                 <Campo Rotulo="Administrativo de obra" Classe="s3"><select @bind="_o.AdministrativoId"><option value="">—</option>@foreach (var u in _usuarios) { <option value="@u.Id">@u.Texto</option> }</select></Campo>

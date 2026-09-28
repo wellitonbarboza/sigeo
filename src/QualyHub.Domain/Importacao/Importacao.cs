@@ -3,7 +3,7 @@ using QualyHub.Domain.Common;
 namespace QualyHub.Domain.Importacao;
 
 /// <summary>
-/// Layout de colunas do export do Obra Prima (mapeamento salvo para não remapear a cada arquivo).
+/// Layout de colunas do export do ERP (mapeamento salvo para não remapear a cada arquivo).
 /// MapeamentoJson: { "CpfCnpj": "CNPJ/CPF", "RazaoSocial": "Razão Social", ... } (campo QualyHub → cabeçalho do arquivo)
 /// </summary>
 public class LayoutImportacao : EntidadeAuditavel

@@ -72,6 +72,6 @@
 
 **Plano B:** se a etapa 4 (offline) atrasar, as FVS/FVM rodam **online** no Blazor Server pelo celular enquanto o PWA é finalizado. O registro vale do mesmo jeito.
 
-## 6. Exports do Obra Prima
+## 6. Exports do ERP
 
-É a **primeira validação técnica**. O importador aceita .xlsx e .csv, tolera variações de cabeçalho (acento, caixa, espaços) e formatos brasileiros (1.234,56 · 31/12/2026 · CNPJ com máscara). Os mapeamentos ficam salvos por layout. O que pedir está em `docs/EXPORTS-OBRA-PRIMA.md`.
+É a **primeira validação técnica**. O importador aceita .xlsx e .csv, tolera variações de cabeçalho (acento, caixa, espaços) e formatos brasileiros (1.234,56 · 31/12/2026 · CNPJ com máscara). Os mapeamentos ficam salvos por layout. O que pedir está em `docs/EXPORTS-ERP.md`.

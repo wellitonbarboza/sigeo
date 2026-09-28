@@ -121,7 +121,7 @@ resource blobSvc 'Microsoft.Storage/storageAccounts/blobServices@2023-05-01' = {
 }
 
 // documentos: certidões/fornecedores | sgq: MQ/PO/PEIS | evidencias: fotos FVS/FVM
-// sensivel: ASO e afins (LGPD, acesso restrito) | importacoes: arquivos do Obra Prima
+// sensivel: ASO e afins (LGPD, acesso restrito) | importacoes: arquivos do ERP
 var containers = [ 'documentos', 'sgq', 'evidencias', 'sensivel', 'importacoes' ]
 resource cont 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-05-01' = [for c in containers: {
   parent: blobSvc

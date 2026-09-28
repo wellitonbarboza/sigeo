@@ -10,7 +10,7 @@ using QualyHub.Infrastructure.Dados;
 namespace QualyHub.Infrastructure.Importacao;
 
 /// <summary>
-/// Importação de fornecedores do Obra Prima — padrão de referência para os demais importadores
+/// Importação de fornecedores do ERP — padrão de referência para os demais importadores
 /// (funcionários, pedidos, medições): 1) Preparar = staging + validação + prévia; 2) Confirmar = upsert.
 /// Campos QualyHub esperados no layout: CpfCnpj, RazaoSocial, NomeFantasia, Email, Telefone, Cidade, Uf, Codigo.
 /// </summary>
@@ -92,7 +92,7 @@ public sealed class ImportadorFornecedores(QualyHubDbContext db, TimeProvider re
         f.Telefones = Valor(d, "Telefone") ?? f.Telefones;
         f.Cidade = Valor(d, "Cidade") ?? f.Cidade;
         f.Uf = Valor(d, "Uf")?.ToUpperInvariant() ?? f.Uf;
-        f.CodigoObraPrima = Valor(d, "Codigo") ?? f.CodigoObraPrima;
+        f.CodigoErp = Valor(d, "Codigo") ?? f.CodigoErp;
         // Situação SGQ (qualificação) NUNCA vem da importação: é decisão da Qualidade no QualyHub.
     }
 

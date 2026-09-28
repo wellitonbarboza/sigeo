@@ -115,6 +115,7 @@ public class QualyHubDbContext(DbContextOptions<QualyHubDbContext> options, IUsu
     public DbSet<FornecedorContato> FornecedorContatos => Set<FornecedorContato>();
     public DbSet<CategoriaProduto> CategoriasProduto => Set<CategoriaProduto>();
     public DbSet<Spe> Spes => Set<Spe>();
+    public DbSet<Quadra> Quadras => Set<Quadra>();
     public DbSet<Tipologia> Tipologias => Set<Tipologia>();
     public DbSet<Tarefa> Tarefas => Set<Tarefa>();
     public DbSet<TarefaProrrogacao> TarefaProrrogacoes => Set<TarefaProrrogacao>();
@@ -184,8 +185,8 @@ public class QualyHubDbContext(DbContextOptions<QualyHubDbContext> options, IUsu
             if (typeof(IHistoricoTemporal).IsAssignableFrom(clr))
                 mb.Entity(clr).ToTable(et.GetTableName() ?? clr.Name, t => t.IsTemporal(h => h.UseHistoryTable($"{clr.Name}_Historico", "qh_hist")));
 
-            if (typeof(IOrigemObraPrima).IsAssignableFrom(clr))
-                mb.Entity(clr).Property(nameof(IOrigemObraPrima.CodigoObraPrima)).HasMaxLength(60);
+            if (typeof(IOrigemErp).IsAssignableFrom(clr))
+                mb.Entity(clr).Property(nameof(IOrigemErp.CodigoErp)).HasMaxLength(60);
         }
     }
 

@@ -439,7 +439,7 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                         .HasMaxLength(400)
                         .HasColumnType("nvarchar(400)");
 
-                    b.Property<string>("CodigoObraPrima")
+                    b.Property<string>("CodigoErp")
                         .HasMaxLength(60)
                         .HasColumnType("nvarchar(60)");
 
@@ -1045,7 +1045,7 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                         .HasMaxLength(400)
                         .HasColumnType("nvarchar(400)");
 
-                    b.Property<string>("CodigoObraPrima")
+                    b.Property<string>("CodigoErp")
                         .HasMaxLength(60)
                         .HasColumnType("nvarchar(60)");
 
@@ -1153,7 +1153,7 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                         .HasMaxLength(400)
                         .HasColumnType("nvarchar(400)");
 
-                    b.Property<string>("CodigoObraPrima")
+                    b.Property<string>("CodigoErp")
                         .HasMaxLength(60)
                         .HasColumnType("nvarchar(60)");
 
@@ -1252,7 +1252,7 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                         .HasMaxLength(400)
                         .HasColumnType("nvarchar(400)");
 
-                    b.Property<string>("CodigoObraPrima")
+                    b.Property<string>("CodigoErp")
                         .HasMaxLength(60)
                         .HasColumnType("nvarchar(60)");
 
@@ -3598,7 +3598,7 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                         .HasMaxLength(30)
                         .HasColumnType("nvarchar(30)");
 
-                    b.Property<string>("CodigoObraPrima")
+                    b.Property<string>("CodigoErp")
                         .HasMaxLength(60)
                         .HasColumnType("nvarchar(60)");
 
@@ -7958,7 +7958,7 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                         .HasMaxLength(44)
                         .HasColumnType("nvarchar(44)");
 
-                    b.Property<string>("CodigoObraPrima")
+                    b.Property<string>("CodigoErp")
                         .HasMaxLength(60)
                         .HasColumnType("nvarchar(60)");
 

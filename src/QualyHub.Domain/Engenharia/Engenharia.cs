@@ -11,6 +11,8 @@ namespace QualyHub.Domain.Engenharia;
 public class Spe : EntidadeAuditavel, IHistoricoTemporal
 {
     public Guid ObraId { get; set; }
+    /// <summary>Quadra/condomínio a que o prédio da SPE pertence.</summary>
+    public Guid? QuadraId { get; set; }
     /// <summary>Sigla curta usada nos códigos de local (ex.: IRE).</summary>
     public string Codigo { get; set; } = string.Empty;
     public string RazaoSocial { get; set; } = string.Empty;
@@ -24,6 +26,30 @@ public class Spe : EntidadeAuditavel, IHistoricoTemporal
     public bool Ativa { get; set; } = true;
 
     public string NomeExibicao => string.IsNullOrWhiteSpace(NomeFantasia) ? RazaoSocial : NomeFantasia!;
+}
+
+/// <summary>
+/// Quadra / condomínio (agrupamento de prédios/SPEs). O tipo é configurável (lista "Tipo de agrupamento":
+/// Quadra, Condomínio, Loteamento…). Base do rateio dos custos comuns entre as SPEs.
+/// </summary>
+public class Quadra : EntidadeAuditavel, IHistoricoTemporal
+{
+    public Guid ObraId { get; set; }
+    /// <summary>Sigla usada nos códigos de local (ex.: QC).</summary>
+    public string Codigo { get; set; } = string.Empty;
+    public string Nome { get; set; } = string.Empty;
+    public string Tipo { get; set; } = "Quadra";
+    /// <summary>Nome do condomínio (quando diferente do nome da quadra).</summary>
+    public string? NomeCondominio { get; set; }
+    public string? CnpjCondominio { get; set; }
+    public string? Endereco { get; set; }
+    public string? Matricula { get; set; }
+    public decimal? AreaTerreno { get; set; }
+    public string? Observacoes { get; set; }
+    public int Ordem { get; set; }
+    public bool Ativa { get; set; } = true;
+    /// <summary>Local raiz criado pelo gerador (Quadra › Prédio › Pavimento › Unidade).</summary>
+    public Guid? LocalId { get; set; }
 }
 
 /// <summary>Tipologia da unidade (ex.: 2Q 56 m²). O kit de entrega e a lista de peças serão por tipologia.</summary>
@@ -69,12 +95,13 @@ public static class GeradorEmpreendimento
     /// Monta a árvore. Unidade: número = pavimento×100 + sequência (101, 102…); código = QUADRA-SPE-P01-101.
     /// Fração ideal = área privativa ÷ soma do prédio, 6 casas, resíduo de arredondamento na última unidade (soma exata 1).
     /// </summary>
-    public static List<Local> Gerar(Guid obraId, string quadra, string siglaQuadra, IReadOnlyList<PredioGerar> predios)
+    /// <param name="quadraExistente">Local da quadra já gerado (acrescenta prédios a ela); nulo cria o local da quadra.</param>
+    public static List<Local> Gerar(Guid obraId, string quadra, string siglaQuadra, IReadOnlyList<PredioGerar> predios, Local? quadraExistente = null, int ordemInicial = 0)
     {
         var lista = new List<Local>();
-        var q = new Local { ObraId = obraId, Tipo = TipoQuadra, Nome = quadra.Trim(), Codigo = siglaQuadra, Ordem = 1 };
-        lista.Add(q);
-        var ordemPredio = 0;
+        var q = quadraExistente ?? new Local { ObraId = obraId, Tipo = TipoQuadra, Nome = quadra.Trim(), Codigo = siglaQuadra, Ordem = 1 };
+        if (quadraExistente is null) lista.Add(q);
+        var ordemPredio = ordemInicial;
         foreach (var p in predios)
         {
             var pr = new Local { ObraId = obraId, Tipo = TipoPredio, Nome = p.Nome.Trim(), Codigo = $"{siglaQuadra}-{p.SiglaSpe}", Ordem = ++ordemPredio, LocalPaiId = q.Id, SpeId = p.SpeId };

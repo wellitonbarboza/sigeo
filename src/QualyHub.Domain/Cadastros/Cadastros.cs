@@ -46,7 +46,7 @@ public class FornecedorContato : Entidade
     public bool Principal { get; set; }
 }
 
-public class Fornecedor : EntidadeAuditavel, IOrigemObraPrima, IHistoricoTemporal
+public class Fornecedor : EntidadeAuditavel, IOrigemErp, IHistoricoTemporal
 {
     public string CpfCnpj { get; set; } = string.Empty;
     public string RazaoSocial { get; set; } = string.Empty;
@@ -73,7 +73,7 @@ public class Fornecedor : EntidadeAuditavel, IOrigemObraPrima, IHistoricoTempora
     public string? Site { get; set; }
     public bool OptanteSimples { get; set; }
     public bool Mei { get; set; }
-    /// <summary>Sistema de origem do cadastro (ex.: "ExpertData", "Obra Prima") e trilha de quem criou/alterou lá.</summary>
+    /// <summary>Sistema de origem do cadastro (ex.: "ExpertData", "ERP") e trilha de quem criou/alterou lá.</summary>
     public string? OrigemSistema { get; set; }
     public string? OrigemCriadoPor { get; set; }
     public DateTimeOffset? OrigemCriadoEm { get; set; }
@@ -85,7 +85,7 @@ public class Fornecedor : EntidadeAuditavel, IOrigemObraPrima, IHistoricoTempora
     public bool Ativo { get; set; } = true;
     /// <summary>Média das notas (medições + FVM) dos últimos 6 meses — recalculada pelo sistema.</summary>
     public decimal? NotaMedia { get; set; }
-    public string? CodigoObraPrima { get; set; }
+    public string? CodigoErp { get; set; }
     public Guid? UltimaImportacaoId { get; set; }
 
     public ICollection<FornecedorDocumento> Documentos { get; set; } = [];
@@ -234,7 +234,7 @@ public class LinkPortalFornecedor : EntidadeAuditavel
 /// de acesso à obra e treinamentos — sem dados de saúde, endereço residencial ou dados bancários.
 
 /// <summary>Serviço controlado (lista de serviços controlados / ITS). Liga contrato, medição e FVS.</summary>
-public class ServicoControlado : EntidadeAuditavel, IOrigemObraPrima
+public class ServicoControlado : EntidadeAuditavel, IOrigemErp
 {
     /// <summary>Ex.: ITS 03.02</summary>
     public string Codigo { get; set; } = string.Empty;
@@ -244,12 +244,12 @@ public class ServicoControlado : EntidadeAuditavel, IOrigemObraPrima
     public bool ExigeFvsParaMedicao { get; set; } = true;
     public bool AvaliadoNaMedicao { get; set; } = true;
     public bool Ativo { get; set; } = true;
-    public string? CodigoObraPrima { get; set; }
+    public string? CodigoErp { get; set; }
     public Guid? UltimaImportacaoId { get; set; }
 }
 
 /// <summary>Material controlado (lista de materiais controlados). Dispara especificação técnica, FVM e fornecedor qualificado.</summary>
-public class MaterialControlado : EntidadeAuditavel, IOrigemObraPrima
+public class MaterialControlado : EntidadeAuditavel, IOrigemErp
 {
     /// <summary>Ex.: 01, 05.01</summary>
     public string Codigo { get; set; } = string.Empty;
@@ -269,12 +269,12 @@ public class MaterialControlado : EntidadeAuditavel, IOrigemObraPrima
     public string? Ensaios { get; set; }
     public string ConstaPsq { get; set; } = "Verificar";
     public bool Ativo { get; set; } = true;
-    public string? CodigoObraPrima { get; set; }
+    public string? CodigoErp { get; set; }
     public Guid? UltimaImportacaoId { get; set; }
 }
 
 /// <summary>Produto / genérico do catálogo de compras (herda "controlado" do material controlado vinculado).</summary>
-public class Produto : EntidadeAuditavel, IOrigemObraPrima
+public class Produto : EntidadeAuditavel, IOrigemErp
 {
     public string Codigo { get; set; } = string.Empty;
     public string Nome { get; set; } = string.Empty;
@@ -303,6 +303,6 @@ public class Produto : EntidadeAuditavel, IOrigemObraPrima
     public Guid? MaterialControladoId { get; set; }
     public MaterialControlado? MaterialControlado { get; set; }
     public bool Ativo { get; set; } = true;
-    public string? CodigoObraPrima { get; set; }
+    public string? CodigoErp { get; set; }
     public Guid? UltimaImportacaoId { get; set; }
 }

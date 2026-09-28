@@ -482,7 +482,7 @@ BEGIN
         [StatusQualificacao] nvarchar(40) NOT NULL,
         [Ativo] bit NOT NULL,
         [NotaMedia] decimal(18,4) NULL,
-        [CodigoObraPrima] nvarchar(60) NULL,
+        [CodigoErp] nvarchar(60) NULL,
         [UltimaImportacaoId] uniqueidentifier NULL,
         [PeriodEnd] datetime2 GENERATED ALWAYS AS ROW END HIDDEN NOT NULL,
         [PeriodStart] datetime2 GENERATED ALWAYS AS ROW START HIDDEN NOT NULL,
@@ -664,7 +664,7 @@ BEGIN
         [Ensaios] nvarchar(max) NULL,
         [ConstaPsq] nvarchar(400) NOT NULL,
         [Ativo] bit NOT NULL,
-        [CodigoObraPrima] nvarchar(60) NULL,
+        [CodigoErp] nvarchar(60) NULL,
         [UltimaImportacaoId] uniqueidentifier NULL,
         [EmpresaId] uniqueidentifier NOT NULL,
         [CriadoEm] datetimeoffset NOT NULL,
@@ -764,7 +764,7 @@ BEGIN
         [PqoDocumentoId] uniqueidentifier NULL,
         [Status] nvarchar(40) NOT NULL,
         [Ativa] bit NOT NULL,
-        [CodigoObraPrima] nvarchar(60) NULL,
+        [CodigoErp] nvarchar(60) NULL,
         [UltimaImportacaoId] uniqueidentifier NULL,
         [EmpresaId] uniqueidentifier NOT NULL,
         [CriadoEm] datetimeoffset NOT NULL,
@@ -1421,7 +1421,7 @@ BEGIN
         [PrecoReferencia] decimal(18,4) NULL,
         [MaterialControladoId] uniqueidentifier NULL,
         [Ativo] bit NOT NULL,
-        [CodigoObraPrima] nvarchar(60) NULL,
+        [CodigoErp] nvarchar(60) NULL,
         [UltimaImportacaoId] uniqueidentifier NULL,
         [EmpresaId] uniqueidentifier NOT NULL,
         [CriadoEm] datetimeoffset NOT NULL,
@@ -2226,7 +2226,7 @@ BEGIN
         [SemOrcamento] bit NOT NULL,
         [ChaveNFe] nvarchar(44) NULL,
         [Bloqueios] nvarchar(max) NULL,
-        [CodigoObraPrima] nvarchar(60) NULL,
+        [CodigoErp] nvarchar(60) NULL,
         [UltimaImportacaoId] uniqueidentifier NULL,
         [PeriodEnd] datetime2 GENERATED ALWAYS AS ROW END HIDDEN NOT NULL,
         [PeriodStart] datetime2 GENERATED ALWAYS AS ROW START HIDDEN NOT NULL,
@@ -2781,7 +2781,7 @@ BEGIN
         [ExigeFvsParaMedicao] bit NOT NULL,
         [AvaliadoNaMedicao] bit NOT NULL,
         [Ativo] bit NOT NULL,
-        [CodigoObraPrima] nvarchar(60) NULL,
+        [CodigoErp] nvarchar(60) NULL,
         [UltimaImportacaoId] uniqueidentifier NULL,
         [EmpresaId] uniqueidentifier NOT NULL,
         [CriadoEm] datetimeoffset NOT NULL,
@@ -5557,6 +5557,135 @@ IF NOT EXISTS (
 BEGIN
     INSERT INTO [qh].[__Migracoes] ([MigrationId], [ProductVersion])
     VALUES (N'20260928015338_EngenhariaFase1', N'10.0.12');
+END;
+
+COMMIT;
+GO
+
+BEGIN TRANSACTION;
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260928111116_QuadrasECodigoErp'
+)
+BEGIN
+
+    DECLARE @t sysname, @c sysname, @sql nvarchar(400);
+    DECLARE cur CURSOR LOCAL FAST_FORWARD FOR
+        SELECT t.name, c.name FROM sys.columns c
+        JOIN sys.tables t ON t.object_id = c.object_id
+        JOIN sys.schemas s ON s.schema_id = t.schema_id
+        WHERE s.name = 'qh' AND t.temporal_type IN (0, 2) AND c.name LIKE 'CodigoObra[_A-Z]%' AND c.name <> 'CodigoObra'
+          AND NOT EXISTS (SELECT 1 FROM sys.columns x WHERE x.object_id = t.object_id AND x.name = 'CodigoErp');
+    OPEN cur; FETCH NEXT FROM cur INTO @t, @c;
+    WHILE @@FETCH_STATUS = 0
+    BEGIN
+        SET @sql = N'qh.' + QUOTENAME(@t) + N'.' + QUOTENAME(@c);
+        EXEC sp_rename @sql, N'CodigoErp', N'COLUMN';
+        FETCH NEXT FROM cur INTO @t, @c;
+    END
+    CLOSE cur; DEALLOCATE cur;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260928111116_QuadrasECodigoErp'
+)
+BEGIN
+    ALTER TABLE [qh].[Spes] ADD [QuadraId] uniqueidentifier NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260928111116_QuadrasECodigoErp'
+)
+BEGIN
+    IF SCHEMA_ID(N'qh_hist') IS NULL EXEC(N'CREATE SCHEMA [qh_hist];');
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260928111116_QuadrasECodigoErp'
+)
+BEGIN
+    CREATE TABLE [qh].[Quadras] (
+        [Id] uniqueidentifier NOT NULL,
+        [ObraId] uniqueidentifier NOT NULL,
+        [Codigo] nvarchar(6) NOT NULL,
+        [Nome] nvarchar(120) NOT NULL,
+        [Tipo] nvarchar(40) NOT NULL,
+        [NomeCondominio] nvarchar(400) NULL,
+        [CnpjCondominio] nvarchar(20) NULL,
+        [Endereco] nvarchar(400) NULL,
+        [Matricula] nvarchar(400) NULL,
+        [AreaTerreno] decimal(18,2) NULL,
+        [Observacoes] nvarchar(400) NULL,
+        [Ordem] int NOT NULL,
+        [Ativa] bit NOT NULL,
+        [LocalId] uniqueidentifier NULL,
+        [PeriodEnd] datetime2 GENERATED ALWAYS AS ROW END HIDDEN NOT NULL,
+        [PeriodStart] datetime2 GENERATED ALWAYS AS ROW START HIDDEN NOT NULL,
+        [EmpresaId] uniqueidentifier NOT NULL,
+        [CriadoEm] datetimeoffset NOT NULL,
+        [CriadoPor] nvarchar(150) NOT NULL,
+        [AlteradoEm] datetimeoffset NULL,
+        [AlteradoPor] nvarchar(150) NULL,
+        [Excluido] bit NOT NULL,
+        [ExcluidoEm] datetimeoffset NULL,
+        [ExcluidoPor] nvarchar(150) NULL,
+        [RowVersion] rowversion NOT NULL,
+        CONSTRAINT [PK_Quadras] PRIMARY KEY ([Id]),
+        CONSTRAINT [FK_Quadras_Locais_LocalId] FOREIGN KEY ([LocalId]) REFERENCES [qh].[Locais] ([Id]) ON DELETE NO ACTION,
+        PERIOD FOR SYSTEM_TIME([PeriodStart], [PeriodEnd])
+    ) WITH (SYSTEM_VERSIONING = ON (HISTORY_TABLE = [qh_hist].[Quadra_Historico]));
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260928111116_QuadrasECodigoErp'
+)
+BEGIN
+    CREATE INDEX [IX_Spes_QuadraId] ON [qh].[Spes] ([QuadraId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260928111116_QuadrasECodigoErp'
+)
+BEGIN
+    CREATE INDEX [IX_Quadras_EmpresaId] ON [qh].[Quadras] ([EmpresaId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260928111116_QuadrasECodigoErp'
+)
+BEGIN
+    CREATE INDEX [IX_Quadras_LocalId] ON [qh].[Quadras] ([LocalId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260928111116_QuadrasECodigoErp'
+)
+BEGIN
+    EXEC(N'CREATE UNIQUE INDEX [IX_Quadras_ObraId_Codigo] ON [qh].[Quadras] ([ObraId], [Codigo]) WHERE [Excluido] = 0');
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260928111116_QuadrasECodigoErp'
+)
+BEGIN
+    ALTER TABLE [qh].[Spes] ADD CONSTRAINT [FK_Spes_Quadras_QuadraId] FOREIGN KEY ([QuadraId]) REFERENCES [qh].[Quadras] ([Id]) ON DELETE NO ACTION;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260928111116_QuadrasECodigoErp'
+)
+BEGIN
+    INSERT INTO [qh].[__Migracoes] ([MigrationId], [ProductVersion])
+    VALUES (N'20260928111116_QuadrasECodigoErp', N'10.0.12');
 END;
 
 COMMIT;

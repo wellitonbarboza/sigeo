@@ -52,9 +52,9 @@ public interface IPertenceObra { Guid ObraId { get; set; } }
 /// <summary>Entidade com histórico completo em temporal table (evidência de rastreabilidade para a auditoria SiAC).</summary>
 public interface IHistoricoTemporal { }
 
-/// <summary>Registro originado no Obra Prima — a chave externa é usada no upsert da importação.</summary>
-public interface IOrigemObraPrima
+/// <summary>Registro originado no ERP — a chave externa é usada no upsert da importação.</summary>
+public interface IOrigemErp
 {
-    string? CodigoObraPrima { get; set; }
+    string? CodigoErp { get; set; }
     Guid? UltimaImportacaoId { get; set; }
 }

@@ -121,7 +121,7 @@ public sealed record EconomiaCotacao(decimal Negociada, decimal NegociadaPerc, d
 }
 
 /// <summary>T07 · Pedido de compra (ou referência a contrato). 2ª aprovação do Diretor antes da compra; registra envio e cópias.</summary>
-public class Pedido : EntidadeDaObra, IOrigemObraPrima, IHistoricoTemporal
+public class Pedido : EntidadeDaObra, IOrigemErp, IHistoricoTemporal
 {
     public int Numero { get; set; }
     public Guid? CotacaoId { get; set; }
@@ -150,7 +150,7 @@ public class Pedido : EntidadeDaObra, IOrigemObraPrima, IHistoricoTemporal
     public string? ChaveNFe { get; set; }
     /// <summary>Motivos de bloqueio calculados pelas travas (fornecedor não qualificado, documento vencido…).</summary>
     public string? Bloqueios { get; set; }
-    public string? CodigoObraPrima { get; set; }
+    public string? CodigoErp { get; set; }
     public Guid? UltimaImportacaoId { get; set; }
 
     public ICollection<PedidoItem> Itens { get; set; } = [];

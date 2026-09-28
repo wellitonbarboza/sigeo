@@ -1,6 +1,6 @@
 # QualyHub
 
-Sistema de **suprimentos com qualidade, aprovações por alçada e controle documental do SGQ** para construtoras que buscam **PBQP-H / SiAC**. Complementa o ERP (Obra Prima): o ERP segue com orçamento, financeiro e fiscal; o QualyHub controla, aprova e evidencia.
+Sistema de **suprimentos com qualidade, aprovações por alçada e controle documental do SGQ** para construtoras que buscam **PBQP-H / SiAC**. Complementa o ERP: o ERP segue com orçamento, financeiro e fiscal; o QualyHub controla, aprova e evidencia.
 
 Modelo e telas seguem o mesmo padrão do sistema de referência (Azure + Blazor): menu lateral, tema claro/escuro, grade com agrupamento/filtros/exportação, formulários em janela com etapas e faixa informativa no rodapé.
 

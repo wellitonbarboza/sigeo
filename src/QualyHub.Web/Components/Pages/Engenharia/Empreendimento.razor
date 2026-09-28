@@ -3,7 +3,7 @@
 @using QualyHub.Domain.Engenharia
 @inject EngenhariaServico Eng
 
-<Pagina Titulo="Empreendimento — SPEs, tipologias e unidades" Grade="GradeAtual" AoNovo="Novo" AoAtualizar="Carregar">
+<Pagina Titulo="Empreendimento — quadras, SPEs, tipologias e unidades" Grade="GradeAtual" AoNovo="Novo" AoAtualizar="Carregar">
     <ChildContent>
         <div class="pagina">
             <div class="barra-filtro">
@@ -14,12 +14,33 @@
             {
                 <Abas Itens="_abas" @bind-Ativa="_aba" />
                 <Erros Lista="ErrosForm" />
-                @if (_aba == "spe")
+                @if (_aba == "qua")
+                {
+                    <div style="margin:6px 0"><button class="btn sec" id="nova-quadra" @onclick="Novo"><Icone Nome="mais" Tam="14" /> Nova quadra / condomínio</button></div>
+                    <table class="itens" id="quadras">
+                        <thead><tr><th>Sigla</th><th>Nome</th><th>Tipo</th><th>Condomínio</th><th class="num">Terreno (m²)</th><th>SPEs</th><th class="num">Unidades</th><th></th></tr></thead>
+                        <tbody>
+                            @foreach (var q in _quadras)
+                            {
+                                var spesQ = _spes.Where(x => x.QuadraId == q.Id).ToList();
+                                <tr><td><b>@q.Codigo</b></td><td>@q.Nome</td><td>@q.Tipo</td><td>@q.NomeCondominio@(q.CnpjCondominio is null ? "" : $" · {q.CnpjCondominio}")</td>
+                                    <td class="num">@q.AreaTerreno?.ToString("N2", Br)</td>
+                                    <td>@(spesQ.Count == 0 ? "—" : string.Join(", ", spesQ.Select(x => x.NomeExibicao)))</td>
+                                    <td class="num">@_unid.Count(u => spesQ.Any(x => x.Id == u.SpeId))</td>
+                                    <td><button class="btn sec pq" @onclick="() => { _q = q; ErrosForm = null; _abertoQua = true; }">Editar</button> @if (!q.Ativa) { <Selo Texto="Inativa" Tom="aviso" /> }</td></tr>
+                            }
+                            @if (_quadras.Count == 0) { <tr><td colspan="8" class="mudo">Nenhuma quadra/condomínio. Cadastre para agrupar os prédios (SPEs) e ratear os custos comuns.</td></tr> }
+                        </tbody>
+                    </table>
+                    <div class="alerta info"><Icone Nome="info" /> Os tipos (Quadra, Condomínio, Loteamento…) são configuráveis em Sistema › Parâmetros e Listas › "Tipo agrupamento".</div>
+                }
+                else if (_aba == "spe")
                 {
                     <div style="margin:6px 0"><button class="btn sec" id="nova-spe" @onclick="Novo"><Icone Nome="mais" Tam="14" /> Nova SPE</button></div>
                     <Grade T="Spe" @ref="_gSpe" Itens="_spes" AoClicar="s => { _s = s; ErrosForm = null; _abertoSpe = true; }" NomeExportacao="spes" CriadoPor="s => s.CriadoPor">
                         <Colunas>
                             <Coluna T="Spe" Titulo="Sigla" Valor="s => s.Codigo" Largura="80px" />
+                            <Coluna T="Spe" Titulo="Quadra / condomínio" Valor="s => NomeQuadra(s.QuadraId)" />
                             <Coluna T="Spe" Titulo="Razão social" Valor="s => s.RazaoSocial" />
                             <Coluna T="Spe" Titulo="Nome" Valor="s => s.NomeFantasia" />
                             <Coluna T="Spe" Titulo="CNPJ" Valor="s => s.Cnpj" />
@@ -47,27 +68,26 @@
                 {
                     <div class="secao"><Icone Nome="tabela" /> Resumo por SPE</div>
                     <table class="itens" id="resumo-spe">
-                        <thead><tr><th>SPE</th><th>CNPJ</th><th class="num">Pav.</th><th class="num">Unidades</th><th>Mix</th><th class="num">Área priv. (m²)</th><th class="num">Fração ideal</th></tr></thead>
+                        <thead><tr><th>SPE</th><th>Quadra</th><th>CNPJ</th><th class="num">Pav.</th><th class="num">Unidades</th><th>Mix</th><th class="num">Área priv. (m²)</th><th class="num">Fração ideal</th></tr></thead>
                         <tbody>
                             @foreach (var r in _resumo)
                             {
                                 var ok = r.Unidades == 0 || Math.Abs(r.FracaoSoma - 1) <= 0.000001m;
-                                <tr><td><b>@r.Spe</b></td><td>@r.Cnpj</td><td class="num">@r.Pavimentos</td><td class="num">@r.Unidades</td>
+                                <tr><td><b>@r.Spe</b></td><td>@r.Quadra</td><td>@r.Cnpj</td><td class="num">@r.Pavimentos</td><td class="num">@r.Unidades</td>
                                     <td>@string.Join(" · ", r.PorTipologia.Select(p => $"{p.Tipologia}: {p.Unidades}"))</td>
                                     <td class="num">@r.AreaPrivativa.ToString("N2", Br)</td>
                                     <td class="num"><Selo Texto="@((r.FracaoSoma * 100).ToString("N4", Br) + " %")" Tom="@(ok ? "ok" : "erro")" /></td></tr>
                             }
-                            @if (_resumo.Count == 0) { <tr><td colspan="7" class="mudo">Cadastre as SPEs primeiro.</td></tr> }
+                            @if (_resumo.Count == 0) { <tr><td colspan="8" class="mudo">Cadastre as SPEs primeiro.</td></tr> }
                         </tbody>
                     </table>
 
-                    <div class="secao"><Icone Nome="mais" /> Gerar quadra (pavimentos iguais)</div>
-                    @if (_spes.Count == 0 || _tips.Count == 0) { <div class="alerta aviso"><Icone Nome="info" /> Cadastre SPEs e tipologias antes de gerar.</div> }
+                    <div class="secao"><Icone Nome="mais" /> Gerar prédios na quadra (pavimentos iguais)</div>
+                    @if (_quadras.Count == 0 || _spes.Count == 0 || _tips.Count == 0) { <div class="alerta aviso"><Icone Nome="info" /> Cadastre quadra/condomínio, SPEs e tipologias antes de gerar.</div> }
                     else
                     {
                         <div class="form">
-                            <Campo Rotulo="Quadra (condomínio)" Obrigatorio Classe="s4"><input id="g-quadra" @bind="_gQuadra" placeholder="Quadra C" /></Campo>
-                            <Campo Rotulo="Sigla" Obrigatorio Classe="s2"><input id="g-sigla" @bind="_gSigla" maxlength="6" placeholder="QC" style="text-transform:uppercase" /></Campo>
+                            <Campo Rotulo="Quadra / condomínio" Obrigatorio Classe="s6"><select id="g-quadra" value="@_gQuadraId" @onchange="e => TrocarQuadra(e.Value?.ToString())"><option value="">Selecione…</option>@foreach (var q in _quadras.Where(q => q.Ativa)) { <option value="@q.Id">@q.Codigo – @q.Nome (@q.Tipo)</option> }</select></Campo>
                         </div>
                         <table class="itens" id="g-predios">
                             <thead><tr><th>Prédio</th><th>SPE</th><th class="num">Pavimentos</th>@foreach (var t in _tips) { <th class="num">@t.Codigo /pav</th> }<th class="num">Unid./pav</th><th class="num">Total</th><th></th></tr></thead>
@@ -75,7 +95,7 @@
                                 @foreach (var p in _gPredios)
                                 {
                                     <tr><td><input @bind="p.Nome" style="width:140px" /></td>
-                                        <td><select @bind="p.SpeId"><option value="@Guid.Empty">—</option>@foreach (var s in _spes) { <option value="@s.Id">@s.Codigo – @s.NomeExibicao</option> }</select></td>
+                                        <td><select @bind="p.SpeId"><option value="@Guid.Empty">—</option>@foreach (var s in _spes.Where(x => x.QuadraId == null || x.QuadraId == _gQuadraId)) { <option value="@s.Id">@s.Codigo – @s.NomeExibicao</option> }</select></td>
                                         <td class="num"><input type="number" min="1" max="60" @bind="p.Pavimentos" style="width:70px" /></td>
                                         @foreach (var t in _tips) { var tid = t.Id; <td class="num"><input type="number" min="0" style="width:60px" value="@p.Mix.GetValueOrDefault(tid)" @onchange="e => p.Mix[tid] = int.TryParse(e.Value?.ToString(), out var n) ? n : 0" /></td> }
                                         <td class="num">@p.Mix.Values.Sum()</td><td class="num"><b>@(p.Mix.Values.Sum() * p.Pavimentos)</b></td>
@@ -87,7 +107,7 @@
                             <button class="btn sec" @onclick="() => _gPredios.Add(new() { Nome = Proximo() })"><Icone Nome="mais" Tam="14" /> Prédio</button>
                             <button class="btn prim" id="g-gerar" disabled="@Ocupado" @onclick="Gerar"><Icone Nome="check" Tam="16" /> Gerar @(_gPredios.Sum(p => p.Mix.Values.Sum() * p.Pavimentos)) unidades</button>
                         </div>
-                        <div class="alerta info"><Icone Nome="info" /> Código: QUADRA-SPE-P01-101 (pavimento × 100 + sequência). Fração ideal inicial = área privativa ÷ área do prédio; substitua pela do memorial de incorporação na aba Unidades.</div>
+                        <div class="alerta info"><Icone Nome="info" /> Pode gerar em etapas: prédios novos entram na quadra já existente. Código: QUADRA-SPE-P01-101 (pavimento × 100 + sequência). Fração ideal inicial = área privativa ÷ área do prédio; substitua pela do memorial de incorporação na aba Unidades.</div>
                     }
                 }
                 else
@@ -126,6 +146,7 @@
                 <Campo Rotulo="Sigla" Obrigatorio Classe="s3" Ajuda="Usada nos códigos (ex.: IRE)"><input id="spe-sigla" @bind="_s.Codigo" maxlength="10" style="text-transform:uppercase" /></Campo>
                 <Campo Rotulo="CNPJ" Obrigatorio Classe="s4"><input id="spe-cnpj" @bind="_s.Cnpj" /></Campo>
                 <Campo Rotulo="Nome curto" Classe="s5"><input id="spe-nome" @bind="_s.NomeFantasia" /></Campo>
+                <Campo Rotulo="Quadra / condomínio" Classe="s4"><select id="spe-quadra" @bind="_s.QuadraId"><option value="">—</option>@foreach (var q in _quadras) { <option value="@q.Id">@q.Codigo – @q.Nome</option> }</select></Campo>
                 <Campo Rotulo="Razão social" Obrigatorio Classe="s8"><input id="spe-razao" @bind="_s.RazaoSocial" /></Campo>
                 <Campo Rotulo="Inscrição estadual" Classe="s4"><input @bind="_s.InscricaoEstadual" /></Campo>
                 <Campo Rotulo="Endereço de faturamento" Classe="s8"><input @bind="_s.EnderecoFaturamento" /></Campo>
@@ -136,6 +157,29 @@
         }
     </ChildContent>
     <Rodape><button class="btn prim" id="spe-salvar" disabled="@Ocupado" @onclick="SalvarSpe"><Icone Nome="check" Tam="16" /> Salvar</button></Rodape>
+</Modal>
+
+<Modal @bind-Aberto="_abertoQua" Titulo="Quadra / condomínio" Tamanho="media">
+    <ChildContent>
+        @if (_q is not null)
+        {
+            <Erros Lista="ErrosForm" />
+            <div class="form">
+                <Campo Rotulo="Sigla" Obrigatorio Classe="s3" Ajuda="Usada nos códigos (ex.: QC)"><input id="qua-sigla" @bind="_q.Codigo" maxlength="6" style="text-transform:uppercase" disabled="@(_q.LocalId != null)" /></Campo>
+                <Campo Rotulo="Nome" Obrigatorio Classe="s5"><input id="qua-nome" @bind="_q.Nome" placeholder="Quadra C" /></Campo>
+                <Campo Rotulo="Tipo" Obrigatorio Classe="s4"><select id="qua-tipo" @bind="_q.Tipo">@foreach (var t in _tiposAgrup) { <option>@t</option> }</select></Campo>
+                <Campo Rotulo="Nome do condomínio" Classe="s6"><input id="qua-cond" @bind="_q.NomeCondominio" /></Campo>
+                <Campo Rotulo="CNPJ do condomínio" Classe="s6"><input @bind="_q.CnpjCondominio" /></Campo>
+                <Campo Rotulo="Endereço" Classe="s12"><input @bind="_q.Endereco" /></Campo>
+                <Campo Rotulo="Matrícula do terreno" Classe="s4"><input @bind="_q.Matricula" /></Campo>
+                <Campo Rotulo="Área do terreno (m²)" Classe="s4"><input id="qua-area" type="number" step="0.01" @bind="_q.AreaTerreno" /></Campo>
+                <Campo Rotulo="Ordem" Classe="s2"><input type="number" @bind="_q.Ordem" /></Campo>
+                <Campo Rotulo="" Classe="s2"><label><input type="checkbox" @bind="_q.Ativa" /> Ativa</label></Campo>
+                <Campo Rotulo="Observações" Classe="s12"><textarea rows="2" @bind="_q.Observacoes"></textarea></Campo>
+            </div>
+        }
+    </ChildContent>
+    <Rodape><button class="btn prim" id="qua-salvar" disabled="@Ocupado" @onclick="SalvarQua"><Icone Nome="check" Tam="16" /> Salvar</button></Rodape>
 </Modal>
 
 <Modal @bind-Aberto="_abertoTip" Titulo="Tipologia" Tamanho="media">
@@ -171,16 +215,23 @@
     private readonly Dictionary<Guid, decimal> _editadas = [];
     private Spe? _s;
     private Tipologia? _t;
-    private bool _abertoSpe, _abertoTip;
-    private string _aba = "spe", _gQuadra = "", _gSigla = "";
+    private Quadra? _q;
+    private List<Quadra> _quadras = [];
+    private List<string> _tiposAgrup = [];
+    private Guid? _gQuadraId;
+    private bool _abertoSpe, _abertoTip, _abertoQua;
+    private string _aba = "qua";
     private List<PredioForm> _gPredios = [];
-    private static readonly List<(string, string)> _abas = [("spe", "SPEs"), ("tip", "Tipologias"), ("ger", "Resumo e gerador"), ("uni", "Unidades e fração ideal")];
+    private static readonly List<(string, string)> _abas = [("qua", "Quadras / condomínios"), ("spe", "SPEs"), ("tip", "Tipologias"), ("ger", "Resumo e gerador"), ("uni", "Unidades e fração ideal")];
     private IEnumerable<Local> UnidadesFiltradas => _unid.Where(u => _fSpe == null || u.SpeId == _fSpe);
     private string Proximo() => $"Prédio {_gPredios.Count + 1}";
+    private string? NomeQuadra(Guid? id) => id is null ? null : _quadras.FirstOrDefault(q => q.Id == id)?.Nome;
 
     protected override async Task OnInitializedAsync()
     {
         _obras = await Cat.ObrasAsync();
+        _tiposAgrup = await Cat.ListaAsync(TipoLista.TipoAgrupamento);
+        if (_tiposAgrup.Count == 0) _tiposAgrup = [.. QualyHub.Infrastructure.Dados.CargaPadrao.TiposAgrupamento];
         if (_obras.Count == 1) _obraId = _obras[0].Id;
         await Carregar();
     }
@@ -190,13 +241,14 @@
         _editadas.Clear();
         if (_obraId is not { } o) return;
         await using var db = Fabrica.Criar();
+        _quadras = await db.Quadras.AsNoTracking().Where(q => q.ObraId == o).OrderBy(q => q.Ordem).ThenBy(q => q.Codigo).ToListAsync();
+        if (_gQuadraId is null && _quadras.Count(q => q.Ativa) == 1) _gQuadraId = _quadras.First(q => q.Ativa).Id;
         _spes = await db.Spes.AsNoTracking().Where(s => s.ObraId == o).OrderBy(s => s.Codigo).ToListAsync();
         _tips = await db.Tipologias.AsNoTracking().Where(t => t.ObraId == o).OrderBy(t => t.AreaPrivativa).ToListAsync();
         _unid = await db.Locais.AsNoTracking().Where(l => l.ObraId == o && l.Tipo == GeradorEmpreendimento.TipoUnidade && l.SpeId != null).OrderBy(l => l.Codigo).ToListAsync();
         _predios = await db.Locais.AsNoTracking().Where(l => l.ObraId == o && l.Tipo == GeradorEmpreendimento.TipoPredio).ToListAsync();
         _resumo = await Eng.ResumoAsync(o);
-        if (_gPredios.Count == 0)
-            _gPredios = _spes.Where(s => s.Ativa && !_predios.Any(p => p.SpeId == s.Id)).Select((s, i) => new PredioForm { Nome = $"Prédio {s.NomeExibicao}", SpeId = s.Id }).ToList();
+        if (_gPredios.Count == 0) SugerirPredios();
     }
 
     private void Novo()
@@ -204,12 +256,24 @@
         if (_obraId is not { } o) { Notif.Aviso("Escolha a obra."); return; }
         ErrosForm = null;
         if (_aba == "tip") { _t = new Tipologia { ObraId = o }; _abertoTip = true; }
+        else if (_aba == "qua") { _q = new Quadra { ObraId = o, Tipo = _tiposAgrup.FirstOrDefault() ?? "Quadra", Ordem = _quadras.Count + 1 }; _abertoQua = true; }
         else { _s = new Spe { ObraId = o }; _abertoSpe = true; }
     }
 
     private async Task SalvarSpe()
     {
         if (await Executar(() => Eng.SalvarSpeAsync(_s!), "SPE salva.")) { _abertoSpe = false; _gPredios = []; await Carregar(); }
+    }
+
+    private void SugerirPredios() =>
+        _gPredios = _spes.Where(s => s.Ativa && !_predios.Any(p => p.SpeId == s.Id) && (s.QuadraId == null || s.QuadraId == _gQuadraId))
+                         .Select(s => new PredioForm { Nome = $"Prédio {s.NomeExibicao}", SpeId = s.Id }).ToList();
+
+    private void TrocarQuadra(string? v) { _gQuadraId = Guid.TryParse(v, out var g) ? g : null; SugerirPredios(); }
+
+    private async Task SalvarQua()
+    {
+        if (await Executar(() => Eng.SalvarQuadraAsync(_q!), "Quadra/condomínio salvo.")) { _abertoQua = false; await Carregar(); }
     }
 
     private async Task SalvarTip()
@@ -221,10 +285,11 @@
     {
         int n = 0;
         var predios = _gPredios.Select(p => (p.Nome, p.SpeId, p.Pavimentos, (IReadOnlyList<(Guid, int)>)p.Mix.Select(m => (m.Key, m.Value)).ToList())).ToList();
-        if (await Executar(async () => n = await Eng.GerarAsync(_obraId!.Value, _gQuadra, _gSigla, predios), null))
+        if (_gQuadraId is not { } qid) { ErrosForm = ["Selecione a quadra/condomínio."]; return; }
+        if (await Executar(async () => n = await Eng.GerarAsync(_obraId!.Value, qid, predios), null))
         {
-            Notif.Sucesso($"{n} locais gerados (quadra, prédios, pavimentos e unidades).");
-            _gPredios = []; _gQuadra = _gSigla = ""; await Carregar(); _aba = "ger";
+            Notif.Sucesso($"{n} locais gerados (prédios, pavimentos e unidades).");
+            _gPredios = []; await Carregar(); _aba = "ger";
         }
     }
 

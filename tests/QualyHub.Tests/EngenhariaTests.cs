@@ -3,13 +3,13 @@ using Xunit;
 
 namespace QualyHub.Tests;
 
-/// <summary>Cenário fictício: Quadra C, SPE "IRE" (16 pav.) e "IVE" (14 pav.), mix por pavimento 2×56 + 1×75 + 1×99.</summary>
+/// <summary>Cenário fictício: Quadra C, SPE "IRE" Dona Irene (16 pav.) e "BET" Dona Beta (14 pav.), mix por pavimento 2×56 + 1×75 + 1×99.</summary>
 public class EngenhariaTests
 {
     private static readonly Guid Obra = Guid.NewGuid(), SpeA = Guid.NewGuid(), SpeB = Guid.NewGuid();
     private static readonly Tipologia T56 = new() { Codigo = "2Q-56", AreaPrivativa = 56 }, T75 = new() { Codigo = "1Q1S-75", AreaPrivativa = 75 }, T99 = new() { Codigo = "3S-99", AreaPrivativa = 99 };
     private static readonly List<(Tipologia, int)> Mix = [(T56, 2), (T75, 1), (T99, 1)];
-    private static List<PredioGerar> Predios() => [new("Prédio A", SpeA, "IRE", 16, Mix), new("Prédio B", SpeB, "IVE", 14, Mix)];
+    private static List<PredioGerar> Predios() => [new("Prédio A", SpeA, "IRE", 16, Mix), new("Prédio B", SpeB, "BET", 14, Mix)];
 
     [Fact]
     public void Gera_arvore_e_quantidades()
@@ -53,5 +53,20 @@ public class EngenhariaTests
         Assert.Contains(e, x => x.Contains("unidades por pavimento"));
         Assert.Contains(e, x => x.Contains("1 prédio = 1 SPE"));
         Assert.Empty(GeradorEmpreendimento.Validar("Quadra C", Predios()));
+    }
+
+    [Fact]
+    public void Acrescenta_predio_em_quadra_existente()
+    {
+        var l = GeradorEmpreendimento.Gerar(Obra, "Quadra C", "QC", [Predios()[0]]);
+        var quadra = l[0];
+        var speC = Guid.NewGuid();
+        var novos = GeradorEmpreendimento.Gerar(Obra, "Quadra C", "QC", [new("Prédio Alessandra", speC, "ALE", 10, Mix)], quadra, 1);
+        Assert.DoesNotContain(novos, x => x.Tipo == GeradorEmpreendimento.TipoQuadra);
+        var pr = Assert.Single(novos, x => x.Tipo == GeradorEmpreendimento.TipoPredio);
+        Assert.Equal(quadra.Id, pr.LocalPaiId);
+        Assert.Equal(2, pr.Ordem);
+        Assert.Equal(40, novos.Count(x => x.Tipo == GeradorEmpreendimento.TipoUnidade));
+        Assert.Empty(GeradorEmpreendimento.ConferirFracao(l.Concat(novos)));
     }
 }
