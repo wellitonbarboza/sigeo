@@ -51,6 +51,13 @@ public class Local : EntidadeDaObra
     public decimal? Quantidade { get; set; }
     public string? Unidade { get; set; }
     public string QrToken { get; set; } = Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(10)).ToLowerInvariant();
+    /// <summary>SPE dona (prédio e tudo abaixo dele). Custo direto do local vai para ela.</summary>
+    public Guid? SpeId { get; set; }
+    /// <summary>Unidade: tipologia e área privativa (cópia na geração, pode ser ajustada).</summary>
+    public Guid? TipologiaId { get; set; }
+    public decimal? AreaPrivativa { get; set; }
+    /// <summary>Fração ideal da unidade no prédio (0–1). Oficial = memorial de incorporação.</summary>
+    public decimal? FracaoIdeal { get; set; }
     public ICollection<Local> Filhos { get; set; } = [];
 }
 

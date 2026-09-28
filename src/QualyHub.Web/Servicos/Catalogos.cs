@@ -33,6 +33,14 @@ public sealed class Catalogos(FabricaDb fabrica)
         return await db.Obras.AsNoTracking().Where(o => o.Ativa).OrderBy(o => o.Nome).Select(o => new Opcao(o.Id, o.Nome, o.Codigo)).ToListAsync();
     });
 
+    /// <summary>SPEs ativas; Extra = ObraId (filtrar pela obra da tela).</summary>
+    public Task<List<Opcao>> SpesAsync() => Cache("spes", async () =>
+    {
+        await using var db = fabrica.Criar();
+        return (await db.Spes.AsNoTracking().Where(s => s.Ativa).OrderBy(s => s.Codigo).ToListAsync())
+            .Select(s => new Opcao(s.Id, $"{s.Codigo} – {s.NomeExibicao} ({s.Cnpj})", s.ObraId.ToString())).ToList();
+    });
+
     public Task<List<Opcao>> CentrosCustoAsync() => Cache("cc", async () =>
     {
         await using var db = fabrica.Criar();

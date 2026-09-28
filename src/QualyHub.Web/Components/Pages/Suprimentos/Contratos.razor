@@ -39,6 +39,10 @@
             {
                 <div class="form">
                     <Campo Rotulo="Obra" Obrigatorio Classe="s4"><select @bind="_k.ObraId" disabled="@(!Editavel)"><option value="@Guid.Empty">Selecione…</option>@foreach (var o in _obras) { <option value="@o.Id">@o.Texto</option> }</select></Campo>
+                    @if (_spes.Any(s => s.Extra == _k.ObraId.ToString()))
+                    {
+                        <Campo Rotulo="SPE contratante (CNPJ da NF)" Classe="s6"><select @bind="_k.SpeId" disabled="@(!Editavel)"><option value="">—</option>@foreach (var s in _spes.Where(s => s.Extra == _k.ObraId.ToString())) { <option value="@s.Id">@s.Texto</option> }</select></Campo>
+                    }
                     <Campo Rotulo="Fornecedor" Obrigatorio Classe="s5"><select @bind="_k.FornecedorId" disabled="@(!Editavel)"><option value="@Guid.Empty">Selecione…</option>@foreach (var f in _fornecedores) { <option value="@f.Id">@f.Texto (@(Enum.TryParse<StatusQualificacao>(f.Extra, out var s) ? De(s) : ""))</option> }</select></Campo>
                     <Campo Rotulo="Centro de custo" Classe="s3"><select @bind="_k.CentroCustoId" disabled="@(!Editavel)"><option value="">—</option>@foreach (var c in _ccs) { <option value="@c.Id">@c.Texto</option> }</select></Campo>
                     <Campo Rotulo="Categoria" Obrigatorio Classe="s4"><select @bind="_k.Categoria" disabled="@(!Editavel)"><option value="">Selecione…</option>@foreach (var c in _categorias) { <option>@c</option> }</select></Campo>
@@ -231,6 +235,7 @@
     private int _versao;
     private string _aba = "dados";
     private DateOnly? _assEmpresa, _assFornecedor;
+    private List<Opcao> _spes = [];
     private List<Opcao> _obras = [], _fornecedores = [], _ccs = [], _servicos = [];
     private List<string> _categorias = [];
     private static readonly List<(string, string)> _abas = [("dados", "Dados gerais"), ("itens", "Itens"), ("its", "ITS vinculadas"), ("anexos", "Anexos"), ("aditivos", "Aditivos"), ("medicoes", "Medições")];
@@ -285,7 +290,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        _obras = await Cat.ObrasAsync(); _fornecedores = await Cat.FornecedoresAsync(); _ccs = await Cat.CentrosCustoAsync(); _servicos = await Cat.ServicosAsync();
+        _obras = await Cat.ObrasAsync(); _spes = await Cat.SpesAsync(); _fornecedores = await Cat.FornecedoresAsync(); _ccs = await Cat.CentrosCustoAsync(); _servicos = await Cat.ServicosAsync();
         _categorias = await Cat.ListaAsync(TipoLista.CategoriaServico);
         await Carregar();
         if (Nav.Uri.Contains("?id=") && Guid.TryParse(Nav.Uri.Split("?id=")[1], out var id)) await Abrir(id);

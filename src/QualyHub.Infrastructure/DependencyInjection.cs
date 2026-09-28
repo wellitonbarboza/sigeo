@@ -35,6 +35,7 @@ public static class DependencyInjection
         services.AddScoped<Servicos.SstServico>();
         services.AddScoped<Servicos.ColaboracaoServico>();
         services.AddScoped<Servicos.CodigosProdutoServico>();
+        services.AddScoped<Servicos.EngenhariaServico>();
         services.AddScoped<Importacao.ImportadorFornecedoresExpertData>();
         services.AddScoped<Importacao.ImportadorProdutosExpertData>();
         // LGPD: chave HMAC do CPF vem do Key Vault em produção; sem chave, gera uma efêmera (apenas desenvolvimento).

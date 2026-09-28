@@ -10,6 +10,8 @@ public class Contrato : EntidadeDaObra, IHistoricoTemporal
     /// <summary>Ex.: CT-2026-041</summary>
     public string Numero { get; set; } = string.Empty;
     public Guid? CentroCustoId { get; set; }
+    /// <summary>SPE contratante (CNPJ do contrato e das NFs de medição).</summary>
+    public Guid? SpeId { get; set; }
     public Guid FornecedorId { get; set; }
     public Fornecedor Fornecedor { get; set; } = null!;
     public Guid? RequisicaoId { get; set; }

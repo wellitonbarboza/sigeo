@@ -15,6 +15,8 @@ public class Requisicao : EntidadeDaObra, IHistoricoTemporal
     public string? EnderecoEntrega { get; set; }
     public Guid? CentroCustoId { get; set; }
     public CentroCusto? CentroCusto { get; set; }
+    /// <summary>SPE que será faturada (CNPJ da NF). Obrigatória quando a obra tem SPEs cadastradas.</summary>
+    public Guid? SpeId { get; set; }
     public TipoRequisicao Tipo { get; set; } = TipoRequisicao.Material;
     /// <summary>Lista CategoriaServico — obrigatória quando TIPO = Serviço.</summary>
     public string? CategoriaServico { get; set; }

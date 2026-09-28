@@ -14,7 +14,8 @@
     {
         <header class="portal-topo">
             <div><small>Proposta de cotação · @_s.EmpresaNome</small><h1>@_s.FornecedorNome</h1>
-                <span class="mudo">Cotação nº @_s.CotacaoNumero — @_s.CotacaoNome · frete @_s.Frete@(string.IsNullOrWhiteSpace(_s.EnderecoEntrega) ? "" : $" · entrega em {_s.EnderecoEntrega}")</span></div>
+                <span class="mudo">Cotação nº @_s.CotacaoNumero — @_s.CotacaoNome · frete @_s.Frete@(string.IsNullOrWhiteSpace(_s.EnderecoEntrega) ? "" : $" · entrega em {_s.EnderecoEntrega}")</span>
+                @if (_s.FaturarPara is not null) { <div id="faturar-para"><b>Faturar para:</b> @_s.FaturarPara</div> }</div>
         </header>
         @if (_msg is not null) { <div class="alerta @(_ok ? "ok" : "erro")">@_msg</div> }
         @if (_erros is { Count: > 0 }) { <div class="alerta erro"><ul style="margin:0">@foreach (var e in _erros) { <li>@e</li> }</ul></div> }

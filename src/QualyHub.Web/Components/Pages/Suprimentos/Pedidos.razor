@@ -41,6 +41,7 @@
                 <div class="alerta erro"><Icone Nome="x-circulo" /> <div><b>Travas de qualidade</b><ul>@foreach (var b in _trava.Bloqueios) { <li>@b</li> }</ul></div></div>
             }
             <div class="form">
+                @if (_p.SpeId is { } spe) { <Campo Rotulo="Faturar para (SPE)" Classe="s12"><input id="ped-spe" readonly value="@(_spes.FirstOrDefault(s => s.Id == spe)?.Texto ?? "—")" /></Campo> }
                 <Campo Rotulo="Fornecedor" Classe="s6"><input readonly value="@_fornecedor?.RazaoSocial" /></Campo>
                 <Campo Rotulo="Qualificação" Classe="s2"><div style="padding-top:6px">@if (_fornecedor is not null) { var st = _fornecedor.CalcularStatus(Hoje); <Selo Texto="@De(st)" Tom="@Tom(st)" /> }</div></Campo>
                 <Campo Rotulo="E-mails do fornecedor" Classe="s4"><input readonly value="@_fornecedor?.Emails" /></Campo>
@@ -86,6 +87,7 @@
     private List<Linha>? _itens;
     private Pedido? _p;
     private Fornecedor? _fornecedor;
+    private List<Opcao> _spes = [];
     private ResultadoTrava? _trava;
     private bool _aberto;
     private int _versao;
@@ -93,6 +95,7 @@
 
     protected override async Task OnInitializedAsync()
     {
+        _spes = await Cat.SpesAsync();
         await Carregar();
         if (Nav.Uri.Contains("?id=") && Guid.TryParse(Nav.Uri.Split("?id=")[1], out var id)) await Abrir(id);
     }

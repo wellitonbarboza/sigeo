@@ -5336,3 +5336,229 @@ END;
 COMMIT;
 GO
 
+BEGIN TRANSACTION;
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260928015338_EngenhariaFase1'
+)
+BEGIN
+    DROP INDEX [IX_Locais_ObraId] ON [qh].[Locais];
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260928015338_EngenhariaFase1'
+)
+BEGIN
+    ALTER TABLE [qh].[Requisicoes] ADD [SpeId] uniqueidentifier NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260928015338_EngenhariaFase1'
+)
+BEGIN
+    ALTER TABLE [qh].[Pedidos] ADD [SpeId] uniqueidentifier NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260928015338_EngenhariaFase1'
+)
+BEGIN
+    ALTER TABLE [qh].[Locais] ADD [AreaPrivativa] decimal(18,4) NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260928015338_EngenhariaFase1'
+)
+BEGIN
+    ALTER TABLE [qh].[Locais] ADD [FracaoIdeal] decimal(18,8) NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260928015338_EngenhariaFase1'
+)
+BEGIN
+    ALTER TABLE [qh].[Locais] ADD [SpeId] uniqueidentifier NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260928015338_EngenhariaFase1'
+)
+BEGIN
+    ALTER TABLE [qh].[Locais] ADD [TipologiaId] uniqueidentifier NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260928015338_EngenhariaFase1'
+)
+BEGIN
+    ALTER TABLE [qh].[Contratos] ADD [SpeId] uniqueidentifier NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260928015338_EngenhariaFase1'
+)
+BEGIN
+    IF SCHEMA_ID(N'qh_hist') IS NULL EXEC(N'CREATE SCHEMA [qh_hist];');
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260928015338_EngenhariaFase1'
+)
+BEGIN
+    CREATE TABLE [qh].[Spes] (
+        [Id] uniqueidentifier NOT NULL,
+        [ObraId] uniqueidentifier NOT NULL,
+        [Codigo] nvarchar(10) NOT NULL,
+        [RazaoSocial] nvarchar(400) NOT NULL,
+        [NomeFantasia] nvarchar(400) NULL,
+        [Cnpj] nvarchar(20) NOT NULL,
+        [InscricaoEstadual] nvarchar(400) NULL,
+        [EnderecoFaturamento] nvarchar(400) NULL,
+        [EmailFiscal] nvarchar(400) NULL,
+        [PatrimonioAfetacao] nvarchar(20) NOT NULL,
+        [Ativa] bit NOT NULL,
+        [PeriodEnd] datetime2 GENERATED ALWAYS AS ROW END HIDDEN NOT NULL,
+        [PeriodStart] datetime2 GENERATED ALWAYS AS ROW START HIDDEN NOT NULL,
+        [EmpresaId] uniqueidentifier NOT NULL,
+        [CriadoEm] datetimeoffset NOT NULL,
+        [CriadoPor] nvarchar(150) NOT NULL,
+        [AlteradoEm] datetimeoffset NULL,
+        [AlteradoPor] nvarchar(150) NULL,
+        [Excluido] bit NOT NULL,
+        [ExcluidoEm] datetimeoffset NULL,
+        [ExcluidoPor] nvarchar(150) NULL,
+        [RowVersion] rowversion NOT NULL,
+        CONSTRAINT [PK_Spes] PRIMARY KEY ([Id]),
+        PERIOD FOR SYSTEM_TIME([PeriodStart], [PeriodEnd])
+    ) WITH (SYSTEM_VERSIONING = ON (HISTORY_TABLE = [qh_hist].[Spe_Historico]));
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260928015338_EngenhariaFase1'
+)
+BEGIN
+    CREATE TABLE [qh].[Tipologias] (
+        [Id] uniqueidentifier NOT NULL,
+        [ObraId] uniqueidentifier NOT NULL,
+        [Codigo] nvarchar(20) NOT NULL,
+        [Nome] nvarchar(400) NOT NULL,
+        [Dormitorios] int NOT NULL,
+        [Suites] int NOT NULL,
+        [AreaPrivativa] decimal(18,4) NOT NULL,
+        [AreaEquivalente] decimal(18,4) NULL,
+        [Ativa] bit NOT NULL,
+        [EmpresaId] uniqueidentifier NOT NULL,
+        [CriadoEm] datetimeoffset NOT NULL,
+        [CriadoPor] nvarchar(150) NOT NULL,
+        [AlteradoEm] datetimeoffset NULL,
+        [AlteradoPor] nvarchar(150) NULL,
+        [Excluido] bit NOT NULL,
+        [ExcluidoEm] datetimeoffset NULL,
+        [ExcluidoPor] nvarchar(150) NULL,
+        [RowVersion] rowversion NOT NULL,
+        CONSTRAINT [PK_Tipologias] PRIMARY KEY ([Id])
+    );
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260928015338_EngenhariaFase1'
+)
+BEGIN
+    CREATE INDEX [IX_Locais_ObraId_SpeId_Tipo] ON [qh].[Locais] ([ObraId], [SpeId], [Tipo]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260928015338_EngenhariaFase1'
+)
+BEGIN
+    CREATE INDEX [IX_Locais_SpeId] ON [qh].[Locais] ([SpeId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260928015338_EngenhariaFase1'
+)
+BEGIN
+    CREATE INDEX [IX_Locais_TipologiaId] ON [qh].[Locais] ([TipologiaId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260928015338_EngenhariaFase1'
+)
+BEGIN
+    CREATE INDEX [IX_Spes_EmpresaId] ON [qh].[Spes] ([EmpresaId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260928015338_EngenhariaFase1'
+)
+BEGIN
+    EXEC(N'CREATE UNIQUE INDEX [IX_Spes_EmpresaId_Cnpj] ON [qh].[Spes] ([EmpresaId], [Cnpj]) WHERE [Excluido] = 0');
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260928015338_EngenhariaFase1'
+)
+BEGIN
+    EXEC(N'CREATE UNIQUE INDEX [IX_Spes_ObraId_Codigo] ON [qh].[Spes] ([ObraId], [Codigo]) WHERE [Excluido] = 0');
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260928015338_EngenhariaFase1'
+)
+BEGIN
+    CREATE INDEX [IX_Tipologias_EmpresaId] ON [qh].[Tipologias] ([EmpresaId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260928015338_EngenhariaFase1'
+)
+BEGIN
+    EXEC(N'CREATE UNIQUE INDEX [IX_Tipologias_ObraId_Codigo] ON [qh].[Tipologias] ([ObraId], [Codigo]) WHERE [Excluido] = 0');
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260928015338_EngenhariaFase1'
+)
+BEGIN
+    ALTER TABLE [qh].[Locais] ADD CONSTRAINT [FK_Locais_Spes_SpeId] FOREIGN KEY ([SpeId]) REFERENCES [qh].[Spes] ([Id]) ON DELETE NO ACTION;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260928015338_EngenhariaFase1'
+)
+BEGIN
+    ALTER TABLE [qh].[Locais] ADD CONSTRAINT [FK_Locais_Tipologias_TipologiaId] FOREIGN KEY ([TipologiaId]) REFERENCES [qh].[Tipologias] ([Id]) ON DELETE NO ACTION;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20260928015338_EngenhariaFase1'
+)
+BEGIN
+    INSERT INTO [qh].[__Migracoes] ([MigrationId], [ProductVersion])
+    VALUES (N'20260928015338_EngenhariaFase1', N'10.0.12');
+END;
+
+COMMIT;
+GO
+

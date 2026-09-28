@@ -42,6 +42,31 @@ internal sealed class LocalCfg : IEntityTypeConfiguration<Local>
     public void Configure(EntityTypeBuilder<Local> b)
     {
         b.HasOne(x => x.LocalPai).WithMany(x => x.Filhos).HasForeignKey(x => x.LocalPaiId);
+        b.Property(x => x.FracaoIdeal).HasPrecision(18, 8);
+        b.HasOne<QualyHub.Domain.Engenharia.Spe>().WithMany().HasForeignKey(x => x.SpeId);
+        b.HasOne<QualyHub.Domain.Engenharia.Tipologia>().WithMany().HasForeignKey(x => x.TipologiaId);
+        b.HasIndex(x => new { x.ObraId, x.SpeId, x.Tipo });
+    }
+}
+
+internal sealed class SpeCfg : IEntityTypeConfiguration<QualyHub.Domain.Engenharia.Spe>
+{
+    public void Configure(EntityTypeBuilder<QualyHub.Domain.Engenharia.Spe> b)
+    {
+        b.Property(x => x.Codigo).HasMaxLength(10);
+        b.Property(x => x.Cnpj).HasMaxLength(20);
+        b.Property(x => x.PatrimonioAfetacao).HasMaxLength(20);
+        b.HasIndex(x => new { x.EmpresaId, x.Cnpj }).IsUnique().HasFilter("[Excluido] = 0");
+        b.HasIndex(x => new { x.ObraId, x.Codigo }).IsUnique().HasFilter("[Excluido] = 0");
+    }
+}
+
+internal sealed class TipologiaCfg : IEntityTypeConfiguration<QualyHub.Domain.Engenharia.Tipologia>
+{
+    public void Configure(EntityTypeBuilder<QualyHub.Domain.Engenharia.Tipologia> b)
+    {
+        b.Property(x => x.Codigo).HasMaxLength(20);
+        b.HasIndex(x => new { x.ObraId, x.Codigo }).IsUnique().HasFilter("[Excluido] = 0");
     }
 }
 

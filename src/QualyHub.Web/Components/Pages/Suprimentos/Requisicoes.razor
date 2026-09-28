@@ -46,6 +46,12 @@
                 <Campo Rotulo="Centro de custo" Classe="s4">
                     <select @bind="_r.CentroCustoId" disabled="@(!Editavel)"><option value="">—</option>@foreach (var c in _ccs) { <option value="@c.Id">@c.Texto</option> }</select>
                 </Campo>
+                @if (SpesDaObra.Any())
+                {
+                    <Campo Rotulo="SPE a faturar (CNPJ da NF)" Obrigatorio Classe="s6">
+                        <select id="req-spe" @bind="_r.SpeId" disabled="@(!Editavel)"><option value="">Selecione…</option>@foreach (var s in SpesDaObra) { <option value="@s.Id">@s.Texto</option> }</select>
+                    </Campo>
+                }
                 <Campo Rotulo="Data de entrega" Obrigatorio Classe="s2"><input type="date" @bind="_r.DataEntrega" disabled="@(!Editavel)" /></Campo>
                 <Campo Rotulo="Prazo cronograma (dias)" Classe="s2" Ajuda="Maior lead time dos itens"><input readonly value="@_r.PrazoCronogramaDias" /></Campo>
                 @if (_r.Tipo == TipoRequisicao.Servico)
@@ -154,6 +160,8 @@
     private Requisicao? _r;
     private bool _aberto, _cotar;
     private int _versao;
+    private List<Opcao> _spes = [];
+    private IEnumerable<Opcao> SpesDaObra => _r is null ? [] : _spes.Where(s => s.Extra == _r.ObraId.ToString());
     private List<Opcao> _obras = [], _ccs = [], _produtos = [], _servicos = [], _fornecedores = [];
     private List<string> _atividades = [], _categorias = [];
     private readonly HashSet<Guid> _convidados = [];
@@ -162,7 +170,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        _obras = await Cat.ObrasAsync(); _ccs = await Cat.CentrosCustoAsync(); _produtos = await Cat.ProdutosAsync(); _servicos = await Cat.ServicosAsync();
+        _obras = await Cat.ObrasAsync(); _spes = await Cat.SpesAsync(); _ccs = await Cat.CentrosCustoAsync(); _produtos = await Cat.ProdutosAsync(); _servicos = await Cat.ServicosAsync();
         _atividades = await Cat.ListaAsync(TipoLista.Atividade); _categorias = await Cat.ListaAsync(TipoLista.CategoriaServico);
         await Carregar();
         if (Nav.Uri.Contains("?id=") && Guid.TryParse(Nav.Uri.Split("?id=")[1], out var id)) await Abrir(id);
@@ -179,6 +187,7 @@
     private void Novo()
     {
         _r = new Requisicao { DataEntrega = Hoje.AddDays(15), ObraId = _obras.Count == 1 ? _obras[0].Id : Guid.Empty };
+        if (SpesDaObra.Count() == 1) _r.SpeId = SpesDaObra.First().Id;
         ErrosForm = null; _aberto = true;
     }
 
@@ -209,6 +218,9 @@
 
     private async Task EnderecoDaObra()
     {
+        var spes = SpesDaObra.ToList();
+        if (_r!.SpeId is { } sp && !spes.Any(s => s.Id == sp)) _r.SpeId = null;
+        if (spes.Count == 1) _r.SpeId = spes[0].Id;
         if (!string.IsNullOrWhiteSpace(_r!.EnderecoEntrega)) return;
         await using var db = Fabrica.Criar();
         _r.EnderecoEntrega = await db.Obras.Where(o => o.Id == _r.ObraId).Select(o => o.EnderecoEntrega).FirstOrDefaultAsync();

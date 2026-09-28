@@ -129,6 +129,8 @@ public class Pedido : EntidadeDaObra, IOrigemObraPrima, IHistoricoTemporal
     public Guid? RequisicaoId { get; set; }
     public Guid FornecedorId { get; set; }
     public Fornecedor Fornecedor { get; set; } = null!;
+    /// <summary>SPE faturada (CNPJ que deve constar na NF).</summary>
+    public Guid? SpeId { get; set; }
     public string? CondicaoPagamento { get; set; }
     public TipoFrete Frete { get; set; } = TipoFrete.CIF;
     public string? Transportadora { get; set; }

@@ -40,7 +40,12 @@ public sealed class SuprimentosServico(FabricaDb fabrica, AprovacaoServico aprov
         await using var db = fabrica.Criar();
         var r = await db.Requisicoes.Include(x => x.Itens).FirstAsync(x => x.Id == id, ct);
         var temEscopo = await db.Anexos.AnyAsync(a => a.Entidade == nameof(Requisicao) && a.EntidadeId == id && a.Categoria == "Escopo", ct);
-        ValidacaoException.Se(r.ValidarEnvio(temEscopo));
+        var erros = r.ValidarEnvio(temEscopo).ToList();
+        if (r.SpeId is null && await db.Spes.AnyAsync(s => s.ObraId == r.ObraId && s.Ativa, ct))
+            erros.Add("Informe a SPE a faturar (a NF precisa sair no CNPJ da SPE).");
+        if (r.SpeId is { } sid && !await db.Spes.AnyAsync(s => s.Id == sid && s.ObraId == r.ObraId && s.Ativa, ct))
+            erros.Add("A SPE informada não pertence a esta obra ou está inativa.");
+        ValidacaoException.Se(erros);
         await aprovacoes.EnviarAsync(db, EntidadeAprovavel.Requisicao, r.Id, r.ObraId, $"Requisição {r.Numero} – {r.Atividade}", r.ValorEstimado, ct);
         r.Status = StatusRequisicao.AguardandoEngenheiro;
         r.MotivoReprovacao = null;
@@ -144,6 +149,7 @@ public sealed class SuprimentosServico(FabricaDb fabrica, AprovacaoServico aprov
         var p = new Pedido
         {
             ObraId = c.ObraId, Numero = await Numerador.ProximoAsync(db, "Pedido", ct), CotacaoId = c.Id, RequisicaoId = c.RequisicaoId,
+            SpeId = c.RequisicaoId is { } rq ? await db.Requisicoes.Where(x => x.Id == rq).Select(x => x.SpeId).FirstOrDefaultAsync(ct) : null,
             FornecedorId = c.FornecedorVencedorId!.Value, Frete = c.Frete, EnderecoEntrega = c.EnderecoEntrega,
             Entrega = itens.Select(i => i.Entrega).Max() ?? Hoje.AddDays(7), SemOrcamento = c.SemOrcamento,
             CondicaoPagamento = c.Fornecedores.FirstOrDefault(f => f.FornecedorId == c.FornecedorVencedorId)?.CondicaoPagamento
@@ -175,6 +181,7 @@ public sealed class SuprimentosServico(FabricaDb fabrica, AprovacaoServico aprov
         var k = new Contrato
         {
             ObraId = c.ObraId, Numero = $"CT-{Hoje.Year}-{n:000}", FornecedorId = c.FornecedorVencedorId!.Value, RequisicaoId = c.RequisicaoId, CotacaoId = c.Id,
+            SpeId = c.RequisicaoId is { } rq ? await db.Requisicoes.Where(x => x.Id == rq).Select(x => x.SpeId).FirstOrDefaultAsync(ct) : null,
             Categoria = c.Requisicao?.CategoriaServico ?? "Serviço de obra", Objeto = c.Nome, RetencaoPerc = p[Parametros.RetencaoPadraoPerc],
             VigenciaInicio = Hoje, VigenciaFim = Hoje.AddMonths(6)
         };

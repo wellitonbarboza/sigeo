@@ -8,6 +8,7 @@ using QualyHub.Domain.Estrutura;
 using QualyHub.Domain.Importacao;
 using QualyHub.Domain.Qualidade;
 using QualyHub.Domain.Documentos;
+using QualyHub.Domain.Engenharia;
 using QualyHub.Domain.Sst;
 using QualyHub.Domain.Suprimentos;
 using QualyHub.Infrastructure.Contexto;
@@ -113,6 +114,8 @@ public class QualyHubDbContext(DbContextOptions<QualyHubDbContext> options, IUsu
     public DbSet<Nota> Notas => Set<Nota>();
     public DbSet<FornecedorContato> FornecedorContatos => Set<FornecedorContato>();
     public DbSet<CategoriaProduto> CategoriasProduto => Set<CategoriaProduto>();
+    public DbSet<Spe> Spes => Set<Spe>();
+    public DbSet<Tipologia> Tipologias => Set<Tipologia>();
     public DbSet<Tarefa> Tarefas => Set<Tarefa>();
     public DbSet<TarefaProrrogacao> TarefaProrrogacoes => Set<TarefaProrrogacao>();
     public DbSet<TarefaLeitura> TarefaLeituras => Set<TarefaLeitura>();

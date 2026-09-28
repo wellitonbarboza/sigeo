@@ -34,7 +34,7 @@ public sealed record SessaoPortal(Guid EmpresaId, string EmpresaNome, Fornecedor
 
 /// <summary>Proposta de cotação preenchida pelo fornecedor no portal (link da cotação, sem login).</summary>
 public sealed record PropostaPortal(string EmpresaNome, string FornecedorNome, int CotacaoNumero, string CotacaoNome, string? EnderecoEntrega,
-    TipoFrete Frete, bool Aberta, CotacaoFornecedor Convite, IReadOnlyList<CotacaoItem> Itens);
+    TipoFrete Frete, bool Aberta, CotacaoFornecedor Convite, IReadOnlyList<CotacaoItem> Itens, string? FaturarPara = null);
 
 public sealed record ItemPropostaPortal(Guid ItemId, decimal ValorUnitario, DateOnly? Entrega);
 
@@ -210,7 +210,11 @@ public sealed class PortalServico(FabricaSistema sistema, FabricaDb fabrica, IAr
         var forn = await db.Fornecedores.IgnoreQueryFilters().AsNoTracking().Where(f => f.Id == conv.FornecedorId).Select(f => f.RazaoSocial).FirstAsync(ct);
         var emp = await db.Empresas.AsNoTracking().Where(e => e.Id == loc.EmpresaId).Select(e => e.NomeFantasia != "" ? e.NomeFantasia : e.RazaoSocial).FirstAsync(ct);
         var itens = c.Itens.Where(i => i.FornecedorId == conv.FornecedorId).OrderBy(i => i.Descricao).ToList();
-        return new PropostaPortal(emp, forn, c.Numero, c.Nome, c.EnderecoEntrega, c.Frete, CotacaoAberta(c) && conv.Status != StatusConvite.Declinou, conv, itens);
+        var spe = c.RequisicaoId is { } rq
+            ? await (from r in db.Requisicoes.IgnoreQueryFilters().AsNoTracking() join s in db.Spes.IgnoreQueryFilters().AsNoTracking() on r.SpeId equals s.Id
+                     where r.Id == rq select s.RazaoSocial + " — CNPJ " + s.Cnpj).FirstOrDefaultAsync(ct)
+            : null;
+        return new PropostaPortal(emp, forn, c.Numero, c.Nome, c.EnderecoEntrega, c.Frete, CotacaoAberta(c) && conv.Status != StatusConvite.Declinou, conv, itens, spe);
     }
 
     public async Task EnviarPropostaAsync(Guid token, IReadOnlyList<ItemPropostaPortal> itens, decimal? frete, string? condicao, DateOnly? validade,
