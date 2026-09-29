@@ -38,8 +38,12 @@ ok "Copiar configurações, cadeia de conexão e ajustes (HTTPS, WebSockets, Alw
 az webapp identity assign -g "$RG" -n "$NOVO" -o none
 az webapp config appsettings list -g "$RG" -n "$ANTIGO" -o json > /tmp/qh-settings.json
 az webapp config appsettings set -g "$RG" -n "$NOVO" --settings @/tmp/qh-settings.json -o none
-CONN=$(az webapp config connection-string list -g "$RG" -n "$ANTIGO" --query "[?name=='QualyHub'].value.value | [0]" -o tsv)
-[[ -n "$CONN" ]] && az webapp config connection-string set -g "$RG" -n "$NOVO" -t SQLAzure --settings QualyHub="$CONN" -o none
+# A CLI devolve o valor como texto ou como objeto {value}, conforme a versão — aceita os dois.
+CONN=$(az webapp config connection-string list -g "$RG" -n "$ANTIGO" --query "[?name=='QualyHub'] | [0].value" -o tsv)
+[[ "$CONN" == *"Server="* || "$CONN" == *"server="* ]] || CONN=$(az webapp config connection-string list -g "$RG" -n "$ANTIGO" --query "[?name=='QualyHub'] | [0].value.value" -o tsv)
+[[ -n "$CONN" ]] || { echo "  Não achei a conexão com o banco no site $ANTIGO. Pare aqui e me avise."; exit 1; }
+az webapp config connection-string set -g "$RG" -n "$NOVO" -t SQLAzure --settings QualyHub="$CONN" -o none
+echo "  Conexão com o banco copiada."
 az webapp config set -g "$RG" -n "$NOVO" --startup-file "dotnet QualyHub.Web.dll" --web-sockets-enabled true --http20-enabled true \
   --min-tls-version 1.2 --ftps-state Disabled --always-on "$(az webapp config show -g "$RG" -n "$ANTIGO" --query alwaysOn -o tsv)" -o none
 az webapp update -g "$RG" -n "$NOVO" --https-only true --client-affinity-enabled true -o none
