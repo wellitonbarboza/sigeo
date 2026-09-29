@@ -36,16 +36,12 @@ public class ContaTests
     }
 
     [Theory]
-    [InlineData("curta1", "pelo menos")]
-    [InlineData("somenteletrasaqui", "letras e números")]
-    [InlineData("1111111111a", "repetitiva")]
-    [InlineData("joao.obra2026", "login")]
-    [InlineData("Welliton2026x", "nome")]
-    public void Politica_recusa(string senha, string trecho)
-    {
-        var e = PoliticaSenha.Validar(senha, "joao.obra", "Welliton Teste");
-        Assert.Contains(e, x => x.Contains(trecho, StringComparison.OrdinalIgnoreCase));
-    }
+    [InlineData("12345", false)]
+    [InlineData("123456", true)]
+    [InlineData("abcdef", true)]
+    [InlineData("joao.obra", true)]
+    public void Politica_so_exige_tamanho_minimo(string senha, bool valida) =>
+        Assert.Equal(valida, PoliticaSenha.Validar(senha, "joao.obra", "Joao Obra").Count == 0);
 
     [Theory]
     [InlineData(" Maria.Silva ", "maria.silva", true)]

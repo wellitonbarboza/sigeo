@@ -106,7 +106,7 @@ public class CredencialUsuario : EntidadeAuditavel
 /// <summary>Regras de login e senha (sem dependência de infraestrutura).</summary>
 public static class PoliticaSenha
 {
-    public const int TamanhoMinimo = 10;
+    public const int TamanhoMinimo = 6;
     public const int TamanhoMaximo = 128;
     public const int MaxTentativas = 5;
     public static readonly TimeSpan TempoBloqueio = TimeSpan.FromMinutes(15);
@@ -122,18 +122,13 @@ public static class PoliticaSenha
         return e;
     }
 
+    /// <summary>Regra definida pela empresa (28/09): só o tamanho mínimo; composição livre. O bloqueio por tentativas continua.</summary>
     public static IReadOnlyList<string> Validar(string? senha, string? login = null, string? nome = null)
     {
         var e = new List<string>();
         senha ??= "";
         if (senha.Length < TamanhoMinimo) e.Add($"A senha precisa ter pelo menos {TamanhoMinimo} caracteres.");
         if (senha.Length > TamanhoMaximo) e.Add($"A senha pode ter no máximo {TamanhoMaximo} caracteres.");
-        if (!senha.Any(char.IsLetter) || !senha.Any(char.IsDigit)) e.Add("A senha precisa ter letras e números.");
-        if (senha.Distinct().Count() < 4) e.Add("A senha é repetitiva demais.");
-        var l = NormalizarLogin(login);
-        if (l.Length >= 3 && senha.Contains(l.Split('@')[0], StringComparison.OrdinalIgnoreCase)) e.Add("A senha não pode conter o login.");
-        foreach (var parte in (nome ?? "").Split(' ', StringSplitOptions.RemoveEmptyEntries).Where(p => p.Length >= 4))
-            if (senha.Contains(parte, StringComparison.OrdinalIgnoreCase)) { e.Add("A senha não pode conter o seu nome."); break; }
         return e;
     }
 }
