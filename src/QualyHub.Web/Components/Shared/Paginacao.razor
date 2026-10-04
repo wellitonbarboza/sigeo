@@ -1,0 +1,19 @@
+@* Paginação simples de tabelas grandes (páginas a partir de 0). Some quando tudo cabe numa página. *@
+@if (Total > Tamanho)
+{
+    var ultima = (Total - 1) / Tamanho;
+    <div class="barra-filtro" style="gap:6px;align-items:center;margin:6px 0">
+        <button type="button" class="btn sec pq" disabled="@(Pagina <= 0)" @onclick="() => Ir(0)">«</button>
+        <button type="button" class="btn sec pq" disabled="@(Pagina <= 0)" @onclick="() => Ir(Pagina - 1)">‹</button>
+        <span class="mudo">@(Pagina * Tamanho + 1)–@Math.Min(Total, (Pagina + 1) * Tamanho) de @Total · página @(Pagina + 1)/@(ultima + 1)</span>
+        <button type="button" class="btn sec pq" disabled="@(Pagina >= ultima)" @onclick="() => Ir(Pagina + 1)">›</button>
+        <button type="button" class="btn sec pq" disabled="@(Pagina >= ultima)" @onclick="() => Ir(ultima)">»</button>
+    </div>
+}
+@code {
+    [Parameter] public int Total { get; set; }
+    [Parameter] public int Pagina { get; set; }
+    [Parameter] public int Tamanho { get; set; } = 200;
+    [Parameter] public EventCallback<int> AoMudar { get; set; }
+    private Task Ir(int p) => AoMudar.InvokeAsync(Math.Clamp(p, 0, Math.Max(0, (Total - 1) / Tamanho)));
+}

@@ -847,9 +847,12 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
 
                     b.HasIndex("EmpresaId");
 
-                    b.HasIndex("FornecedorId");
-
                     b.HasIndex("TipoDocumentoExigidoId");
+
+                    b.HasIndex("FornecedorId", "TipoDocumentoExigidoId", "Competencia")
+                        .IsUnique()
+                        .HasDatabaseName("UX_FornecedorDocumentos_Competencia")
+                        .HasFilter("[Excluido] = 0 AND [Competencia] IS NOT NULL");
 
                     b.ToTable("FornecedorDocumentos", "qh");
 
@@ -3483,6 +3486,8 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
 
                     b.HasIndex("EquipeId");
 
+                    b.HasIndex("Lancamento");
+
                     b.HasIndex("LocalId");
 
                     b.HasIndex("EmpresaId", "ObraId");
@@ -3690,7 +3695,9 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
 
                     b.Property<string>("Descricao")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)")
+                        .HasAnnotation("QualyHub:TamanhoFixo", true);
 
                     b.Property<Guid>("EmpresaId")
                         .HasColumnType("uniqueidentifier");
@@ -3752,6 +3759,11 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                     b.HasIndex("EmpresaId", "ObraId");
 
                     b.HasIndex("ObraId", "Competencia");
+
+                    b.HasIndex("ObraId", "Competencia", "EquipeId", "ColaboradorId", "FuncaoObraId", "Descricao")
+                        .IsUnique()
+                        .HasDatabaseName("UX_CustosMaoObra_Linha")
+                        .HasFilter("[Excluido] = 0");
 
                     b.ToTable("CustosMaoObra", "qh");
                 });
@@ -3851,7 +3863,8 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
 
                     b.HasIndex("ColaboradorId");
 
-                    b.HasIndex("EquipeId");
+                    b.HasIndex("EquipeId", "ColaboradorId")
+                        .IsUnique();
 
                     b.ToTable("EquipeMembros", "qh");
                 });
@@ -4049,9 +4062,13 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
 
                     b.HasKey("Id");
 
+                    b.HasIndex("AmbienteModeloId");
+
                     b.HasIndex("ComposicaoId");
 
                     b.HasIndex("EmpresaId");
+
+                    b.HasIndex("ObraId");
 
                     b.HasIndex("TipologiaId", "ComposicaoId", "Alvo", "AmbienteModeloId")
                         .IsUnique()
@@ -4137,6 +4154,8 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                     b.HasIndex("EmpresaId");
 
                     b.HasIndex("LocalId");
+
+                    b.HasIndex("SpeId");
 
                     b.HasIndex("ComposicaoId", "LocalId")
                         .IsUnique()
@@ -4429,6 +4448,10 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                     b.HasKey("Id");
 
                     b.HasIndex("TipologiaId");
+
+                    b.HasIndex("TipologiaId", "Sigla")
+                        .IsUnique()
+                        .HasFilter("[Sigla] IS NOT NULL");
 
                     b.ToTable("TipologiaAmbientes", "qh");
                 });
@@ -4877,7 +4900,15 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
 
                     b.HasIndex("EmpresaId");
 
-                    b.HasIndex("SpeId");
+                    b.HasIndex("SpeId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_Estabelecimentos_Spe")
+                        .HasFilter("[Excluido] = 0 AND [SpeId] IS NOT NULL");
+
+                    b.HasIndex("EmpresaId", "AlmoxarifadoCentral")
+                        .IsUnique()
+                        .HasDatabaseName("UX_Estabelecimentos_Almoxarifado")
+                        .HasFilter("[Excluido] = 0 AND [AlmoxarifadoCentral] = 1");
 
                     b.HasIndex("EmpresaId", "Cnpj")
                         .IsUnique()
@@ -4886,6 +4917,11 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                     b.HasIndex("EmpresaId", "Codigo")
                         .IsUnique()
                         .HasFilter("[Excluido] = 0");
+
+                    b.HasIndex("EmpresaId", "FaturaMateriais")
+                        .IsUnique()
+                        .HasDatabaseName("UX_Estabelecimentos_FaturaMateriais")
+                        .HasFilter("[Excluido] = 0 AND [FaturaMateriais] = 1");
 
                     b.ToTable("Estabelecimentos", "qh");
                 });
@@ -8885,9 +8921,10 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ContratoItemId");
-
                     b.HasIndex("LocalId");
+
+                    b.HasIndex("ContratoItemId", "LocalId")
+                        .IsUnique();
 
                     b.ToTable("ContratoItemLocais", "qh");
                 });
@@ -10450,9 +10487,13 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
 
                     b.HasKey("Id");
 
+                    b.HasIndex("ComposicaoId");
+
                     b.HasIndex("LocalId");
 
-                    b.HasIndex("RequisicaoItemId");
+                    b.HasIndex("RequisicaoItemId", "LocalId", "ComposicaoId")
+                        .IsUnique()
+                        .HasFilter("[ComposicaoId] IS NOT NULL");
 
                     b.ToTable("RequisicaoItemLocais", "qh");
                 });
@@ -10500,6 +10541,12 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                         .HasColumnType("nvarchar(400)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("LocalId");
+
+                    b.HasIndex("ProdutoId");
+
+                    b.HasIndex("RecebimentoItemId");
 
                     b.HasIndex("TransferenciaId");
 
@@ -10598,7 +10645,14 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
 
                     b.HasIndex("ObraId");
 
-                    b.HasIndex("RecebimentoId");
+                    b.HasIndex("OrigemEstabelecimentoId");
+
+                    b.HasIndex("PedidoId");
+
+                    b.HasIndex("RecebimentoId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_Transferencias_Recebimento")
+                        .HasFilter("[Excluido] = 0 AND [RecebimentoId] IS NOT NULL AND [Status] <> N'Cancelada'");
 
                     b.HasIndex("SpeId");
 
@@ -11133,9 +11187,20 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
 
             modelBuilder.Entity("QualyHub.Domain.Engenharia.ServicoAplicacao", b =>
                 {
+                    b.HasOne("QualyHub.Domain.Engenharia.TipologiaAmbiente", null)
+                        .WithMany()
+                        .HasForeignKey("AmbienteModeloId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("QualyHub.Domain.Engenharia.Composicao", null)
                         .WithMany()
                         .HasForeignKey("ComposicaoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("QualyHub.Domain.Estrutura.Obra", null)
+                        .WithMany()
+                        .HasForeignKey("ObraId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
@@ -11159,6 +11224,11 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                         .HasForeignKey("LocalId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.HasOne("QualyHub.Domain.Engenharia.Spe", null)
+                        .WithMany()
+                        .HasForeignKey("SpeId")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("QualyHub.Domain.Engenharia.Spe", b =>
@@ -11240,6 +11310,11 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
 
             modelBuilder.Entity("QualyHub.Domain.Estrutura.Local", b =>
                 {
+                    b.HasOne("QualyHub.Domain.Engenharia.TipologiaAmbiente", null)
+                        .WithMany()
+                        .HasForeignKey("AmbienteModeloId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("QualyHub.Domain.Estrutura.Local", "LocalPai")
                         .WithMany("Filhos")
                         .HasForeignKey("LocalPaiId")
@@ -11891,6 +11966,11 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
 
             modelBuilder.Entity("QualyHub.Domain.Suprimentos.RequisicaoItemLocal", b =>
                 {
+                    b.HasOne("QualyHub.Domain.Engenharia.Composicao", null)
+                        .WithMany()
+                        .HasForeignKey("ComposicaoId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("QualyHub.Domain.Estrutura.Local", null)
                         .WithMany()
                         .HasForeignKey("LocalId")
@@ -11906,6 +11986,21 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
 
             modelBuilder.Entity("QualyHub.Domain.Suprimentos.TransferenciaItem", b =>
                 {
+                    b.HasOne("QualyHub.Domain.Estrutura.Local", null)
+                        .WithMany()
+                        .HasForeignKey("LocalId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("QualyHub.Domain.Cadastros.Produto", null)
+                        .WithMany()
+                        .HasForeignKey("ProdutoId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("QualyHub.Domain.Suprimentos.RecebimentoItem", null)
+                        .WithMany()
+                        .HasForeignKey("RecebimentoItemId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("QualyHub.Domain.Suprimentos.TransferenciaMaterial", null)
                         .WithMany("Itens")
                         .HasForeignKey("TransferenciaId")
@@ -11920,6 +12015,16 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                         .HasForeignKey("ObraId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.HasOne("QualyHub.Domain.Estrutura.Estabelecimento", null)
+                        .WithMany()
+                        .HasForeignKey("OrigemEstabelecimentoId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("QualyHub.Domain.Suprimentos.Pedido", null)
+                        .WithMany()
+                        .HasForeignKey("PedidoId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("QualyHub.Domain.Suprimentos.Recebimento", null)
                         .WithMany()

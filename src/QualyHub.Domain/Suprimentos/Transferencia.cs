@@ -44,6 +44,7 @@ public class TransferenciaMaterial : EntidadeDaObra, IHistoricoTemporal
     public void Conferir(string usuario, DateTimeOffset agora, IReadOnlyDictionary<Guid, decimal> recebidas)
     {
         if (Status != StatusTransferencia.Enviada) throw new RegraDeNegocioException("Só transferência enviada pode ser conferida.");
+        if (recebidas.Values.Any(q => q < 0)) throw new RegraDeNegocioException("Quantidade conferida não pode ser negativa.");
         foreach (var i in Itens) i.QuantidadeRecebida = recebidas.TryGetValue(i.Id, out var q) ? q : i.Quantidade;
         if (Itens.Any(i => i.QuantidadeRecebida != i.Quantidade) && string.IsNullOrWhiteSpace(Observacao))
             throw new RegraDeNegocioException("Quantidade conferida diferente da enviada: descreva a ocorrência na observação.");

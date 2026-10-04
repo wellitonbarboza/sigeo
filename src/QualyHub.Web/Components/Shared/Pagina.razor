@@ -8,7 +8,7 @@
         <div class="ferramentas">
             <button class="icone-btn @(Grade.Compacto ? "on" : "")" title="Modo compacto (celular)" @onclick="Grade.AlternarCompacto"><Icone Nome="celular" Tam="20" /></button>
             <button class="icone-btn" title="Expandir/recolher grupos" @onclick="Grade.AlternarGrupos"><Icone Nome="tabela" Tam="20" /></button>
-            <button class="icone-btn" title="Atualizar" @onclick="AoAtualizar"><Icone Nome="cubo" Tam="20" /></button>
+            @if (AoAtualizar.HasDelegate) { <button class="icone-btn" title="Atualizar" @onclick="AoAtualizar"><Icone Nome="cubo" Tam="20" /></button> }
             <span class="sep"></span>
             @if (AoNovo.HasDelegate) { <button class="icone-btn" title="Novo" @onclick="AoNovo"><Icone Nome="mais" Tam="20" /></button> }
             <span class="sep"></span>
@@ -22,6 +22,13 @@
             <button class="icone-btn" title="Colunas" @onclick="Grade.AlternarColunas"><Icone Nome="colunas" Tam="20" /></button>
             <span class="sep"></span>
             <button class="icone-btn @(Grade.SomenteMeus ? "on" : "")" title="Somente meus registros" @onclick="Grade.AlternarSomenteMeus"><Icone Nome="usuario" Tam="20" /></button>
+        </div>
+    }
+    else if (AoNovo.HasDelegate || AoAtualizar.HasDelegate)
+    {
+        <div class="ferramentas">
+            @if (AoAtualizar.HasDelegate) { <button class="icone-btn" title="Atualizar" @onclick="AoAtualizar"><Icone Nome="cubo" Tam="20" /></button> }
+            @if (AoNovo.HasDelegate) { <span class="sep"></span><button class="icone-btn" title="Novo" @onclick="AoNovo"><Icone Nome="mais" Tam="20" /></button> }
         </div>
     }
     @if (Direita is not null) { <div class="direita">@Direita</div> }

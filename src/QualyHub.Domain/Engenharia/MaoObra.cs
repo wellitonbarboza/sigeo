@@ -100,22 +100,48 @@ public static class FechamentoMaoObra
             var custo = porEquipe.GetValueOrDefault(k); var h = horas.GetValueOrDefault(k);
             return new CustoEquipe(k == Guid.Empty ? null : k, custo, h, h <= 0 ? 0 : Math.Round(custo / h, 4));
         }).ToList();
-        var taxa = equipes.ToDictionary(e => K(e.EquipeId), e => e.CustoHoraReal);
+        // Custo de cada célula = custo do mês do grupo (equipe) × horas da célula ÷ horas do grupo, rateado em centavos
+        // (a soma das células fecha exatamente com o custo do mês dos grupos que tiveram horas).
+        var custoCelula = new Dictionary<(Guid, Guid), decimal>();
+        foreach (var g in aps.GroupBy(a => K(a.EquipeId)))
+        {
+            var cels = g.GroupBy(a => (a.ComposicaoId, a.LocalId)).Select(c => (Chave: c.Key, Horas: c.Sum(a => a.Horas))).ToList();
+            var rateio = Rateio.Proporcional(porEquipe.GetValueOrDefault(g.Key), cels.Select(c => c.Horas).ToList());
+            for (var k = 0; k < cels.Count; k++) custoCelula[cels[k].Chave] = custoCelula.GetValueOrDefault(cels[k].Chave) + rateio[k];
+        }
         var celulas = aps.GroupBy(a => (a.ComposicaoId, a.LocalId))
-            .Select(g => new CustoCelula(g.Key.ComposicaoId, g.Key.LocalId, g.Sum(a => a.Horas), Math.Round(g.Sum(a => a.Horas * taxa.GetValueOrDefault(K(a.EquipeId))), 2)))
+            .Select(g => new CustoCelula(g.Key.ComposicaoId, g.Key.LocalId, g.Sum(a => a.Horas), custoCelula.GetValueOrDefault(g.Key)))
             .ToList();
         var sem = equipes.Where(e => e.HorasApropriadas <= 0).Sum(e => e.CustoMes);
         return (equipes, celulas, sem);
     }
 
-    /// <summary>Rateia horas entre locais proporcionalmente às quantidades orçadas (resíduo no último).</summary>
+    /// <summary>Rateia horas entre locais proporcionalmente aos pesos (sem peso: partes iguais). Ver <see cref="Rateio.Proporcional"/>.</summary>
     public static List<(Guid LocalId, decimal Horas)> Ratear(decimal horas, IReadOnlyList<(Guid LocalId, decimal Peso)> locais)
     {
-        if (locais.Count == 0) return [];
-        var total = locais.Sum(l => l.Peso);
-        var r = locais.Select(l => (l.LocalId, Horas: total <= 0 ? Math.Round(horas / locais.Count, 2) : Math.Round(horas * l.Peso / total, 2))).ToList();
-        var dif = horas - r.Sum(x => x.Horas);
-        r[^1] = (r[^1].LocalId, r[^1].Horas + dif);
-        return r;
+        var partes = Rateio.Proporcional(horas, locais.Select(l => l.Peso).ToList());
+        return locais.Select((l, k) => (l.LocalId, partes[k])).ToList();
+    }
+}
+
+/// <summary>Rateio proporcional em centésimos pelo método do maior resto.</summary>
+public static class Rateio
+{
+    /// <summary>
+    /// Divide <paramref name="total"/> proporcionalmente aos pesos (todos zero: partes iguais), com 2 casas.
+    /// A soma das partes é exatamente o total (arredondado a 2 casas) e nenhuma parte fica negativa.
+    /// </summary>
+    public static decimal[] Proporcional(decimal total, IReadOnlyList<decimal> pesos)
+    {
+        if (pesos.Count == 0) return [];
+        var soma = pesos.Sum(p => Math.Max(0, p));
+        var centavos = (long)Math.Round(total * 100m, MidpointRounding.AwayFromZero);
+        var sinal = Math.Sign(centavos); centavos = Math.Abs(centavos);
+        var brutas = pesos.Select(p => soma <= 0 ? centavos / (decimal)pesos.Count : centavos * Math.Max(0, p) / soma).ToList();
+        var inteiras = brutas.Select(b => (long)Math.Floor(b)).ToArray();
+        var falta = (int)(centavos - inteiras.Sum());
+        foreach (var k in brutas.Select((b, k) => (Resto: b - Math.Floor(b), k)).OrderByDescending(x => x.Resto).ThenBy(x => x.k).Take(falta).Select(x => x.k))
+            inteiras[k]++;
+        return inteiras.Select(c => sinal * c / 100m).ToArray();
     }
 }

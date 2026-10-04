@@ -136,5 +136,5 @@
         { _aberto = false; await Carregar(); }
     }
 
-    private void DefinirCompetencia(ChangeEventArgs e) => _d!.Competencia = DateOnly.TryParseExact(e.Value + "-01", "yyyy-MM-dd", out var c) ? c : null;
+    private void DefinirCompetencia(ChangeEventArgs e) => _d!.Competencia = LerMes(e.Value);
 }

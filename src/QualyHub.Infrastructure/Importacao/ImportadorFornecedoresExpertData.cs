@@ -38,7 +38,7 @@ public sealed class ImportadorFornecedoresExpertData(FabricaDb fabrica)
 
     private static List<Registro> Ler(Stream arquivo)
     {
-        using var wb = new XLWorkbook(arquivo);
+        using var wb = Planilha.Abrir(arquivo);
         var ws = wb.Worksheets.First();
         var cab = ws.Row(1).CellsUsed().ToDictionary(c => Norm(c.GetString()), c => c.Address.ColumnNumber);
         if (!cab.ContainsKey("CPFCNPJ") || !cab.ContainsKey("NOME"))

@@ -60,7 +60,7 @@ public sealed class ImportadorProdutosExpertData(FabricaDb fabrica)
 
     private static List<Registro> Ler(Stream arquivo)
     {
-        using var wb = new XLWorkbook(arquivo);
+        using var wb = Planilha.Abrir(arquivo);
         var ws = wb.Worksheets.First();
         var cab = ws.Row(1).CellsUsed().ToDictionary(c => new string(SemAcento(c.GetString()).Where(char.IsLetterOrDigit).ToArray()), c => c.Address.ColumnNumber);
         if (!cab.ContainsKey("DESCRICAOGENERICA")) throw new RegraDeNegocioException("Planilha fora do padrão: falta a coluna 'DESCRIÇÃO GENÉRICA'.");

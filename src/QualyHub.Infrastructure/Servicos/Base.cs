@@ -14,6 +14,35 @@ namespace QualyHub.Infrastructure.Servicos;
 public sealed class FabricaDb(DbContextOptions<QualyHubDbContext> opcoes, IUsuarioAtual usuario)
 {
     public QualyHubDbContext Criar() => new(opcoes, usuario);
+    public IUsuarioAtual Usuario => usuario;
+
+    /// <summary>
+    /// Executa várias gravações numa transação, compatível com a estratégia de nova tentativa do Azure SQL:
+    /// cada tentativa usa um contexto novo (nada fica meio salvo) e só confirma se tudo der certo.
+    /// </summary>
+    public async Task EmTransacaoAsync(Func<QualyHubDbContext, Task> acao, CancellationToken ct = default)
+    {
+        await using var estrategia = Criar();
+        await estrategia.Database.CreateExecutionStrategy().ExecuteAsync(async () =>
+        {
+            await using var db = Criar();
+            await using var tx = await db.Database.BeginTransactionAsync(ct);
+            await acao(db);
+            await tx.CommitAsync(ct);
+        });
+    }
+}
+
+/// <summary>Checagem de perfil no serviço (a tela esconde o botão; o serviço garante a regra).</summary>
+public static class Permissoes
+{
+    public static async Task ExigirAsync(QualyHubDbContext db, IUsuarioAtual usuario, string acao, params Domain.Common.PerfilUsuario[] perfis)
+    {
+        if (usuario.UsuarioId is not { } id) return; // rotinas de sistema/importação
+        var p = await db.Usuarios.AsNoTracking().Where(u => u.Id == id).Select(u => (Domain.Common.PerfilUsuario?)u.Perfil).FirstOrDefaultAsync();
+        if (p is Domain.Common.PerfilUsuario.Administrador || (p is { } x && perfis.Contains(x))) return;
+        throw new Domain.Aprovacoes.RegraDeNegocioException($"Seu perfil não permite {acao}.");
+    }
 }
 
 /// <summary>Numeração sequencial por empresa/chave, com concorrência otimista (RowVersion) e nova tentativa.</summary>
@@ -130,6 +159,7 @@ public static class Grafo
         entry.CurrentValues.SetValues(novo);
         if (rowVersion is not null) entry.Property(rowVersion.Name).OriginalValue = db.Entry(novo).Property(rowVersion.Name).CurrentValue;
 
+        var filhosMudaram = false;
         foreach (var c in colecoes)
         {
             var colAtual = entry.Collection(c);
@@ -137,15 +167,24 @@ public static class Grafo
             var itensNovos = Filhos(novo, c).ToList();
             var lista = colAtual.CurrentValue!;
             var add = lista.GetType().GetMethod("Add")!;
-            foreach (var a in itensAtuais.Where(a => itensNovos.All(n => n.Id != a.Id)))
-                db.Remove(a);
+            var novosPorId = itensNovos.ToDictionary(n => n.Id);
+            foreach (var a in itensAtuais.Where(a => !novosPorId.ContainsKey(a.Id)))
+            { db.Remove(a); filhosMudaram = true; }
+            var atuaisPorId = itensAtuais.ToDictionary(a => a.Id);
             foreach (var n in itensNovos)
             {
-                var existente = itensAtuais.FirstOrDefault(a => a.Id == n.Id);
-                if (existente is not null) db.Entry(existente).CurrentValues.SetValues(n);
-                else { LimparReferencias(db, n); add.Invoke(lista, [n]); db.Entry(n).State = EntityState.Added; }
+                if (atuaisPorId.TryGetValue(n.Id, out var existente))
+                {
+                    var e = db.Entry(existente);
+                    e.CurrentValues.SetValues(n);
+                    filhosMudaram |= e.State == EntityState.Modified;
+                }
+                else { LimparReferencias(db, n); add.Invoke(lista, [n]); db.Entry(n).State = EntityState.Added; filhosMudaram = true; }
             }
         }
+        // Só os itens mudaram: marca o agregado como alterado para o RowVersion ser conferido (dois usuários editando os itens
+        // do mesmo documento não se sobrescrevem em silêncio) e a auditoria registrar quem alterou.
+        if (filhosMudaram && rowVersion is not null && entry.State == EntityState.Unchanged) entry.State = EntityState.Modified;
         return atual;
     }
 

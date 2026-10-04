@@ -136,7 +136,7 @@ public class EngenhariaTests
         Itens =
         {
             new ComposicaoItem { Tipo = TipoInsumo.Material, ProdutoId = cimento, Descricao = "Cimento", Unidade = "kg", Coeficiente = 7.5m, PerdaPerc = 10, CustoUnitario = 0.80m },
-            new ComposicaoItem { Tipo = TipoInsumo.MaoObraPropria, Descricao = "Pedreiro", Unidade = "h", Coeficiente = 0.35m, CustoUnitario = 30 },
+            new ComposicaoItem { Tipo = TipoInsumo.MaoObraPropria, FuncaoObraId = Guid.NewGuid(), Descricao = "Pedreiro", Unidade = "h", Coeficiente = 0.35m, CustoUnitario = 30 },
             new ComposicaoItem { Tipo = TipoInsumo.MaoObraEmpreitada, Descricao = "Empreitada", Unidade = "m²", Coeficiente = 1, CustoUnitario = 12 },
         }
     };
@@ -151,6 +151,8 @@ public class EngenhariaTests
         Assert.Empty(c.Validar());
         Assert.Contains(new Composicao { Codigo = "X", Descricao = "Y", Itens = { new ComposicaoItem { Tipo = TipoInsumo.Material, Descricao = "Areia", Coeficiente = 1 } } }.Validar(),
             e => e.Contains("produto do cadastro"));
+        Assert.Contains(new Composicao { Codigo = "X", Descricao = "Y", Unidade = "m²", Itens = { new ComposicaoItem { Tipo = TipoInsumo.MaoObraPropria, Descricao = "Servente", Unidade = "h", Coeficiente = 1 } } }.Validar(),
+            e => e.Contains("precisa da função"));
     }
 
     [Fact]

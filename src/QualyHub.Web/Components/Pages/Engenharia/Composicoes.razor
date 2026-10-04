@@ -47,7 +47,7 @@
                 <tbody>
                     @foreach (var i in _c.Itens.OrderBy(i => i.Ordem))
                     {
-                        <tr><td><select @bind="i.Tipo">@foreach (var t in Enum.GetValues<TipoInsumo>()) { <option value="@t">@De(t)</option> }</select></td>
+                        <tr @key="i"><td><select @bind="i.Tipo">@foreach (var t in Enum.GetValues<TipoInsumo>()) { <option value="@t">@De(t)</option> }</select></td>
                             <td>
                                 @if (i.Tipo == TipoInsumo.Material)
                                 {
@@ -78,7 +78,7 @@
     <Rodape>
         @if (_c is not null)
         {
-            @if (_c.CriadoEm != default) { <div class="esq"><button class="btn sec" @onclick="Copiar"><Icone Nome="mais" Tam="14" /> Copiar</button></div> }
+            @if (_c.CriadoEm != default) { <div class="esq"><button class="btn sec" disabled="@Ocupado" @onclick="Copiar"><Icone Nome="mais" Tam="14" /> Copiar</button></div> }
             <button class="btn prim" id="comp-salvar" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="16" /> Salvar</button>
         }
     </Rodape>

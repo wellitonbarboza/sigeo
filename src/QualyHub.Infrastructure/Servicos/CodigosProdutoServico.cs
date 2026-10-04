@@ -19,6 +19,7 @@ public sealed class CodigosProdutoServico(FabricaDb fabrica)
     public sealed class Cache
     {
         internal List<CategoriaProduto>? Todas;
+        internal List<(Guid Id, Guid? CategoriaProdutoId)>? Ligados;
     }
 
     private static async Task<List<CategoriaProduto>> CategoriasAsync(QualyHubDbContext db, Cache cache, CancellationToken ct) =>
@@ -99,12 +100,14 @@ public sealed class CodigosProdutoServico(FabricaDb fabrica)
     /// </summary>
     public static async Task VincularControladoAsync(QualyHubDbContext db, Produto p, Cache cache, CancellationToken ct = default)
     {
-        var ligados = await db.MateriaisControlados.Where(m => m.CategoriaProdutoId != null && m.Ativo).Select(m => new { m.Id, m.CategoriaProdutoId }).ToListAsync(ct);
+        // Uma consulta por lote (Cache), não uma por produto.
+        var ligados = cache.Ligados ??= (await db.MateriaisControlados.Where(m => m.CategoriaProdutoId != null && m.Ativo).Select(m => new { m.Id, m.CategoriaProdutoId }).ToListAsync(ct))
+                                       .Select(m => (m.Id, m.CategoriaProdutoId)).ToList();
         if (ligados.Count == 0) return;
         var todas = await CategoriasAsync(db, cache, ct);
         var g = string.IsNullOrWhiteSpace(p.Grupo) ? null : todas.FirstOrDefault(c => c.PaiId == null && !c.Excluido && MesmoNome(c.Nome, p.Grupo));
-        var mat = g is null ? null : ligados.FirstOrDefault(m => m.CategoriaProdutoId == g.Id);
-        if (mat is not null) p.MaterialControladoId = mat.Id;
+        var mat = g is null ? null : ligados.Where(m => m.CategoriaProdutoId == g.Id).Select(m => (Guid?)m.Id).FirstOrDefault();
+        if (mat is { } mid) p.MaterialControladoId = mid;
         else if (p.MaterialControladoId is { } atual && ligados.Any(m => m.Id == atual)) p.MaterialControladoId = null;
     }
 

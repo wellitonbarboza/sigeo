@@ -46,7 +46,7 @@ public static class LeitorPlanilha
 
     private static Bruto LerExcel(Stream s, LayoutImportacao layout)
     {
-        using var wb = new XLWorkbook(s);
+        using var wb = Planilha.Abrir(s);
         var ws = layout.NomePlanilha is { Length: > 0 } nome ? wb.Worksheet(nome) : wb.Worksheets.First();
         var linhaCab = ws.Row(layout.LinhaCabecalho);
         var ultimaCol = linhaCab.LastCellUsed()?.Address.ColumnNumber ?? 0;
@@ -132,6 +132,9 @@ public static class Conversor
         return DateOnly.TryParseExact(v.Trim()[..Math.Min(10, v.Trim().Length)], formatos, PtBr, DateTimeStyles.None, out var d) ? d : null;
     }
 
+    /// <summary>00.000.000/0000-00 a partir dos 14 dígitos.</summary>
+    public static string FormatarCnpj(string digitos) => Convert.ToUInt64(digitos).ToString(@"00\.000\.000\/0000\-00");
+
     public static bool CnpjValido(string digitos) => digitos.Length == 14 && digitos.Distinct().Count() > 1 && Dv(digitos, 12) && Dv(digitos, 13);
     public static bool CpfValido(string d) => d.Length == 11 && d.Distinct().Count() > 1 && DvCpf(d, 9) && DvCpf(d, 10);
 
@@ -148,5 +151,17 @@ public static class Conversor
         var soma = Enumerable.Range(0, pos).Sum(i => (c[i] - '0') * (pos + 1 - i));
         var resto = soma * 10 % 11 % 10;
         return c[pos] - '0' == resto;
+    }
+}
+
+/// <summary>Abre .xlsx enviado pelo usuário: arquivo corrompido/formato errado vira mensagem legível (não derruba a tela).</summary>
+public static class Planilha
+{
+    public static ClosedXML.Excel.XLWorkbook Abrir(Stream arquivo)
+    {
+        try { return new ClosedXML.Excel.XLWorkbook(arquivo); }
+        catch (Exception e) when (e is InvalidDataException or ArgumentException or IOException
+                                       or InvalidOperationException or System.Xml.XmlException or NotSupportedException)
+        { throw new QualyHub.Domain.Aprovacoes.RegraDeNegocioException("Não foi possível ler a planilha: envie um arquivo .xlsx válido (Excel 2007 ou superior)."); }
     }
 }

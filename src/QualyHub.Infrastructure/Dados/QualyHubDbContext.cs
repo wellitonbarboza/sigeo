@@ -179,7 +179,8 @@ public class QualyHubDbContext(DbContextOptions<QualyHubDbContext> options, IUsu
             }
 
             // Textos longos por nome (o domínio não depende do EF): observação, objeto, especificação, justificativas…
-            foreach (var p in et.GetProperties().Where(p => p.ClrType == typeof(string) && TextoLongo(p.Name)))
+            // (campo marcado com TamanhoFixo na configuração mantém o tamanho — ex.: entra em índice único).
+            foreach (var p in et.GetProperties().Where(p => p.ClrType == typeof(string) && TextoLongo(p.Name) && p.FindAnnotation(TamanhoFixo) is null))
                 p.SetMaxLength(null);
 
             // Sem exclusão em cascata: registro de qualidade nunca some por efeito colateral.
@@ -199,6 +200,8 @@ public class QualyHubDbContext(DbContextOptions<QualyHubDbContext> options, IUsu
                     mb.Entity(clr).HasIndex(nameof(EntidadeDaObra.EmpresaId), nameof(EntidadeDaObra.ObraId));
                     Invocar(nameof(FiltroObra), clr, mb);
                 }
+                else if (typeof(IPertenceObra).IsAssignableFrom(clr))
+                    Invocar(nameof(FiltroObraCadastro), clr, mb); // SPE, condomínio, tipologia, aplicação: também respeitam o acesso por obra
             }
 
             // Histórico completo (SQL Server temporal tables) para entidades críticas de evidência.
@@ -217,6 +220,9 @@ public class QualyHubDbContext(DbContextOptions<QualyHubDbContext> options, IUsu
          "Evidencia", "AnaliseCausa", "CausaRaiz", "Conteudo", "Medidas", "Paralisacao", "Riscos", "Resumo", "ModeloMensagem", "Pergunta", "Escopo",
          "AvaliacaoImpacto", "LocaisAfetados", "RncsOrigem", "Pendencias", "Concessao", "ItensSolicitados", "Destinatarios", "SubGrupos", "Ensaios", "Texto", "Resolucao"];
 
+    /// <summary>Anotação: o campo mantém o tamanho configurado mesmo tendo nome de texto longo.</summary>
+    public const string TamanhoFixo = "QualyHub:TamanhoFixo";
+
     private static bool TextoLongo(string nome) => PrefixosLongos.Any(p => nome.StartsWith(p, StringComparison.Ordinal));
 
     private void Invocar(string metodo, Type clr, ModelBuilder mb) =>
@@ -227,6 +233,9 @@ public class QualyHubDbContext(DbContextOptions<QualyHubDbContext> options, IUsu
         mb.Entity<T>().HasQueryFilter(FiltrosNomes.Empresa, e => !e.Excluido && e.EmpresaId == EmpresaAtualId);
 
     private void FiltroObra<T>(ModelBuilder mb) where T : EntidadeDaObra =>
+        mb.Entity<T>().HasQueryFilter(FiltrosNomes.Obra, e => AcessoTodasObras || ObrasPermitidas.Contains(e.ObraId));
+
+    private void FiltroObraCadastro<T>(ModelBuilder mb) where T : EntidadeAuditavel, IPertenceObra =>
         mb.Entity<T>().HasQueryFilter(FiltrosNomes.Obra, e => AcessoTodasObras || ObrasPermitidas.Contains(e.ObraId));
 }
 

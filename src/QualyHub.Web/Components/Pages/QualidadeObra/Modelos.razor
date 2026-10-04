@@ -64,7 +64,7 @@
                 {
                     <Campo Rotulo="Serviço (ITS)" Obrigatorio Classe="s4"><select @bind="_m.ServicoControladoId" disabled="@(!Editavel)"><option value="">Selecione…</option>@foreach (var x in _servicos) { <option value="@x.Id">@x.Texto</option> }</select></Campo>
                     <Campo Rotulo="Momento da inspeção" Classe="s3"><select @bind="_m.MomentoInspecao" disabled="@(!Editavel)"><option value="">—</option>@foreach (var x in Momentos) { <option>@x</option> }</select></Campo>
-                    <Campo Rotulo="Unidade de local" Classe="s3"><select @bind="_m.NivelLocal" disabled="@(!Editavel)"><option value="">Qualquer</option>@foreach (var x in Niveis) { <option>@x</option> }</select></Campo>
+                    <Campo Rotulo="Unidade de local" Classe="s3"><select @bind="_m.NivelLocal" disabled="@(!Editavel)"><option value="">Qualquer</option>@foreach (var x in Niveis) { <option>@x</option> }@if (!string.IsNullOrEmpty(_m.NivelLocal) && !Niveis.Contains(_m.NivelLocal)) { <option value="@_m.NivelLocal">@_m.NivelLocal (antigo)</option> }</select></Campo>
                     <Campo Rotulo="Etapa seguinte bloqueada" Classe="s4"><select @bind="_m.ServicoSeguinteId" disabled="@(!Editavel)"><option value="">—</option>@foreach (var x in _servicos) { <option value="@x.Id">@x.Texto</option> }</select></Campo>
                     <Campo Rotulo="" Classe="s2"><label><input type="checkbox" @bind="_m.LiberaMedicao" disabled="@(!Editavel)" /> Libera medição</label></Campo>
                 }
@@ -141,7 +141,8 @@
     private bool Sst => TipoRota == "sst";
     private TipoModelo Tipo => Fvm ? TipoModelo.FVM : Sst ? TipoModelo.SST : TipoModelo.FVS;
     private static readonly string[] Momentos = ["Antes do serviço (liberação de frente)", "Durante", "Após (final)", "Antes da concretagem"];
-    private static readonly string[] Niveis = ["Condomínio", "Torre", "Pavimento", "Apartamento", "Cômodo", "Área comum", "Elemento"];
+    private static readonly string[] Niveis = [GeradorEmpreendimento.TipoCondominio, GeradorEmpreendimento.TipoTorre, GeradorEmpreendimento.TipoPavimento,
+        GeradorEmpreendimento.TipoApartamento, GeradorEmpreendimento.TipoComodo, GeradorEmpreendimento.TipoAreaComum, "Elemento"];
     private Grade<ModeloInspecao>? _grade;
     private List<ModeloInspecao>? _itens;
     private ModeloInspecao? _m;

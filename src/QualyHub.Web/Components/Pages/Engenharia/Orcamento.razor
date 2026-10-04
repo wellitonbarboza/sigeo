@@ -8,11 +8,11 @@
     <ChildContent>
         <div class="pagina">
             <div class="barra-filtro">
-                <label>Obra <select id="orc-obra" value="@_obraId" @onchange="async e => { _obraId = Guid.TryParse(e.Value?.ToString(), out var g) ? g : null; await Carregar(); }"><option value="">Selecione…</option>@foreach (var o in _obras) { <option value="@o.Id">@o.Texto</option> }</select></label>
+                <label>Obra <select id="orc-obra" value="@_obraId" @onchange="TrocarObra"><option value="">Selecione…</option>@foreach (var o in _obras) { <option value="@o.Id">@o.Texto</option> }</select></label>
                 @if (_obraId is not null)
                 {
                     <button class="btn prim" id="orc-gerar" disabled="@Ocupado" @onclick="Gerar"><Icone Nome="atualizar" Tam="14" /> Gerar / atualizar orçamento</button>
-                    <a class="btn sec" href="engenharia/tipologias"><Icone Nome="lista" Tam="14" /> Serviços por tipologia</a>
+                    <a class="btn sec" href="@($"engenharia/tipologias?obra={_obraId}")"><Icone Nome="lista" Tam="14" /> Serviços por tipologia</a>
                     <a class="btn sec" href="engenharia/composicoes"><Icone Nome="calculadora" Tam="14" /> Composições</a>
                 }
             </div>
@@ -20,21 +20,22 @@
             else
             {
                 <div class="kpis">
-                    <Kpi Rotulo="Custo orçado" Valor="@_cels.Sum(c => c.Custo).ToString("C0", Br)" />
-                    <Kpi Rotulo="Células serviço × local" Valor="@_cels.Count.ToString("N0", Br)" Sub="@($"{_cels.Count(c => c.Travado)} travadas (editadas)")" />
-                    <Kpi Rotulo="Área privativa" Valor="@($"{_areaPriv:N0} m²")" Tom="info" />
-                    <Kpi Rotulo="R$/m² privativo" Valor="@(_areaPriv == 0 ? "—" : (_cels.Sum(c => c.Custo) / _areaPriv).ToString("N2", Br))" Tom="info" />
+                    <Kpi Rotulo="Custo orçado" Valor="@_total.ToString("C0", Br)" />
+                    <Kpi Rotulo="Células serviço × local" Valor="@_cels.Count.ToString("N0", Br)" Sub="@($"{_travadas} travadas (editadas)")" />
+                    <Kpi Rotulo="Área privativa" Valor="@($"{Rotulos.Num(_areaPriv, 0)} m²")" Tom="info" />
+                    <Kpi Rotulo="R$/m² privativo" Valor="@(_areaPriv == 0 ? "—" : (_total / _areaPriv).ToString("N2", Br))" Tom="info" />
                 </div>
                 <Abas Itens="_abas" @bind-Ativa="_aba" />
+                <Erros Lista="ErrosForm" />
                 @if (_aba == "serv")
                 {
                     <table class="itens" id="orc-servicos">
                         <thead><tr><th>Grupo</th><th>Serviço</th><th>Un.</th><th class="num">Quantidade</th><th class="num">Custo unit.</th><th class="num">Custo</th><th class="num">% </th><th class="num">Locais</th></tr></thead>
                         <tbody>
-                            @foreach (var g in PorServico())
+                            @foreach (var g in _porServico)
                             {
-                                <tr><td>@g.Grupo</td><td>@g.Servico</td><td>@g.Un</td><td class="num">@g.Qtd.ToString("N2", Br)</td><td class="num">@g.Unit.ToString("N2", Br)</td><td class="num">@g.Custo.ToString("N2", Br)</td>
-                                    <td class="num">@(Total == 0 ? "" : (100 * g.Custo / Total).ToString("N1", Br))</td><td class="num">@g.N</td></tr>
+                                <tr @key="g.Servico"><td>@g.Grupo</td><td>@g.Servico</td><td>@g.Un</td><td class="num">@g.Qtd.ToString("N2", Br)</td><td class="num">@g.Unit.ToString("N2", Br)</td><td class="num">@g.Custo.ToString("N2", Br)</td>
+                                    <td class="num">@(_total == 0 ? "" : (100 * g.Custo / _total).ToString("N1", Br))</td><td class="num">@g.N</td></tr>
                             }
                             @if (_cels.Count == 0) { <tr><td colspan="8" class="mudo">Sem orçamento. Marque os serviços nas tipologias e clique em "Gerar / atualizar orçamento".</td></tr> }
                         </tbody>
@@ -45,16 +46,16 @@
                     <table class="itens" id="orc-spe">
                         <thead><tr><th>Condomínio / torre</th><th class="num">Custo</th><th class="num">Apartamentos</th><th class="num">Área priv. (m²)</th><th class="num">R$/m²</th></tr></thead>
                         <tbody>
-                            @foreach (var c in _locais.Where(l => l.Tipo == GeradorEmpreendimento.TipoCondominio).OrderBy(l => l.Codigo))
+                            @foreach (var c in _conds)
                             {
                                 var (custo, ap, area) = Soma(c.Id);
                                 <tr style="font-weight:600"><td>@c.Codigo – @c.Nome</td><td class="num">@custo.ToString("N2", Br)</td><td class="num">@ap</td><td class="num">@area.ToString("N2", Br)</td><td class="num">@(area == 0 ? "" : (custo / area).ToString("N2", Br))</td></tr>
-                                @foreach (var t in _locais.Where(l => l.LocalPaiId == c.Id && l.Tipo == GeradorEmpreendimento.TipoTorre).OrderBy(l => l.Codigo))
+                                @foreach (var t in _filhos[c.Id].Where(l => l.Tipo == GeradorEmpreendimento.TipoTorre).OrderBy(l => l.Codigo))
                                 {
                                     var (ct, at, ar) = Soma(t.Id);
                                     <tr><td style="padding-left:24px">@t.Codigo – @t.Nome</td><td class="num">@ct.ToString("N2", Br)</td><td class="num">@at</td><td class="num">@ar.ToString("N2", Br)</td><td class="num">@(ar == 0 ? "" : (ct / ar).ToString("N2", Br))</td></tr>
                                 }
-                                var comum = _cels.Where(x => x.LocalId == c.Id || _locais.Any(l => l.Id == x.LocalId && l.LocalPaiId == c.Id && l.Tipo == GeradorEmpreendimento.TipoAreaComum)).Sum(x => x.Custo);
+                                var comum = _comumCond.GetValueOrDefault(c.Id);
                                 <tr><td style="padding-left:24px" class="mudo">Áreas comuns do condomínio (rateio pela fração ideal)</td><td class="num">@comum.ToString("N2", Br)</td><td></td><td></td><td></td></tr>
                             }
                         </tbody>
@@ -62,18 +63,17 @@
                 }
                 else if (_aba == "apto")
                 {
-                    <div class="barra-filtro"><label>Torre <select @bind="_fTorre"><option value="">Selecione…</option>@foreach (var t in _locais.Where(l => l.Tipo == GeradorEmpreendimento.TipoTorre).OrderBy(l => l.Codigo)) { <option value="@t.Id">@t.Codigo – @t.Nome</option> }</select></label></div>
+                    <div class="barra-filtro"><label>Torre <select @bind="_fTorre"><option value="">Selecione…</option>@foreach (var t in _torres) { <option value="@t.Id">@t.Codigo – @t.Nome</option> }</select></label></div>
                     @if (_fTorre is { } ft)
                     {
                         <table class="itens" id="orc-aptos">
                             <thead><tr><th>Apartamento</th><th>Tipologia</th><th class="num">Área priv.</th><th class="num">Custo direto</th><th class="num">R$/m²</th><th class="num">Serviços</th></tr></thead>
                             <tbody>
-                                @foreach (var a in _locais.Where(l => l.Tipo == GeradorEmpreendimento.TipoApartamento && Sub(ft).Contains(l.Id)).OrderBy(l => l.Codigo))
+                                @foreach (var a in _aptosPorTorre[ft])
                                 {
-                                    var sub = Sub(a.Id);
-                                    var cs = _cels.Where(c => sub.Contains(c.LocalId)).ToList();
-                                    <tr><td>@a.Codigo</td><td>@_tips.GetValueOrDefault(a.TipologiaId ?? Guid.Empty)</td><td class="num">@a.AreaPrivativa?.ToString("N2", Br)</td><td class="num">@cs.Sum(c => c.Custo).ToString("N2", Br)</td>
-                                        <td class="num">@(a.AreaPrivativa is > 0 ? (cs.Sum(c => c.Custo) / a.AreaPrivativa.Value).ToString("N2", Br) : "")</td><td class="num">@cs.Select(c => c.ComposicaoId).Distinct().Count()</td></tr>
+                                    var tot = _totais.GetValueOrDefault(a.Id);
+                                    <tr @key="a.Id"><td>@a.Codigo</td><td>@_tips.GetValueOrDefault(a.TipologiaId ?? Guid.Empty)</td><td class="num">@a.AreaPrivativa?.ToString("N2", Br)</td><td class="num">@tot.Custo.ToString("N2", Br)</td>
+                                        <td class="num">@(a.AreaPrivativa is > 0 ? (tot.Custo / a.AreaPrivativa.Value).ToString("N2", Br) : "")</td><td class="num">@_servicosApto.GetValueOrDefault(a.Id)</td></tr>
                                 }
                             </tbody>
                         </table>
@@ -91,7 +91,7 @@
                             @foreach (var c in Celulas().Take(500))
                             {
                                 var l = _porId.GetValueOrDefault(c.LocalId);
-                                <tr><td>@l?.Codigo <span class="mudo">@l?.Nome</span></td><td>@_comps.GetValueOrDefault(c.ComposicaoId)?.Descricao</td>
+                                <tr @key="(c.Id, _versaoCel)"><td>@l?.Codigo <span class="mudo">@l?.Nome</span></td><td>@_comps.GetValueOrDefault(c.ComposicaoId)?.Descricao</td>
                                     <td class="num"><input type="number" step="0.01" style="width:100px;text-align:right" value="@c.Quantidade.ToString(System.Globalization.CultureInfo.InvariantCulture)" @onchange="e => Editar(c, e.Value?.ToString())" /></td>
                                     <td class="num">@c.CustoUnitario.ToString("N2", Br)</td><td class="num">@c.Custo.ToString("N2", Br)</td>
                                     <td>@if (c.Travado) { <Selo Texto="manual (travada)" Tom="aviso" /> } else { <span class="mudo">@c.Origem</span> }</td>
@@ -106,11 +106,11 @@
                     <div class="grade-2">
                         <div>
                             <div class="secao"><Icone Nome="lista" /> 1. Serviços a contratar</div>
-                            <div class="barra-filtro"><label>Grupo <select @bind="_fGrupo"><option value="">Todos</option>@foreach (var g in _comps.Values.Select(c => c.Grupo).Distinct().OrderBy(g => g)) { <option>@g</option> }</select></label></div>
+                            <div class="barra-filtro"><label>Grupo <select @bind="_fGrupo"><option value="">Todos</option>@foreach (var g in _compsComCelulas.Select(c => c.Grupo).Distinct().OrderBy(g => g)) { <option>@g</option> }</select></label></div>
                             <div class="seletor-locais">
-                                @foreach (var c in _comps.Values.Where(c => _cels.Any(x => x.ComposicaoId == c.Id) && (string.IsNullOrEmpty(_fGrupo) || c.Grupo == _fGrupo)).OrderBy(c => c.Codigo))
+                                @foreach (var c in _compsComCelulas.Where(c => string.IsNullOrEmpty(_fGrupo) || c.Grupo == _fGrupo))
                                 {
-                                    <div class="sl-linha"><label><input type="checkbox" checked="@_selComp.Contains(c.Id)" @onchange="e => { if ((bool)e.Value!) _selComp.Add(c.Id); else _selComp.Remove(c.Id); _demanda = null; }" /> <b>@c.Codigo</b> @c.Descricao <span class="mudo">@c.Unidade</span></label></div>
+                                    <div class="sl-linha" @key="c.Id"><label><input type="checkbox" checked="@_selComp.Contains(c.Id)" @onchange="e => { if ((bool)e.Value!) _selComp.Add(c.Id); else _selComp.Remove(c.Id); _demanda = null; }" /> <b>@c.Codigo</b> @c.Descricao <span class="mudo">@c.Unidade</span></label></div>
                                 }
                             </div>
                         </div>
@@ -161,13 +161,36 @@
     private HashSet<Guid> _selLoc = [];
     private List<LinhaDemanda>? _demanda;
     private readonly Dictionary<Guid, HashSet<Guid>> _subCache = [];
+    [SupplyParameterFromQuery(Name = "obra")] public Guid? ObraQuery { get; set; }
+    // Pré-calculados no Carregar (nada de varrer células × locais a cada renderização)
+    private decimal _total;
+    private int _travadas, _versaoCel;
+    private List<LinhaServico> _porServico = [];
+    private List<Local> _conds = [], _torres = [];
+    private ILookup<Guid, Local> _aptosPorTorre = Array.Empty<Local>().ToLookup(l => l.Id);
+    private ILookup<Guid, ServicoLocal> _celsPorLocal = Array.Empty<ServicoLocal>().ToLookup(c => c.LocalId);
+    private Dictionary<Guid, (decimal Custo, int Aptos, decimal Area)> _totais = [];
+    private Dictionary<Guid, int> _servicosApto = [];
+    private Dictionary<Guid, decimal> _comumCond = [];
+    private Dictionary<Guid, HashSet<Guid>> _areasComunsCond = [];
+    private List<Composicao> _compsComCelulas = [];
+    private List<ServicoLocal> _celsOrdenadas = [];
     private static readonly List<(string, string)> _abas = [("serv", "Por serviço"), ("spe", "Por condomínio e torre"), ("apto", "Por apartamento"), ("cel", "Células"), ("ctr", "Contratar serviços")];
-    private decimal Total => _cels.Sum(c => c.Custo);
 
     protected override async Task OnInitializedAsync()
     {
         _obras = await Cat.ObrasAsync();
-        if (_obras.Count == 1) _obraId = _obras[0].Id;
+        if (ObraQuery is { } q && _obras.Any(o => o.Id == q)) _obraId = q;
+        else if (_obras.Count == 1) _obraId = _obras[0].Id;
+        await Carregar();
+    }
+
+    private async Task TrocarObra(ChangeEventArgs e)
+    {
+        _obraId = Guid.TryParse(e.Value?.ToString(), out var g) ? g : null;
+        _selComp.Clear(); _selLoc = []; _fTorre = null; _fComp = null; _fCodigo = null; _fGrupo = null; _demanda = null; ErrosForm = null;
+        _cels = []; _locais = []; _porId = []; _filhos = Array.Empty<Local>().ToLookup(l => l.LocalPaiId);
+        Precalcular();
         await Carregar();
     }
 
@@ -183,42 +206,77 @@
         _comps = await db.Composicoes.AsNoTracking().Include(c => c.Itens).ToDictionaryAsync(c => c.Id);
         _tips = await db.Tipologias.AsNoTracking().Where(t => t.ObraId == o).ToDictionaryAsync(t => t.Id, t => t.Codigo);
         _areaPriv = _locais.Where(l => l.Tipo == GeradorEmpreendimento.TipoApartamento).Sum(l => l.AreaPrivativa ?? 0);
+        Precalcular();
+    }
+
+    /// <summary>Totais por nó da árvore, áreas comuns por condomínio e listas usadas na tela — uma passada só.</summary>
+    private void Precalcular()
+    {
+        _celsPorLocal = _cels.ToLookup(c => c.LocalId);
+        _total = _cels.Sum(c => c.Custo);
+        _travadas = _cels.Count(c => c.Travado);
+        _porServico = _cels.GroupBy(c => c.ComposicaoId).Select(g =>
+        {
+            var c = _comps.GetValueOrDefault(g.Key);
+            var q = g.Sum(x => x.Quantidade);
+            var custo = g.Sum(x => x.Custo);
+            return new LinhaServico(c?.Grupo, c is null ? "?" : $"{c.Codigo} – {c.Descricao}", c?.Unidade ?? "", q, q == 0 ? 0 : custo / q, custo, g.Count());
+        }).OrderBy(x => x.Grupo).ThenBy(x => x.Servico).ToList();
+        var comCelula = _cels.Select(c => c.ComposicaoId).ToHashSet();
+        _compsComCelulas = _comps.Values.Where(c => comCelula.Contains(c.Id)).OrderBy(c => c.Codigo).ToList();
+        _celsOrdenadas = _cels.OrderBy(c => _porId.GetValueOrDefault(c.LocalId)?.Codigo).ToList();
+        _conds = _locais.Where(l => l.Tipo == GeradorEmpreendimento.TipoCondominio).OrderBy(l => l.Codigo).ToList();
+        _torres = _locais.Where(l => l.Tipo == GeradorEmpreendimento.TipoTorre).OrderBy(l => l.Codigo).ToList();
+        _areasComunsCond = _conds.ToDictionary(c => c.Id, c => _filhos[c.Id].Where(l => l.Tipo == GeradorEmpreendimento.TipoAreaComum).Select(l => l.Id).Append(c.Id).ToHashSet());
+        _comumCond = _areasComunsCond.ToDictionary(kv => kv.Key, kv => kv.Value.Sum(id => _celsPorLocal[id].Sum(c => c.Custo)));
+
+        // totais acumulados de baixo para cima (pós-ordem, sem recursão)
+        _totais = new Dictionary<Guid, (decimal, int, decimal)>(_locais.Count);
+        var ordem = new List<Local>(_locais.Count);
+        var pilha = new Stack<Local>(_filhos[null]);
+        while (pilha.Count > 0) { var l = pilha.Pop(); ordem.Add(l); foreach (var f in _filhos[l.Id]) pilha.Push(f); }
+        for (var i = ordem.Count - 1; i >= 0; i--)
+        {
+            var l = ordem[i];
+            var custo = _celsPorLocal[l.Id].Sum(c => c.Custo);
+            var ap = l.Tipo == GeradorEmpreendimento.TipoApartamento ? 1 : 0;
+            var area = ap == 1 ? l.AreaPrivativa ?? 0 : 0;
+            foreach (var f in _filhos[l.Id]) if (_totais.TryGetValue(f.Id, out var t)) { custo += t.Custo; ap += t.Aptos; area += t.Area; }
+            _totais[l.Id] = (custo, ap, area);
+        }
+
+        var aptos = _locais.Where(l => l.Tipo == GeradorEmpreendimento.TipoApartamento).ToList();
+        _servicosApto = aptos.ToDictionary(a => a.Id, a => Sub(a.Id).SelectMany(id => _celsPorLocal[id]).Select(c => c.ComposicaoId).Distinct().Count());
+        _aptosPorTorre = _torres.SelectMany(t => aptos.Where(a => Sub(t.Id).Contains(a.Id)).OrderBy(a => a.Codigo).Select(a => (Torre: t.Id, Apto: a)))
+                                .ToLookup(x => x.Torre, x => x.Apto);
     }
 
     private HashSet<Guid> Sub(Guid id) => _subCache.TryGetValue(id, out var s) ? s : _subCache[id] = MotorOrcamento.Subarvore(id, _filhos);
 
-    private (decimal Custo, int Aptos, decimal Area) Soma(Guid raiz)
-    {
-        var sub = Sub(raiz);
-        var aps = _locais.Where(l => l.Tipo == GeradorEmpreendimento.TipoApartamento && sub.Contains(l.Id)).ToList();
-        return (_cels.Where(c => sub.Contains(c.LocalId)).Sum(c => c.Custo), aps.Count, aps.Sum(a => a.AreaPrivativa ?? 0));
-    }
-
-    private IEnumerable<LinhaServico> PorServico() =>
-        _cels.GroupBy(c => c.ComposicaoId).Select(g =>
-        {
-            var c = _comps.GetValueOrDefault(g.Key);
-            var q = g.Sum(x => x.Quantidade);
-            return new LinhaServico(c?.Grupo, c is null ? "?" : $"{c.Codigo} – {c.Descricao}", c?.Unidade ?? "", q, q == 0 ? 0 : g.Sum(x => x.Custo) / q, g.Sum(x => x.Custo), g.Count());
-        }).OrderBy(x => x.Grupo).ThenBy(x => x.Servico);
+    private (decimal Custo, int Aptos, decimal Area) Soma(Guid raiz) => _totais.GetValueOrDefault(raiz);
 
     private IEnumerable<ServicoLocal> Celulas() =>
-        _cels.Where(c => (_fComp is null || c.ComposicaoId == _fComp) && (string.IsNullOrWhiteSpace(_fCodigo) || (_porId.GetValueOrDefault(c.LocalId)?.Codigo ?? "").StartsWith(_fCodigo.Trim(), StringComparison.OrdinalIgnoreCase)))
-             .OrderBy(c => _porId.GetValueOrDefault(c.LocalId)?.Codigo);
+        _celsOrdenadas.Where(c => (_fComp is null || c.ComposicaoId == _fComp) && (string.IsNullOrWhiteSpace(_fCodigo) || (_porId.GetValueOrDefault(c.LocalId)?.Codigo ?? "").StartsWith(_fCodigo.Trim(), StringComparison.OrdinalIgnoreCase)));
 
     private async Task Gerar()
     {
         ResultadoOrcamento? r = null;
         if (await Executar(async () => r = await Orc.GerarAsync(_obraId!.Value)))
         {
-            Notif.Sucesso($"Orçamento atualizado: {r!.Criadas} células novas, {r.Atualizadas} atualizadas, {r.Removidas} removidas, {r.Travadas} travadas mantidas. Total {r.Total:C0}.");
+            Notif.Sucesso($"Orçamento atualizado: {r!.Criadas} células novas, {r.Atualizadas} atualizadas, {r.Removidas} removidas, {r.Travadas} travadas mantidas. Total {Rotulos.Moeda(r.Total)}.");
             await Carregar();
         }
     }
 
     private async Task Editar(ServicoLocal c, string? v)
     {
-        if (!decimal.TryParse(v, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var q)) return;
+        if (string.IsNullOrWhiteSpace(v) || !LerDecimal(v, out var q) || q < 0)
+        {
+            ErrosForm = [$"Quantidade inválida: \"{v}\". Informe um número maior ou igual a zero."];
+            Notif.Erro(ErrosForm[0]);
+            _versaoCel++; // recria a linha para voltar ao valor salvo
+            return;
+        }
         if (await Executar(() => Orc.EditarCelulaAsync(c.Id, q, true), "Célula alterada e travada.")) await Carregar();
     }
 

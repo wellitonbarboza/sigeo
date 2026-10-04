@@ -55,7 +55,9 @@ public class Medicao : EntidadeDaObra, IHistoricoTemporal
             i.ContratoItem = ci;
             // Item contratado por local: acumulado e % são do local (cada linha da medição é um serviço × local).
             var cl = i.LocalId is { } lid ? ci.Locais.FirstOrDefault(x => x.LocalId == lid) : null;
-            i.QtdAnterior = prev.Where(p => p.ContratoItemId == i.ContratoItemId && (cl is null || p.LocalId == i.LocalId)).Sum(p => p.QtdPeriodo);
+            // Anterior = medições anteriores + linhas irmãs desta medição (mesmo item e local) que vêm antes: evita medir duas vezes na mesma medição.
+            var irmas = Itens.TakeWhile(x => !ReferenceEquals(x, i)).Where(x => x.ContratoItemId == i.ContratoItemId && (cl is null || x.LocalId == i.LocalId)).Sum(x => x.QtdPeriodo);
+            i.QtdAnterior = prev.Where(p => p.ContratoItemId == i.ContratoItemId && (cl is null || p.LocalId == i.LocalId)).Sum(p => p.QtdPeriodo) + irmas;
             i.QtdAcumulada = i.QtdAnterior + i.QtdPeriodo;
             var baseQtd = cl?.Quantidade ?? ci.Quantidade;
             i.PercExecutado = baseQtd == 0 ? 0 : Math.Round(100m * i.QtdAcumulada / baseQtd, 1);

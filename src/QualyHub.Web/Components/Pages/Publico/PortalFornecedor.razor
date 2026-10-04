@@ -19,7 +19,7 @@
         @if (_s.Alerta is not null) { <div class="alerta aviso"><Icone Nome="alerta" /> @_s.Alerta</div> }
         @if (_msg is not null) { <div class="alerta @(_ok ? "ok" : "erro")">@_msg</div> }
         <div class="abas" style="margin-bottom:10px">
-            <button class="@(_aba == "dados" ? "on" : "")" id="aba-dados" @onclick='() => _aba = "dados"'>Dados cadastrais@(_s.Fornecedor.PreCadastro ? " (completar)" : "")</button>
+            @if (_s.Fornecedor.PreCadastro) { <button class="@(_aba == "dados" ? "on" : "")" id="aba-dados" @onclick='() => _aba = "dados"'>Dados cadastrais (completar)</button> }
             <button class="@(_aba == "empresa" ? "on" : "")" @onclick='() => _aba = "empresa"'>Documentos da empresa</button>
             <button class="@(_aba == "func" ? "on" : "")" @onclick='() => _aba = "func"'>Funcionários (@_s.Colaboradores.Count)</button>
         </div>
@@ -169,7 +169,7 @@
     private DateOnly? _comp;
     private DadosPortal _d = new();
 
-    private void DefinirComp(ChangeEventArgs e) => _comp = DateOnly.TryParseExact(e.Value + "-01", "yyyy-MM-dd", out var c) ? c : null;
+    private void DefinirComp(ChangeEventArgs e) => _comp = LerMes(e.Value);
 
     private async Task SalvarDados()
     {

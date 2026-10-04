@@ -10,7 +10,7 @@ namespace QualyHub.Domain.Engenharia;
 /// SPE (Sociedade de Propósito Específico) — 1 condomínio (quadra) = 1 SPE = 1 CNPJ. Todo custo, pedido e NF carrega a SPE
 /// (segregação de custo por patrimônio; base do rateio e do extrato mensal). As torres do condomínio pertencem à SPE.
 /// </summary>
-public class Spe : EntidadeAuditavel, IHistoricoTemporal
+public class Spe : EntidadeAuditavel, IHistoricoTemporal, IPertenceObra
 {
     public Guid ObraId { get; set; }
     /// <summary>Quadra/condomínio da SPE (1 para 1).</summary>
@@ -33,7 +33,7 @@ public class Spe : EntidadeAuditavel, IHistoricoTemporal
 /// <summary>
 /// Quadra / condomínio = SPE. O tipo é configurável (lista "Tipo de agrupamento"). Recebe as torres e as áreas comuns do condomínio.
 /// </summary>
-public class Quadra : EntidadeAuditavel, IHistoricoTemporal
+public class Quadra : EntidadeAuditavel, IHistoricoTemporal, IPertenceObra
 {
     public Guid ObraId { get; set; }
     /// <summary>Sigla usada nos códigos de local (ex.: QC).</summary>
@@ -59,7 +59,7 @@ public class Quadra : EntidadeAuditavel, IHistoricoTemporal
 /// Tipologia: de APARTAMENTO (cômodos com medidas), de TORRE (pavimentos, mix de apartamentos e áreas comuns da torre/pavimento)
 /// ou IMPLANTAÇÃO do condomínio (áreas comuns do condomínio). Os serviços do orçamento são marcados na tipologia.
 /// </summary>
-public class Tipologia : EntidadeAuditavel
+public class Tipologia : EntidadeAuditavel, IPertenceObra
 {
     public Guid ObraId { get; set; }
     public TipoTipologia Tipo { get; set; } = TipoTipologia.Apartamento;
@@ -113,6 +113,7 @@ public class Tipologia : EntidadeAuditavel
         {
             if (string.IsNullOrWhiteSpace(a.Nome)) e.Add("Ambiente sem nome.");
             if (a.AreaPiso < 0 || a.Perimetro < 0 || a.AreaVaos < 0 || a.PeDireito < 0) e.Add($"{a.Nome}: medidas não podem ser negativas.");
+            if (a.Perimetro > 0 && (a.PeDireito ?? PeDireitoPadrao ?? 0) <= 0) e.Add($"{a.Nome}: informe o pé-direito (do ambiente ou o padrão da tipologia) para calcular a área de parede.");
         }
         foreach (var g in Ambientes.GroupBy(a => (a.Sigla ?? "").ToUpperInvariant()).Where(g => g.Count() > 1))
             e.Add($"Sigla de ambiente repetida: {g.Key}.");

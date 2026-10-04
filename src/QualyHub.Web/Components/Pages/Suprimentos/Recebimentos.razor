@@ -163,7 +163,7 @@
         @if (_r is not null && !Novo_ && _r.Destino != DestinoRecebimento.Devolvido)
         {
             @if (_transf is { } t) { <a class="btn sec" href="transferencias?id=@t"><Icone Nome="enviar" Tam="16" /> Ver transferência</a> }
-            else { <button class="btn laranja" id="rec-transferir" disabled="@Ocupado" @onclick="Transferir"><Icone Nome="enviar" Tam="16" /> Transferir para a obra / SPE</button> }
+            else if (_r.AlmoxarifadoCentral) { <button class="btn laranja" id="rec-transferir" disabled="@Ocupado" @onclick="Transferir"><Icone Nome="enviar" Tam="16" /> Transferir para a obra / SPE</button> }
         }
     </Rodape>
 </Modal>
@@ -269,6 +269,7 @@
 
     private async Task Transferir()
     {
+        if (_r is not { AlmoxarifadoCentral: true }) return;
         Guid id = default;
         if (await Executar(async () => id = await Sup.GerarTransferenciaAsync(_r!.Id), "Transferência montada — confira e envie.")) Nav.NavigateTo($"transferencias?id={id}");
     }

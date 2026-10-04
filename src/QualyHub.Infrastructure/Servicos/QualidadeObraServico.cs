@@ -39,6 +39,14 @@ public sealed class QualidadeObraServico(FabricaDb fabrica, IUsuarioAtual usuari
             e.Add("Local gerado pela estrutura do condomínio: só a descrição pode ser alterada.");
         Checar(e);
         l.LocalPai = null; l.Filhos = [];
+        if (existente is not null && (gerados.Contains(existente.Tipo) || existente.AmbienteModeloId is not null))
+        {
+            // Local gerado: só descrição, quantidade de referência e área privativa; estrutura (obra, SPE, tipologia, medidas, fração) fica como gerada.
+            var atual = await db.Locais.FirstAsync(x => x.Id == l.Id, ct);
+            atual.Nome = l.Nome.Trim(); atual.Quantidade = l.Quantidade; atual.Unidade = l.Unidade; atual.AreaPrivativa = l.AreaPrivativa;
+            await db.SaveChangesAsync(ct);
+            return l.Id;
+        }
         await Grafo.SalvarAsync(db, l);
         await db.SaveChangesAsync(ct);
         return l.Id;

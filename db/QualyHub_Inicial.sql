@@ -7265,3 +7265,433 @@ END;
 COMMIT;
 GO
 
+BEGIN TRANSACTION;
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004152719_RevisaoIntegridade'
+)
+BEGIN
+    EXEC(N'
+    WITH d AS (SELECT Id, ROW_NUMBER() OVER (PARTITION BY ObraId, Competencia, EquipeId, ColaboradorId, FuncaoObraId, LEFT(Descricao, 120) ORDER BY COALESCE(AlteradoEm, CriadoEm) DESC) n
+               FROM qh.CustosMaoObra WHERE Excluido = 0)
+    UPDATE c SET Excluido = 1, ExcluidoEm = SYSDATETIMEOFFSET(), ExcluidoPor = N''migracao'' FROM qh.CustosMaoObra c JOIN d ON d.Id = c.Id WHERE d.n > 1;
+    UPDATE qh.CustosMaoObra SET Descricao = LEFT(Descricao, 120) WHERE LEN(Descricao) > 120;')
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004152719_RevisaoIntegridade'
+)
+BEGIN
+    EXEC(N'
+    WITH d AS (SELECT Id, ROW_NUMBER() OVER (PARTITION BY EmpresaId ORDER BY COALESCE(AlteradoEm, CriadoEm) DESC) n FROM qh.Estabelecimentos WHERE Excluido = 0 AND FaturaMateriais = 1)
+    UPDATE e SET FaturaMateriais = 0 FROM qh.Estabelecimentos e JOIN d ON d.Id = e.Id WHERE d.n > 1;
+    WITH d AS (SELECT Id, ROW_NUMBER() OVER (PARTITION BY EmpresaId ORDER BY COALESCE(AlteradoEm, CriadoEm) DESC) n FROM qh.Estabelecimentos WHERE Excluido = 0 AND AlmoxarifadoCentral = 1)
+    UPDATE e SET AlmoxarifadoCentral = 0 FROM qh.Estabelecimentos e JOIN d ON d.Id = e.Id WHERE d.n > 1;
+    WITH d AS (SELECT Id, ROW_NUMBER() OVER (PARTITION BY SpeId ORDER BY COALESCE(AlteradoEm, CriadoEm) DESC) n FROM qh.Estabelecimentos WHERE Excluido = 0 AND SpeId IS NOT NULL)
+    UPDATE e SET SpeId = NULL FROM qh.Estabelecimentos e JOIN d ON d.Id = e.Id WHERE d.n > 1;')
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004152719_RevisaoIntegridade'
+)
+BEGIN
+    EXEC(N'
+    UPDATE qh.FornecedorDocumentos SET Competencia = DATEFROMPARTS(YEAR(Competencia), MONTH(Competencia), 1) WHERE Competencia IS NOT NULL AND DAY(Competencia) <> 1;
+    WITH d AS (SELECT Id, ROW_NUMBER() OVER (PARTITION BY FornecedorId, TipoDocumentoExigidoId, Competencia ORDER BY CriadoEm DESC) n FROM qh.FornecedorDocumentos WHERE Excluido = 0 AND Competencia IS NOT NULL)
+    UPDATE f SET Excluido = 1, ExcluidoEm = SYSDATETIMEOFFSET(), ExcluidoPor = N''migracao'' FROM qh.FornecedorDocumentos f JOIN d ON d.Id = f.Id WHERE d.n > 1;')
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004152719_RevisaoIntegridade'
+)
+BEGIN
+    EXEC(N'
+    WITH g AS (SELECT RequisicaoItemId, LocalId, ComposicaoId, SUM(Quantidade) q, MIN(CAST(Id AS nvarchar(36))) manter FROM qh.RequisicaoItemLocais WHERE ComposicaoId IS NOT NULL GROUP BY RequisicaoItemId, LocalId, ComposicaoId HAVING COUNT(*) > 1)
+    UPDATE r SET Quantidade = g.q FROM qh.RequisicaoItemLocais r JOIN g ON CAST(r.Id AS nvarchar(36)) = g.manter;
+    DELETE r FROM qh.RequisicaoItemLocais r WHERE r.ComposicaoId IS NOT NULL AND EXISTS (SELECT 1 FROM qh.RequisicaoItemLocais o WHERE o.RequisicaoItemId = r.RequisicaoItemId AND o.LocalId = r.LocalId AND o.ComposicaoId = r.ComposicaoId AND CAST(o.Id AS nvarchar(36)) < CAST(r.Id AS nvarchar(36)));
+    WITH g AS (SELECT ContratoItemId, LocalId, SUM(Quantidade) q, MIN(CAST(Id AS nvarchar(36))) manter FROM qh.ContratoItemLocais GROUP BY ContratoItemId, LocalId HAVING COUNT(*) > 1)
+    UPDATE c SET Quantidade = g.q FROM qh.ContratoItemLocais c JOIN g ON CAST(c.Id AS nvarchar(36)) = g.manter;
+    DELETE c FROM qh.ContratoItemLocais c WHERE EXISTS (SELECT 1 FROM qh.ContratoItemLocais o WHERE o.ContratoItemId = c.ContratoItemId AND o.LocalId = c.LocalId AND CAST(o.Id AS nvarchar(36)) < CAST(c.Id AS nvarchar(36)));
+    DELETE m FROM qh.EquipeMembros m WHERE EXISTS (SELECT 1 FROM qh.EquipeMembros o WHERE o.EquipeId = m.EquipeId AND o.ColaboradorId = m.ColaboradorId AND CAST(o.Id AS nvarchar(36)) < CAST(m.Id AS nvarchar(36)));')
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004152719_RevisaoIntegridade'
+)
+BEGIN
+    EXEC(N'
+    WITH d AS (SELECT Id, ROW_NUMBER() OVER (PARTITION BY TipologiaId, Sigla ORDER BY Ordem, Id) n FROM qh.TipologiaAmbientes WHERE Sigla IS NOT NULL)
+    UPDATE a SET Sigla = LEFT(a.Sigla, 6) + CAST(d.n AS nvarchar(2)) FROM qh.TipologiaAmbientes a JOIN d ON d.Id = a.Id WHERE d.n > 1;')
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004152719_RevisaoIntegridade'
+)
+BEGIN
+    EXEC(N'
+    WITH d AS (SELECT Id, ROW_NUMBER() OVER (PARTITION BY RecebimentoId ORDER BY CASE Status WHEN N''Recebida'' THEN 0 WHEN N''Enviada'' THEN 1 ELSE 2 END, CriadoEm) n
+               FROM qh.Transferencias WHERE Excluido = 0 AND RecebimentoId IS NOT NULL AND Status <> N''Cancelada'')
+    UPDATE t SET Status = N''Cancelada'', Observacao = CONCAT(Observacao, N'' [cancelada na migração: transferência repetida]'') FROM qh.Transferencias t JOIN d ON d.Id = t.Id WHERE d.n > 1;')
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004152719_RevisaoIntegridade'
+)
+BEGIN
+    EXEC(N'
+    WITH arv AS (
+        SELECT l.Id, s.Id AS SpeId FROM qh.Quadras q JOIN qh.Spes s ON s.QuadraId = q.Id AND s.Excluido = 0 JOIN qh.Locais l ON l.Id = q.LocalId WHERE q.Excluido = 0
+        UNION ALL
+        SELECT f.Id, a.SpeId FROM qh.Locais f JOIN arv a ON f.LocalPaiId = a.Id)
+    UPDATE l SET SpeId = a.SpeId FROM qh.Locais l JOIN arv a ON a.Id = l.Id WHERE l.SpeId IS NULL OR l.SpeId <> a.SpeId
+    OPTION (MAXRECURSION 50);
+    UPDATE c SET SpeId = l.SpeId FROM qh.ServicosLocais c JOIN qh.Locais l ON l.Id = c.LocalId WHERE (c.SpeId IS NULL AND l.SpeId IS NOT NULL) OR c.SpeId <> l.SpeId;')
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004152719_RevisaoIntegridade'
+)
+BEGIN
+    EXEC(N'
+    WITH arv AS (
+        SELECT l.Id, q.Id AS QuadraId FROM qh.Quadras q JOIN qh.Locais l ON l.Id = q.LocalId WHERE q.Excluido = 0
+        UNION ALL
+        SELECT f.Id, a.QuadraId FROM qh.Locais f JOIN arv a ON f.LocalPaiId = a.Id),
+    ap AS (SELECT l.Id, a.QuadraId, COALESCE(l.AreaPrivativa, 0) Area, l.FracaoIdeal, l.Codigo FROM qh.Locais l JOIN arv a ON a.Id = l.Id WHERE l.Tipo = N''Apartamento'' AND l.Excluido = 0),
+    tot AS (SELECT QuadraId, SUM(Area) Area, SUM(COALESCE(FracaoIdeal, 0)) Soma FROM ap GROUP BY QuadraId),
+    rec AS (SELECT ap.Id, ap.QuadraId, ROUND(ap.Area / tot.Area, 6) f, ROW_NUMBER() OVER (PARTITION BY ap.QuadraId ORDER BY ap.Codigo DESC) ult
+            FROM ap JOIN tot ON tot.QuadraId = ap.QuadraId WHERE tot.Area > 0 AND ABS(tot.Soma - 1) > 0.0001)
+    UPDATE l SET FracaoIdeal = rec.f FROM qh.Locais l JOIN rec ON rec.Id = l.Id
+    OPTION (MAXRECURSION 50);
+    WITH arv AS (
+        SELECT l.Id, q.Id AS QuadraId FROM qh.Quadras q JOIN qh.Locais l ON l.Id = q.LocalId WHERE q.Excluido = 0
+        UNION ALL
+        SELECT f.Id, a.QuadraId FROM qh.Locais f JOIN arv a ON f.LocalPaiId = a.Id),
+    ap AS (SELECT l.Id, a.QuadraId, l.FracaoIdeal, ROW_NUMBER() OVER (PARTITION BY a.QuadraId ORDER BY l.Codigo DESC) ult FROM qh.Locais l JOIN arv a ON a.Id = l.Id WHERE l.Tipo = N''Apartamento'' AND l.Excluido = 0),
+    tot AS (SELECT QuadraId, SUM(COALESCE(FracaoIdeal, 0)) Soma FROM ap GROUP BY QuadraId)
+    UPDATE l SET FracaoIdeal = l.FracaoIdeal + (1 - tot.Soma) FROM qh.Locais l JOIN ap ON ap.Id = l.Id AND ap.ult = 1 JOIN tot ON tot.QuadraId = ap.QuadraId
+    WHERE ABS(tot.Soma - 1) > 0 AND ABS(tot.Soma - 1) < 0.001
+    OPTION (MAXRECURSION 50);')
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004152719_RevisaoIntegridade'
+)
+BEGIN
+    DROP INDEX [IX_Transferencias_RecebimentoId] ON [qh].[Transferencias];
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004152719_RevisaoIntegridade'
+)
+BEGIN
+    DROP INDEX [IX_RequisicaoItemLocais_RequisicaoItemId] ON [qh].[RequisicaoItemLocais];
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004152719_RevisaoIntegridade'
+)
+BEGIN
+    DROP INDEX [IX_FornecedorDocumentos_FornecedorId] ON [qh].[FornecedorDocumentos];
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004152719_RevisaoIntegridade'
+)
+BEGIN
+    DROP INDEX [IX_Estabelecimentos_SpeId] ON [qh].[Estabelecimentos];
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004152719_RevisaoIntegridade'
+)
+BEGIN
+    DROP INDEX [IX_EquipeMembros_EquipeId] ON [qh].[EquipeMembros];
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004152719_RevisaoIntegridade'
+)
+BEGIN
+    DROP INDEX [IX_ContratoItemLocais_ContratoItemId] ON [qh].[ContratoItemLocais];
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004152719_RevisaoIntegridade'
+)
+BEGIN
+    DECLARE @var1 nvarchar(max);
+    SELECT @var1 = QUOTENAME([d].[name])
+    FROM [sys].[default_constraints] [d]
+    INNER JOIN [sys].[columns] [c] ON [d].[parent_column_id] = [c].[column_id] AND [d].[parent_object_id] = [c].[object_id]
+    WHERE ([d].[parent_object_id] = OBJECT_ID(N'[qh].[CustosMaoObra]') AND [c].[name] = N'Descricao');
+    IF @var1 IS NOT NULL EXEC(N'ALTER TABLE [qh].[CustosMaoObra] DROP CONSTRAINT ' + @var1 + ';');
+    ALTER TABLE [qh].[CustosMaoObra] ALTER COLUMN [Descricao] nvarchar(120) NOT NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004152719_RevisaoIntegridade'
+)
+BEGIN
+    CREATE INDEX [IX_Transferencias_OrigemEstabelecimentoId] ON [qh].[Transferencias] ([OrigemEstabelecimentoId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004152719_RevisaoIntegridade'
+)
+BEGIN
+    CREATE INDEX [IX_Transferencias_PedidoId] ON [qh].[Transferencias] ([PedidoId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004152719_RevisaoIntegridade'
+)
+BEGIN
+    EXEC(N'CREATE UNIQUE INDEX [UX_Transferencias_Recebimento] ON [qh].[Transferencias] ([RecebimentoId]) WHERE [Excluido] = 0 AND [RecebimentoId] IS NOT NULL AND [Status] <> N''Cancelada''');
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004152719_RevisaoIntegridade'
+)
+BEGIN
+    CREATE INDEX [IX_TransferenciaItens_LocalId] ON [qh].[TransferenciaItens] ([LocalId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004152719_RevisaoIntegridade'
+)
+BEGIN
+    CREATE INDEX [IX_TransferenciaItens_ProdutoId] ON [qh].[TransferenciaItens] ([ProdutoId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004152719_RevisaoIntegridade'
+)
+BEGIN
+    CREATE INDEX [IX_TransferenciaItens_RecebimentoItemId] ON [qh].[TransferenciaItens] ([RecebimentoItemId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004152719_RevisaoIntegridade'
+)
+BEGIN
+    EXEC(N'CREATE UNIQUE INDEX [IX_TipologiaAmbientes_TipologiaId_Sigla] ON [qh].[TipologiaAmbientes] ([TipologiaId], [Sigla]) WHERE [Sigla] IS NOT NULL');
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004152719_RevisaoIntegridade'
+)
+BEGIN
+    CREATE INDEX [IX_ServicosLocais_SpeId] ON [qh].[ServicosLocais] ([SpeId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004152719_RevisaoIntegridade'
+)
+BEGIN
+    CREATE INDEX [IX_ServicoAplicacoes_AmbienteModeloId] ON [qh].[ServicoAplicacoes] ([AmbienteModeloId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004152719_RevisaoIntegridade'
+)
+BEGIN
+    CREATE INDEX [IX_ServicoAplicacoes_ObraId] ON [qh].[ServicoAplicacoes] ([ObraId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004152719_RevisaoIntegridade'
+)
+BEGIN
+    CREATE INDEX [IX_RequisicaoItemLocais_ComposicaoId] ON [qh].[RequisicaoItemLocais] ([ComposicaoId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004152719_RevisaoIntegridade'
+)
+BEGIN
+    EXEC(N'CREATE UNIQUE INDEX [IX_RequisicaoItemLocais_RequisicaoItemId_LocalId_ComposicaoId] ON [qh].[RequisicaoItemLocais] ([RequisicaoItemId], [LocalId], [ComposicaoId]) WHERE [ComposicaoId] IS NOT NULL');
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004152719_RevisaoIntegridade'
+)
+BEGIN
+    EXEC(N'CREATE UNIQUE INDEX [UX_FornecedorDocumentos_Competencia] ON [qh].[FornecedorDocumentos] ([FornecedorId], [TipoDocumentoExigidoId], [Competencia]) WHERE [Excluido] = 0 AND [Competencia] IS NOT NULL');
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004152719_RevisaoIntegridade'
+)
+BEGIN
+    EXEC(N'CREATE UNIQUE INDEX [UX_Estabelecimentos_Almoxarifado] ON [qh].[Estabelecimentos] ([EmpresaId], [AlmoxarifadoCentral]) WHERE [Excluido] = 0 AND [AlmoxarifadoCentral] = 1');
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004152719_RevisaoIntegridade'
+)
+BEGIN
+    EXEC(N'CREATE UNIQUE INDEX [UX_Estabelecimentos_FaturaMateriais] ON [qh].[Estabelecimentos] ([EmpresaId], [FaturaMateriais]) WHERE [Excluido] = 0 AND [FaturaMateriais] = 1');
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004152719_RevisaoIntegridade'
+)
+BEGIN
+    EXEC(N'CREATE UNIQUE INDEX [UX_Estabelecimentos_Spe] ON [qh].[Estabelecimentos] ([SpeId]) WHERE [Excluido] = 0 AND [SpeId] IS NOT NULL');
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004152719_RevisaoIntegridade'
+)
+BEGIN
+    CREATE UNIQUE INDEX [IX_EquipeMembros_EquipeId_ColaboradorId] ON [qh].[EquipeMembros] ([EquipeId], [ColaboradorId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004152719_RevisaoIntegridade'
+)
+BEGIN
+    EXEC(N'CREATE UNIQUE INDEX [UX_CustosMaoObra_Linha] ON [qh].[CustosMaoObra] ([ObraId], [Competencia], [EquipeId], [ColaboradorId], [FuncaoObraId], [Descricao]) WHERE [Excluido] = 0');
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004152719_RevisaoIntegridade'
+)
+BEGIN
+    CREATE UNIQUE INDEX [IX_ContratoItemLocais_ContratoItemId_LocalId] ON [qh].[ContratoItemLocais] ([ContratoItemId], [LocalId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004152719_RevisaoIntegridade'
+)
+BEGIN
+    CREATE INDEX [IX_Apropriacoes_Lancamento] ON [qh].[Apropriacoes] ([Lancamento]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004152719_RevisaoIntegridade'
+)
+BEGIN
+    ALTER TABLE [qh].[Locais] ADD CONSTRAINT [FK_Locais_TipologiaAmbientes_AmbienteModeloId] FOREIGN KEY ([AmbienteModeloId]) REFERENCES [qh].[TipologiaAmbientes] ([Id]) ON DELETE NO ACTION;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004152719_RevisaoIntegridade'
+)
+BEGIN
+    ALTER TABLE [qh].[RequisicaoItemLocais] ADD CONSTRAINT [FK_RequisicaoItemLocais_Composicoes_ComposicaoId] FOREIGN KEY ([ComposicaoId]) REFERENCES [qh].[Composicoes] ([Id]) ON DELETE NO ACTION;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004152719_RevisaoIntegridade'
+)
+BEGIN
+    ALTER TABLE [qh].[ServicoAplicacoes] ADD CONSTRAINT [FK_ServicoAplicacoes_Obras_ObraId] FOREIGN KEY ([ObraId]) REFERENCES [qh].[Obras] ([Id]) ON DELETE NO ACTION;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004152719_RevisaoIntegridade'
+)
+BEGIN
+    ALTER TABLE [qh].[ServicoAplicacoes] ADD CONSTRAINT [FK_ServicoAplicacoes_TipologiaAmbientes_AmbienteModeloId] FOREIGN KEY ([AmbienteModeloId]) REFERENCES [qh].[TipologiaAmbientes] ([Id]) ON DELETE NO ACTION;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004152719_RevisaoIntegridade'
+)
+BEGIN
+    ALTER TABLE [qh].[ServicosLocais] ADD CONSTRAINT [FK_ServicosLocais_Spes_SpeId] FOREIGN KEY ([SpeId]) REFERENCES [qh].[Spes] ([Id]) ON DELETE NO ACTION;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004152719_RevisaoIntegridade'
+)
+BEGIN
+    ALTER TABLE [qh].[TransferenciaItens] ADD CONSTRAINT [FK_TransferenciaItens_Locais_LocalId] FOREIGN KEY ([LocalId]) REFERENCES [qh].[Locais] ([Id]) ON DELETE NO ACTION;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004152719_RevisaoIntegridade'
+)
+BEGIN
+    ALTER TABLE [qh].[TransferenciaItens] ADD CONSTRAINT [FK_TransferenciaItens_Produtos_ProdutoId] FOREIGN KEY ([ProdutoId]) REFERENCES [qh].[Produtos] ([Id]) ON DELETE NO ACTION;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004152719_RevisaoIntegridade'
+)
+BEGIN
+    ALTER TABLE [qh].[TransferenciaItens] ADD CONSTRAINT [FK_TransferenciaItens_RecebimentoItens_RecebimentoItemId] FOREIGN KEY ([RecebimentoItemId]) REFERENCES [qh].[RecebimentoItens] ([Id]) ON DELETE NO ACTION;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004152719_RevisaoIntegridade'
+)
+BEGIN
+    ALTER TABLE [qh].[Transferencias] ADD CONSTRAINT [FK_Transferencias_Estabelecimentos_OrigemEstabelecimentoId] FOREIGN KEY ([OrigemEstabelecimentoId]) REFERENCES [qh].[Estabelecimentos] ([Id]) ON DELETE NO ACTION;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004152719_RevisaoIntegridade'
+)
+BEGIN
+    ALTER TABLE [qh].[Transferencias] ADD CONSTRAINT [FK_Transferencias_Pedidos_PedidoId] FOREIGN KEY ([PedidoId]) REFERENCES [qh].[Pedidos] ([Id]) ON DELETE NO ACTION;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004152719_RevisaoIntegridade'
+)
+BEGIN
+    INSERT INTO [qh].[__Migracoes] ([MigrationId], [ProductVersion])
+    VALUES (N'20261004152719_RevisaoIntegridade', N'10.0.12');
+END;
+
+COMMIT;
+GO
+

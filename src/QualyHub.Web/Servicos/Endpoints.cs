@@ -46,7 +46,7 @@ public static class Endpoints
             db.Usuarios.Add(admin);
             ContaServico.DefinirSenha(db, admin, senha, DateTimeOffset.UtcNow);
             await db.SaveChangesAsync();
-            await CargaPadrao.AplicarAsync(db, empresa.Id);
+            await CargaPadrao.AplicarSeNovaVersaoAsync(db, empresa.Id);
             await Autenticacao.EntrarAsync(http, admin, empresa.NomeFantasia);
             return Results.Redirect("/");
         }).DisableAntiforgery().RequireRateLimiting(Autenticacao.PoliticaLogin);

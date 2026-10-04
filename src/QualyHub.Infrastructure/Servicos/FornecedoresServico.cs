@@ -32,7 +32,7 @@ public sealed class FornecedoresServico(FabricaDb fabrica, TimeProvider relogio)
         if (f.CapitalSocial is < 0) e.Add("Capital social negativo.");
         if (f.Grupos.GroupBy(g => g.CategoriaProdutoId).Any(g => g.Count() > 1)) e.Add("Grupo do catálogo repetido.");
         ValidacaoException.Se(e);
-        if (doc.Length == 14) f.CpfCnpj = Convert.ToUInt64(doc).ToString(@"00\.000\.000\/0000\-00");
+        if (doc.Length == 14) f.CpfCnpj = Conversor.FormatarCnpj(doc);
         foreach (var c in f.Contatos) c.FornecedorId = f.Id;
         foreach (var g in f.Grupos) g.FornecedorId = f.Id;
         foreach (var s in f.Servicos) s.FornecedorId = f.Id;
@@ -62,6 +62,7 @@ public sealed class FornecedoresServico(FabricaDb fabrica, TimeProvider relogio)
         t.PorEntrega = t.Frequencia == FrequenciaDocumento.PorEntrega;
         t.Momento = t.Frequencia switch { FrequenciaDocumento.PorEntrega => MomentoDocumento.PorEntrega, FrequenciaDocumento.PorContrato => MomentoDocumento.PorContrato, _ => MomentoDocumento.Cadastro };
         await using var db = fabrica.Criar();
+        await Permissoes.ExigirAsync(db, fabrica.Usuario, "alterar a matriz de documentos", Domain.Common.PerfilUsuario.Qualidade, Domain.Common.PerfilUsuario.Suprimentos);
         if (await db.TiposDocumento.AnyAsync(x => x.Id != t.Id && x.AplicaA == t.AplicaA && x.Nome == t.Nome, ct)) throw new RegraDeNegocioException("Já existe documento com este nome.");
         await Grafo.SalvarAsync(db, t);
         await db.SaveChangesAsync(ct);
@@ -84,15 +85,21 @@ public sealed class FornecedoresServico(FabricaDb fabrica, TimeProvider relogio)
         var recs = await db.Recebimentos.AsNoTracking().Where(r => r.FornecedorId == f.Id && r.DataRecebimento >= new DateTimeOffset(ini.ToDateTime(TimeOnly.MinValue))).ToListAsync(ct);
         var avaliados = recs.Where(r => r.FvmAprovada is not null).ToList();
         var notas = await db.Medicoes.AsNoTracking().Where(m => m.Contrato.FornecedorId == f.Id && m.NotaFinal != null && m.PeriodoFim >= ini).Select(m => m.NotaFinal!.Value).ToListAsync(ct);
-        var pedidos = await db.Pedidos.AsNoTracking().Include(p => p.Itens).Where(p => p.FornecedorId == f.Id && p.Status != Domain.Common.StatusPedido.Cancelado).ToListAsync(ct);
-        var contratos = await db.Contratos.AsNoTracking().Include(c => c.Itens).Where(c => c.FornecedorId == f.Id).ToListAsync(ct);
+        // Totais calculados no banco (não carrega todos os pedidos/contratos com itens).
+        var pedidosQ = db.PedidoItens.AsNoTracking().Where(i => db.Pedidos.Any(p => p.Id == i.PedidoId && p.FornecedorId == f.Id && p.Status != Domain.Common.StatusPedido.Cancelado));
+        var pedidosN = await db.Pedidos.CountAsync(p => p.FornecedorId == f.Id && p.Status != Domain.Common.StatusPedido.Cancelado, ct);
+        var pedidosV = (await pedidosQ.SumAsync(i => (decimal?)i.ValorTotal, ct) ?? 0)
+                       + (await db.Pedidos.Where(p => p.FornecedorId == f.Id && p.Status != Domain.Common.StatusPedido.Cancelado).SumAsync(p => p.ValorFrete, ct) ?? 0);
+        var contratosN = await db.Contratos.CountAsync(c => c.FornecedorId == f.Id, ct);
+        var contratosV = await db.ContratoItens.AsNoTracking().Where(i => db.Contratos.Any(c => c.Id == i.ContratoId && c.FornecedorId == f.Id))
+                                 .SumAsync(i => (decimal?)(i.Quantidade * i.PrecoUnitario), ct) ?? 0;
         var planos = await db.PlanosAcao.AsNoTracking().CountAsync(p => p.FornecedorId == f.Id && p.Status != StatusPlanoAcao.Concluida, ct);
         var vig = f.QualificacaoVigente(Hoje);
         return new PainelFornecedor(st.Count(s => s is StatusDocumento.Valido or StatusDocumento.AVencer), st.Count(s => s == StatusDocumento.PendenteEnvio),
             st.Count(s => s is StatusDocumento.Vencido or StatusDocumento.Reprovado), st.Count(s => s == StatusDocumento.EmValidacao), mensais, bloq,
             f.Qualificacoes.Count(q => !q.Excluido), vig?.DataValidade, avaliados.Count,
             avaliados.Count == 0 ? null : Math.Round(100m * avaliados.Count(r => r.FvmAprovada == true) / avaliados.Count, 1),
-            notas.Count == 0 ? null : Math.Round(notas.Average(), 2), pedidos.Count, pedidos.Sum(p => p.Valor), contratos.Count, contratos.Sum(c => c.ValorTotal), planos);
+            notas.Count == 0 ? null : Math.Round(notas.Average(), 2), pedidosN, Math.Round(pedidosV, 2), contratosN, Math.Round(contratosV, 2), planos);
     }
 
     /// <summary>Fornecedores que atendem os grupos (e subgrupos) do catálogo ou as ITS — sugestão de convite da cotação.</summary>
@@ -100,11 +107,13 @@ public sealed class FornecedoresServico(FabricaDb fabrica, TimeProvider relogio)
     {
         await using var db = fabrica.Criar();
         var gIds = grupos.Select(g => g.Grupo).Distinct().ToList();
-        var fg = await db.FornecedorGrupos.AsNoTracking().Where(x => gIds.Contains(x.CategoriaProdutoId)).ToListAsync(ct);
+        // Filhos não têm filtro global: entra pelo fornecedor (empresa, não excluído, ativo).
+        var fg = await db.FornecedorGrupos.AsNoTracking().Where(x => gIds.Contains(x.CategoriaProdutoId) && db.Fornecedores.Any(f => f.Id == x.FornecedorId && f.Ativo)).ToListAsync(ct);
         var r = fg.Where(x => grupos.Any(g => g.Grupo == x.CategoriaProdutoId && (x.Todos || g.Subgrupo is null || (x.Subgrupos ?? "").Contains(g.Subgrupo.Value.ToString()))))
                   .Select(x => x.FornecedorId).ToHashSet();
         if (servicos.Count > 0)
-            foreach (var id in await db.FornecedorServicos.AsNoTracking().Where(x => servicos.Contains(x.ServicoControladoId)).Select(x => x.FornecedorId).ToListAsync(ct)) r.Add(id);
+            foreach (var id in await db.FornecedorServicos.AsNoTracking().Where(x => servicos.Contains(x.ServicoControladoId) && db.Fornecedores.Any(f => f.Id == x.FornecedorId && f.Ativo))
+                                       .Select(x => x.FornecedorId).ToListAsync(ct)) r.Add(id);
         return r;
     }
 }

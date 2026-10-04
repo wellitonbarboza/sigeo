@@ -42,6 +42,7 @@ public class Composicao : EntidadeAuditavel, IHistoricoTemporal
             if (i.PerdaPerc is < 0 or > 100) e.Add($"{i.Descricao}: perda entre 0 e 100%.");
             if (i.CustoUnitario < 0) e.Add($"{i.Descricao}: custo não pode ser negativo.");
             if (i.Tipo == TipoInsumo.Material && i.ProdutoId is null) e.Add($"{i.Descricao}: material precisa do produto do cadastro.");
+            if (i.Tipo == TipoInsumo.MaoObraPropria && i.FuncaoObraId is null) e.Add($"{i.Descricao}: mão de obra própria precisa da função (base da apropriação em horas).");
             if (string.IsNullOrWhiteSpace(i.Descricao)) e.Add("Insumo sem descrição.");
         }
         return e;
@@ -72,7 +73,7 @@ public class ComposicaoItem : Entidade
 /// Serviço marcado na tipologia: em que ambiente (cômodo/área comum) ou nível (apartamento, pavimento, torre, condomínio) ele entra.
 /// O orçamento explode isso para todos os locais gerados.
 /// </summary>
-public class ServicoAplicacao : EntidadeAuditavel
+public class ServicoAplicacao : EntidadeAuditavel, IPertenceObra
 {
     public Guid ObraId { get; set; }
     public Guid TipologiaId { get; set; }
@@ -94,8 +95,15 @@ public class ServicoLocal : EntidadeDaObra
     /// <summary>Custo unitário da composição na data da geração (fotografia).</summary>
     public decimal CustoUnitario { get; set; }
     public decimal Custo { get; set; }
-    public string Origem { get; set; } = "Tipologia";
+    public string Origem { get; set; } = OrigemCelula.Tipologia;
     public bool Travado { get; set; }
+}
+
+/// <summary>Origem da célula do orçamento: gerada pelas tipologias ou editada à mão.</summary>
+public static class OrigemCelula
+{
+    public const string Tipologia = "Tipologia";
+    public const string Manual = "Manual";
 }
 
 /// <summary>Motor do orçamento: mede os locais e explode os serviços das tipologias em células (função pura, testável).</summary>
@@ -124,18 +132,21 @@ public static class MotorOrcamento
     public static List<Celula> Gerar(IReadOnlyCollection<Local> locais, IEnumerable<ServicoAplicacao> aplicacoes, IReadOnlyDictionary<Guid, Composicao> composicoes)
     {
         var filhos = locais.ToLookup(l => l.LocalPaiId);
-        var porId = locais.ToDictionary(l => l.Id);
+        // Índices: evita varrer todos os locais para cada aplicação.
+        var porAmbiente = locais.Where(l => l.AmbienteModeloId != null).ToLookup(l => l.AmbienteModeloId!.Value);
+        var porTipoTipologia = locais.Where(l => l.TipologiaId != null).ToLookup(l => (l.Tipo, l.TipologiaId!.Value));
+        var pavimentosDaTorre = locais.Where(l => l.Tipo == GeradorEmpreendimento.TipoPavimento && l.LocalPaiId != null).ToLookup(l => l.LocalPaiId!.Value);
         var celulas = new Dictionary<(Guid, Guid), Celula>();
         foreach (var ap in aplicacoes)
         {
             if (!composicoes.TryGetValue(ap.ComposicaoId, out var comp) || !comp.Ativa) continue;
             IEnumerable<Local> alvo = ap.Alvo switch
             {
-                AlvoServico.Ambiente => locais.Where(l => l.AmbienteModeloId == ap.AmbienteModeloId && ap.AmbienteModeloId != null),
-                AlvoServico.Apartamento => locais.Where(l => l.Tipo == GeradorEmpreendimento.TipoApartamento && l.TipologiaId == ap.TipologiaId),
-                AlvoServico.Torre => locais.Where(l => l.Tipo == GeradorEmpreendimento.TipoTorre && l.TipologiaId == ap.TipologiaId),
-                AlvoServico.Condominio => locais.Where(l => l.Tipo == GeradorEmpreendimento.TipoCondominio && l.TipologiaId == ap.TipologiaId),
-                AlvoServico.Pavimento => locais.Where(l => l.Tipo == GeradorEmpreendimento.TipoPavimento && l.LocalPaiId is { } t && porId.TryGetValue(t, out var torre) && torre.TipologiaId == ap.TipologiaId),
+                AlvoServico.Ambiente => ap.AmbienteModeloId is { } am ? porAmbiente[am] : [],
+                AlvoServico.Apartamento => porTipoTipologia[(GeradorEmpreendimento.TipoApartamento, ap.TipologiaId)],
+                AlvoServico.Torre => porTipoTipologia[(GeradorEmpreendimento.TipoTorre, ap.TipologiaId)],
+                AlvoServico.Condominio => porTipoTipologia[(GeradorEmpreendimento.TipoCondominio, ap.TipologiaId)],
+                AlvoServico.Pavimento => porTipoTipologia[(GeradorEmpreendimento.TipoTorre, ap.TipologiaId)].SelectMany(t => pavimentosDaTorre[t.Id]),
                 _ => []
             };
             foreach (var l in alvo)

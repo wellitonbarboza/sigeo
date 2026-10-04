@@ -22,6 +22,7 @@ internal sealed class TipologiaAmbienteCfg : IEntityTypeConfiguration<TipologiaA
         b.Property(x => x.PeDireito).HasPrecision(18, 4);
         b.Property(x => x.AreaVaos).HasPrecision(18, 4);
         b.HasIndex(x => x.TipologiaId);
+        b.HasIndex(x => new { x.TipologiaId, x.Sigla }).IsUnique().HasFilter("[Sigla] IS NOT NULL");
     }
 }
 
@@ -74,6 +75,8 @@ internal sealed class ServicoAplicacaoCfg : IEntityTypeConfiguration<ServicoApli
         b.Property(x => x.QuantidadeFixa).HasPrecision(18, 4);
         b.HasOne<Tipologia>().WithMany().HasForeignKey(x => x.TipologiaId);
         b.HasOne<Composicao>().WithMany().HasForeignKey(x => x.ComposicaoId);
+        b.HasOne<Obra>().WithMany().HasForeignKey(x => x.ObraId);
+        b.HasOne<TipologiaAmbiente>().WithMany().HasForeignKey(x => x.AmbienteModeloId);
         b.HasIndex(x => new { x.TipologiaId, x.ComposicaoId, x.Alvo, x.AmbienteModeloId }).IsUnique().HasFilter("[Excluido] = 0");
     }
 }
@@ -89,6 +92,7 @@ internal sealed class ServicoLocalCfg : IEntityTypeConfiguration<ServicoLocal>
         b.Property(x => x.Origem).HasMaxLength(20);
         b.HasOne<Composicao>().WithMany().HasForeignKey(x => x.ComposicaoId);
         b.HasOne<Local>().WithMany().HasForeignKey(x => x.LocalId);
+        b.HasOne<Spe>().WithMany().HasForeignKey(x => x.SpeId);
         b.HasIndex(x => new { x.ComposicaoId, x.LocalId }).IsUnique().HasFilter("[Excluido] = 0");
         b.HasIndex(x => new { x.ObraId, x.LocalId });
     }
@@ -112,6 +116,7 @@ internal sealed class EquipeMembroCfg : IEntityTypeConfiguration<EquipeMembro>
     {
         b.ToTable("EquipeMembros");
         b.HasOne<Domain.Sst.Colaborador>().WithMany().HasForeignKey(x => x.ColaboradorId);
+        b.HasIndex(x => new { x.EquipeId, x.ColaboradorId }).IsUnique();
     }
 }
 
@@ -128,7 +133,11 @@ internal sealed class CustoMaoObraMesCfg : IEntityTypeConfiguration<CustoMaoObra
         b.HasOne<Equipe>().WithMany().HasForeignKey(x => x.EquipeId);
         b.HasOne<Domain.Sst.Colaborador>().WithMany().HasForeignKey(x => x.ColaboradorId);
         b.HasOne<Domain.Sst.FuncaoObra>().WithMany().HasForeignKey(x => x.FuncaoObraId);
+        b.Property(x => x.Descricao).HasMaxLength(120).HasAnnotation(QualyHubDbContext.TamanhoFixo, true); // entra no índice único
         b.HasIndex(x => new { x.ObraId, x.Competencia });
+        // Uma linha por equipe/colaborador/função/descrição no mês (NULL conta como igual no índice único do SQL Server).
+        b.HasIndex(x => new { x.ObraId, x.Competencia, x.EquipeId, x.ColaboradorId, x.FuncaoObraId, x.Descricao }).IsUnique().HasFilter("[Excluido] = 0")
+         .HasDatabaseName("UX_CustosMaoObra_Linha");
         b.Ignore(x => x.Total); b.Ignore(x => x.CustoHora);
     }
 }
@@ -145,6 +154,7 @@ internal sealed class ApropriacaoCfg : IEntityTypeConfiguration<Apropriacao>
         b.HasOne<Composicao>().WithMany().HasForeignKey(x => x.ComposicaoId);
         b.HasOne<Local>().WithMany().HasForeignKey(x => x.LocalId);
         b.HasIndex(x => new { x.ObraId, x.Data });
+        b.HasIndex(x => x.Lancamento);
     }
 }
 
@@ -162,6 +172,10 @@ internal sealed class EstabelecimentoCfg : IEntityTypeConfiguration<Estabelecime
         b.HasIndex(x => new { x.EmpresaId, x.Cnpj }).IsUnique().HasFilter("[Excluido] = 0");
         b.HasIndex(x => new { x.EmpresaId, x.Codigo }).IsUnique().HasFilter("[Excluido] = 0");
         b.HasOne<Spe>().WithMany().HasForeignKey(x => x.SpeId);
+        // Regras "só um": uma SPE por estabelecimento, uma fábrica que fatura materiais e um almoxarifado central por empresa.
+        b.HasIndex(x => x.SpeId).IsUnique().HasFilter("[Excluido] = 0 AND [SpeId] IS NOT NULL").HasDatabaseName("UX_Estabelecimentos_Spe");
+        b.HasIndex(x => new { x.EmpresaId, x.FaturaMateriais }).IsUnique().HasFilter("[Excluido] = 0 AND [FaturaMateriais] = 1").HasDatabaseName("UX_Estabelecimentos_FaturaMateriais");
+        b.HasIndex(x => new { x.EmpresaId, x.AlmoxarifadoCentral }).IsUnique().HasFilter("[Excluido] = 0 AND [AlmoxarifadoCentral] = 1").HasDatabaseName("UX_Estabelecimentos_Almoxarifado");
     }
 }
 
@@ -219,7 +233,9 @@ internal sealed class RequisicaoItemLocalCfg : IEntityTypeConfiguration<Requisic
         b.ToTable("RequisicaoItemLocais");
         b.Property(x => x.Quantidade).HasPrecision(18, 4);
         b.HasOne<Local>().WithMany().HasForeignKey(x => x.LocalId);
+        b.HasOne<Composicao>().WithMany().HasForeignKey(x => x.ComposicaoId);
         b.HasIndex(x => x.LocalId);
+        b.HasIndex(x => new { x.RequisicaoItemId, x.LocalId, x.ComposicaoId }).IsUnique();
     }
 }
 
@@ -230,6 +246,7 @@ internal sealed class ContratoItemLocalCfg : IEntityTypeConfiguration<ContratoIt
         b.ToTable("ContratoItemLocais");
         b.Property(x => x.Quantidade).HasPrecision(18, 4);
         b.HasOne<Local>().WithMany().HasForeignKey(x => x.LocalId);
+        b.HasIndex(x => new { x.ContratoItemId, x.LocalId }).IsUnique();
     }
 }
 
@@ -242,6 +259,11 @@ internal sealed class TransferenciaCfg : IEntityTypeConfiguration<TransferenciaM
         b.HasOne<Obra>().WithMany().HasForeignKey(x => x.ObraId);
         b.HasOne<Recebimento>().WithMany().HasForeignKey(x => x.RecebimentoId);
         b.HasOne<Spe>().WithMany().HasForeignKey(x => x.SpeId);
+        b.HasOne<Pedido>().WithMany().HasForeignKey(x => x.PedidoId);
+        b.HasOne<Estabelecimento>().WithMany().HasForeignKey(x => x.OrigemEstabelecimentoId);
+        // Um recebimento gera no máximo uma transferência ativa.
+        b.HasIndex(x => x.RecebimentoId).IsUnique().HasFilter("[Excluido] = 0 AND [RecebimentoId] IS NOT NULL AND [Status] <> N'Cancelada'")
+         .HasDatabaseName("UX_Transferencias_Recebimento");
         b.HasMany(x => x.Itens).WithOne().HasForeignKey(i => i.TransferenciaId);
         b.Ignore(x => x.Valor);
     }
@@ -256,6 +278,9 @@ internal sealed class TransferenciaItemCfg : IEntityTypeConfiguration<Transferen
         b.Property(x => x.QuantidadeRecebida).HasPrecision(18, 4);
         b.Property(x => x.CustoUnitario).HasPrecision(18, 4);
         b.Property(x => x.Lote).HasMaxLength(60);
+        b.HasOne<Produto>().WithMany().HasForeignKey(x => x.ProdutoId);
+        b.HasOne<RecebimentoItem>().WithMany().HasForeignKey(x => x.RecebimentoItemId);
+        b.HasOne<Local>().WithMany().HasForeignKey(x => x.LocalId);
         b.Ignore(x => x.Valor);
     }
 }

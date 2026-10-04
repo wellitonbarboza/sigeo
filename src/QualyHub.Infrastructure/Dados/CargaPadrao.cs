@@ -168,6 +168,24 @@ public static class CargaPadrao
         ("Análise crítica pela direção (ata)", "Diretoria e Qualidade", "3 anos (ciclo de certificação)", 3, "Eliminação após o prazo"),
     ];
 
+    /// <summary>
+    /// Versão da carga padrão. Suba quando incluir itens novos nas listas/cadastros padrão: empresas existentes recebem a carga
+    /// uma vez por versão (itens que o usuário renomeou ou excluiu não voltam a cada reinício do app).
+    /// </summary>
+    public const int Versao = 2;
+    private const string ChaveVersao = "Sistema:CargaPadrao";
+
+    /// <summary>Aplica a carga só se a empresa ainda não recebeu esta versão (usado na inicialização do app).</summary>
+    public static async Task<bool> AplicarSeNovaVersaoAsync(QualyHubDbContext db, Guid empresaId, CancellationToken ct = default)
+    {
+        var seq = await db.Sequencias.IgnoreQueryFilters().FirstOrDefaultAsync(s => s.EmpresaId == empresaId && s.Chave == ChaveVersao, ct);
+        if (seq is not null && seq.Ultimo >= Versao) return false;
+        if (seq is null) db.Sequencias.Add(seq = new Domain.Common.Sequencia { EmpresaId = empresaId, Chave = ChaveVersao });
+        seq.Ultimo = Versao;
+        await AplicarAsync(db, empresaId, ct); // grava a versão junto com a carga (mesmo SaveChanges)
+        return true;
+    }
+
     public static async Task AplicarAsync(QualyHubDbContext db, Guid empresaId, CancellationToken ct = default)
     {
         // Ignora o filtro de empresa: a carga pode rodar antes do usuário existir.

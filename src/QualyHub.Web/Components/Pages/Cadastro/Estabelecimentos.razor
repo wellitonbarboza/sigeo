@@ -9,6 +9,7 @@
             <Erros Lista="ErrosForm" />
             @if (_aba == "est")
             {
+                <div style="margin:6px 0"><button class="btn sec" id="est-novo" @onclick="NovoEstabelecimento"><Icone Nome="mais" Tam="14" /> Novo estabelecimento</button></div>
                 <table class="itens" id="estabelecimentos">
                     <thead><tr><th>Código</th><th>Tipo</th><th>Razão social</th><th>CNPJ</th><th>Raiz</th><th>Atividade</th><th>Papéis</th><th></th></tr></thead>
                     <tbody>
@@ -99,10 +100,12 @@
         }
     </ChildContent>
     <Rodape>
-        @if (_f?.CriadoEm != default) { <div class="esq"><button class="btn sec" @onclick="ExcluirFluxo"><Icone Nome="lixeira" Tam="14" /> Excluir</button></div> }
+        @if (_f?.CriadoEm != default) { <div class="esq"><button class="btn sec" disabled="@Ocupado" @onclick="ExcluirFluxo"><Icone Nome="lixeira" Tam="14" /> Excluir</button></div> }
         <button class="btn prim" disabled="@Ocupado" @onclick="SalvarFluxo"><Icone Nome="check" Tam="16" /> Salvar</button>
     </Rodape>
 </Modal>
+
+<Confirmacao Pergunta="@PerguntaConfirmacao" AoSim="ConfirmacaoSim" AoNao="ConfirmacaoNao" TextoSim="Excluir" />
 
 @code {
     private List<Estabelecimento> _lista = [];
@@ -120,15 +123,19 @@
         await using var db = Fabrica.Criar();
         _lista = await db.Estabelecimentos.AsNoTracking().ToListAsync();
         _fluxos = await db.FluxosEstabelecimento.AsNoTracking().ToListAsync();
+        _nomes = _lista.ToDictionary(e => e.Id, e => e.NomeExibicao);
     }
 
-    private string Nome(Guid id) => _lista.FirstOrDefault(e => e.Id == id)?.NomeExibicao ?? "?";
+    private Dictionary<Guid, string> _nomes = [];
+    private string Nome(Guid id) => _nomes.GetValueOrDefault(id, "?");
 
-    private void Novo() { if (_aba == "flu") { NovoFluxo(); return; } _e = new Estabelecimento { Tipo = _lista.Any(e => e.Tipo == TipoEstabelecimento.Matriz) ? TipoEstabelecimento.Filial : TipoEstabelecimento.Matriz }; ErrosForm = null; _aberto = true; }
+    private void Novo() { if (_aba == "flu") { NovoFluxo(); return; } NovoEstabelecimento(); }
+    private void NovoEstabelecimento() { _e = new Estabelecimento { Tipo = _lista.Any(e => e.Tipo == TipoEstabelecimento.Matriz) ? TipoEstabelecimento.Filial : TipoEstabelecimento.Matriz }; ErrosForm = null; _aberto = true; }
     private void Editar(Estabelecimento e) { _e = e; ErrosForm = null; _aberto = true; }
     private void NovoFluxo() { _f = new FluxoEstabelecimento(); ErrosForm = null; _abertoF = true; }
 
     private async Task Salvar() { if (await Executar(() => Est.SalvarAsync(_e!), "Estabelecimento salvo.")) { _aberto = false; await Carregar(); } }
     private async Task SalvarFluxo() { if (await Executar(() => Est.SalvarFluxoAsync(_f!), "Fluxo salvo.")) { _abertoF = false; await Carregar(); } }
-    private async Task ExcluirFluxo() { if (await Executar(() => Est.ExcluirFluxoAsync(_f!.Id), "Fluxo excluído.")) { _abertoF = false; await Carregar(); } }
+    private void ExcluirFluxo() => Confirmar($"Excluir o fluxo {Nome(_f!.OrigemId)} → {Nome(_f.DestinoId)}?", ExcluirFluxoConfirmado);
+    private async Task ExcluirFluxoConfirmado() { if (await Executar(() => Est.ExcluirFluxoAsync(_f!.Id), "Fluxo excluído.")) { _abertoF = false; await Carregar(); } }
 }

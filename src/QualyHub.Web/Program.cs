@@ -49,11 +49,29 @@ if (app.Environment.IsDevelopment() || builder.Configuration.GetValue<bool>("Ban
     await using var db = app.Services.GetRequiredService<FabricaSistema>().Criar(Guid.Empty, "Migracao");
     await db.Database.MigrateAsync();
     // Carga padrão é idempotente: empresas já existentes recebem as listas e cadastros novos de cada versão.
+    // Uma vez por versão da carga; trava de aplicação no SQL evita duas instâncias aplicando ao mesmo tempo;
+    // falha numa empresa é registrada e não impede o app de subir.
     var fs = app.Services.GetRequiredService<FabricaSistema>();
-    foreach (var id in await db.Empresas.AsNoTracking().Select(e => e.Id).ToListAsync())
+    var log = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("CargaPadrao");
+    await db.Database.OpenConnectionAsync();
+    await db.Database.ExecuteSqlRawAsync("EXEC sp_getapplock @Resource = N'QualyHub:CargaPadrao', @LockMode = N'Exclusive', @LockOwner = N'Session', @LockTimeout = 60000");
+    try
     {
-        await using var dbe = fs.Criar(id, "CargaPadrao");
-        await QualyHub.Infrastructure.Dados.CargaPadrao.AplicarAsync(dbe, id);
+        foreach (var id in await db.Empresas.AsNoTracking().Select(e => e.Id).ToListAsync())
+        {
+            try
+            {
+                await using var dbe = fs.Criar(id, "CargaPadrao");
+                if (await QualyHub.Infrastructure.Dados.CargaPadrao.AplicarSeNovaVersaoAsync(dbe, id))
+                    log.LogInformation("Carga padrão v{Versao} aplicada na empresa {Empresa}.", QualyHub.Infrastructure.Dados.CargaPadrao.Versao, id);
+            }
+            catch (Exception ex) { log.LogError(ex, "Falha ao aplicar a carga padrão na empresa {Empresa}.", id); }
+        }
+    }
+    finally
+    {
+        await db.Database.ExecuteSqlRawAsync("EXEC sp_releaseapplock @Resource = N'QualyHub:CargaPadrao', @LockOwner = N'Session'");
+        await db.Database.CloseConnectionAsync();
     }
 }
 

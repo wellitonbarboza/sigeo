@@ -97,6 +97,9 @@ internal sealed class FornecedorDocumentoCfg : IEntityTypeConfiguration<Forneced
         b.HasOne(x => x.TipoDocumento).WithMany().HasForeignKey(x => x.TipoDocumentoExigidoId);
         b.Property(x => x.ArquivoHashSha256).HasMaxLength(64);
         b.HasIndex(x => x.DataValidade);
+        // Documento mensal: uma entrega ativa por competência (reenvio substitui a anterior).
+        b.HasIndex(x => new { x.FornecedorId, x.TipoDocumentoExigidoId, x.Competencia }).IsUnique()
+         .HasFilter("[Excluido] = 0 AND [Competencia] IS NOT NULL").HasDatabaseName("UX_FornecedorDocumentos_Competencia");
     }
 }
 

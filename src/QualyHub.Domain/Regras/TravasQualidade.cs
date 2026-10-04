@@ -114,15 +114,23 @@ public static class TravasQualidade
         var b = new List<string>();
         if (m.Contrato.Status != StatusContrato.Ativo) b.Add("Contrato não está ativo.");
         var fvs = fvsDaObra.Where(f => f.Liberada).ToList();
+        var liberadas = fvs.Select(f => (f.ServicoControladoId, f.LocalId)).ToHashSet();
         bool Liberado(Guid servico, Guid local)
         {
             Guid? x = local;
             while (x is { } id)
             {
-                if (fvs.Any(f => f.ServicoControladoId == servico && f.LocalId == id)) return true;
+                if (liberadas.Contains(((Guid?)servico, id))) return true;
                 x = locais is not null && locais.TryGetValue(id, out var l) ? l.LocalPaiId : null;
             }
             return false;
+        }
+        // Total do item (somando todos os locais desta medição e das anteriores) nunca passa do contratado.
+        foreach (var g in m.Itens.Where(i => i.ContratoItem.Locais.Count > 0).GroupBy(i => i.ContratoItem))
+        {
+            var porLocal = g.GroupBy(i => i.LocalId).Select(x => x.Max(i => i.QtdAcumulada)).Sum();
+            if (porLocal > g.Key.Quantidade + 0.0001m)
+                b.Add($"Item {g.Key.Item}: acumulado somando os locais ({porLocal}) maior que o contratado ({g.Key.Quantidade}) — exige aditivo.");
         }
         foreach (var i in m.Itens)
         {
@@ -130,7 +138,9 @@ public static class TravasQualidade
             var cl = i.LocalId is { } lid ? ci.Locais.FirstOrDefault(x => x.LocalId == lid) : null;
             if (cl is not null && i.QtdAcumulada > cl.Quantidade + 0.0001m)
                 b.Add($"Item {ci.Item}: acumulado no local maior que o contratado para ele ({cl.Quantidade}) — exige aditivo.");
-            else if (cl is null && i.QtdAcumulada > ci.Quantidade)
+            else if (cl is null && ci.Locais.Count > 0 && i.LocalId is not null)
+                b.Add($"Item {ci.Item}: local medido não faz parte do contrato — inclua por aditivo.");
+            else if (cl is null && i.QtdAcumulada > ci.Quantidade + 0.0001m)
                 b.Add($"Item {ci.Item}: acumulado ({i.QtdAcumulada}) maior que o contratado ({ci.Quantidade}) — exige aditivo.");
             if (ci.ServicoControlado is { ExigeFvsParaMedicao: true } sc && i.QtdPeriodo > 0)
             {
@@ -210,7 +220,7 @@ public static class TravasQualidade
 
     public static IEnumerable<string> DocumentosBloqueantes(Fornecedor f, DateOnly hoje) =>
         f.Documentos
-         .Where(d => !d.Excluido && d.Bloqueia && d.TipoDocumento is { PorEntrega: false })
+         .Where(d => !d.Excluido && d.Bloqueia && d.TipoDocumento is { PorEntrega: false } && d.TipoDocumento.Frequencia != FrequenciaDocumento.Mensal)
          .GroupBy(d => d.TipoDocumentoExigidoId)
          .Select(g => g.OrderByDescending(d => d.DataValidade ?? DateOnly.MaxValue).First())
          .Where(d => StatusDocumentoCalculo.Calcular(d, hoje) is StatusDocumento.Vencido or StatusDocumento.PendenteEnvio or StatusDocumento.Reprovado)

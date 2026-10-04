@@ -45,10 +45,10 @@
                 <tbody>
                     @foreach (var i in _t.Itens)
                     {
-                        <tr><td>@i.Descricao</td><td>@i.Unidade</td><td>@i.Lote</td>
+                        <tr @key="(i.Id, _versaoConf)"><td>@i.Descricao</td><td>@i.Unidade</td><td>@i.Lote</td>
                             <td style="width:100px"><input type="number" step="0.001" @bind="i.Quantidade" disabled="@(_t.Status != StatusTransferencia.Rascunho)" /></td>
                             <td class="num">@i.CustoUnitario.ToString("N2", Br)</td><td class="num">@i.Valor.ToString("N2", Br)</td>
-                            <td style="width:110px">@if (_t.Status == StatusTransferencia.Enviada) { <input type="number" step="0.001" value="@(_conf.GetValueOrDefault(i.Id, i.Quantidade).ToString(System.Globalization.CultureInfo.InvariantCulture))" @onchange="e => _conf[i.Id] = decimal.TryParse(e.Value?.ToString(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var d) ? d : 0" /> } else { @i.QuantidadeRecebida?.ToString("N3", Br) }</td></tr>
+                            <td style="width:110px">@if (_t.Status == StatusTransferencia.Enviada) { <input type="number" step="0.001" value="@(_conf.GetValueOrDefault(i.Id, i.Quantidade).ToString(System.Globalization.CultureInfo.InvariantCulture))" @onchange="e => DefinirConferido(i, e.Value)" /> } else { @i.QuantidadeRecebida?.ToString("N3", Br) }</td></tr>
                     }
                 </tbody>
                 <tfoot><tr><td colspan="5" style="text-align:right">Total</td><td class="num"><b>@_t.Valor.ToString("N2", Br)</b></td><td></td></tr></tfoot>
@@ -63,8 +63,11 @@
             <button class="btn prim" id="tr-enviar" disabled="@Ocupado" @onclick="Enviar"><Icone Nome="enviar" Tam="16" /> Enviar para a obra</button>
         }
         @if (_t?.Status == StatusTransferencia.Enviada) { <button class="btn ok" id="tr-conferir" disabled="@Ocupado" @onclick="Conferir"><Icone Nome="check" Tam="16" /> Conferido — recebido na obra</button> }
+        @if (_t is { Status: StatusTransferencia.Rascunho or StatusTransferencia.Enviada } && _t.Numero > 0) { <button class="btn" id="tr-cancelar" disabled="@Ocupado" @onclick="Cancelar" title="Cancela a transferência (o motivo vai para a observação)">Cancelar transferência</button> }
     </Rodape>
 </Modal>
+
+<Confirmacao Pergunta="@PerguntaConfirmacao" AoSim="ConfirmacaoSim" AoNao="ConfirmacaoNao" TextoSim="Cancelar transferência" />
 
 @code {
     private sealed record Linha(Guid Id, int Numero, DateOnly Data, string Obra, string? Spe, int? Recebimento, decimal Valor, StatusTransferencia Status);
@@ -74,6 +77,16 @@
     private bool _aberto;
     private List<Opcao> _obras = [], _spes = [];
     private readonly Dictionary<Guid, decimal> _conf = [];
+    private int _versaoConf;
+
+    /// <summary>Número inválido não vira zero: avisa e mantém o valor anterior.</summary>
+    private void DefinirConferido(TransferenciaItem i, object? valor)
+    {
+        if (LerDecimal(valor, out var d) && d >= 0 && !string.IsNullOrWhiteSpace(valor?.ToString())) { _conf[i.Id] = d; ErrosForm = null; return; }
+        ErrosForm = [$"Quantidade conferida inválida em \"{i.Descricao}\": \"{valor}\". Mantido o valor anterior."];
+        Notif.Erro(ErrosForm[0]);
+        _versaoConf++; // recria a linha com o valor anterior
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -86,8 +99,11 @@
     {
         await using var db = Fabrica.Criar();
         var lista = await db.Transferencias.AsNoTracking().Include(t => t.Itens).OrderByDescending(t => t.Numero).ToListAsync();
-        var recs = await db.Recebimentos.AsNoTracking().ToDictionaryAsync(r => r.Id, r => r.Numero);
-        _itens = lista.Select(t => new Linha(t.Id, t.Numero, t.Data, _obras.FirstOrDefault(o => o.Id == t.ObraId)?.Texto ?? "", _spes.FirstOrDefault(s => s.Id == t.SpeId)?.Texto,
+        var idsRec = lista.Where(t => t.RecebimentoId != null).Select(t => t.RecebimentoId!.Value).Distinct().ToList();
+        var recs = await db.Recebimentos.AsNoTracking().Where(r => idsRec.Contains(r.Id)).Select(r => new { r.Id, r.Numero }).ToDictionaryAsync(r => r.Id, r => r.Numero);
+        var obras = _obras.ToDictionary(o => o.Id, o => o.Texto);
+        var spes = _spes.ToDictionary(s => s.Id, s => s.Texto);
+        _itens = lista.Select(t => new Linha(t.Id, t.Numero, t.Data, obras.GetValueOrDefault(t.ObraId, ""), t.SpeId is { } sp ? spes.GetValueOrDefault(sp) : null,
             t.RecebimentoId is { } r ? recs.GetValueOrDefault(r) : null, t.Valor, t.Status)).ToList();
     }
 
@@ -105,6 +121,11 @@
         if (await Executar(async () => { await Sup.SalvarTransferenciaAsync(_t!); await Sup.EnviarTransferenciaAsync(_t!.Id); }, "Enviada — a obra confere o recebimento."))
         { await Carregar(); await Abrir(_t!.Id); }
     }
+
+    private void Cancelar() => Confirmar("Cancelar esta transferência? Informe o motivo no campo Observação antes de confirmar.", async () =>
+    {
+        if (await Executar(() => Sup.CancelarTransferenciaAsync(_t!.Id, _t.Observacao ?? ""), "Transferência cancelada.")) { await Carregar(); await Abrir(_t!.Id); }
+    });
 
     private async Task Conferir()
     {

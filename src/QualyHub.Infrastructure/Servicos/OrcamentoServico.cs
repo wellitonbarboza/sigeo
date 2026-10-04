@@ -59,7 +59,8 @@ public sealed class OrcamentoServico(FabricaDb fabrica)
     public async Task MarcarAplicacaoAsync(Guid tipologiaId, Guid composicaoId, AlvoServico alvo, Guid? ambienteId, bool marcar, decimal? fixa = null, CancellationToken ct = default)
     {
         await using var db = fabrica.Criar();
-        var t = await db.Tipologias.Include(x => x.Ambientes).FirstAsync(x => x.Id == tipologiaId, ct);
+        var t = await db.Tipologias.Include(x => x.Ambientes).FirstOrDefaultAsync(x => x.Id == tipologiaId, ct) ?? throw new RegraDeNegocioException("Tipologia não encontrada.");
+        if (!await db.Composicoes.AnyAsync(c => c.Id == composicaoId && c.Ativa, ct)) throw new RegraDeNegocioException("Serviço (composição) não encontrado ou inativo.");
         var permitido = t.Tipo switch
         {
             TipoTipologia.Apartamento => alvo is AlvoServico.Ambiente or AlvoServico.Apartamento,
@@ -86,7 +87,8 @@ public sealed class OrcamentoServico(FabricaDb fabrica)
         await using var db = fabrica.Criar();
         var locais = await db.Locais.AsNoTracking().Where(l => l.ObraId == obraId).ToListAsync(ct);
         var aps = await db.ServicoAplicacoes.AsNoTracking().Where(a => a.ObraId == obraId).ToListAsync(ct);
-        var comps = await db.Composicoes.AsNoTracking().Include(c => c.Itens).ToDictionaryAsync(c => c.Id, ct);
+        var usadas = aps.Select(a => a.ComposicaoId).Distinct().ToList();
+        var comps = await db.Composicoes.AsNoTracking().Include(c => c.Itens).Where(c => usadas.Contains(c.Id)).ToDictionaryAsync(c => c.Id, ct);
         var novas = MotorOrcamento.Gerar(locais, aps, comps);
         var atuais = await db.ServicosLocais.Where(s => s.ObraId == obraId).ToListAsync(ct);
         var porChave = atuais.ToDictionary(s => (s.ComposicaoId, s.LocalId));
@@ -107,7 +109,7 @@ public sealed class OrcamentoServico(FabricaDb fabrica)
             }
         }
         var chaves = novas.Select(n => (n.ComposicaoId, n.LocalId)).ToHashSet();
-        foreach (var s in atuais.Where(s => !s.Travado && s.Origem == "Tipologia" && !chaves.Contains((s.ComposicaoId, s.LocalId)))) { db.Remove(s); removidas++; }
+        foreach (var s in atuais.Where(s => !s.Travado && s.Origem == OrigemCelula.Tipologia && !chaves.Contains((s.ComposicaoId, s.LocalId)))) { db.Remove(s); removidas++; }
         await db.SaveChangesAsync(ct);
         var total = await db.ServicosLocais.Where(s => s.ObraId == obraId).SumAsync(s => s.Custo, ct);
         return new ResultadoOrcamento(criadas, atualizadas, removidas, travadas, total);
@@ -118,9 +120,10 @@ public sealed class OrcamentoServico(FabricaDb fabrica)
     {
         if (quantidade < 0) throw new RegraDeNegocioException("Quantidade não pode ser negativa.");
         await using var db = fabrica.Criar();
-        var s = await db.ServicosLocais.FirstAsync(x => x.Id == id, ct);
+        var s = await db.ServicosLocais.FirstOrDefaultAsync(x => x.Id == id, ct) ?? throw new RegraDeNegocioException("Célula não encontrada (o orçamento foi gerado de novo?). Atualize a tela.");
         s.Quantidade = quantidade; s.Custo = Math.Round(quantidade * s.CustoUnitario, 2); s.Travado = travar;
-        if (travar) s.Origem = "Manual";
+        // Destravada volta a ser do gerador (pode ser recalculada ou removida na próxima geração).
+        s.Origem = travar ? OrigemCelula.Manual : OrigemCelula.Tipologia;
         await db.SaveChangesAsync(ct);
     }
 
@@ -138,20 +141,24 @@ public sealed class OrcamentoServico(FabricaDb fabrica)
         var cels = await db.ServicosLocais.AsNoTracking().Where(s => s.ObraId == obraId && composicoes.Contains(s.ComposicaoId)).ToListAsync(ct);
         cels = cels.Where(c => alvo.Contains(c.LocalId)).ToList();
         var comps = await db.Composicoes.AsNoTracking().Include(c => c.Itens).Where(c => composicoes.Contains(c.Id)).ToDictionaryAsync(c => c.Id, ct);
-        var reqLocais = await (from rl in db.RequisicaoItemLocais.AsNoTracking()
-                               join ri in db.RequisicaoItens.AsNoTracking() on rl.RequisicaoItemId equals ri.Id
-                               join rq in db.Requisicoes.AsNoTracking() on ri.RequisicaoId equals rq.Id
-                               where rq.ObraId == obraId && rq.Id != ignorarRequisicaoId && ri.Status != StatusItemRequisicao.Cancelado
-                                     && rq.Status != StatusRequisicao.Cancelada && rq.Status != StatusRequisicao.NaoAutorizada
-                               select new { rl.LocalId, rl.ComposicaoId, ri.ProdutoId, rl.Quantidade }).ToListAsync(ct);
+        cels = cels.Where(c => comps.ContainsKey(c.ComposicaoId)).ToList(); // composição excluída/inativa fica de fora
+        var servico = tipo == TipoRequisicao.Servico;
+        var reqLocais = (await (from rl in db.RequisicaoItemLocais.AsNoTracking()
+                                join ri in db.RequisicaoItens.AsNoTracking() on rl.RequisicaoItemId equals ri.Id
+                                join rq in db.Requisicoes.AsNoTracking() on ri.RequisicaoId equals rq.Id
+                                where rq.ObraId == obraId && rq.Id != ignorarRequisicaoId && ri.Status != StatusItemRequisicao.Cancelado
+                                      && rq.Status != StatusRequisicao.Cancelada && rq.Status != StatusRequisicao.NaoAutorizada
+                                      && (servico ? ri.ProdutoId == null : ri.ProdutoId != null)
+                                select new { rl.LocalId, rl.ComposicaoId, ri.ProdutoId, rl.Quantidade }).ToListAsync(ct))
+                        .Where(x => alvo.Contains(x.LocalId)).ToList();
         var r = new List<LinhaDemanda>();
         if (tipo == TipoRequisicao.Servico)
         {
+            var req = reqLocais.GroupBy(x => (x.ComposicaoId, x.LocalId)).ToDictionary(g => g.Key, g => g.Sum(x => x.Quantidade));
             foreach (var g in cels.GroupBy(c => c.ComposicaoId))
             {
                 var comp = comps[g.Key];
-                var porLocal = g.Select(c => (c.LocalId, c.ComposicaoId, c.Quantidade,
-                    reqLocais.Where(x => x.ProdutoId == null && x.ComposicaoId == c.ComposicaoId && x.LocalId == c.LocalId).Sum(x => x.Quantidade))).ToList();
+                var porLocal = g.Select(c => (c.LocalId, c.ComposicaoId, c.Quantidade, req.GetValueOrDefault(((Guid?)c.ComposicaoId, c.LocalId)))).ToList();
                 var refUnit = comp.Custo(TipoInsumo.MaoObraEmpreitada) + comp.Custo(TipoInsumo.ServicoTerceiro);
                 r.Add(new LinhaDemanda(null, comp.Id, comp.Descricao, comp.Unidade, porLocal.Sum(x => x.Quantidade), porLocal.Sum(x => x.Item4),
                     refUnit > 0 ? refUnit : comp.CustoUnitario, comp.ServicoControladoId, comp.Grupo, porLocal));
@@ -165,10 +172,17 @@ public sealed class OrcamentoServico(FabricaDb fabrica)
                          select new { Prod = i.ProdutoId!.Value, i.Descricao, i.Unidade, i.CustoUnitario, c.LocalId, c.ComposicaoId, Qtd = i.QuantidadePor(c.Quantidade) };
             var prodIds = linhas.Select(x => x.Prod).Distinct().ToList();
             var prods = await db.Produtos.AsNoTracking().Where(p => prodIds.Contains(p.Id)).ToDictionaryAsync(p => p.Id, ct);
+            // Requisitado por produto × local × composição; o que foi requisitado sem composição (manual) abate uma vez só,
+            // na primeira composição que usa o produto naquele local (antes contava em todas → saldo subestimado).
+            var reqComp = reqLocais.Where(y => y.ComposicaoId != null).GroupBy(y => (y.ProdutoId!.Value, y.LocalId, y.ComposicaoId!.Value)).ToDictionary(x => x.Key, x => x.Sum(y => y.Quantidade));
+            var reqSem = reqLocais.Where(y => y.ComposicaoId == null).GroupBy(y => (y.ProdutoId!.Value, y.LocalId)).ToDictionary(x => x.Key, x => x.Sum(y => y.Quantidade));
             foreach (var g in linhas.GroupBy(x => x.Prod))
             {
-                var porLocal = g.GroupBy(x => (x.LocalId, x.ComposicaoId)).Select(x => (x.Key.LocalId, x.Key.ComposicaoId, x.Sum(y => y.Qtd),
-                    reqLocais.Where(y => y.ProdutoId == g.Key && y.LocalId == x.Key.LocalId && (y.ComposicaoId == null || y.ComposicaoId == x.Key.ComposicaoId)).Sum(y => y.Quantidade))).ToList();
+                var semUsado = new HashSet<Guid>();
+                var porLocal = g.GroupBy(x => (x.LocalId, x.ComposicaoId)).OrderBy(x => x.Key.LocalId).ThenBy(x => x.Key.ComposicaoId)
+                    .Select(x => (x.Key.LocalId, x.Key.ComposicaoId, x.Sum(y => y.Qtd),
+                        reqComp.GetValueOrDefault((g.Key, x.Key.LocalId, x.Key.ComposicaoId))
+                        + (semUsado.Add(x.Key.LocalId) ? reqSem.GetValueOrDefault((g.Key, x.Key.LocalId)) : 0))).ToList();
                 var p = prods.GetValueOrDefault(g.Key);
                 r.Add(new LinhaDemanda(g.Key, null, p?.Nome ?? g.First().Descricao, p?.Unidade ?? g.First().Unidade, porLocal.Sum(x => x.Item3), porLocal.Sum(x => x.Item4),
                     p?.PrecoReferencia ?? g.First().CustoUnitario, null, p?.Grupo, porLocal));

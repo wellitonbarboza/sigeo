@@ -53,7 +53,7 @@ public sealed class ImportadorEspecificacao(FabricaDb fabrica, CodigosProdutoSer
 
     public async Task<ResultadoEspecificacao> ImportarEspecificacaoAsync(Stream arquivo, CancellationToken ct = default)
     {
-        using var wb = new XLWorkbook(arquivo);
+        using var wb = Planilha.Abrir(arquivo);
         var mats = Linhas(Aba(wb, "1 Materiais"));
         var docs = Linhas(Aba(wb, "2 Documentos"));
         var ens = Linhas(Aba(wb, "3 Ensaios"));
@@ -63,13 +63,20 @@ public sealed class ImportadorEspecificacao(FabricaDb fabrica, CodigosProdutoSer
         var grupos = await db.CategoriasProduto.Where(c => c.PaiId == null).ToListAsync(ct);
         var tipos = await db.TiposDocumento.Where(t => t.AplicaA == AplicaA.Fornecedor).ToListAsync(ct);
         int novos = 0, ligados = 0, novosTipos = 0;
+        var criadosAgora = new HashSet<TipoDocumentoExigido>();
         foreach (var c in cad)
         {
             var nome = V(c, "TIPO DE DOCUMENTO");
             if (nome is null || nome.StartsWith('(')) continue;
             int? val = int.TryParse(V(c, "VALIDADE"), out var vd) ? vd : null;
             var t = tipos.FirstOrDefault(x => N(x.Nome) == N(nome));
-            if (t is null) { t = new TipoDocumentoExigido { AplicaA = AplicaA.Fornecedor, Nome = nome, ExigidoPara = TipoFornecimento.Material, Categoria = "Técnico" }; db.TiposDocumento.Add(t); tipos.Add(t); novosTipos++; }
+            if (t is not null && !criadosAgora.Contains(t))
+            {
+                // Tipo já existente (cadastro padrão ou ajustado pelo usuário): a planilha só completa a validade que faltava.
+                t.ValidadePadraoDias ??= val;
+                continue;
+            }
+            if (t is null) { t = new TipoDocumentoExigido { AplicaA = AplicaA.Fornecedor, Nome = nome, ExigidoPara = TipoFornecimento.Material, Categoria = "Técnico" }; db.TiposDocumento.Add(t); tipos.Add(t); criadosAgora.Add(t); novosTipos++; }
             t.ValidadePadraoDias = val ?? t.ValidadePadraoDias;
             t.Frequencia = Frequencia(V(c, "MOMENTO"), t.ValidadePadraoDias);
             t.PorEntrega = t.Frequencia == FrequenciaDocumento.PorEntrega;
@@ -99,7 +106,7 @@ public sealed class ImportadorEspecificacao(FabricaDb fabrica, CodigosProdutoSer
                 if (tn is null || tn.StartsWith('(') || tipos.Any(t => N(t.Nome) == N(tn))) continue;
                 var t = new TipoDocumentoExigido { AplicaA = AplicaA.Fornecedor, Nome = tn, ExigidoPara = TipoFornecimento.Material, Obrigatorio = false, Categoria = "Técnico", Frequencia = Frequencia(V(d, "MOMENTO"), null) };
                 t.PorEntrega = t.Frequencia == FrequenciaDocumento.PorEntrega;
-                db.TiposDocumento.Add(t); tipos.Add(t); novosTipos++;
+                db.TiposDocumento.Add(t); tipos.Add(t); criadosAgora.Add(t); novosTipos++;
             }
             var es = ens.Where(e => V(e, "CODIGO")?.PadLeft(2, '0') == cod).ToList();
             if (es.Count > 0)
@@ -120,9 +127,11 @@ public sealed class ImportadorEspecificacao(FabricaDb fabrica, CodigosProdutoSer
     /// </summary>
     public async Task<ResultadoMapa> AplicarMapaAsync(Stream arquivo, bool aplicar, CancellationToken ct = default)
     {
-        using var wb = new XLWorkbook(arquivo);
+        using var wb = Planilha.Abrir(arquivo);
         var linhas = Linhas(Aba(wb, "Produtos"));
         var gruposCtrl = wb.Worksheets.Any(w => N(w.Name).Contains("GRUPOS CONTROLADOS")) ? Linhas(Aba(wb, "Grupos controlados")) : [];
+        var dup = gruposCtrl.Where(g => V(g, "GRUPO NOVO") is not null).GroupBy(g => N(V(g, "GRUPO NOVO"))).Where(g => g.Count() > 1).Select(g => V(g.First(), "GRUPO NOVO")).ToList();
+        if (dup.Count > 0) throw new RegraDeNegocioException($"Aba Grupos controlados: grupo repetido ({string.Join(", ", dup)}). Deixe uma linha por grupo.");
         var codPorGrupo = gruposCtrl.Where(g => V(g, "GRUPO NOVO") is not null && V(g, "COD") is not null)
                                     .ToDictionary(g => N(V(g, "GRUPO NOVO")), g => V(g, "COD")!.PadLeft(2, '0'));
         await using var db = fabrica.Criar();

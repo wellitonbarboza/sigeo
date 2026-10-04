@@ -2,7 +2,7 @@
 @inherits PaginaBase
 @inject FornecedoresServico Forn
 
-<Pagina Titulo="Matriz de documentos de fornecedores" Grade="_grade" AoNovo="Novo" AoAtualizar="Carregar">
+<Pagina Titulo="Matriz de documentos de fornecedores" Grade="_grade" AoNovo="@(_podeEditar ? EventCallback.Factory.Create(this, Novo) : default)" AoAtualizar="Carregar">
     <ChildContent>
         <div class="pagina">
             <div class="filtros-rapidos">
@@ -28,11 +28,13 @@
     <Faixa><b>Matriz de documentos</b><span>Tipo de fornecedor × documento × frequência × validade</span><span>Base do pré-cadastro, do portal e das travas</span></Faixa>
 </Pagina>
 
-<Modal @bind-Aberto="_aberto" Titulo="Documento da matriz" Tamanho="media">
+<Modal @bind-Aberto="_aberto" Titulo="@(_podeEditar ? "Documento da matriz" : "Documento da matriz (somente leitura)")" Tamanho="media">
     <ChildContent>
         @if (_t is not null)
         {
             <Erros Lista="ErrosForm" />
+            @if (!_podeEditar) { <div class="alerta info"><Icone Nome="info" /> Somente Qualidade e Suprimentos alteram a matriz de documentos.</div> }
+            <fieldset disabled="@(!_podeEditar)" style="border:0;padding:0;margin:0;min-width:0">
             <div class="form">
                 <Campo Rotulo="Documento" Obrigatorio Classe="s8"><input id="mat-nome" @bind="_t.Nome" /></Campo>
                 <Campo Rotulo="Categoria" Classe="s4"><select @bind="_t.Categoria"><option value="">—</option>@foreach (var c in _categorias) { <option>@c</option> }</select></Campo>
@@ -62,9 +64,10 @@
                 </Campo>
                 <Campo Rotulo="Descrição / orientação ao fornecedor" Classe="s12"><textarea rows="2" @bind="_t.Descricao"></textarea></Campo>
             </div>
+            </fieldset>
         }
     </ChildContent>
-    <Rodape><button class="btn prim" id="mat-salvar" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="16" /> Salvar</button></Rodape>
+    <Rodape>@if (_podeEditar) { <button class="btn prim" id="mat-salvar" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="16" /> Salvar</button> }</Rodape>
 </Modal>
 
 @code {
@@ -74,8 +77,9 @@
     private TipoDocumentoExigido? _t;
     private bool _aberto;
     private string _filtro = "Todos";
+    private bool _podeEditar;
 
-    protected override async Task OnInitializedAsync() { _categorias = await Cat.ListaAsync(TipoLista.CategoriaDocumento); await Carregar(); }
+    protected override async Task OnInitializedAsync() { _podeEditar = Perfil(PerfilUsuario.Qualidade, PerfilUsuario.Suprimentos); _categorias = await Cat.ListaAsync(TipoLista.CategoriaDocumento); await Carregar(); }
 
     private async Task Carregar()
     {
@@ -94,11 +98,12 @@
 
     private static string ExigidoDe(TipoDocumentoExigido t) => t.ExigidoPara == TipoFornecimento.Nenhum ? "Todos" : De(t.ExigidoPara);
 
-    private void Novo() { _t = new TipoDocumentoExigido { AplicaA = AplicaA.Fornecedor, Frequencia = FrequenciaDocumento.Validade }; ErrosForm = null; _aberto = true; }
+    private void Novo() { if (!_podeEditar) return; _t = new TipoDocumentoExigido { AplicaA = AplicaA.Fornecedor, Frequencia = FrequenciaDocumento.Validade }; ErrosForm = null; _aberto = true; }
     private void Editar(TipoDocumentoExigido t) { _t = t; ErrosForm = null; _aberto = true; }
 
     private async Task Salvar()
     {
+        if (!_podeEditar) return;
         if (await Executar(() => Forn.SalvarTipoDocumentoAsync(_t!), "Documento salvo na matriz.")) { _aberto = false; await Carregar(); }
     }
 }

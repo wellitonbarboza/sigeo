@@ -20,23 +20,30 @@ public sealed class EstabelecimentosServico(FabricaDb fabrica)
         x.Codigo = (x.Codigo ?? "").Trim().ToUpperInvariant();
         if (x.Codigo.Length is < 2 or > 20) e.Add("Informe o código (ex.: FAB-PM).");
         ValidacaoException.Se(e);
-        x.Cnpj = Convert.ToUInt64(doc).ToString(@"00\.000\.000\/0000\-00");
+        x.Cnpj = Conversor.FormatarCnpj(doc);
         x.Raiz = doc[..8];
-        await using var db = fabrica.Criar();
-        if (await db.Estabelecimentos.AnyAsync(o => o.Id != x.Id && o.Cnpj == x.Cnpj, ct)) throw new RegraDeNegocioException("Já existe estabelecimento com este CNPJ.");
-        if (await db.Estabelecimentos.AnyAsync(o => o.Id != x.Id && o.Codigo == x.Codigo, ct)) throw new RegraDeNegocioException("Código já usado.");
-        // Só um padrão de faturamento de materiais e um almoxarifado central.
-        if (x.FaturaMateriais) await db.Estabelecimentos.Where(o => o.Id != x.Id && o.FaturaMateriais).ForEachAsync(o => o.FaturaMateriais = false, ct);
-        if (x.AlmoxarifadoCentral) await db.Estabelecimentos.Where(o => o.Id != x.Id && o.AlmoxarifadoCentral).ForEachAsync(o => o.AlmoxarifadoCentral = false, ct);
-        await Grafo.SalvarAsync(db, x);
-        await db.SaveChangesAsync(ct);
+        // Só um padrão de faturamento de materiais e um almoxarifado central (índice único no banco):
+        // desmarca os outros primeiro, numa transação, e só então grava este.
+        await fabrica.EmTransacaoAsync(async db =>
+        {
+            if (await db.Estabelecimentos.AnyAsync(o => o.Id != x.Id && o.Cnpj == x.Cnpj, ct)) throw new RegraDeNegocioException("Já existe estabelecimento com este CNPJ.");
+            if (await db.Estabelecimentos.AnyAsync(o => o.Id != x.Id && o.Codigo == x.Codigo, ct)) throw new RegraDeNegocioException("Código já usado.");
+            if (x.FaturaMateriais) await db.Estabelecimentos.Where(o => o.Id != x.Id && o.FaturaMateriais).ForEachAsync(o => o.FaturaMateriais = false, ct);
+            if (x.AlmoxarifadoCentral) await db.Estabelecimentos.Where(o => o.Id != x.Id && o.AlmoxarifadoCentral).ForEachAsync(o => o.AlmoxarifadoCentral = false, ct);
+            await db.SaveChangesAsync(ct);
+            await Grafo.SalvarAsync(db, x);
+            await db.SaveChangesAsync(ct);
+        }, ct);
     }
 
     /// <summary>Cada SPE vira (ou atualiza) um estabelecimento do tipo SPE — o "Faturar para" e o mapa enxergam todos os CNPJs.</summary>
     public static async Task SincronizarSpeAsync(QualyHubDbContext db, Spe s, CancellationToken ct)
     {
+        // Adota um estabelecimento existente pelo CNPJ só se ele já for de SPE e estiver livre (nunca converte matriz/filial em SPE).
         var x = await db.Estabelecimentos.FirstOrDefaultAsync(e => e.SpeId == s.Id, ct)
-                ?? await db.Estabelecimentos.FirstOrDefaultAsync(e => e.Cnpj == s.Cnpj, ct);
+                ?? await db.Estabelecimentos.FirstOrDefaultAsync(e => e.Cnpj == s.Cnpj && e.Tipo == TipoEstabelecimento.Spe && e.SpeId == null, ct);
+        if (x is null && await db.Estabelecimentos.AnyAsync(e => e.Cnpj == s.Cnpj, ct))
+            throw new RegraDeNegocioException("Este CNPJ já está cadastrado como outro estabelecimento (matriz/filial). Confira o CNPJ da SPE.");
         if (x is null) { x = new Estabelecimento { Tipo = TipoEstabelecimento.Spe, Codigo = $"SPE-{s.Codigo}" }; db.Estabelecimentos.Add(x); }
         if (await db.Estabelecimentos.AnyAsync(o => o.Id != x.Id && o.Codigo == x.Codigo, ct)) x.Codigo = $"SPE-{s.Codigo}-{s.Cnpj[^2..]}";
         x.SpeId = s.Id; x.Tipo = TipoEstabelecimento.Spe; x.RazaoSocial = s.RazaoSocial; x.NomeFantasia = s.NomeFantasia; x.Cnpj = s.Cnpj;
@@ -62,7 +69,7 @@ public sealed class EstabelecimentosServico(FabricaDb fabrica)
     public async Task ExcluirFluxoAsync(Guid id, CancellationToken ct = default)
     {
         await using var db = fabrica.Criar();
-        var f = await db.FluxosEstabelecimento.FirstAsync(x => x.Id == id, ct);
+        if (await db.FluxosEstabelecimento.FirstOrDefaultAsync(x => x.Id == id, ct) is not { } f) return; // já excluído
         db.Remove(f);
         await db.SaveChangesAsync(ct);
     }
@@ -75,12 +82,14 @@ public sealed class EstabelecimentosServico(FabricaDb fabrica)
         if (string.IsNullOrWhiteSpace(c.Nome)) e.Add("Informe o nome.");
         ValidacaoException.Se(e);
         await using var db = fabrica.Criar();
-        if (await db.CentrosCusto.AnyAsync(x => x.Id != c.Id && x.Codigo == c.Codigo, ct)) throw new RegraDeNegocioException("Código já usado.");
+        // Código único por obra (a mesma etapa "1.1" existe em cada obra); sem obra = plano corporativo.
+        if (await db.CentrosCusto.AnyAsync(x => x.Id != c.Id && x.Codigo == c.Codigo && x.ObraId == c.ObraId, ct)) throw new RegraDeNegocioException("Código já usado.");
         if (c.PaiId is { } pai)
         {
             var todos = await db.CentrosCusto.AsNoTracking().ToDictionaryAsync(x => x.Id, x => x.PaiId, ct);
             Guid? p = pai;
-            while (p is { } id) { if (id == c.Id) throw new RegraDeNegocioException("O centro de custo não pode ficar abaixo dele mesmo."); p = todos.GetValueOrDefault(id); }
+            var vistos = new HashSet<Guid>();
+            while (p is { } id && vistos.Add(id)) { if (id == c.Id) throw new RegraDeNegocioException("O centro de custo não pode ficar abaixo dele mesmo."); p = todos.GetValueOrDefault(id); }
         }
         await Grafo.SalvarAsync(db, c);
         await db.SaveChangesAsync(ct);

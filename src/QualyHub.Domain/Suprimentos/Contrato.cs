@@ -64,6 +64,12 @@ public class Contrato : EntidadeDaObra, IHistoricoTemporal
             e.Add("Aceite de proposta só é permitido para consultoria ou serviço especializado de engenharia.");
         foreach (var i in Itens.Where(i => i.Quantidade <= 0 || i.PrecoUnitario < 0))
             e.Add($"Item {i.Item}: quantidade e preço devem ser positivos.");
+        foreach (var i in Itens.Where(i => i.Locais.Count > 0))
+        {
+            if (i.Locais.Any(l => l.Quantidade < 0)) e.Add($"Item {i.Item}: quantidade por local não pode ser negativa.");
+            if (i.Locais.GroupBy(l => l.LocalId).Any(g => g.Count() > 1)) e.Add($"Item {i.Item}: local repetido.");
+            if (i.Locais.Sum(l => l.Quantidade) > i.Quantidade + 0.0001m) e.Add($"Item {i.Item}: soma dos locais ({i.Locais.Sum(l => l.Quantidade)}) maior que a quantidade do item ({i.Quantidade}).");
+        }
         return e;
     }
 

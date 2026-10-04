@@ -3,9 +3,10 @@
     @foreach (var (l, n) in Linhas())
     {
         var tem = _filhos[l.Id].Any();
-        <div class="sl-linha" style="padding-left:@(n * 18)px">
+        var coberto = Coberto(l);
+        <div class="sl-linha" @key="l.Id" style="padding-left:@(n * 18)px">
             @if (tem) { <button type="button" class="sl-abre" @onclick="() => Alternar(l.Id)">@(_abertos.Contains(l.Id) ? "▾" : "▸")</button> } else { <span class="sl-abre"></span> }
-            <label><input type="checkbox" checked="@Selecionados.Contains(l.Id)" disabled="@(Coberto(l))" @onchange="e => Marcar(l.Id, (bool)e.Value!)" /> <b>@l.Codigo</b> @l.Nome <span class="mudo">@l.Tipo</span></label>
+            <label><input type="checkbox" checked="@(coberto || Selecionados.Contains(l.Id))" disabled="@coberto" title="@(coberto ? "Incluído pelo nível acima" : null)" @onchange="e => Marcar(l.Id, (bool)e.Value!)" /> <b>@l.Codigo</b> @l.Nome <span class="mudo">@l.Tipo</span></label>
         </div>
     }
     @if (Locais.Count == 0) { <div class="mudo">Sem locais gerados para esta obra.</div> }
@@ -16,12 +17,13 @@
     [Parameter] public HashSet<Guid> Selecionados { get; set; } = [];
     [Parameter] public EventCallback SelecionadosChanged { get; set; }
     /// <summary>Nível mais baixo exibido (ex.: Apartamento esconde cômodos).</summary>
-    [Parameter] public string? AteNivel { get; set; } = "Apartamento";
+    [Parameter] public string? AteNivel { get; set; } = GeradorEmpreendimento.TipoApartamento;
 
     private ILookup<Guid?, Local> _filhos = Array.Empty<Local>().ToLookup(l => l.LocalPaiId);
+    private ILookup<Guid?, Local> _todosFilhos = Array.Empty<Local>().ToLookup(l => l.LocalPaiId);
     private Dictionary<Guid, Local> _porId = [];
     private readonly HashSet<Guid> _abertos = [];
-    private static readonly string[] Ordem = ["Condomínio", "Torre", "Pavimento", "Apartamento", "Cômodo"];
+    private static readonly string[] Ordem = [GeradorEmpreendimento.TipoCondominio, GeradorEmpreendimento.TipoTorre, GeradorEmpreendimento.TipoPavimento, GeradorEmpreendimento.TipoApartamento, GeradorEmpreendimento.TipoComodo];
 
     protected override void OnParametersSet()
     {
@@ -29,14 +31,15 @@
         var visiveis = Locais.Where(l => { var i = Array.IndexOf(Ordem, l.Tipo); return i < 0 ? limite >= 3 : i <= limite; }).ToList();
         _filhos = visiveis.ToLookup(l => l.LocalPaiId);
         _porId = Locais.ToDictionary(l => l.Id);
-        foreach (var c in visiveis.Where(l => l.Tipo == "Condomínio")) _abertos.Add(c.Id);
+        _todosFilhos = Locais.ToLookup(l => l.LocalPaiId);
+        foreach (var c in visiveis.Where(l => l.Tipo == GeradorEmpreendimento.TipoCondominio)) _abertos.Add(c.Id);
     }
 
     private IEnumerable<(Local, int)> Linhas()
     {
         IEnumerable<(Local, int)> Desce(Guid? pai, int n)
         {
-            foreach (var l in _filhos[pai].OrderBy(l => l.Tipo == "Área comum" ? 0 : 1).ThenBy(l => l.Ordem).ThenBy(l => l.Codigo))
+            foreach (var l in _filhos[pai].OrderBy(l => l.Tipo == GeradorEmpreendimento.TipoAreaComum ? 0 : 1).ThenBy(l => l.Ordem).ThenBy(l => l.Codigo))
             {
                 yield return (l, n);
                 if (_abertos.Contains(l.Id)) foreach (var f in Desce(l.Id, n + 1)) yield return f;
@@ -58,7 +61,15 @@
 
     private async Task Marcar(Guid id, bool on)
     {
-        if (on) Selecionados.Add(id); else Selecionados.Remove(id);
+        if (on)
+        {
+            if (_porId.TryGetValue(id, out var l) && Coberto(l)) return; // já incluído pelo nível acima
+            Selecionados.Add(id);
+            // marcar um nível inclui tudo abaixo: tira os descendentes para não contar em dobro
+            var pilha = new Stack<Guid>([id]);
+            while (pilha.Count > 0) foreach (var f in _todosFilhos[pilha.Pop()]) { Selecionados.Remove(f.Id); pilha.Push(f.Id); }
+        }
+        else Selecionados.Remove(id);
         await SelecionadosChanged.InvokeAsync();
     }
 }

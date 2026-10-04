@@ -5,11 +5,14 @@
 <Pagina Titulo="Materiais e serviços controlados" Grade="GradeAtual" AoNovo="Novo" AoAtualizar="Carregar">
     <ChildContent>
         <div class="pagina">
-            <div class="barra-acoes">
-                <label class="btn sec pq" style="cursor:pointer" title="Planilha estruturada da DT.SUP.01.01 (abas 1 Materiais, 2 Documentos, 3 Ensaios, 4 Cadastro de documentos)"><Icone Nome="upload" Tam="14" /> Importar Tabela de Especificação (xlsx)<InputFile OnChange="ImportarTabela" accept=".xlsx" style="display:none" /></label>
-                <label class="btn sec pq" style="cursor:pointer" title="Mapa do catálogo (aba Produtos com grupo novo e a coluna SUA DECISÃO)"><Icone Nome="upload" Tam="14" /> Aplicar mapa do catálogo (xlsx)<InputFile OnChange="PreverMapa" accept=".xlsx" style="display:none" /></label>
-                <button class="btn sec pq" disabled="@Ocupado" @onclick="Vincular" title="Reaplica: produto no grupo ligado vira controlado"><Icone Nome="atualizar" Tam="14" /> Vincular produtos pelo grupo</button>
-            </div>
+            @if (_podeImportar)
+            {
+                <div class="barra-acoes">
+                    <label class="btn sec pq" style="cursor:@(Ocupado ? "wait" : "pointer")" title="Planilha estruturada da DT.SUP.01.01 (abas 1 Materiais, 2 Documentos, 3 Ensaios, 4 Cadastro de documentos)"><Icone Nome="upload" Tam="14" /> Importar Tabela de Especificação (xlsx)<InputFile OnChange="ImportarTabela" accept=".xlsx" disabled="@Ocupado" style="display:none" /></label>
+                    <label class="btn sec pq" style="cursor:@(Ocupado ? "wait" : "pointer")" title="Mapa do catálogo (aba Produtos com grupo novo e a coluna SUA DECISÃO)"><Icone Nome="upload" Tam="14" /> Aplicar mapa do catálogo (xlsx)<InputFile OnChange="PreverMapa" accept=".xlsx" disabled="@Ocupado" style="display:none" /></label>
+                    <button class="btn sec pq" disabled="@Ocupado" @onclick="Vincular" title="Reaplica: produto no grupo ligado vira controlado"><Icone Nome="atualizar" Tam="14" /> Vincular produtos pelo grupo</button>
+                </div>
+            }
             <Abas Itens="_abas" @bind-Ativa="_aba" />
             @if (_aba == "mat")
             {
@@ -87,7 +90,7 @@
     <Rodape><button class="btn prim" disabled="@Ocupado" @onclick="SalvarMat"><Icone Nome="check" Tam="16" /> Salvar</button></Rodape>
 </Modal>
 
-<Modal @bind-Aberto="_abertoMapa" Titulo="Aplicar mapa do catálogo" Tamanho="grande">
+<Modal @bind-Aberto="_abertoMapa" Titulo="Aplicar mapa do catálogo" Tamanho="grande" AoFechar="FecharMapa">
     <ChildContent>
         @if (_previaMapa is not null)
         {
@@ -101,7 +104,7 @@
             <ul class="mudo">@foreach (var a in _previaMapa.Amostra) { <li>@a</li> }</ul>
         }
     </ChildContent>
-    <Rodape>@if (_previaMapa is { Movidos: > 0 } || _previaMapa is { Controlados: > 0 }) { <button class="btn prim" disabled="@Ocupado" @onclick="AplicarMapa"><Icone Nome="check" Tam="16" /> Aplicar no catálogo</button> }</Rodape>
+    <Rodape>@if (_podeImportar && _mapa is not null && (_previaMapa is { Movidos: > 0 } || _previaMapa is { Controlados: > 0 })) { <button class="btn prim" disabled="@Ocupado" @onclick="AplicarMapa"><Icone Nome="check" Tam="16" /> Aplicar no catálogo</button> }</Rodape>
 </Modal>
 
 <Modal @bind-Aberto="_abertoSrv" Titulo="Serviço controlado" Tamanho="media">
@@ -149,7 +152,9 @@
     private byte[]? _mapa;
     private QualyHub.Infrastructure.Importacao.ResultadoMapa? _previaMapa;
 
-    protected override async Task OnInitializedAsync() { _grupos = await Cat.GruposProdutoAsync(); await Carregar(); }
+    private bool _podeImportar;
+
+    protected override async Task OnInitializedAsync() { _podeImportar = Perfil(PerfilUsuario.Qualidade, PerfilUsuario.Suprimentos); _grupos = await Cat.GruposProdutoAsync(); await Carregar(); }
 
     private static async Task<byte[]> Ler(InputFileChangeEventArgs e)
     {
@@ -161,27 +166,34 @@
 
     private async Task ImportarTabela(InputFileChangeEventArgs e)
     {
+        if (!_podeImportar || Ocupado) return;
         QualyHub.Infrastructure.Importacao.ResultadoEspecificacao? r = null;
         if (await Executar(async () => r = await Imp.ImportarEspecificacaoAsync(new MemoryStream(await Ler(e)))))
         { Notif.Sucesso($"Tabela importada: {r!.Materiais} materiais ({r.MateriaisNovos} novos), {r.TiposDocumento} tipos de documento novos, {r.Ensaios} ensaios, {r.GruposLigados} grupos ligados."); _grupos = await Cat.GruposProdutoAsync(); await Carregar(); }
     }
 
+    private void FecharMapa() { _mapa = null; _previaMapa = null; }
+
     private async Task PreverMapa(InputFileChangeEventArgs e)
     {
+        if (!_podeImportar || Ocupado) return;
+        _mapa = null; _previaMapa = null;
         if (await Executar(async () => { _mapa = await Ler(e); _previaMapa = await Imp.AplicarMapaAsync(new MemoryStream(_mapa), false); })) _abertoMapa = true;
     }
 
     private async Task AplicarMapa()
     {
+        if (!_podeImportar || _mapa is null) return;
         if (await Executar(async () => _previaMapa = await Imp.AplicarMapaAsync(new MemoryStream(_mapa!), true)))
         {
             Notif.Sucesso($"Catálogo ajustado: {_previaMapa!.Movidos} produtos movidos, {_previaMapa.Controlados} ligados a material controlado, {_previaMapa.Codigos?.Recodificados ?? 0} recodificados.");
-            _abertoMapa = false; _grupos = await Cat.GruposProdutoAsync(); await Carregar();
+            _abertoMapa = false; _mapa = null; _previaMapa = null; _grupos = await Cat.GruposProdutoAsync(); await Carregar();
         }
     }
 
     private async Task Vincular()
     {
+        if (!_podeImportar) return;
         int n = 0;
         if (await Executar(async () => n = await Imp.VincularPorGrupoAsync())) { Notif.Sucesso($"{n} produto(s) atualizados pelo grupo."); await Carregar(); }
     }
@@ -222,8 +234,9 @@
             if (_m.CategoriaProdutoId is { } g && await db.MateriaisControlados.AnyAsync(x => x.Id != _m.Id && x.CategoriaProdutoId == g))
                 throw new RegraDeNegocioException("Este grupo do catálogo já está ligado a outro material (1 grupo = 1 material).");
             await Grafo.SalvarAsync(db, _m); await db.SaveChangesAsync();
+            await Imp.VincularPorGrupoAsync(); // produtos do grupo ligado viram controlados
         }, "Material salvo.");
-        if (ok) { _abertoMat = false; await Imp.VincularPorGrupoAsync(); await Carregar(); }
+        if (ok) { _abertoMat = false; await Carregar(); }
     }
 
     private async Task SalvarSrv()

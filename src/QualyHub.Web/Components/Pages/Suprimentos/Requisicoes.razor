@@ -37,7 +37,7 @@
             <div class="form">
                 <Campo Rotulo="Empresa" Classe="s6"><input readonly value="@Usuario.EmpresaNome" /></Campo>
                 <Campo Rotulo="Obra / empreendimento" Obrigatorio Classe="s4">
-                    <select @bind="_r.ObraId" @bind:after="EnderecoDaObra" disabled="@(!Editavel)"><option value="@Guid.Empty">Selecione…</option>@foreach (var o in _obras) { <option value="@o.Id">@o.Texto</option> }</select>
+                    <select @key="_versaoObra" value="@_r.ObraId" @onchange="TrocarObra" disabled="@(!Editavel)"><option value="@Guid.Empty">Selecione…</option>@foreach (var o in _obras) { <option value="@o.Id">@o.Texto</option> }</select>
                 </Campo>
                 <Campo Rotulo="Tipo" Obrigatorio Classe="s2">
                     <select @bind="_r.Tipo" disabled="@(!Editavel)">@foreach (var t in Enum.GetValues<TipoRequisicao>()) { <option value="@t">@De(t)</option> }</select>
@@ -97,7 +97,7 @@
                 <tbody>
                     @foreach (var i in _r.Itens)
                     {
-                        <tr>
+                        <tr @key="i">
                             <td>
                                 @if (_r.Tipo == TipoRequisicao.Material)
                                 {
@@ -209,6 +209,8 @@
     <Rodape><button class="btn prim" disabled="@(_convidados.Count == 0 || Ocupado)" @onclick="GerarCotacao"><Icone Nome="calculadora" Tam="16" /> Criar cotação (@_convidados.Count)</button></Rodape>
 </Modal>
 
+<Confirmacao Pergunta="@PerguntaConfirmacao" AoSim="ConfirmacaoSim" AoNao="ConfirmacaoNao" />
+
 @code {
     private sealed record Linha(Guid Id, int Numero, string Obra, TipoRequisicao Tipo, string Atividade, string? CentroCusto, DateOnly Entrega, int Itens, StatusRequisicao Status, string CriadoPor, DateTimeOffset CriadoEm);
     private Grade<Linha>? _grade;
@@ -223,13 +225,17 @@
     private string? _grupoFiltro, _fComp;
     private bool _abertoOrc;
     private int _compsObra;
-    private List<Local> _locaisObra = [];
     private readonly HashSet<Guid> _selComp = [];
     private HashSet<Guid> _selLoc = [];
     private List<LinhaDemanda>? _demanda;
     private HashSet<Guid> _sugeridos = [];
     private bool TemLocais => _r?.Itens.Any(i => i.Locais.Count > 0) == true;
-    private string NomeLocal(Guid id) => _locaisObra.FirstOrDefault(l => l.Id == id) is { } l ? l.Codigo : id.ToString()[..8];
+    private List<Local> _locaisObraLista = [];
+    private Dictionary<Guid, string> _nomeLocal = [];
+    /// <summary>Locais da obra da requisição; ao trocar a lista, refaz o dicionário de nomes.</summary>
+    private List<Local> _locaisObra { get => _locaisObraLista; set { _locaisObraLista = value; _nomeLocal = value.ToDictionary(l => l.Id, l => l.Codigo); } }
+    private string NomeLocal(Guid id) => _nomeLocal.TryGetValue(id, out var c) ? c : id.ToString()[..8];
+    private int _versaoObra;
     private List<string> _atividades = [], _categorias = [];
     private readonly HashSet<Guid> _convidados = [];
 
@@ -307,7 +313,54 @@
     }
 
     private async Task PreviaOrc() =>
-        await Executar(async () => _demanda = await Orc.DemandaAsync(_r!.ObraId, _selComp, _selLoc, _r.Tipo, _r.CriadoEm == default ? null : _r.Id));
+        await Executar(async () => _demanda = DescontarItensDaTela(await Orc.DemandaAsync(_r!.ObraId, _selComp, _selLoc, _r.Tipo, _r.CriadoEm == default ? null : _r.Id)));
+
+    /// <summary>
+    /// A demanda do banco não enxerga os itens desta requisição (nova, ou excluída da conta quando já salva):
+    /// desconta o que já está nos itens da tela (mesmo produto/serviço × local) para não puxar em dobro.
+    /// </summary>
+    private List<LinhaDemanda> DescontarItensDaTela(List<LinhaDemanda> demanda)
+    {
+        var ja = new Dictionary<(Guid? Produto, Guid? Comp, Guid Local), decimal>();
+        foreach (var i in _r!.Itens)
+            foreach (var x in i.Locais)
+            {
+                var k = (i.ProdutoId, x.ComposicaoId ?? i.ComposicaoId, x.LocalId);
+                ja[k] = ja.GetValueOrDefault(k) + x.Quantidade;
+            }
+        if (ja.Count == 0) return demanda;
+        return demanda.Select(d =>
+        {
+            decimal extra = 0;
+            var locais = d.Locais.Select(x =>
+            {
+                if (!ja.TryGetValue((d.ProdutoId, x.ComposicaoId, x.LocalId), out var q)) return x;
+                extra += q;
+                return (x.LocalId, x.ComposicaoId, x.Orcado, x.Requisitado + q);
+            }).ToList();
+            return extra == 0 ? d : d with { Locais = locais, Requisitado = d.Requisitado + extra };
+        }).ToList();
+    }
+
+    private async Task TrocarObra(ChangeEventArgs e)
+    {
+        var nova = Guid.TryParse(e.Value?.ToString(), out var g) ? g : Guid.Empty;
+        if (nova == _r!.ObraId) return;
+        if (TemLocais)
+            Confirmar("Os itens têm quebra por local da obra atual. Trocar de obra remove essa quebra (as quantidades dos itens ficam). Continuar?",
+                () => AplicarObra(nova), () => { _versaoObra++; return Task.CompletedTask; });
+        else await AplicarObra(nova);
+    }
+
+    private async Task AplicarObra(Guid obra)
+    {
+        _r!.ObraId = obra;
+        foreach (var i in _r.Itens) i.Locais.Clear();
+        _selComp.Clear(); _selLoc = []; _demanda = null;
+        await using (var db = Fabrica.Criar())
+            _locaisObra = obra == Guid.Empty ? [] : await db.Locais.AsNoTracking().Where(l => l.ObraId == obra).ToListAsync();
+        await EnderecoDaObra();
+    }
 
     private async Task IncluirOrc()
     {

@@ -150,26 +150,46 @@ public sealed class PortalServico(FabricaSistema sistema, FabricaDb fabrica, IAr
         Stream arquivo, string nomeArquivo, string? contentType, CancellationToken ct = default, DateOnly? competencia = null)
     {
         var sessao = await AbrirAsync(token, null, ct) ?? throw new RegraDeNegocioException("Link inválido ou expirado.");
-        var ext = Path.GetExtension(nomeArquivo).ToLowerInvariant();
-        if (ext is not (".pdf" or ".jpg" or ".jpeg" or ".png")) throw new RegraDeNegocioException("Envie PDF, JPG ou PNG.");
+        // Valida tudo antes de gravar o arquivo (nada de arquivo órfão no armazenamento).
+        var solicitado = sessao.Documentos.FirstOrDefault(d => d.TipoId == tipoId) ?? throw new RegraDeNegocioException("Este documento não foi solicitado a este fornecedor.");
         if (string.IsNullOrWhiteSpace(responsavel)) throw new RegraDeNegocioException("Informe o responsável pelo envio.");
+        if (responsavel.Length > 150 || numero?.Length > 60) throw new RegraDeNegocioException("Responsável (até 150) ou número (até 60 caracteres) muito longo.");
+        if (emissao is { } em && validade is { } va && va < em) throw new RegraDeNegocioException("Validade anterior à emissão.");
+        arquivo = await ArquivoPortal.ConferirAsync(arquivo, nomeArquivo, ct);
+        var comp = competencia is { } cp ? new DateOnly(cp.Year, cp.Month, 1) : solicitado.Competencia;
+        bool bloqueia;
+        await using (var db0 = sistema.Criar(sessao.EmpresaId, "Portal"))
+            bloqueia = await db0.TiposDocumento.Where(t => t.Id == tipoId).Select(t => t.BloqueiaQuandoVencido).FirstAsync(ct);
         var salvo = await armazenamento.SalvarAsync(arquivo, nomeArquivo, "fornecedores", contentType, ct);
-        await using var db = sistema.Criar(sessao.EmpresaId, "Portal");
-        db.FornecedorDocumentos.Add(new FornecedorDocumento
+        await using var est = sistema.Criar(sessao.EmpresaId, "Portal");
+        await est.Database.CreateExecutionStrategy().ExecuteAsync(async () =>
         {
-            EmpresaId = sessao.EmpresaId, FornecedorId = sessao.Fornecedor.Id, TipoDocumentoExigidoId = tipoId, Numero = numero, DataEmissao = emissao,
-            DataValidade = validade, ArquivoBlob = salvo.Blob, ArquivoNomeOriginal = nomeArquivo, ArquivoHashSha256 = salvo.Hash,
-            Status = StatusDocumento.EmValidacao, EnviadoPeloPortal = true, ResponsavelEnvio = responsavel,
-            Competencia = competencia is { } cp ? new DateOnly(cp.Year, cp.Month, 1) : sessao.Documentos.FirstOrDefault(d => d.TipoId == tipoId)?.Competencia,
-            Bloqueia = await db.TiposDocumento.Where(t => t.Id == tipoId).Select(t => t.BloqueiaQuandoVencido).FirstAsync(ct)
+            await using var db = sistema.Criar(sessao.EmpresaId, "Portal");
+            await using var tx = await db.Database.BeginTransactionAsync(ct);
+            // Documento mensal: reenvio da mesma competência substitui o anterior (fica no histórico).
+            if (comp is { } c0)
+            {
+                foreach (var antigo in await db.FornecedorDocumentos.Where(x => x.FornecedorId == sessao.Fornecedor.Id && x.TipoDocumentoExigidoId == tipoId && x.Competencia == c0).ToListAsync(ct))
+                    db.Remove(antigo);
+                await db.SaveChangesAsync(ct);
+            }
+            db.FornecedorDocumentos.Add(new FornecedorDocumento
+            {
+                EmpresaId = sessao.EmpresaId, FornecedorId = sessao.Fornecedor.Id, TipoDocumentoExigidoId = tipoId, Numero = numero?.Trim(), DataEmissao = emissao,
+                DataValidade = validade, ArquivoBlob = salvo.Blob, ArquivoNomeOriginal = Path.GetFileName(nomeArquivo), ArquivoHashSha256 = salvo.Hash,
+                Status = StatusDocumento.EmValidacao, EnviadoPeloPortal = true, ResponsavelEnvio = responsavel.Trim(), Competencia = comp, Bloqueia = bloqueia
+            });
+            await db.SaveChangesAsync(ct);
+            await tx.CommitAsync(ct);
         });
-        await db.SaveChangesAsync(ct);
     }
 
     /// <summary>Pré-cadastro: o fornecedor completa os dados cadastrais pelo link (conferidos depois por Suprimentos).</summary>
     public async Task AtualizarDadosAsync(string token, DadosPortal d, CancellationToken ct = default)
     {
         var sessao = await AbrirAsync(token, null, ct) ?? throw new RegraDeNegocioException("Link inválido ou expirado.");
+        // Fornecedor já qualificado não troca e-mails/endereço pelo link (quem tem o link poderia desviar pedidos): só no pré-cadastro.
+        if (!sessao.Fornecedor.PreCadastro) throw new RegraDeNegocioException("Dados cadastrais só podem ser alterados pelo link durante o pré-cadastro. Para atualizar, fale com Suprimentos.");
         var e = new List<string>();
         if (string.IsNullOrWhiteSpace(d.Endereco) || string.IsNullOrWhiteSpace(d.Cidade) || string.IsNullOrWhiteSpace(d.Uf)) e.Add("Informe endereço, cidade e UF.");
         if (string.IsNullOrWhiteSpace(d.Emails) || !d.Emails.Contains('@')) e.Add("Informe ao menos um e-mail.");
@@ -177,13 +197,14 @@ public sealed class PortalServico(FabricaSistema sistema, FabricaDb fabrica, IAr
         ValidacaoException.Se(e);
         await using var db = sistema.Criar(sessao.EmpresaId, "Portal");
         var f = await db.Fornecedores.Include(x => x.Contatos).FirstAsync(x => x.Id == sessao.Fornecedor.Id, ct);
-        static string? T(string? v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim();
-        f.NomeFantasia = T(d.NomeFantasia) ?? f.NomeFantasia; f.InscricaoEstadual = T(d.InscricaoEstadual); f.InscricaoMunicipal = T(d.InscricaoMunicipal);
-        f.Cep = T(d.Cep); f.Endereco = T(d.Endereco); f.Numero = T(d.Numero); f.Complemento = T(d.Complemento); f.Bairro = T(d.Bairro);
-        f.Cidade = T(d.Cidade); f.Uf = T(d.Uf)?.ToUpperInvariant(); f.Telefones = T(d.Telefones); f.Emails = T(d.Emails); f.Site = T(d.Site);
+        // Campo em branco mantém o valor atual (não apaga o que já existe).
+        static string? T(string? v, int max = 200) => string.IsNullOrWhiteSpace(v) ? null : v.Trim() is var t && t.Length > max ? t[..max] : v.Trim();
+        f.NomeFantasia = T(d.NomeFantasia) ?? f.NomeFantasia; f.InscricaoEstadual = T(d.InscricaoEstadual, 30) ?? f.InscricaoEstadual; f.InscricaoMunicipal = T(d.InscricaoMunicipal, 30) ?? f.InscricaoMunicipal;
+        f.Cep = T(d.Cep, 10) ?? f.Cep; f.Endereco = T(d.Endereco) ?? f.Endereco; f.Numero = T(d.Numero, 20) ?? f.Numero; f.Complemento = T(d.Complemento) ?? f.Complemento; f.Bairro = T(d.Bairro) ?? f.Bairro;
+        f.Cidade = T(d.Cidade) ?? f.Cidade; f.Uf = T(d.Uf, 2)?.ToUpperInvariant() ?? f.Uf; f.Telefones = T(d.Telefones) ?? f.Telefones; f.Emails = T(d.Emails, 400) ?? f.Emails; f.Site = T(d.Site) ?? f.Site;
         var c = f.Contatos.FirstOrDefault(x => x.Principal);
         if (c is null) { c = new FornecedorContato { FornecedorId = f.Id, Principal = true }; db.FornecedorContatos.Add(c); }
-        c.Nome = d.ContatoNome!.Trim(); c.Email = T(d.ContatoEmail); c.Telefone = T(d.ContatoTelefone);
+        c.Nome = T(d.ContatoNome, 150)!; c.Email = T(d.ContatoEmail) ?? c.Email; c.Telefone = T(d.ContatoTelefone, 40) ?? c.Telefone;
         await db.SaveChangesAsync(ct);
     }
 
@@ -193,9 +214,9 @@ public sealed class PortalServico(FabricaSistema sistema, FabricaDb fabrica, IAr
     {
         var sessao = await AbrirAsync(token, null, ct) ?? throw new RegraDeNegocioException("Link inválido ou expirado.");
         if (sessao.Colaboradores.All(c => c.Id != colaboradorId)) throw new RegraDeNegocioException("Funcionário não pertence a esta empresa.");
-        var ext = Path.GetExtension(nomeArquivo).ToLowerInvariant();
-        if (ext is not (".pdf" or ".jpg" or ".jpeg" or ".png")) throw new RegraDeNegocioException("Envie PDF, JPG ou PNG.");
-        if (string.IsNullOrWhiteSpace(responsavel)) throw new RegraDeNegocioException("Informe o responsável pelo envio.");
+        if (string.IsNullOrWhiteSpace(responsavel) || responsavel.Length > 150) throw new RegraDeNegocioException("Informe o responsável pelo envio (até 150 caracteres).");
+        if (sessao.Exigencias.All(x => x.Item1 != exigenciaId)) throw new RegraDeNegocioException("Exigência inválida.");
+        arquivo = await ArquivoPortal.ConferirAsync(arquivo, nomeArquivo, ct);
         await using var db = sistema.Criar(sessao.EmpresaId, "Portal");
         var ex = await db.Exigencias.AsNoTracking().FirstAsync(x => x.Id == exigenciaId, ct);
         var salvo = await armazenamento.SalvarAsync(arquivo, nomeArquivo, ex.Tipo == Domain.Common.TipoExigencia.ExameAso ? "sst-restrito" : "sst", contentType, ct);
@@ -216,7 +237,10 @@ public sealed class PortalServico(FabricaSistema sistema, FabricaDb fabrica, IAr
                    ?? throw new RegraDeNegocioException("Informe o tipo de documento.");
         if (d.FornecedorId == Guid.Empty) throw new RegraDeNegocioException("Informe o fornecedor.");
         if (d.DataEmissao is { } e && d.DataValidade is { } v && v < e) throw new RegraDeNegocioException("Validade anterior à emissão.");
+        if (d.Competencia is { } cpI) d.Competencia = new DateOnly(cpI.Year, cpI.Month, 1);
         var existente = await db.FornecedorDocumentos.FirstOrDefaultAsync(x => x.Id == d.Id, ct);
+        if (d.Competencia is { } c1 && await db.FornecedorDocumentos.AnyAsync(x => x.Id != d.Id && x.FornecedorId == d.FornecedorId && x.TipoDocumentoExigidoId == d.TipoDocumentoExigidoId && x.Competencia == c1, ct))
+            throw new RegraDeNegocioException($"Já existe documento desta competência ({c1:MM/yyyy}). Abra o existente para corrigir.");
         var alvo = existente ?? d;
         if (existente is not null)
         {
@@ -269,15 +293,15 @@ public sealed class PortalServico(FabricaSistema sistema, FabricaDb fabrica, IAr
         var forn = await db.Fornecedores.IgnoreQueryFilters().AsNoTracking().Where(f => f.Id == conv.FornecedorId).Select(f => f.RazaoSocial).FirstAsync(ct);
         var emp = await db.Empresas.AsNoTracking().Where(e => e.Id == loc.EmpresaId).Select(e => e.NomeFantasia != "" ? e.NomeFantasia : e.RazaoSocial).FirstAsync(ct);
         var itens = c.Itens.Where(i => i.FornecedorId == conv.FornecedorId).OrderBy(i => i.Descricao).ToList();
-        var req = c.RequisicaoId is { } rq ? await db.Requisicoes.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(r => r.Id == rq, ct) : null;
+        var req = c.RequisicaoId is { } rq ? await db.Requisicoes.AsNoTracking().FirstOrDefaultAsync(r => r.Id == rq, ct) : null;
         var fat = req?.EstabelecimentoFaturamentoId is { } est
-            ? await db.Estabelecimentos.IgnoreQueryFilters().AsNoTracking().Where(x => x.Id == est).Select(x => x.RazaoSocial + " — CNPJ " + x.Cnpj).FirstOrDefaultAsync(ct)
-            : req?.SpeId is { } sp ? await db.Spes.IgnoreQueryFilters().AsNoTracking().Where(s => s.Id == sp).Select(s => s.RazaoSocial + " — CNPJ " + s.Cnpj).FirstOrDefaultAsync(ct) : null;
+            ? await db.Estabelecimentos.AsNoTracking().Where(x => x.Id == est).Select(x => x.RazaoSocial + " — CNPJ " + x.Cnpj).FirstOrDefaultAsync(ct)
+            : req?.SpeId is { } sp ? await db.Spes.AsNoTracking().Where(s => s.Id == sp).Select(s => s.RazaoSocial + " — CNPJ " + s.Cnpj).FirstOrDefaultAsync(ct) : null;
         var destino = req?.SpeId is { } sp2 && req.EstabelecimentoFaturamentoId is not null
-            ? await db.Spes.IgnoreQueryFilters().AsNoTracking().Where(s => s.Id == sp2).Select(s => "SPE " + (s.NomeFantasia ?? s.RazaoSocial)).FirstOrDefaultAsync(ct) + $" · requisição nº {req.Numero}"
+            ? await db.Spes.AsNoTracking().Where(s => s.Id == sp2).Select(s => "SPE " + (s.NomeFantasia ?? s.RazaoSocial)).FirstOrDefaultAsync(ct) + $" · requisição nº {req.Numero}"
             : null;
         var reqItens = itens.Where(i => i.RequisicaoItemId != null).Select(i => i.RequisicaoItemId!.Value).ToList();
-        var locs = await (from rl in db.RequisicaoItemLocais.AsNoTracking() join l in db.Locais.IgnoreQueryFilters().AsNoTracking() on rl.LocalId equals l.Id
+        var locs = await (from rl in db.RequisicaoItemLocais.AsNoTracking() join l in db.Locais.AsNoTracking() on rl.LocalId equals l.Id
                           where reqItens.Contains(rl.RequisicaoItemId) select new { rl.RequisicaoItemId, l.Codigo, l.Nome, rl.Quantidade }).ToListAsync(ct);
         var porItem = itens.Where(i => i.RequisicaoItemId != null).ToDictionary(i => i.Id,
             i => (IReadOnlyList<(string, decimal)>)locs.Where(x => x.RequisicaoItemId == i.RequisicaoItemId).OrderBy(x => x.Codigo).Select(x => ($"{x.Codigo} – {x.Nome}", x.Quantidade)).ToList());
@@ -292,6 +316,7 @@ public sealed class PortalServico(FabricaSistema sistema, FabricaDb fabrica, IAr
         var c = await db.Cotacoes.IgnoreQueryFilters().Include(x => x.Fornecedores).Include(x => x.Itens).FirstAsync(x => x.Id == loc.CotacaoId, ct);
         if (!CotacaoAberta(c)) throw new RegraDeNegocioException("Esta cotação já foi encerrada. Fale com o setor de Suprimentos.");
         var conv = c.Fornecedores.First(f => f.LinkResposta == token);
+        if (conv.Status == StatusConvite.Declinou) throw new RegraDeNegocioException("Você declinou desta cotação. Fale com Suprimentos para reabrir o convite.");
         var hoje = DateOnly.FromDateTime(relogio.GetLocalNow().Date);
         var erros = new List<string>();
         var meus = c.Itens.Where(i => i.FornecedorId == conv.FornecedorId).ToDictionary(i => i.Id);
@@ -318,5 +343,37 @@ public sealed class PortalServico(FabricaSistema sistema, FabricaDb fabrica, IAr
         if (c.Status is StatusCotacao.Aberto or StatusCotacao.AguardandoPropostas) c.Status = StatusCotacao.EmAnalise;
         c.Recalcular(await ParametrosServico.CarregarAsync(db, ct));
         await db.SaveChangesAsync(ct);
+    }
+}
+
+/// <summary>Conferência do arquivo enviado pelo portal: extensão permitida e conteúdo compatível (assinatura do arquivo), até 20 MB.</summary>
+public static class ArquivoPortal
+{
+    public const long TamanhoMaximo = 20 * 1024 * 1024;
+
+    /// <summary>Confere e devolve um stream posicionável (copia para memória quando o original não permite voltar ao início).</summary>
+    public static async Task<Stream> ConferirAsync(Stream arquivo, string nomeArquivo, CancellationToken ct)
+    {
+        var ext = Path.GetExtension(nomeArquivo).ToLowerInvariant();
+        if (ext is not (".pdf" or ".jpg" or ".jpeg" or ".png")) throw new RegraDeNegocioException("Envie PDF, JPG ou PNG.");
+        if (!arquivo.CanSeek)
+        {
+            var ms = new MemoryStream();
+            await arquivo.CopyToAsync(ms, ct);
+            ms.Position = 0;
+            arquivo = ms;
+        }
+        if (arquivo.Length > TamanhoMaximo) throw new RegraDeNegocioException("Arquivo maior que 20 MB.");
+        var cab = new byte[8];
+        var lidos = await arquivo.ReadAtLeastAsync(cab, cab.Length, throwOnEndOfStream: false, ct);
+        arquivo.Position = 0;
+        var ok = ext switch
+        {
+            ".pdf" => lidos >= 4 && cab[0] == 0x25 && cab[1] == 0x50 && cab[2] == 0x44 && cab[3] == 0x46,             // %PDF
+            ".png" => lidos >= 8 && cab[0] == 0x89 && cab[1] == 0x50 && cab[2] == 0x4E && cab[3] == 0x47,             // .PNG
+            _ => lidos >= 3 && cab[0] == 0xFF && cab[1] == 0xD8 && cab[2] == 0xFF                                     // JPEG
+        };
+        if (!ok) throw new RegraDeNegocioException("O conteúdo do arquivo não corresponde à extensão (envie um PDF, JPG ou PNG válido).");
+        return arquivo;
     }
 }

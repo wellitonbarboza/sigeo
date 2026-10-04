@@ -61,10 +61,10 @@
                     {
                         var q = _qtd[i.Id];
                         var cl = i.LocalId is { } lid ? i.ContratoItem.Locais.FirstOrDefault(x => x.LocalId == lid) : null;
-                        <tr>
+                        <tr @key="(i.Id, _versaoQtd)">
                             <td>@i.ContratoItem.Item</td><td>@i.ContratoItem.Descricao @if (i.LocalId is { } lc) { <div class="mudo">@_locNomes.GetValueOrDefault(lc)</div> }</td><td>@i.ContratoItem.Unidade</td>
                             <td class="num">@Num(cl?.Quantidade ?? i.ContratoItem.Quantidade, 3)</td><td class="num">@Num(i.QtdAnterior, 3)</td>
-                            <td style="width:110px"><input type="number" step="0.001" value="@q.Qtd" @onchange="e => _qtd[i.Id] = (decimal.TryParse(e.Value?.ToString(), System.Globalization.CultureInfo.InvariantCulture, out var d) ? d : 0, q.LocalId, q.FvsId)" disabled="@(!Editavel)" /></td>
+                            <td style="width:110px"><input type="number" step="0.001" value="@q.Qtd.ToString(System.Globalization.CultureInfo.InvariantCulture)" @onchange="e => DefinirQtd(i.Id, e.Value)" disabled="@(!Editavel)" /></td>
                             <td class="num">@Num(i.QtdAcumulada, 3)</td>
                             <td class="num"><div class="barra"><span style="width:@(Math.Min(100, i.PercExecutado).ToString(System.Globalization.CultureInfo.InvariantCulture))%"></span></div>@Num(i.PercExecutado, 1)%</td>
                             <td>@if (i.ContratoItem.ServicoControladoId is not null) { <select value="@q.FvsId" @onchange="e => _qtd[i.Id] = (_qtd[i.Id].Qtd, i.LocalId, Guid.TryParse(e.Value?.ToString(), out var g) ? g : null)" disabled="@(!Editavel)"><option value="">@(i.LocalId is null ? "FVS liberada…" : "automático pelo local")</option>@foreach (var f in _fvsLib.Where(f => f.ServicoControladoId == i.ContratoItem.ServicoControladoId)) { <option value="@f.Id">@f.Numero · @_locNomes.GetValueOrDefault(f.LocalId)</option> }</select> } else { <span class="mudo">—</span> }</td>
@@ -80,10 +80,10 @@
                 @foreach (var (nome, peso, get, set, opcional) in Notas())
                 {
                     var v = get();
-                    <div class="criterio">
+                    <div class="criterio" @key="(nome, _versaoQtd)">
                         <b>@nome @if (opcional) { <small class="mudo">(opcional)</small> }</b><span>peso @Pct(peso)</span>
                         <input type="number" min="0" max="10" step="0.5" value="@v?.ToString(System.Globalization.CultureInfo.InvariantCulture)" disabled="@(!Editavel)"
-                               @onchange="e => set(decimal.TryParse(e.Value?.ToString(), System.Globalization.CultureInfo.InvariantCulture, out var d) ? d : null)" />
+                               @onchange="e => DefinirNota(nome, set, e.Value)" />
                         <div class="barra"><span class="@(v < _p![Parametros.NotaPlanoCompleto] ? "erro" : v < _p[Parametros.NotaPlanoPontual] ? "aviso" : "ok")" style="width:@(((v ?? 0) * 10).ToString(System.Globalization.CultureInfo.InvariantCulture))%"></span></div>
                     </div>
                 }
@@ -124,6 +124,25 @@
     private bool _aberto, _nova;
     private int _versao;
     private Dictionary<Guid, (decimal Qtd, Guid? LocalId, Guid? FvsId)> _qtd = [];
+    private int _versaoQtd;
+
+    /// <summary>Número inválido não vira zero: avisa e mantém o valor anterior.</summary>
+    private void DefinirQtd(Guid item, object? valor)
+    {
+        if (!string.IsNullOrWhiteSpace(valor?.ToString()) && LerDecimal(valor, out var d) && d >= 0) { var q = _qtd[item]; _qtd[item] = (d, q.LocalId, q.FvsId); ErrosForm = null; return; }
+        ErrosForm = [$"Quantidade do período inválida: \"{valor}\". Mantido o valor anterior."];
+        Notif.Erro(ErrosForm[0]);
+        _versaoQtd++;
+    }
+
+    private void DefinirNota(string criterio, Action<decimal?> set, object? valor)
+    {
+        if (string.IsNullOrWhiteSpace(valor?.ToString())) { set(null); return; }
+        if (LerDecimal(valor, out var d) && d is >= 0 and <= 10) { set(d); ErrosForm = null; return; }
+        ErrosForm = [$"Nota inválida em \"{criterio}\": \"{valor}\" (0 a 10). Mantida a nota anterior."];
+        Notif.Erro(ErrosForm[0]);
+        _versaoQtd++;
+    }
     private List<Fvs> _fvsLib = [];
     private Dictionary<Guid, string> _locNomes = [];
     private int _colabBloq;

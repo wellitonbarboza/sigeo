@@ -63,7 +63,7 @@
                 <table class="itens" id="forn-grupos"><thead><tr><th>Grupo</th><th>Subgrupos (vazio = todos)</th><th></th></tr></thead>
                     <tbody>@foreach (var g in _f.Grupos)
                     {
-                        <tr><td><select @bind="g.CategoriaProdutoId"><option value="@Guid.Empty">—</option>@foreach (var x in _cats.Where(c => c.PaiId == null)) { <option value="@x.Id">@x.Nome</option> }</select></td>
+                        <tr @key="g"><td><select value="@g.CategoriaProdutoId" @onchange="e => TrocarGrupo(g, e.Value?.ToString())"><option value="@Guid.Empty">—</option>@foreach (var x in _cats.Where(c => c.PaiId == null)) { <option value="@x.Id">@x.Nome</option> }</select></td>
                             <td>@foreach (var sg in _cats.Where(c => c.PaiId == g.CategoriaProdutoId)) { <label class="check-linha" style="margin-right:10px"><input type="checkbox" checked="@((g.Subgrupos ?? "").Contains(sg.Id.ToString()))" @onchange="e => MarcarSub(g, sg.Id, (bool)e.Value!)" /> @sg.Nome</label> }
                                 @if (g.Todos) { <span class="mudo">todos os subgrupos</span> }</td>
                             <td><button class="icone-btn" @onclick="() => _f.Grupos.Remove(g)"><Icone Nome="lixeira" Tam="16" /></button></td></tr>
@@ -151,7 +151,7 @@
                 <table class="itens"><thead><tr><th>Nome</th><th>Função / setor</th><th>Telefone</th><th>Celular</th><th>E-mail</th><th>Principal</th><th></th></tr></thead>
                     <tbody>@foreach (var c in _f.Contatos)
                     {
-                        <tr><td><input @bind="c.Nome" /></td><td><input @bind="c.Funcao" list="funcoesContato" /></td><td><input @bind="c.Telefone" /></td><td><input @bind="c.Celular" /></td><td><input @bind="c.Email" type="email" /></td>
+                        <tr @key="c"><td><input @bind="c.Nome" /></td><td><input @bind="c.Funcao" list="funcoesContato" /></td><td><input @bind="c.Telefone" /></td><td><input @bind="c.Celular" /></td><td><input @bind="c.Email" type="email" /></td>
                             <td style="text-align:center"><input type="checkbox" @bind="c.Principal" /></td><td><button class="btn sec pq" title="Remover" @onclick="() => _f.Contatos.Remove(c)"><Icone Nome="lixeira" Tam="14" /></button></td></tr>
                     }</tbody></table>
                 <datalist id="funcoesContato"><option>Comercial</option><option>Financeiro</option><option>Técnico</option><option>Qualidade</option><option>Segurança do trabalho</option><option>Logística</option></datalist>
@@ -184,11 +184,11 @@
                 <Campo Rotulo="E-mail (recebe o link)" Obrigatorio Classe="s3"><input id="pre-email" type="email" @bind="_f.Emails" /></Campo>
                 <Campo Rotulo="Fornece" Obrigatorio Classe="s12">
                     <div class="checks">
-                        <label><input type="checkbox" id="pre-mat" checked="@_f.TipoFornecimento.HasFlag(TipoFornecimento.Material)" @onchange="e => MarcarPre(TipoFornecimento.Material, (bool)e.Value!)" /> Material</label>
-                        <label><input type="checkbox" id="pre-serv" checked="@_f.TipoFornecimento.HasFlag(TipoFornecimento.ServicoObra)" @onchange="e => MarcarPre(TipoFornecimento.ServicoObra, (bool)e.Value!)" /> Serviço de obra</label>
+                        <label><input type="checkbox" id="pre-mat" checked="@_f.TipoFornecimento.HasFlag(TipoFornecimento.Material)" @onchange="async e => await MarcarPre(TipoFornecimento.Material, (bool)e.Value!)" /> Material</label>
+                        <label><input type="checkbox" id="pre-serv" checked="@_f.TipoFornecimento.HasFlag(TipoFornecimento.ServicoObra)" @onchange="async e => await MarcarPre(TipoFornecimento.ServicoObra, (bool)e.Value!)" /> Serviço de obra</label>
                         @foreach (var t in new[] { TipoFornecimento.ServicoEspecializadoEngenharia, TipoFornecimento.Laboratorio, TipoFornecimento.Consultoria, TipoFornecimento.Locacao })
                         {
-                            <label><input type="checkbox" checked="@_f.TipoFornecimento.HasFlag(t)" @onchange="e => MarcarPre(t, (bool)e.Value!)" /> @De(t)</label>
+                            <label><input type="checkbox" checked="@_f.TipoFornecimento.HasFlag(t)" @onchange="async e => await MarcarPre(t, (bool)e.Value!)" /> @De(t)</label>
                         }
                         <label style="margin-left:18px"><input type="checkbox" id="pre-func" checked="@_f.IncluirDocsFuncionarios" @onchange="async e => { _f.IncluirDocsFuncionarios = (bool)e.Value!; await AplicarMatriz(); }" /> Incluir documentos dos funcionários</label>
                     </div>
@@ -296,6 +296,7 @@
     {
         await CarregarApoio();
         _f = new Fornecedor { PreCadastro = true, TipoFornecimento = TipoFornecimento.Material };
+        _daMatriz.Clear();
         await AplicarMatriz();
         _link = null; ErrosForm = null; _abertoPre = true;
     }
@@ -308,13 +309,38 @@
         _novo = false; _link = null; ErrosForm = null; _aberto = true;
     }
 
-    private void MarcarPre(TipoFornecimento t, bool on) { _f!.TipoFornecimento = on ? _f.TipoFornecimento | t : _f.TipoFornecimento & ~t; _ = AplicarMatriz(); }
+    private async Task MarcarPre(TipoFornecimento t, bool on)
+    {
+        _f!.TipoFornecimento = on ? _f.TipoFornecimento | t : _f.TipoFornecimento & ~t;
+        await AplicarMatriz();
+    }
 
+    /// <summary>Documentos que entraram sozinhos pela matriz (os incluídos/ajustados à mão nunca são tirados).</summary>
+    private readonly HashSet<Guid> _daMatriz = [];
+
+    /// <summary>Mescla a matriz: mantém o que já está (com os ajustes manuais), acrescenta o que falta
+    /// e só retira o que a própria matriz tinha incluído e deixou de valer para o tipo de fornecimento.</summary>
     private async Task AplicarMatriz()
     {
-        var m = await Forn.MatrizAsync(_f!.TipoFornecimento, _f.IncluirDocsFuncionarios);
-        _f.Exigencias = m.Select(t => new FornecedorExigencia { FornecedorId = _f.Id, TipoDocumentoExigidoId = t.Id, Obrigatorio = t.Obrigatorio }).ToList();
-        StateHasChanged();
+        var f = _f!;
+        var m = await Forn.MatrizAsync(f.TipoFornecimento, f.IncluirDocsFuncionarios);
+        var novos = m.Select(t => t.Id).ToHashSet();
+        foreach (var x in f.Exigencias.Where(x => _daMatriz.Contains(x.TipoDocumentoExigidoId) && !novos.Contains(x.TipoDocumentoExigidoId)).ToList())
+        { f.Exigencias.Remove(x); _daMatriz.Remove(x.TipoDocumentoExigidoId); }
+        var existentes = f.Exigencias.Select(x => x.TipoDocumentoExigidoId).ToHashSet();
+        foreach (var t in m.Where(t => !existentes.Contains(t.Id)))
+        {
+            f.Exigencias.Add(new FornecedorExigencia { FornecedorId = f.Id, TipoDocumentoExigidoId = t.Id, Obrigatorio = t.Obrigatorio });
+            _daMatriz.Add(t.Id);
+        }
+    }
+
+    private void TrocarGrupo(FornecedorGrupo g, string? v)
+    {
+        var novo = Guid.TryParse(v, out var id) ? id : Guid.Empty;
+        if (novo == g.CategoriaProdutoId) return;
+        g.CategoriaProdutoId = novo;
+        g.Subgrupos = null; // subgrupos eram do grupo anterior
     }
 
     private void MarcarSub(FornecedorGrupo g, Guid sub, bool on)

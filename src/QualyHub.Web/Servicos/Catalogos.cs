@@ -13,8 +13,8 @@ public sealed record ProdutoBusca(Guid Id, string Codigo, string Nome, string Un
     public string Busca { get; } = Rotulos.SemAcento($"{Codigo} {Nome} {Grupo} {SubGrupo}");
 }
 
-/// <summary>Listas para os combos das telas (cache curto por circuito).</summary>
-public sealed class Catalogos(FabricaDb fabrica)
+/// <summary>Listas para os combos das telas (cache curto por circuito — escopo = um usuário).</summary>
+public sealed class Catalogos(FabricaDb fabrica, QualyHub.Web.Seguranca.UsuarioAtualWeb usuario)
 {
     private readonly Dictionary<string, (DateTime Em, object Valor)> _cache = [];
 
@@ -34,10 +34,17 @@ public sealed class Catalogos(FabricaDb fabrica)
         return await db.Listas.AsNoTracking().Where(l => l.Tipo == tipo && l.Ativo).OrderBy(l => l.Ordem).ThenBy(l => l.Nome).Select(l => l.Nome).ToListAsync();
     });
 
-    public Task<List<Opcao>> ObrasAsync() => Cache("obras", async () =>
+    /// <summary>Obras ativas que o usuário pode acessar (todas, ou só as permitidas no cadastro dele).</summary>
+    public Task<List<Opcao>> ObrasAsync() => Cache($"obras:{usuario.UsuarioId}", async () =>
     {
         await using var db = fabrica.Criar();
-        return await db.Obras.AsNoTracking().Where(o => o.Ativa).OrderBy(o => o.Nome).Select(o => new Opcao(o.Id, o.Nome, o.Codigo)).ToListAsync();
+        var q = db.Obras.AsNoTracking().Where(o => o.Ativa);
+        if (!usuario.AcessoTodasObras)
+        {
+            var permitidas = usuario.ObrasPermitidas.ToList();
+            q = q.Where(o => permitidas.Contains(o.Id));
+        }
+        return await q.OrderBy(o => o.Nome).Select(o => new Opcao(o.Id, o.Nome, o.Codigo)).ToListAsync();
     });
 
     /// <summary>SPEs ativas; Extra = ObraId (filtrar pela obra da tela).</summary>

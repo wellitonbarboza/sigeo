@@ -51,6 +51,7 @@ internal sealed class LocalCfg : IEntityTypeConfiguration<Local>
         b.Property(x => x.Perimetro).HasPrecision(18, 4);
         b.Property(x => x.PeDireito).HasPrecision(18, 4);
         b.Property(x => x.AreaParede).HasPrecision(18, 4);
+        b.HasOne<Domain.Engenharia.TipologiaAmbiente>().WithMany().HasForeignKey(x => x.AmbienteModeloId);
         b.HasIndex(x => x.AmbienteModeloId);
     }
 }

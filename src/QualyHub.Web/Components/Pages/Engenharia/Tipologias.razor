@@ -7,9 +7,9 @@
     <ChildContent>
         <div class="pagina">
             <div class="barra-filtro">
-                <label>Obra <select id="tip-obra" value="@_obraId" @onchange="async e => { _obraId = Guid.TryParse(e.Value?.ToString(), out var g) ? g : null; await Carregar(); }"><option value="">Selecione…</option>@foreach (var o in _obras) { <option value="@o.Id">@o.Texto</option> }</select></label>
+                <label>Obra <select id="tip-obra" value="@_obraId" @onchange="async e => { _obraId = Guid.TryParse(e.Value?.ToString(), out var g) ? g : null; _t = null; _aberto = false; _fTexto = null; _fGrupo = null; _soMarcados = false; await Carregar(); }"><option value="">Selecione…</option>@foreach (var o in _obras) { <option value="@o.Id">@o.Texto</option> }</select></label>
                 <div class="filtros-rapidos">@foreach (var t in Enum.GetValues<TipoTipologia>()) { <label><input type="radio" name="ttip" checked="@(_tipo == t)" @onchange="() => _tipo = t" /> @De(t)</label> }</div>
-                <a class="btn sec" href="engenharia/obras"><Icone Nome="predio" Tam="14" /> Estrutura e gerador</a>
+                <a class="btn sec" href="@(_obraId is null ? "engenharia/obras" : $"engenharia/obras?obra={_obraId}")"><Icone Nome="predio" Tam="14" /> Estrutura e gerador</a>
             </div>
             @if (_obraId is null) { <div class="alerta info"><Icone Nome="info" /> Escolha a obra.</div> }
             else
@@ -21,7 +21,7 @@
                         <Coluna T="Tipologia" Titulo="Área privativa (m²)" Valor="t => t.Tipo == TipoTipologia.Apartamento ? t.AreaPrivativa : (decimal?)null" Formato="N2" Alinhar="num" />
                         <Coluna T="Tipologia" Titulo="Pavimentos" Valor="t => t.Tipo == TipoTipologia.Torre ? t.Pavimentos : (int?)null" Alinhar="num" />
                         <Coluna T="Tipologia" Titulo="Ambientes" Valor="t => t.Ambientes.Count" Alinhar="num" />
-                        <Coluna T="Tipologia" Titulo="Serviços marcados" Valor="t => _aplic.Count(a => a.TipologiaId == t.Id)" Alinhar="num" />
+                        <Coluna T="Tipologia" Titulo="Serviços marcados" Valor="t => _qtdMarcados.GetValueOrDefault(t.Id)" Alinhar="num" />
                         <Coluna T="Tipologia" Titulo="Locais gerados" Valor="t => _usos.GetValueOrDefault(t.Id)" Alinhar="num" />
                     </Colunas>
                 </Grade>
@@ -71,7 +71,7 @@
                         <tbody>
                             @foreach (var m in _t.Mix.OrderBy(m => m.Ordem))
                             {
-                                <tr><td style="width:90px"><input type="number" min="1" @bind="m.PavimentoDe" /></td><td style="width:90px"><input type="number" min="1" @bind="m.PavimentoAte" /></td>
+                                <tr @key="m"><td style="width:90px"><input type="number" min="1" @bind="m.PavimentoDe" /></td><td style="width:90px"><input type="number" min="1" @bind="m.PavimentoAte" /></td>
                                     <td><select @bind="m.ApartamentoTipologiaId"><option value="@Guid.Empty">—</option>@foreach (var a in _lista.Where(x => x.Tipo == TipoTipologia.Apartamento)) { <option value="@a.Id">@a.Codigo – @a.Nome (@a.AreaPrivativa.ToString("N2", Br) m²)</option> }</select></td>
                                     <td style="width:120px"><input type="number" min="1" @bind="m.Quantidade" /></td>
                                     <td><button class="icone-btn" @onclick="() => _t.Mix.Remove(m)"><Icone Nome="lixeira" Tam="16" /></button></td></tr>
@@ -89,7 +89,7 @@
                     <tbody>
                         @foreach (var a in _t.Ambientes.OrderBy(a => a.Ordem))
                         {
-                            <tr><td><input @bind="a.Nome" style="min-width:140px" /></td><td style="width:80px"><input @bind="a.Sigla" maxlength="8" style="text-transform:uppercase" placeholder="auto" /></td>
+                            <tr @key="a"><td><input @bind="a.Nome" style="min-width:140px" /></td><td style="width:80px"><input @bind="a.Sigla" maxlength="8" style="text-transform:uppercase" placeholder="auto" /></td>
                                 <td><input @bind="a.Categoria" list="tipos-comodo" style="min-width:120px" /></td>
                                 @if (_t.Tipo == TipoTipologia.Torre)
                                 {
@@ -113,18 +113,20 @@
             {
                 <div class="barra-filtro">
                     <label>Grupo <select @bind="_fGrupo"><option value="">Todos</option>@foreach (var g in _grupos) { <option>@g</option> }</select></label>
-                    <label>Buscar <input @bind="_fTexto" @bind:event="oninput" placeholder="serviço…" /></label>
+                    <label>Buscar <input @bind="_fTexto" @bind:event="onchange" placeholder="serviço… (Enter)" /></label>
                     <label class="check-linha"><input type="checkbox" @bind="_soMarcados" /> só marcados</label>
                     <a class="btn sec pq" href="engenharia/composicoes" target="_blank">Serviços e composições ↗</a>
                 </div>
+                @if (_t.Ambientes.Any(a => !_ambSalvos.Contains(a.Id))) { <div class="alerta aviso"><Icone Nome="alerta" /> Há ambientes ainda não salvos — salve a tipologia (aba Dados) para que apareçam na matriz.</div> }
                 <div style="overflow:auto;max-height:60vh">
                     <table class="itens matriz-serv" id="matriz-serv">
-                        <thead><tr><th style="min-width:240px">Serviço</th><th>Un.</th>@foreach (var c in Colunas()) { <th title="@c.Titulo" class="num">@c.Rotulo</th> }</tr></thead>
+                        @{ var cols = Colunas().ToList(); }
+                        <thead><tr><th style="min-width:240px">Serviço</th><th>Un.</th>@foreach (var c in cols) { <th title="@c.Titulo" class="num">@c.Rotulo</th> }</tr></thead>
                         <tbody>
                             @foreach (var s in ServicosFiltrados())
                             {
-                                <tr><td>@s.Codigo – @s.Descricao<br /><span class="mudo">@De(s.Regra)</span></td><td>@s.Unidade</td>
-                                    @foreach (var c in Colunas())
+                                <tr @key="(s.Id, _versaoMatriz)"><td>@s.Codigo – @s.Descricao<br /><span class="mudo">@De(s.Regra)</span></td><td>@s.Unidade</td>
+                                    @foreach (var c in cols)
                                     {
                                         var marcado = Marcado(s.Id, c.Alvo, c.AmbienteId);
                                         <td class="num"><input type="checkbox" checked="@marcado" disabled="@Ocupado" @onchange="e => Marcar(s.Id, c.Alvo, c.AmbienteId, (bool)e.Value!)" /></td>
@@ -141,7 +143,7 @@
     <Rodape>
         @if (_t is not null && _abaEd == "dados")
         {
-            @if (_t.CriadoEm != default) { <div class="esq"><button class="btn sec" @onclick="Copiar"><Icone Nome="mais" Tam="14" /> Copiar como nova</button></div> }
+            @if (_t.CriadoEm != default) { <div class="esq"><button class="btn sec" disabled="@Ocupado" @onclick="Copiar"><Icone Nome="mais" Tam="14" /> Copiar como nova</button></div> }
             <button class="btn prim" id="tip-salvar" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="16" /> Salvar</button>
         }
     </Rodape>
@@ -162,6 +164,13 @@
     private bool _aberto, _soMarcados;
     private string _abaEd = "dados";
     private string? _fGrupo, _fTexto;
+    [SupplyParameterFromQuery(Name = "obra")] public Guid? ObraQuery { get; set; }
+    /// <summary>Marcações (tipologia, serviço, alvo, ambiente) para consulta O(1) na matriz.</summary>
+    private HashSet<(Guid Tip, Guid Comp, AlvoServico Alvo, Guid? Amb)> _marcados = [];
+    private HashSet<(Guid Tip, Guid Comp)> _marcadosComp = [];
+    private Dictionary<Guid, int> _qtdMarcados = [];
+    private HashSet<Guid> _ambSalvos = [];
+    private int _versaoMatriz;
     private static readonly List<(string, string)> _abasEd = [("dados", "Dados e ambientes"), ("serv", "Serviços")];
 
     protected override async Task OnInitializedAsync()
@@ -169,7 +178,8 @@
         _obras = await Cat.ObrasAsync();
         _comodos = await Cat.ListaAsync(TipoLista.TipoComodo);
         _grupos = await Cat.ListaAsync(TipoLista.GrupoServico);
-        if (_obras.Count == 1) _obraId = _obras[0].Id;
+        if (ObraQuery is { } q && _obras.Any(o => o.Id == q)) _obraId = q;
+        else if (_obras.Count == 1) _obraId = _obras[0].Id;
         await Carregar();
     }
 
@@ -179,14 +189,23 @@
         await using var db = Fabrica.Criar();
         _lista = await db.Tipologias.AsNoTracking().Include(t => t.Ambientes).Include(t => t.Mix).Where(t => t.ObraId == o).OrderBy(t => t.Codigo).ToListAsync();
         _aplic = await db.ServicoAplicacoes.AsNoTracking().Where(a => a.ObraId == o).ToListAsync();
+        Indexar();
         _usos = await db.Locais.AsNoTracking().Where(l => l.ObraId == o && l.TipologiaId != null).GroupBy(l => l.TipologiaId!.Value).Select(g => new { g.Key, N = g.Count() }).ToDictionaryAsync(x => x.Key, x => x.N);
         _comps = await db.Composicoes.AsNoTracking().Where(c => c.Ativa).OrderBy(c => c.Grupo).ThenBy(c => c.Codigo).ToListAsync();
+    }
+
+    private void Indexar()
+    {
+        _marcados = _aplic.Select(a => (a.TipologiaId, a.ComposicaoId, a.Alvo, a.AmbienteModeloId)).ToHashSet();
+        _marcadosComp = _aplic.Select(a => (a.TipologiaId, a.ComposicaoId)).ToHashSet();
+        _qtdMarcados = _aplic.GroupBy(a => a.TipologiaId).ToDictionary(g => g.Key, g => g.Count());
     }
 
     private void Novo()
     {
         if (_obraId is not { } o) return;
         _t = new Tipologia { ObraId = o, Tipo = _tipo, PeDireitoPadrao = 2.90m, Pavimentos = _tipo == TipoTipologia.Torre ? 4 : 0 };
+        _ambSalvos = [];
         _abaEd = "dados"; ErrosForm = null; _aberto = true;
     }
 
@@ -194,6 +213,7 @@
     {
         await using var db = Fabrica.Criar();
         _t = await db.Tipologias.AsNoTracking().Include(x => x.Ambientes).Include(x => x.Mix).FirstAsync(x => x.Id == t.Id);
+        _ambSalvos = _t.Ambientes.Select(a => a.Id).ToHashSet();
         _abaEd = "dados"; ErrosForm = null; _aberto = true;
     }
 
@@ -233,7 +253,7 @@
     private IEnumerable<Col> Colunas()
     {
         var t = _t!;
-        foreach (var a in t.Ambientes.OrderBy(a => a.Ordem)) yield return new Col(a.Sigla ?? a.Nome, a.Nome, AlvoServico.Ambiente, a.Id);
+        foreach (var a in t.Ambientes.Where(a => _ambSalvos.Contains(a.Id)).OrderBy(a => a.Ordem)) yield return new Col(a.Sigla ?? a.Nome, a.Nome, AlvoServico.Ambiente, a.Id);
         if (t.Tipo == TipoTipologia.Apartamento) yield return new Col("APTO", "Apartamento inteiro", AlvoServico.Apartamento, null);
         if (t.Tipo == TipoTipologia.Torre) { yield return new Col("PAV", "Cada pavimento", AlvoServico.Pavimento, null); yield return new Col("TORRE", "Torre", AlvoServico.Torre, null); }
         if (t.Tipo == TipoTipologia.Implantacao) yield return new Col("COND", "Condomínio", AlvoServico.Condominio, null);
@@ -243,17 +263,17 @@
     {
         var termo = Rotulos.SemAcento(_fTexto);
         return _comps.Where(c => (string.IsNullOrEmpty(_fGrupo) || c.Grupo == _fGrupo) && (termo.Length == 0 || Rotulos.SemAcento(c.Codigo + " " + c.Descricao).Contains(termo))
-                                && (!_soMarcados || _aplic.Any(a => a.TipologiaId == _t!.Id && a.ComposicaoId == c.Id)));
+                                && (!_soMarcados || _marcadosComp.Contains((_t!.Id, c.Id))));
     }
 
-    private bool Marcado(Guid comp, AlvoServico alvo, Guid? amb) => _aplic.Any(a => a.TipologiaId == _t!.Id && a.ComposicaoId == comp && a.Alvo == alvo && a.AmbienteModeloId == amb);
+    private bool Marcado(Guid comp, AlvoServico alvo, Guid? amb) => _marcados.Contains((_t!.Id, comp, alvo, amb));
 
     private async Task Marcar(Guid comp, AlvoServico alvo, Guid? amb, bool on)
     {
-        if (await Executar(() => Orc.MarcarAplicacaoAsync(_t!.Id, comp, alvo, amb, on)))
-        {
-            await using var db = Fabrica.Criar();
-            _aplic = await db.ServicoAplicacoes.AsNoTracking().Where(a => a.ObraId == _obraId).ToListAsync();
-        }
+        var ok = await Executar(() => Orc.MarcarAplicacaoAsync(_t!.Id, comp, alvo, amb, on));
+        await using var db = Fabrica.Criar();
+        _aplic = await db.ServicoAplicacoes.AsNoTracking().Where(a => a.ObraId == _obraId).ToListAsync();
+        Indexar();
+        if (!ok) _versaoMatriz++; // falhou: recria as linhas para o checkbox voltar ao estado gravado
     }
 }
