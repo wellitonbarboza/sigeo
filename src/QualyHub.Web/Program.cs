@@ -38,6 +38,7 @@ if (builder.Configuration["QualyHub:BlobUri"] is { Length: > 0 } blobUri)
 else
     builder.Services.AddSingleton<IArmazenamento>(new ArmazenamentoLocal(
         builder.Configuration["Armazenamento:PastaLocal"] is { Length: > 0 } pasta ? pasta : Path.Combine(builder.Environment.ContentRootPath, "App_Data", "arquivos")));
+builder.Services.AddQualyHubComunicacao(builder.Configuration, builder.Environment.IsDevelopment());
 builder.Services.AddScoped<Notificacoes>();
 builder.Services.AddScoped<Catalogos>();
 builder.Services.AddScoped<EstadoGrades>();

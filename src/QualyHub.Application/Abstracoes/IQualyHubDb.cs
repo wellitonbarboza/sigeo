@@ -160,4 +160,5 @@ public interface IQualyHubDb : IDisposable, IAsyncDisposable
     DbSet<LoteImportacao> LotesImportacao { get; }
     DbSet<LinhaImportacao> LinhasImportacao { get; }
     DbSet<RegistroAuditoria> Auditoria { get; }
+    DbSet<CodigoAcessoFornecedor> CodigosAcessoFornecedor { get; }
 }

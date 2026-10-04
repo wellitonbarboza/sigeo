@@ -3,6 +3,7 @@ using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.Extensions.Options;
 using QualyHub.Domain.Estrutura;
 using QualyHub.Infrastructure.Servicos;
 
@@ -17,11 +18,37 @@ public static class Autenticacao
 {
     public const string ClaimTrocarSenha = "qh:trocar-senha";
     public const string PoliticaLogin = "login";
+    /// <summary>Área do Fornecedor: cookie próprio, separado do login interno (o fornecedor nunca vê telas internas).</summary>
+    public const string EsquemaFornecedor = "Fornecedor";
+    public const string PoliticaFornecedor = "fornecedor";
+    public const string LimiteFornecedor = "fornecedor-codigo";
+    private const string EsquemaSeletor = "QualyHub";
+    private const string EsquemaCircuito = "QualyHubCircuito";
 
     public static void Configurar(WebApplicationBuilder builder)
     {
-        builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
-            .AddCookie(o =>
+        builder.Services.AddAuthentication(o => { o.DefaultScheme = EsquemaSeletor; o.DefaultChallengeScheme = EsquemaSeletor; })
+            // Escolhe o cookie pela área: /fornecedor/* usa a sessão do fornecedor, o resto o login interno.
+            // O circuito do Blazor (/_blazor) não tem área (a conexão WebSocket nem sempre manda Referer): lê os dois cookies
+            // e junta as identidades; cada tela confere a sua (interna exige empresa; a do fornecedor, o CNPJ verificado).
+            .AddPolicyScheme(EsquemaSeletor, "QualyHub", o => o.ForwardDefaultSelector = ctx =>
+                ctx.Request.Path.StartsWithSegments("/_blazor") ? EsquemaCircuito
+                : ctx.Request.Path.StartsWithSegments("/fornecedor") ? EsquemaFornecedor
+                : CookieAuthenticationDefaults.AuthenticationScheme)
+            .AddScheme<AuthenticationSchemeOptions, AutenticacaoCircuito>(EsquemaCircuito, null)
+            .AddCookie(EsquemaFornecedor, o =>
+            {
+                o.LoginPath = "/fornecedor";
+                o.LogoutPath = "/fornecedor/sair";
+                o.AccessDeniedPath = "/fornecedor";
+                o.ExpireTimeSpan = TimeSpan.FromHours(8);
+                o.SlidingExpiration = false; // sessão do fornecedor não se renova sozinha: depois de 8 h, novo código
+                o.Cookie.Name = "qualyhub-fornecedor";
+                o.Cookie.HttpOnly = true;
+                o.Cookie.SameSite = SameSiteMode.Lax;
+                o.Cookie.SecurePolicy = builder.Environment.IsDevelopment() ? CookieSecurePolicy.SameAsRequest : CookieSecurePolicy.Always;
+            })
+            .AddCookie(CookieAuthenticationDefaults.AuthenticationScheme, o =>
             {
                 o.LoginPath = "/login";
                 o.LogoutPath = "/conta/sair";
@@ -33,17 +60,34 @@ public static class Autenticacao
                 o.Cookie.SameSite = SameSiteMode.Lax;
                 o.Cookie.SecurePolicy = builder.Environment.IsDevelopment() ? CookieSecurePolicy.SameAsRequest : CookieSecurePolicy.Always;
             });
-        builder.Services.AddAuthorization();
+        builder.Services.AddAuthorization(o =>
+        {
+            // [Authorize] das telas internas: só usuário interno (tem empresa no cookie). A sessão do fornecedor não serve.
+            o.DefaultPolicy = new Microsoft.AspNetCore.Authorization.AuthorizationPolicyBuilder(CookieAuthenticationDefaults.AuthenticationScheme)
+                .RequireAuthenticatedUser().RequireClaim(ClaimsQh.EmpresaId).Build();
+            o.AddPolicy(PoliticaFornecedor, p => p.AddAuthenticationSchemes(EsquemaFornecedor).RequireAuthenticatedUser()
+                .RequireClaim(ClaimsFornecedor.Documento).RequireClaim(ClaimsFornecedor.Destino));
+        });
         builder.Services.AddCascadingAuthenticationState();
         // Até 30 tentativas por minuto por IP nas telas de senha (escritório inteiro pode sair pelo mesmo IP),
         // além do bloqueio por usuário após 5 erros.
         builder.Services.AddRateLimiter(o =>
         {
             o.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-            o.OnRejected = (ctx, _) => { ctx.HttpContext.Response.Redirect("/login?erro=limite"); return ValueTask.CompletedTask; };
+            o.OnRejected = (ctx, _) =>
+            {
+                ctx.HttpContext.Response.Redirect(ctx.HttpContext.Request.Path.StartsWithSegments("/fornecedor")
+                    ? "/fornecedor?erro=" + Uri.EscapeDataString("Muitas tentativas a partir desta rede. Aguarde alguns minutos.")
+                    : "/login?erro=limite");
+                return ValueTask.CompletedTask;
+            };
             o.AddPolicy(PoliticaLogin, ctx => RateLimitPartition.GetFixedWindowLimiter(
                 ctx.Connection.RemoteIpAddress?.ToString() ?? "desconhecido",
                 _ => new FixedWindowRateLimiterOptions { PermitLimit = 30, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+            // Área do Fornecedor (pública): consulta de contatos, envio e conferência de código — além dos limites por CNPJ no serviço.
+            o.AddPolicy(LimiteFornecedor, ctx => RateLimitPartition.GetFixedWindowLimiter(
+                ctx.Connection.RemoteIpAddress?.ToString() ?? "desconhecido",
+                _ => new FixedWindowRateLimiterOptions { PermitLimit = 60, Window = TimeSpan.FromMinutes(5), QueueLimit = 0 }));
         });
     }
 
@@ -71,6 +115,10 @@ public static class Autenticacao
         var id = new ClaimsIdentity(Claims(u, empresaNome, trocarSenha), CookieAuthenticationDefaults.AuthenticationScheme);
         await http.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(id));
     }
+
+    /// <summary>Retorno da Área do Fornecedor: só endereços dentro de /fornecedor (sem redirecionamento aberto).</summary>
+    public static string RetornoFornecedor(string? r) =>
+        r is { Length: > 1 } && r.StartsWith("/fornecedor/") && !r.StartsWith("//") && !r.Contains('\\') ? r : "/fornecedor/area";
 
     private static string Retorno(string? r) => r is { Length: > 1 } && r.StartsWith('/') && !r.StartsWith("//") && !r.StartsWith("/\\") ? r : "/";
 
@@ -116,6 +164,50 @@ public static class Autenticacao
             return Results.Redirect("/login?ok=senha");
         }).DisableAntiforgery().RequireRateLimiting(PoliticaLogin);
 
+        // ───── Área do Fornecedor: código de acesso ─────
+        app.MapPost("/fornecedor/codigo", async (HttpContext http, IAntiforgery af, AcessoFornecedorServico acesso) =>
+        {
+            if (!await af.IsRequestValidAsync(http)) return Results.Redirect("/fornecedor?erro=" + Uri.EscapeDataString("A página ficou aberta por muito tempo. Tente de novo."));
+            var f = await http.Request.ReadFormAsync();
+            var doc = f["doc"].ToString(); var volta = RetornoFornecedor(f["volta"]);
+            // Opção escolhida = "<contato>|<canal>" (um rádio por contato e canal; funciona sem JavaScript).
+            var sel = f["sel"].ToString().Split('|');
+            var contato = Guid.TryParse(sel[0], out var cid) ? cid : Guid.Empty;
+            var canal = sel.Length > 1 && sel[1] == "whatsapp" ? Domain.Cadastros.CanalCodigo.WhatsApp : Domain.Cadastros.CanalCodigo.Email;
+            try
+            {
+                var destino = await acesso.EnviarCodigoAsync(doc, contato, canal, http.Connection.RemoteIpAddress?.ToString(), http.RequestAborted);
+                return Results.Redirect($"/fornecedor?doc={Uri.EscapeDataString(doc)}&enviado={Uri.EscapeDataString(destino)}&volta={Uri.EscapeDataString(volta)}");
+            }
+            catch (Domain.Aprovacoes.RegraDeNegocioException e)
+            { return Results.Redirect($"/fornecedor?doc={Uri.EscapeDataString(doc)}&volta={Uri.EscapeDataString(volta)}&erro={Uri.EscapeDataString(e.Message)}"); }
+        }).DisableAntiforgery().RequireRateLimiting(LimiteFornecedor);
+
+        app.MapPost("/fornecedor/entrar", async (HttpContext http, IAntiforgery af, AcessoFornecedorServico acesso) =>
+        {
+            if (!await af.IsRequestValidAsync(http)) return Results.Redirect("/fornecedor?erro=" + Uri.EscapeDataString("A página ficou aberta por muito tempo. Tente de novo."));
+            var f = await http.Request.ReadFormAsync();
+            var doc = f["doc"].ToString(); var volta = RetornoFornecedor(f["volta"]);
+            try
+            {
+                var id = await acesso.EntrarAsync(doc, f["codigo"], http.RequestAborted);
+                var ident = new ClaimsIdentity([new(ClaimsFornecedor.Documento, id.Documento), new(ClaimsFornecedor.Destino, id.DestinoVerificado),
+                                                new(ClaimTypes.Name, id.DestinoVerificado)], EsquemaFornecedor);
+                await http.SignInAsync(EsquemaFornecedor, new ClaimsPrincipal(ident));
+                return Results.Redirect(volta);
+            }
+            catch (Domain.Aprovacoes.RegraDeNegocioException e)
+            {
+                return Results.Redirect($"/fornecedor?doc={Uri.EscapeDataString(doc)}&enviado={Uri.EscapeDataString(f["enviado"].ToString())}&volta={Uri.EscapeDataString(volta)}&erro={Uri.EscapeDataString(e.Message)}");
+            }
+        }).DisableAntiforgery().RequireRateLimiting(LimiteFornecedor);
+
+        app.MapGet("/fornecedor/sair", async (HttpContext http) =>
+        {
+            await http.SignOutAsync(EsquemaFornecedor);
+            return Results.Redirect("/fornecedor?saiu=1");
+        });
+
         app.MapGet("/conta/sair", async (HttpContext http) =>
         {
             await http.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
@@ -134,4 +226,21 @@ public static class Autenticacao
         }
         await next();
     });
+}
+
+/// <summary>
+/// Autenticação do circuito do Blazor: junta a identidade do login interno e a da Área do Fornecedor (se houver).
+/// Só autentica; desafio/negação ficam com os cookies de cada área.
+/// </summary>
+public sealed class AutenticacaoCircuito(IOptionsMonitor<AuthenticationSchemeOptions> o, ILoggerFactory l, System.Text.Encodings.Web.UrlEncoder e)
+    : AuthenticationHandler<AuthenticationSchemeOptions>(o, l, e)
+{
+    protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
+    {
+        var interno = await Context.AuthenticateAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+        var fornecedor = await Context.AuthenticateAsync(Autenticacao.EsquemaFornecedor);
+        var ids = new[] { interno, fornecedor }.Where(r => r.Succeeded).SelectMany(r => r.Principal!.Identities).ToList();
+        if (ids.Count == 0) return AuthenticateResult.NoResult();
+        return AuthenticateResult.Success(new AuthenticationTicket(new ClaimsPrincipal(ids), Scheme.Name));
+    }
 }

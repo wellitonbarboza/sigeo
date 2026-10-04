@@ -2,7 +2,6 @@
 @inherits PaginaBase
 @inject CotacoesServico CotacoesSrv
 @inject NavigationManager Nav
-@inject IJSRuntime JS
 
 <Pagina Titulo="Orçamentos (cotação)" Grade="_grade" AoAtualizar="Carregar">
     <ChildContent>
@@ -42,7 +41,7 @@
 
             <div class="secao"><Icone Nome="predio" /> Fornecedores convidados</div>
             <table class="itens">
-                <thead><tr><th>Fornecedor</th><th>Qualificação na data</th><th>Status</th><th>Resposta</th><th>Condição pagto.</th><th>Validade proposta</th><th>Frete (R$)</th><th>Total</th><th>Link da proposta</th></tr></thead>
+                <thead><tr><th>Fornecedor</th><th>Qualificação na data</th><th>Status</th><th>Resposta</th><th>Condição pagto.</th><th>Validade proposta</th><th>Frete (R$)</th><th>Total</th><th>Convite</th></tr></thead>
                 <tbody>
                     @foreach (var f in _c.Fornecedores)
                     {
@@ -58,7 +57,7 @@
                             <td class="larg-140"><input type="date" @bind="f.ValidadeProposta" disabled="@(!Editavel)" /></td>
                             <td class="larg-110"><input type="number" step="0.01" @bind="f.ValorFrete" disabled="@(!Editavel)" /></td>
                             <td class="num">@Moeda(total)</td>
-                            <td>@if (Editavel) { <button class="btn sec pq" title="Copia o link para o fornecedor preencher preços, prazo e frete (sem login)" @onclick="() => CopiarLink(f)"><Icone Nome="enviar" Tam="14" /> Copiar link</button> }</td>
+                            <td>@if (Editavel) { <button class="btn sec pq" title="Envia ao contato do fornecedor (e-mail ou WhatsApp) o acesso à proposta na Área do Fornecedor" @onclick="() => Convidar(f)"><Icone Nome="enviar" Tam="14" /> Convidar</button> }</td>
                         </tr>
                     }
                 </tbody>
@@ -138,6 +137,12 @@
     </Rodape>
 </Modal>
 
+@if (_c is not null && _convidado is not null)
+{
+    <EnviarConvite @bind-Aberto="_abertoConvite" FornecedorId="_convidado.FornecedorId" Titulo="@($"Convidar {Nome(_convidado.FornecedorId)}")"
+                   Assunto="@($"enviar proposta para a cotação nº {_c.Numero} — {_c.Nome}")" Endereco="@EnderecoConvite" AoConvidar="Convidou" />
+}
+
 @code {
     private sealed record Linha(Guid Id, int Numero, string Nome, string Obra, TipoRequisicao Tipo, int Recebidas, int Exigidas, decimal Valor, string? Vencedor, StatusCotacao Status, string CriadoPor, DateTimeOffset CriadoEm);
     private Grade<Linha>? _grade;
@@ -159,12 +164,15 @@
         ? _c.Itens.Where(i => i.FornecedorId == v)
         : _c.Itens.Where(i => i.ValorUnitarioFinal > 0).GroupBy(i => i.RequisicaoItemId).Select(g => g.OrderBy(i => i.ValorTotal).First()));
 
-    private async Task CopiarLink(CotacaoFornecedor f)
+    // Convite pela Área do Fornecedor: o endereço não leva chave; o fornecedor entra com CNPJ + código.
+    // Links antigos (/cotacao/{chave}) continuam valendo até a cotação fechar.
+    private CotacaoFornecedor? _convidado;
+    private bool _abertoConvite;
+    private string EnderecoConvite => _convidado is null ? "" : $"{Nav.BaseUri}fornecedor/cotacao/{_c!.Id}?f={_convidado.FornecedorId}";
+    private void Convidar(CotacaoFornecedor f) { _convidado = f; _abertoConvite = true; }
+    private void Convidou()
     {
-        var url = $"{Nav.BaseUri}cotacao/{f.LinkResposta}";
-        try { await JS.InvokeVoidAsync("navigator.clipboard.writeText", url); Notif.Sucesso($"Link copiado para {Nome(f.FornecedorId)}. Envie por e-mail/WhatsApp."); }
-        catch { Notif.Aviso($"Copie o link: {url}"); }
-        if (f.Status == StatusConvite.Convidado && _c!.Status == StatusCotacao.Aberto) _c.Status = StatusCotacao.AguardandoPropostas;
+        if (_convidado is { Status: StatusConvite.Convidado } && _c!.Status == StatusCotacao.Aberto) _c.Status = StatusCotacao.AguardandoPropostas;
     }
 
     protected override async Task OnInitializedAsync()

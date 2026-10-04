@@ -1,0 +1,102 @@
+@inherits PaginaBase
+@inject ConvitesFornecedorServico Convites
+@inject IJSRuntime JS
+@* Convite ao fornecedor (Área do Fornecedor ou cotação): escolhe o contato cadastrado e o canal (e-mail ou WhatsApp).
+   O convite só leva o endereço — o acesso continua exigindo CNPJ + código enviado a um contato cadastrado. *@
+
+<Modal Aberto="Aberto" AbertoChanged="AbertoChanged" Titulo="@Titulo">
+    <ChildContent>
+    <Erros Lista="ErrosForm" />
+    <p class="mudo">@Assunto</p>
+    @if (_contatos is null) { <p class="mudo">Carregando contatos…</p> }
+    else if (_contatos.Count == 0)
+    {
+        <div class="alerta aviso">Nenhum contato com e-mail ou celular cadastrado. Inclua um contato no cadastro do fornecedor.</div>
+    }
+    else
+    {
+        <fieldset class="sem-borda" id="convite-contatos">
+            <legend>Enviar para</legend>
+            @foreach (var c in _contatos)
+            {
+                @if (c.Email is not null)
+                {
+                    <label class="opcao-contato @(Convites.EmailDisponivel ? "" : "desab")">
+                        <input type="radio" name="convite-sel" checked="@(_sel == (c.Id, CanalCodigo.Email))" disabled="@(!Convites.EmailDisponivel)"
+                               @onchange="() => _sel = (c.Id, CanalCodigo.Email)" />
+                        <Icone Nome="enviar" Tam="16" /> <b>@c.Nome</b>@(c.Principal ? " (principal)" : "") — e-mail @c.Email
+                    </label>
+                }
+                @if (c.Celular is not null)
+                {
+                    <label class="opcao-contato @(Convites.WhatsAppDisponivel ? "" : "desab")">
+                        <input type="radio" name="convite-sel" checked="@(_sel == (c.Id, CanalCodigo.WhatsApp))" disabled="@(!Convites.WhatsAppDisponivel)"
+                               @onchange="() => _sel = (c.Id, CanalCodigo.WhatsApp)" />
+                        <Icone Nome="celular" Tam="16" /> <b>@c.Nome</b>@(c.Principal ? " (principal)" : "") — WhatsApp @c.Celular
+                    </label>
+                }
+            }
+        </fieldset>
+        @if (!Convites.EmailDisponivel || !Convites.WhatsAppDisponivel)
+        {
+            <p class="mudo texto-pq">@(Convites.EmailDisponivel ? "" : "E-mail não configurado. ")@(Convites.WhatsAppDisponivel ? "" : "WhatsApp não configurado.")</p>
+        }
+    }
+    <p class="texto-pq mt-10">Endereço: <span id="convite-endereco">@Endereco</span></p>
+    </ChildContent>
+    <Rodape>
+        <div class="esq"><button type="button" class="btn sec" id="convite-copiar" @onclick="Copiar"><Icone Nome="clipe" Tam="16" /> Copiar endereço</button></div>
+        <button type="button" class="btn prim" id="convite-enviar" disabled="@(Ocupado || _sel is null)" @onclick="Enviar"><Icone Nome="enviar" Tam="16" /> Enviar convite</button>
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter] public bool Aberto { get; set; }
+    [Parameter] public EventCallback<bool> AbertoChanged { get; set; }
+    [Parameter, EditorRequired] public Guid FornecedorId { get; set; }
+    [Parameter] public string Titulo { get; set; } = "Enviar convite ao fornecedor";
+    [Parameter, EditorRequired] public string Assunto { get; set; } = "";
+    /// <summary>Endereço absoluto da Área do Fornecedor (ou da cotação dentro dela).</summary>
+    [Parameter, EditorRequired] public string Endereco { get; set; } = "";
+    /// <summary>Depois de enviar ou copiar (ex.: a cotação passa a "aguardando propostas").</summary>
+    [Parameter] public EventCallback AoConvidar { get; set; }
+
+    private IReadOnlyList<ContatoConvite>? _contatos;
+    private (Guid Contato, CanalCodigo Canal)? _sel;
+    private Guid _carregado;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!Aberto || FornecedorId == _carregado) return;
+        _carregado = FornecedorId; _contatos = null; _sel = null; ErrosForm = null;
+        try
+        {
+            _contatos = await Convites.ContatosAsync(FornecedorId, Cancelamento);
+            // Pré-seleção: contato principal pelo primeiro canal disponível.
+            foreach (var c in _contatos)
+            {
+                if (c.Email is not null && Convites.EmailDisponivel) { _sel = (c.Id, CanalCodigo.Email); break; }
+                if (c.Celular is not null && Convites.WhatsAppDisponivel) { _sel = (c.Id, CanalCodigo.WhatsApp); break; }
+            }
+        }
+        catch (RegraDeNegocioException e) { ErrosForm = [e.Message]; _contatos = []; }
+    }
+
+    private async Task Enviar()
+    {
+        if (_sel is not { } s) return;
+        string? destino = null;
+        var ok = await Executar(async () => destino = await Convites.EnviarAsync(FornecedorId, s.Contato, s.Canal, Assunto, Endereco, Cancelamento));
+        if (!ok) return;
+        Notif.Sucesso($"Convite enviado para {destino}.");
+        await AoConvidar.InvokeAsync();
+        await AbertoChanged.InvokeAsync(false);
+    }
+
+    private async Task Copiar()
+    {
+        try { await JS.InvokeVoidAsync("navigator.clipboard.writeText", Endereco); Notif.Sucesso("Endereço copiado."); }
+        catch { Notif.Aviso($"Copie o endereço: {Endereco}"); }
+        await AoConvidar.InvokeAsync();
+    }
+}

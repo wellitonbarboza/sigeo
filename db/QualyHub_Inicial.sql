@@ -7695,3 +7695,64 @@ END;
 COMMIT;
 GO
 
+BEGIN TRANSACTION;
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004182735_AreaFornecedorCodigo'
+)
+BEGIN
+    CREATE TABLE [qh].[CodigosAcessoFornecedor] (
+        [Id] uniqueidentifier NOT NULL,
+        [Documento] nvarchar(14) NOT NULL,
+        [EmpresaId] uniqueidentifier NOT NULL,
+        [FornecedorId] uniqueidentifier NOT NULL,
+        [ContatoId] uniqueidentifier NOT NULL,
+        [Canal] nvarchar(40) NOT NULL,
+        [Destino] nvarchar(200) NOT NULL,
+        [CodigoHash] nvarchar(64) NOT NULL,
+        [CriadoEm] datetimeoffset NOT NULL,
+        [ExpiraEm] datetimeoffset NOT NULL,
+        [Tentativas] int NOT NULL,
+        [UsadoEm] datetimeoffset NULL,
+        [Ip] nvarchar(64) NULL,
+        CONSTRAINT [PK_CodigosAcessoFornecedor] PRIMARY KEY ([Id]),
+        CONSTRAINT [FK_CodigosAcessoFornecedor_Fornecedores_FornecedorId] FOREIGN KEY ([FornecedorId]) REFERENCES [qh].[Fornecedores] ([Id]) ON DELETE NO ACTION
+    );
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004182735_AreaFornecedorCodigo'
+)
+BEGIN
+    CREATE INDEX [IX_CodigosAcessoFornecedor_Documento_CriadoEm] ON [qh].[CodigosAcessoFornecedor] ([Documento], [CriadoEm]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004182735_AreaFornecedorCodigo'
+)
+BEGIN
+    CREATE INDEX [IX_CodigosAcessoFornecedor_FornecedorId] ON [qh].[CodigosAcessoFornecedor] ([FornecedorId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004182735_AreaFornecedorCodigo'
+)
+BEGIN
+    CREATE INDEX [IX_CodigosAcessoFornecedor_Ip_CriadoEm] ON [qh].[CodigosAcessoFornecedor] ([Ip], [CriadoEm]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004182735_AreaFornecedorCodigo'
+)
+BEGIN
+    INSERT INTO [qh].[__Migracoes] ([MigrationId], [ProductVersion])
+    VALUES (N'20261004182735_AreaFornecedorCodigo', N'10.0.12');
+END;
+
+COMMIT;
+GO
+

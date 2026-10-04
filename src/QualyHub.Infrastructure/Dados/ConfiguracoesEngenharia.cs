@@ -284,3 +284,20 @@ internal sealed class TransferenciaItemCfg : IEntityTypeConfiguration<Transferen
         b.Ignore(x => x.Valor);
     }
 }
+
+// ───────────── Área do Fornecedor ─────────────
+
+internal sealed class CodigoAcessoFornecedorCfg : IEntityTypeConfiguration<CodigoAcessoFornecedor>
+{
+    public void Configure(EntityTypeBuilder<CodigoAcessoFornecedor> b)
+    {
+        b.ToTable("CodigosAcessoFornecedor");
+        b.Property(x => x.Documento).HasMaxLength(14);
+        b.Property(x => x.Destino).HasMaxLength(200);
+        b.Property(x => x.CodigoHash).HasMaxLength(64);
+        b.Property(x => x.Ip).HasMaxLength(64);
+        b.HasIndex(x => new { x.Documento, x.CriadoEm });
+        b.HasIndex(x => new { x.Ip, x.CriadoEm });
+        b.HasOne<Fornecedor>().WithMany().HasForeignKey(x => x.FornecedorId);
+    }
+}

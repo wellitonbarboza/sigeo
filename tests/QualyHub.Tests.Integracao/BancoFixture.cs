@@ -25,11 +25,13 @@ public sealed class BancoFixture : IAsyncLifetime
     public TimeProvider Relogio { get; } = TimeProvider.System;
     public IFabricaDb Fabrica { get; private set; } = null!;
     private DbContextOptions<QualyHubDbContext>? opcoes;
+    private string _cs = "";
 
     public async Task InitializeAsync()
     {
         if (FatoComBancoAttribute.ConnectionString is not { } cs) return; // sem banco: os testes são pulados
         var csb = new SqlConnectionStringBuilder(cs) { InitialCatalog = NomeBanco };
+        _cs = csb.ConnectionString;
         Usuario = new UsuarioSistema(EmpresaId, "TesteIntegracao");
         // Mesmas opções do DI (DependencyInjection.AddQualyHubInfra): o teste exercita o mesmo caminho da produção.
         opcoes = new DbContextOptionsBuilder<QualyHubDbContext>()
@@ -78,4 +80,6 @@ public sealed class BancoFixture : IAsyncLifetime
     public RequisicoesServico Requisicoes => new(Fabrica, Aprovacoes, Usuario, Relogio);
     public ContratosServico Contratos => new(Fabrica, Aprovacoes, Relogio);
     public MedicoesServico Medicoes => new(Fabrica, Aprovacoes, Usuario, Relogio);
+    public IFabricaSistema Sistema => new FabricaSistema(_cs);
+    public AcessoFornecedorServico AcessoFornecedor(IEnvioMensagens envio) => new(Sistema, envio, Relogio);
 }

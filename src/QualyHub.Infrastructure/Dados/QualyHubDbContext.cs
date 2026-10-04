@@ -152,6 +152,7 @@ public class QualyHubDbContext(DbContextOptions<QualyHubDbContext> options, IUsu
     public DbSet<LoteImportacao> LotesImportacao => Set<LoteImportacao>();
     public DbSet<LinhaImportacao> LinhasImportacao => Set<LinhaImportacao>();
     public DbSet<RegistroAuditoria> Auditoria => Set<RegistroAuditoria>();
+    public DbSet<CodigoAcessoFornecedor> CodigosAcessoFornecedor => Set<CodigoAcessoFornecedor>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder b)
     {

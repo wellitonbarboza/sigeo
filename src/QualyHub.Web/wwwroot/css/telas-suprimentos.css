@@ -38,3 +38,20 @@
     /* Inputs numéricos dentro da tabela: altura de toque. */
     table.itens td input, table.itens td select { min-height: 40px; }
 }
+
+/* Área do Fornecedor: escolha do contato que recebe o código */
+.opcao-contato { text-transform: none; letter-spacing: normal; font-weight: 400; font-size: .95rem; display: flex; align-items: center; gap: 8px; padding: 10px 12px; border: 1px solid var(--borda); border-radius: 8px; margin: 6px 0; cursor: pointer; }
+.opcao-contato:has(input:checked) { border-color: var(--primaria); background: var(--primaria-suave); }
+.opcao-contato input { width: auto; min-height: 0; }
+.cartoes-cnpj { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.cartao-cnpj { text-align: left; border: 1px solid var(--borda); border-radius: 10px; padding: 14px; background: var(--superficie); cursor: pointer; display: flex; flex-direction: column; gap: 4px; }
+.cartao-cnpj:hover, .cartao-cnpj.on { border-color: var(--primaria); }
+.cartao-cnpj.on { background: var(--primaria-suave); }
+/* Área do Fornecedor no celular: cada cotação vira um cartão (sem rolagem lateral escondendo o botão). */
+@media (max-width: 640px) {
+    #forn-cotacoes thead { display: none; }
+    #forn-cotacoes tr { display: block; padding: 10px 0; border-bottom: 1px solid var(--borda); }
+    #forn-cotacoes td { display: block; border: 0; padding: 2px 0; }
+    #forn-cotacoes td:first-child::before { content: "Nº "; color: var(--texto-3); }
+    #forn-cotacoes td:last-child { margin-top: 6px; }
+}

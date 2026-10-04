@@ -1,6 +1,5 @@
 @page "/fornecedores"
 @inherits PaginaBase
-@inject PortalServico Portal
 @inject NavigationManager Nav
 @inject QualyHub.Infrastructure.Importacao.ImportadorFornecedoresExpertData ImpExpert
 @inject FornecedoresServico Forn
@@ -160,14 +159,10 @@
                 <p class="mudo mt-8">Origem: <b>@_f.OrigemSistema</b>@(_f.OrigemCriadoPor is null ? "" : $" · criado por {_f.OrigemCriadoPor}")@(_f.OrigemCriadoEm is { } oc ? $" em {oc:dd/MM/yyyy HH:mm}" : "")@(_f.OrigemAlteradoPor is null ? "" : $" · alterado por {_f.OrigemAlteradoPor}")@(_f.OrigemAlteradoEm is { } oa ? $" em {oa:dd/MM/yyyy HH:mm}" : "")</p>
             }
             }
-            @if (_link is not null)
-            {
-                <div class="alerta info"><Icone Nome="cadeado" /> <div>Link do portal (@_link.Value.Codigo, válido por 15 dias): <b>@_link.Value.Url</b><br /><span class="mudo">Envie ao fornecedor. Ele envia os documentos sem login; você valida em Docs. do Fornecedor.</span></div></div>
-            }
         }
     </ChildContent>
     <Rodape>
-        @if (!_novo) { <div class="esq"><button class="btn sec" @onclick="GerarLink"><Icone Nome="enviar" Tam="16" /> Link do portal</button></div> }
+        @if (!_novo) { <div class="esq"><button class="btn sec" id="forn-convite" title="Convida o fornecedor para a Área do Fornecedor (entra com CNPJ + código)" @onclick="() => AbrirConvite(AssuntoCadastro)"><Icone Nome="enviar" Tam="16" /> Enviar convite</button></div> }
         <button class="btn prim" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="16" /> Salvar</button>
     </Rodape>
 </Modal>
@@ -180,7 +175,9 @@
             <div class="form">
                 <Campo Rotulo="CNPJ" Obrigatorio Classe="s3"><input id="pre-cnpj" @bind="_f.CpfCnpj" placeholder="00.000.000/0000-00" /></Campo>
                 <Campo Rotulo="Razão social" Obrigatorio Classe="s6"><input id="pre-razao" @bind="_f.RazaoSocial" /></Campo>
-                <Campo Rotulo="E-mail (recebe o link)" Obrigatorio Classe="s3"><input id="pre-email" type="email" @bind="_f.Emails" /></Campo>
+                <Campo Rotulo="E-mail do contato" Obrigatorio Classe="s3"><input id="pre-email" type="email" @bind="_f.Emails" /></Campo>
+                <Campo Rotulo="Nome do contato (recebe o código de acesso)" Obrigatorio Classe="s6"><input id="pre-contato" @bind="_contatoPre.Nome" /></Campo>
+                <Campo Rotulo="Celular (WhatsApp)" Classe="s3"><input id="pre-celular" type="tel" @bind="_contatoPre.Celular" placeholder="(00) 90000-0000" /></Campo>
                 <Campo Rotulo="Fornece" Obrigatorio Classe="s12">
                     <div class="checks">
                         <label><input type="checkbox" id="pre-mat" checked="@_f.TipoFornecimento.HasFlag(TipoFornecimento.Material)" @onchange="async e => await MarcarPre(TipoFornecimento.Material, (bool)e.Value!)" /> Material</label>
@@ -195,14 +192,15 @@
             </div>
             <div class="secao"><Icone Nome="arquivo" /> Documentos que serão pedidos (da matriz — ajuste à vontade)</div>
             <ListaExigencias Tipos="_tiposDoc" Fornecedor="_f" />
-            @if (_link is not null)
-            {
-                <div class="alerta ok"><Icone Nome="cadeado" /> <div>Link do portal (@_link.Value.Codigo, válido por 15 dias): <b id="pre-link">@_link.Value.Url</b><br /><span class="mudo">Envie ao fornecedor: ele completa os dados cadastrais e envia os documentos sem login.</span></div></div>
-            }
         }
     </ChildContent>
-    <Rodape>@if (_link is null) { <button class="btn prim" id="pre-salvar" disabled="@Ocupado" @onclick="SalvarPre"><Icone Nome="enviar" Tam="16" /> Salvar e gerar link</button> }</Rodape>
+    <Rodape><button class="btn prim" id="pre-salvar" disabled="@Ocupado" @onclick="SalvarPre"><Icone Nome="enviar" Tam="16" /> Salvar e enviar convite</button></Rodape>
 </Modal>
+
+@if (_f is not null)
+{
+    <EnviarConvite @bind-Aberto="_abertoConvite" FornecedorId="_f.Id" Assunto="@_assuntoConvite" Endereco="@EnderecoArea" />
+}
 
 <Modal @bind-Aberto="_abertoImp" Titulo="Importar fornecedores — planilha ExpertData" Tamanho="grande">
     <ChildContent>
@@ -264,7 +262,12 @@
     private List<Fornecedor>? _itens;
     private Fornecedor? _f;
     private bool _aberto, _novo;
-    private (string Codigo, string Url)? _link;
+    private bool _abertoConvite;
+    private string _assuntoConvite = "";
+    private FornecedorContato _contatoPre = new();
+    private const string AssuntoCadastro = "complete o cadastro e envie os documentos na Área do Fornecedor";
+    private string EnderecoArea => $"{Nav.BaseUri}fornecedor?doc={new string((_f?.CpfCnpj ?? "").Where(char.IsDigit).ToArray())}";
+    private void AbrirConvite(string assunto) { _assuntoConvite = assunto; _abertoConvite = true; }
 
     protected override Task OnInitializedAsync() => Carregar();
 
@@ -290,14 +293,15 @@
         _tiposDoc = await db.TiposDocumento.AsNoTracking().Where(t => t.Ativo && t.AplicaA == AplicaA.Fornecedor).OrderBy(t => t.Categoria).ThenBy(t => t.Ordem).ThenBy(t => t.Nome).ToListAsync(Cancelamento);
     }
 
-    private async Task Novo() { await CarregarApoio(); _f = new Fornecedor(); _novo = true; _link = null; _painel = null; _abaF = "dados"; ErrosForm = null; _aberto = true; }
+    private async Task Novo() { await CarregarApoio(); _f = new Fornecedor(); _novo = true; _painel = null; _abaF = "dados"; ErrosForm = null; _aberto = true; }
     private async Task NovoPre()
     {
         await CarregarApoio();
         _f = new Fornecedor { PreCadastro = true, TipoFornecimento = TipoFornecimento.Material };
+        _contatoPre = new FornecedorContato { FornecedorId = _f.Id, Principal = true };
         _daMatriz.Clear();
         await AplicarMatriz();
-        _link = null; ErrosForm = null; _abertoPre = true;
+        ErrosForm = null; _abertoPre = true;
     }
     private async Task Editar(Fornecedor f)
     {
@@ -305,7 +309,7 @@
         await using var db = Fabrica.CriarLeitura();
         _f = await db.Fornecedores.AsNoTracking().Include(x => x.Contatos).Include(x => x.Grupos).Include(x => x.Servicos).Include(x => x.Exigencias).AsSplitQuery().FirstAsync(x => x.Id == f.Id, Cancelamento);
         _painel = await Forn.PainelAsync(f.Id, ct: Cancelamento);
-        _novo = false; _link = null; ErrosForm = null; _aberto = true;
+        _novo = false; ErrosForm = null; _aberto = true;
     }
 
     private async Task MarcarPre(TipoFornecimento t, bool on)
@@ -357,13 +361,18 @@
 
     private async Task SalvarPre()
     {
-        await Executar(async () =>
+        var ok = await Executar(async () =>
         {
-            await Forn.SalvarAsync(_f!, ct: Cancelamento);
-            var (token, codigo) = await Portal.GerarLinkAsync(_f!.Id, 15, ct: Cancelamento);
-            _link = (codigo, Nav.ToAbsoluteUri($"portal/{token}").ToString());
-        }, "Pré-cadastro salvo e link gerado.");
+            // O contato do pré-cadastro é quem recebe o código de acesso à Área do Fornecedor.
+            if (string.IsNullOrWhiteSpace(_contatoPre.Nome)) throw new RegraDeNegocioException("Informe o nome do contato.");
+            _contatoPre.Email = _f!.Emails?.Split([';', ',', ' '], StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+            if (!_f.Contatos.Contains(_contatoPre)) _f.Contatos.Add(_contatoPre);
+            await Forn.SalvarAsync(_f, ct: Cancelamento);
+        }, "Pré-cadastro salvo.");
+        if (!ok) return;
         await Carregar();
+        _abertoPre = false;
+        AbrirConvite("faça o pré-cadastro: complete os dados e envie os documentos na Área do Fornecedor");
     }
     private void Marcar(TipoFornecimento t, bool on) => _f!.TipoFornecimento = on ? _f.TipoFornecimento | t : _f.TipoFornecimento & ~t;
 
@@ -374,12 +383,4 @@
         if (ok) { _aberto = false; await Carregar(); }
     }
 
-    private async Task GerarLink()
-    {
-        await Executar(async () =>
-        {
-            var (token, codigo) = await Portal.GerarLinkAsync(_f!.Id, 15, ct: Cancelamento);
-            _link = (codigo, Nav.ToAbsoluteUri($"portal/{token}").ToString());
-        });
-    }
 }

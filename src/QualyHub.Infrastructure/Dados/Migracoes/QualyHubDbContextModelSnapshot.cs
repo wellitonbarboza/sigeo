@@ -473,6 +473,68 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                     b.ToTable("CategoriasProduto", "qh");
                 });
 
+            modelBuilder.Entity("QualyHub.Domain.Cadastros.CodigoAcessoFornecedor", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Canal")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("CodigoHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<Guid>("ContatoId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CriadoEm")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Destino")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Documento")
+                        .IsRequired()
+                        .HasMaxLength(14)
+                        .HasColumnType("nvarchar(14)");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("ExpiraEm")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("FornecedorId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Ip")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<int>("Tentativas")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset?>("UsadoEm")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FornecedorId");
+
+                    b.HasIndex("Documento", "CriadoEm");
+
+                    b.HasIndex("Ip", "CriadoEm");
+
+                    b.ToTable("CodigosAcessoFornecedor", "qh");
+                });
+
             modelBuilder.Entity("QualyHub.Domain.Cadastros.Fornecedor", b =>
                 {
                     b.Property<Guid>("Id")
@@ -10734,6 +10796,15 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Pai");
+                });
+
+            modelBuilder.Entity("QualyHub.Domain.Cadastros.CodigoAcessoFornecedor", b =>
+                {
+                    b.HasOne("QualyHub.Domain.Cadastros.Fornecedor", null)
+                        .WithMany()
+                        .HasForeignKey("FornecedorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("QualyHub.Domain.Cadastros.FornecedorContato", b =>

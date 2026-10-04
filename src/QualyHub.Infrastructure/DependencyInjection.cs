@@ -43,6 +43,8 @@ public static class DependencyInjection
         services.AddScoped<CadastrosServico>();
         services.AddScoped<SistemaServico>();
         services.AddScoped<AnexosServico>();
+        services.AddScoped<AcessoFornecedorServico>();
+        services.AddScoped<ConvitesFornecedorServico>();
         services.AddScoped<DocumentosServico>();
         services.AddScoped<PortalServico>();
         services.AddScoped<QualidadeObraServico>();
@@ -60,6 +62,30 @@ public static class DependencyInjection
         services.AddScoped<Importacao.ImportadorProdutosExpertData>();
         // LGPD: chave HMAC do CPF vem do Key Vault em produção; sem chave, gera uma efêmera (apenas desenvolvimento).
         services.AddSingleton(new ProtecaoCpf(chaveCpf ?? System.Security.Cryptography.RandomNumberGenerator.GetBytes(32)));
+        return services;
+    }
+}
+
+public static class DependencyInjectionComunicacao
+{
+    /// <summary>
+    /// E-mail/WhatsApp pelo Azure Communication Services (seção QualyHub:Comunicacao). Sem configuração:
+    /// em desenvolvimento registra no log; em produção os canais ficam indisponíveis (a tela avisa).
+    /// </summary>
+    public static IServiceCollection AddQualyHubComunicacao(this IServiceCollection services, Microsoft.Extensions.Configuration.IConfiguration cfg, bool desenvolvimento)
+    {
+        var sec = cfg.GetSection("QualyHub:Comunicacao");
+        var o = new Comunicacao.OpcoesComunicacao
+        {
+            Endpoint = sec["Endpoint"], EmailRemetente = sec["EmailRemetente"], WhatsAppCanalId = sec["WhatsAppCanalId"],
+            WhatsAppModeloCodigo = sec["WhatsAppModeloCodigo"], WhatsAppModeloConvite = sec["WhatsAppModeloConvite"],
+            WhatsAppIdioma = sec["WhatsAppIdioma"] is { Length: > 0 } idioma ? idioma : "pt_BR"
+        };
+        if (!string.IsNullOrWhiteSpace(o.Endpoint))
+            services.AddSingleton<IEnvioMensagens>(sp => new Comunicacao.EnvioAcs(o, new Azure.Identity.DefaultAzureCredential(),
+                sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<Comunicacao.EnvioAcs>>()));
+        else if (desenvolvimento) services.AddSingleton<IEnvioMensagens, Comunicacao.EnvioLocalLog>();
+        else services.AddSingleton<IEnvioMensagens, Comunicacao.EnvioIndisponivel>();
         return services;
     }
 }

@@ -5,16 +5,16 @@
 @inject IHttpContextAccessor Http
 
 <PageTitle>Portal do fornecedor · QualyHub</PageTitle>
-<div class="portal">
+<div class="@(NaArea ? "portal-embutido" : "portal")">
     @if (_carregando) { <p class="mudo">Carregando…</p> }
     else if (_s is null)
     {
-        <div class="caixa"><h2>Link inválido ou expirado</h2><p>Solicite um novo link ao setor de Suprimentos da construtora.</p></div>
+        <div class="caixa"><h2>@(NaArea ? "Sessão expirada" : "Link inválido ou expirado")</h2><p>@(NaArea ? "Saia e entre de novo com o CNPJ e o código." : "Entre pela Área do Fornecedor (CNPJ + código) ou solicite um novo link ao setor de Suprimentos.")</p></div>
     }
     else
     {
         <header class="portal-topo">
-            <div><small>Portal do fornecedor · @_s.EmpresaNome</small><h1>@_s.Fornecedor.RazaoSocial</h1><span class="mudo">@_s.Fornecedor.CpfCnpj · solicitação @_s.Link.Codigo · link válido até @_s.Link.ValidoAte.ToLocalTime().ToString("dd/MM/yyyy")</span></div>
+            <div><small>Portal do fornecedor · @_s.EmpresaNome</small><h1>@_s.Fornecedor.RazaoSocial</h1><span class="mudo">@_s.Fornecedor.CpfCnpj@(NaArea ? "" : $" · solicitação {_s.Link.Codigo} · link válido até {_s.Link.ValidoAte.ToLocalTime():dd/MM/yyyy}")</span></div>
         </header>
         @if (_s.Alerta is not null) { <div class="alerta aviso"><Icone Nome="alerta" /> @_s.Alerta</div> }
         @if (_msg is not null) { <div class="alerta @(_ok ? "ok" : "erro")">@_msg</div> }
@@ -119,6 +119,8 @@
 
 @code {
     [Parameter] public string Token { get; set; } = "";
+    /// <summary>Dentro da Área do Fornecedor (sessão por código): sem a moldura e os dados do link.</summary>
+    [Parameter] public bool NaArea { get; set; }
     private SessaoPortal? _s;
     private bool _carregando = true, _enviando, _ok;
     private DocumentoSolicitado? _tipo;

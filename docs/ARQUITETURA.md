@@ -35,3 +35,10 @@ QualyHub.Web (Blazor Server)  ──►  QualyHub.Application (casos de uso)  �
 ## Testes
 - `tests/QualyHub.Tests`: unitários (domínio e validações dos serviços).
 - `tests/QualyHub.Tests.Integracao`: cenários com SQL Server real; rodam quando a variável `QH_TEST_SQL` existe (veja o LEIAME da pasta).
+
+## Área do Fornecedor (`/fornecedor`)
+- Entrada pública por **CNPJ/CPF + código de 6 dígitos** enviado a um **contato cadastrado** escolhido pela pessoa (e-mail ou WhatsApp). Código: 10 min, uso único, 5 tentativas, guardado só como hash (`CodigosAcessoFornecedor`); limites por CNPJ (3/h), por IP (10/h) e por requisição (60 por 5 min).
+- Sessão em cookie próprio (`qualyhub-fornecedor`, 8 h, sem renovação) — separado do login interno; telas internas exigem a claim de empresa. O circuito do Blazor junta as duas identidades e cada tela confere a sua.
+- Depois de entrar: escolhe o CNPJ/construtora (o do documento e os outros em que o mesmo e-mail/celular verificado é contato), vê as cotações com situação (não enviada / enviada / encerrada) e preenche ou edita a proposta; aba "Cadastro e documentos".
+- Envio por `IEnvioMensagens` (Application) → `EnvioAcs` (Azure Communication Services, identidade gerenciada). Desenvolvimento: `EnvioLocalLog` (código no log). Produção sem configuração: canais indisponíveis. Configuração: `infra/configurar-comunicacao.sh`.
+- Links antigos (`/portal/{token}` e `/cotacao/{chave}`) continuam valendo até vencer; a equipe agora usa "Enviar convite"/"Convidar" (contato + canal).

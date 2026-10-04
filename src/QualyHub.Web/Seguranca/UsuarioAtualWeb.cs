@@ -16,6 +16,16 @@ public static class ClaimsQh
     public const string Obras = "qh:obras";
 }
 
+/// <summary>Claims da sessão da Área do Fornecedor.</summary>
+public static class ClaimsFornecedor
+{
+    public const string Documento = "qhf:doc";
+    public const string Destino = "qhf:destino";
+
+    public static IdentidadeFornecedor? Identidade(ClaimsPrincipal u) =>
+        u.FindFirst(Documento)?.Value is { Length: > 0 } d && u.FindFirst(Destino)?.Value is { Length: > 0 } t ? new IdentidadeFornecedor(d, t) : null;
+}
+
 /// <summary>
 /// Usuário da requisição/circuito. Em requisição HTTP lê o HttpContext; no circuito Blazor lê o AuthenticationState
 /// (que no Blazor Server já vem resolvido do cookie na abertura do circuito).

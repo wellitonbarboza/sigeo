@@ -4,11 +4,11 @@
 @inject PortalServico Portal
 
 <PageTitle>Proposta de cotação · QualyHub</PageTitle>
-<div class="portal">
+<div class="@(NaArea ? "portal-embutido" : "portal")">
     @if (_carregando) { <p class="mudo">Carregando…</p> }
     else if (_s is null)
     {
-        <div class="caixa"><h2>Link inválido</h2><p>Solicite um novo link ao setor de Suprimentos da construtora.</p></div>
+        <div class="caixa"><h2>@(NaArea ? "Cotação indisponível" : "Link inválido")</h2><p>@(NaArea ? "Volte à lista de cotações e tente de novo." : "Entre pela Área do Fornecedor (CNPJ + código) ou solicite um novo link ao setor de Suprimentos.")</p></div>
     }
     else
     {
@@ -66,6 +66,8 @@
 
 @code {
     [Parameter] public Guid Token { get; set; }
+    /// <summary>Dentro da Área do Fornecedor (sessão por código): sem a moldura e os dados do link.</summary>
+    [Parameter] public bool NaArea { get; set; }
     private PropostaPortal? _s;
     private bool _carregando = true, _enviando, _ok;
     private string? _msg, _condicao;

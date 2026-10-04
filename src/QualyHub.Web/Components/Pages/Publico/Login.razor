@@ -22,7 +22,7 @@
         @if (Ok == "senha") { <div class="alerta ok">Senha definida. Entre com o seu login.</div> }
         <form method="post" action="conta/entrar" class="form mt-14" autocomplete="on">
             <AntiforgeryToken />
-            <input type="hidden" name="retorno" value="@ReturnUrl" />
+            <input type="hidden" name="retorno" value="@(ReturnUrl ?? Retorno)" />
             <div class="campo s12"><label for="login">Login ou e-mail</label><input id="login" name="login" value="@LoginInformado" autocomplete="username" required autofocus /></div>
             <div class="campo s12"><label for="senha">Senha</label><input id="senha" name="senha" type="password" autocomplete="current-password" required /></div>
             <div class="campo s12"><button class="btn prim btn-centro" id="entrar" type="submit">Entrar</button></div>
@@ -32,7 +32,8 @@
 </div>
 
 @code {
-    [SupplyParameterFromQuery] public string? ReturnUrl { get; set; }
+    [SupplyParameterFromQuery] public string? ReturnUrl { get; set; }   // middleware do cookie
+    [SupplyParameterFromQuery(Name = "retorno")] public string? Retorno { get; set; }   // RedirecionarLogin
     [SupplyParameterFromQuery] public string? Erro { get; set; }
     [SupplyParameterFromQuery] public string? Ok { get; set; }
     [SupplyParameterFromQuery(Name = "login")] public string? LoginInformado { get; set; }
