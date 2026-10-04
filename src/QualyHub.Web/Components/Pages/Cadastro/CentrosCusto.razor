@@ -38,7 +38,7 @@
                 <Campo Rotulo="Orçamento (opcional)" Classe="s3"><input type="number" step="0.01" @bind="_c.Orcamento" /></Campo>
                 <Campo Rotulo="Situação" Classe="s3"><label class="check-linha"><input type="checkbox" @bind="_c.Ativo" /> Ativo</label></Campo>
                 <Campo Rotulo="Pode ser usado em (vazio = todos os estabelecimentos)" Classe="s12">
-                    <div class="checks" style="flex-wrap:wrap">@foreach (var e in _estabs) { <label style="min-width:240px"><input type="checkbox" checked="@((_c.EstabelecimentosPermitidos ?? "").Contains(e.Id.ToString()))" @onchange="ev => MarcarEst(e.Id, (bool)ev.Value!)" /> @e.Texto</label> }</div>
+                    <div class="checks quebra">@foreach (var e in _estabs) { <label class="larg-min-240"><input type="checkbox" checked="@((_c.EstabelecimentosPermitidos ?? "").Contains(e.Id.ToString()))" @onchange="ev => MarcarEst(e.Id, (bool)ev.Value!)" /> @e.Texto</label> }</div>
                 </Campo>
             </div>
         }
@@ -77,11 +77,11 @@
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.Criar();
-        _ccs = await db.CentrosCusto.AsNoTracking().OrderBy(o => o.Codigo).ToListAsync();
-        var peds = await db.Pedidos.AsNoTracking().Where(p => p.Status >= StatusPedido.Aprovado && p.Status != StatusPedido.Cancelado).Include(p => p.Itens).ToListAsync();
-        var reqs = await db.Requisicoes.AsNoTracking().Where(r => r.CentroCustoId != null).ToDictionaryAsync(r => r.Id, r => r.CentroCustoId!.Value);
-        var ctrs = await db.Contratos.AsNoTracking().Include(k => k.Itens).Where(k => k.CentroCustoId != null && k.Status == StatusContrato.Ativo).ToListAsync();
+        await using var db = Fabrica.CriarLeitura();
+        _ccs = await db.CentrosCusto.AsNoTracking().OrderBy(o => o.Codigo).ToListAsync(Cancelamento);
+        var peds = await db.Pedidos.AsNoTracking().Where(p => p.Status >= StatusPedido.Aprovado && p.Status != StatusPedido.Cancelado).Include(p => p.Itens).ToListAsync(Cancelamento);
+        var reqs = await db.Requisicoes.AsNoTracking().Where(r => r.CentroCustoId != null).ToDictionaryAsync(r => r.Id, r => r.CentroCustoId!.Value, Cancelamento);
+        var ctrs = await db.Contratos.AsNoTracking().Include(k => k.Itens).Where(k => k.CentroCustoId != null && k.Status == StatusContrato.Ativo).ToListAsync(Cancelamento);
         _comprometido = peds.Where(p => p.RequisicaoId is { } r && reqs.ContainsKey(r)).GroupBy(p => reqs[p.RequisicaoId!.Value]).ToDictionary(g => g.Key, g => g.Sum(p => p.Valor));
         foreach (var k in ctrs) _comprometido[k.CentroCustoId!.Value] = _comprometido.GetValueOrDefault(k.CentroCustoId!.Value) + k.ValorTotal;
     }
@@ -90,7 +90,7 @@
 
     private async Task Salvar()
     {
-        var ok = await Executar(() => Est.SalvarCentroCustoAsync(_c!), "Centro de custo salvo.");
+        var ok = await Executar(() => Est.SalvarCentroCustoAsync(_c!, ct: Cancelamento), "Centro de custo salvo.");
         if (ok) { _aberto = false; Cat.Invalidar(); await Carregar(); }
     }
 }

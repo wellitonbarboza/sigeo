@@ -9,6 +9,9 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" />
     <ResourcePreloader />
     <link rel="stylesheet" href="@Assets["app.css"]" />
+    <link rel="stylesheet" href="@Assets["css/telas-cadastros-engenharia.css"]" />
+    <link rel="stylesheet" href="@Assets["css/telas-suprimentos.css"]" />
+    <link rel="stylesheet" href="@Assets["css/telas-qualidade.css"]" />
     <link rel="stylesheet" href="@Assets["QualyHub.Web.styles.css"]" />
     <link rel="icon" type="image/svg+xml" href="@Assets["favicon.svg"]" />
     <ImportMap />
@@ -25,5 +28,8 @@
 @code {
     [CascadingParameter] private HttpContext HttpContext { get; set; } = default!;
     // Login e configuração inicial são páginas estáticas (postam formulário e gravam o cookie); o resto é interativo.
-    private IComponentRenderMode? ModoPagina => HttpContext.AcceptsInteractiveRouting() ? InteractiveServer : null;
+    // Sem pré-renderização: app interno autenticado não precisa de SEO, e com ela cada tela consultava o banco duas vezes
+    // (uma para o HTML inicial e outra ao conectar o circuito) e o conteúdo piscava na troca.
+    private static readonly IComponentRenderMode Interativo = new InteractiveServerRenderMode(prerender: false);
+    private IComponentRenderMode? ModoPagina => HttpContext.AcceptsInteractiveRouting() ? Interativo : null;
 }

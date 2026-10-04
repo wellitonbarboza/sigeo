@@ -1,6 +1,7 @@
 @page "/requisicoes"
 @inherits PaginaBase
-@inject SuprimentosServico Sup
+@inject RequisicoesServico RequisicoesSrv
+@inject CotacoesServico CotacoesSrv
 @inject OrcamentoServico Orc
 @inject FornecedoresServico Forn
 @inject NavigationManager Nav
@@ -91,7 +92,7 @@
             }
             <table class="itens">
                 <thead><tr>
-                    <th style="min-width:220px">@(_r.Tipo == TipoRequisicao.Material ? "Produto" : "Serviço (ITS) / descrição")</th><th>UN</th><th>Quant.</th>
+                    <th class="min-220">@(_r.Tipo == TipoRequisicao.Material ? "Produto" : "Serviço (ITS) / descrição")</th><th>UN</th><th>Quant.</th>
                     <th>Material controlado</th><th>Especificação técnica</th><th>Documentos exigidos</th><th>Status</th><th></th>
                 </tr></thead>
                 <tbody>
@@ -106,15 +107,15 @@
                                 else
                                 {
                                     <select @bind="i.ServicoControladoId" disabled="@(!Editavel)"><option value="">(serviço não controlado)</option>@foreach (var s in _servicos) { <option value="@s.Id">@s.Texto</option> }</select>
-                                    <input style="margin-top:4px" placeholder="Descrição" @bind="i.Descricao" disabled="@(!Editavel)" />
+                                    <input class="mt-4" placeholder="Descrição" @bind="i.Descricao" disabled="@(!Editavel)" />
                                 }
                             </td>
-                            <td style="width:70px"><input @bind="i.Unidade" disabled="@(!Editavel)" /></td>
-                            <td style="width:110px"><input type="number" step="0.001" @bind="i.Quantidade" disabled="@(!Editavel)" /></td>
+                            <td class="larg-70"><input @bind="i.Unidade" disabled="@(!Editavel)" /></td>
+                            <td class="larg-110"><input type="number" step="0.001" @bind="i.Quantidade" disabled="@(!Editavel)" /></td>
                             <td>@if (i.MaterialControlado) { <Selo Texto="Sim" Tom="info" /> } else { <Selo Texto="Não" /> }</td>
                             <td><input @bind="i.EspecificacaoTecnica" disabled="@(!Editavel)" placeholder="@(i.MaterialControlado ? "obrigatória" : "—")" /></td>
                             <td><input @bind="i.DocumentosExigidos" disabled="@(!Editavel)" /></td>
-                            <td><Selo Texto="@De(i.Status)" />@if (i.Locais.Count > 0) { <div class="mudo" title="@string.Join("\n", i.Locais.Select(l => $"{NomeLocal(l.LocalId)}: {l.Quantidade:0.###}"))">@i.Locais.Count local(is) · orçado @i.Locais.Sum(l => l.Quantidade).ToString("0.###")</div> }</td>
+                            <td><Selo Texto="@De(i.Status)" /><QuebraPorLocal Locais="i.Locais.Select(l => (l.LocalId, l.Quantidade))" Nomes="_nomeLocal" MostrarTotal RotuloTotal="orçado" /></td>
                             <td>@if (Editavel) { <button class="icone-btn" title="Remover" @onclick="() => _r.Itens.Remove(i)"><Icone Nome="lixeira" Tam="16" /></button> }</td>
                         </tr>
                     }
@@ -122,7 +123,7 @@
                 </tbody>
             </table>
 
-            <div class="form" style="margin-top:14px">
+            <div class="form mt-14">
                 <Campo Rotulo="Observação" Classe="s8"><textarea @bind="_r.Observacao" disabled="@(!Editavel)"></textarea></Campo>
                 <Campo Rotulo="Sem orçamento (compra direta)" Classe="s4">
                     <div class="checks"><label><input type="checkbox" @bind="_r.SemOrcamento" disabled="@(!Editavel)" /> Compra sem orçamento</label></div>
@@ -156,37 +157,14 @@
 <Modal @bind-Aberto="_abertoOrc" Titulo="Puxar itens do orçamento por local" Tamanho="grande">
     <ChildContent>
         <Erros Lista="ErrosForm" />
-        <div class="grade-2">
-            <div>
-                <div class="secao"><Icone Nome="lista" /> 1. Serviços (@(_r?.Tipo == TipoRequisicao.Material ? "os materiais saem das composições" : "serviços a contratar"))</div>
-                <div class="barra-filtro"><label>Buscar <input @bind="_fComp" @bind:event="oninput" placeholder="serviço…" /></label></div>
-                <div class="seletor-locais">
-                    @foreach (var c in _compsOrc.Where(c => string.IsNullOrWhiteSpace(_fComp) || Rotulos.SemAcento(c.Texto).Contains(Rotulos.SemAcento(_fComp))))
-                    {
-                        <div class="sl-linha"><label><input type="checkbox" checked="@_selComp.Contains(c.Id)" @onchange="e => { if ((bool)e.Value!) _selComp.Add(c.Id); else _selComp.Remove(c.Id); _demanda = null; }" /> @c.Texto</label></div>
-                    }
-                    @if (_compsObra == 0) { <div class="mudo">A obra ainda não tem orçamento gerado (Engenharia › Orçamento).</div> }
-                </div>
-            </div>
-            <div>
-                <div class="secao"><Icone Nome="predio" /> 2. Locais (quantos pavimentos/apartamentos)</div>
-                <SeletorLocais Locais="_locaisObra" Selecionados="_selLoc" SelecionadosChanged="() => _demanda = null" />
-            </div>
-        </div>
-        <div style="margin:8px 0"><button class="btn sec" id="orc-previa" disabled="@(Ocupado || _selComp.Count == 0 || _selLoc.Count == 0)" @onclick="PreviaOrc"><Icone Nome="lupa" Tam="14" /> Calcular quantidades</button></div>
-        @if (_demanda is not null)
-        {
-            <table class="itens" id="orc-demanda">
-                <thead><tr><th>@(_r?.Tipo == TipoRequisicao.Material ? "Material" : "Serviço")</th><th>Un.</th><th class="num">Orçado</th><th class="num">Já requisitado</th><th class="num">Saldo (vai para a requisição)</th><th class="num">Locais</th></tr></thead>
-                <tbody>
-                    @foreach (var d in _demanda)
-                    {
-                        <tr class="@(d.Saldo <= 0 ? "mudo" : "")"><td>@d.Descricao</td><td>@d.Unidade</td><td class="num">@d.Orcado.ToString("N3", Br)</td><td class="num">@d.Requisitado.ToString("N3", Br)</td><td class="num"><b>@d.Saldo.ToString("N3", Br)</b></td><td class="num">@d.Locais.Count</td></tr>
-                    }
-                    @if (_demanda.Count == 0) { <tr><td colspan="6" class="mudo">Nada orçado para esses serviços nesses locais@(_r?.Tipo == TipoRequisicao.Material ? " (a composição tem materiais do cadastro?)" : "").</td></tr> }
-                </tbody>
-            </table>
-        }
+        <SeletorDemanda Servicos="_compsOrc" Locais="_locaisObra" ServicosSelecionados="_selComp" LocaisSelecionados="_selLoc" Demanda="_demanda"
+                        AoMudarSelecao="() => _demanda = null" AoCalcular="PreviaOrc" Ocupado="Ocupado"
+                        IdCalcular="orc-previa" IdTabela="orc-demanda" Casas="3"
+                        TituloServicos="@($"1. Serviços ({(_r?.Tipo == TipoRequisicao.Material ? "os materiais saem das composições" : "serviços a contratar")})")"
+                        TituloLocais="2. Locais (quantos pavimentos/apartamentos)" TextoCalcular="Calcular quantidades"
+                        RotuloItem="@(_r?.Tipo == TipoRequisicao.Material ? "Material" : "Serviço")" RotuloSaldo="Saldo (vai para a requisição)"
+                        TextoSemServicos="@(_compsObra == 0 ? "A obra ainda não tem orçamento gerado (Engenharia › Orçamento)." : null)"
+                        TextoSemDemanda="@($"Nada orçado para esses serviços nesses locais{(_r?.Tipo == TipoRequisicao.Material ? " (a composição tem materiais do cadastro?)" : "")}.")" />
     </ChildContent>
     <Rodape>@if (_demanda is { Count: > 0 }) { <button class="btn prim" id="orc-incluir" disabled="@Ocupado" @onclick="IncluirOrc"><Icone Nome="check" Tam="16" /> Incluir @_demanda.Count(d => d.Saldo > 0) item(ns)</button> }</Rodape>
 </Modal>
@@ -200,7 +178,7 @@
             <tbody>
                 @foreach (var f in _fornecedores)
                 {
-                    <tr><td style="width:30px"><input type="checkbox" checked="@_convidados.Contains(f.Id)" @onchange="e => { if ((bool)e.Value!) _convidados.Add(f.Id); else _convidados.Remove(f.Id); }" /></td>
+                    <tr @key="f.Id"><td class="larg-30"><input type="checkbox" checked="@_convidados.Contains(f.Id)" @onchange="e => { if ((bool)e.Value!) _convidados.Add(f.Id); else _convidados.Remove(f.Id); }" /></td>
                         <td>@f.Texto @if (_sugeridos.Contains(f.Id)) { <Selo Texto="sugerido" Tom="info" /> }</td><td>@if (Enum.TryParse<StatusQualificacao>(f.Extra, out var st)) { <Selo Texto="@De(st)" Tom="@Tom(st)" /> }</td></tr>
                 }
             </tbody>
@@ -220,9 +198,10 @@
     private int _versao;
     private List<Opcao> _spes = [];
     private IEnumerable<Opcao> SpesDaObra => _r is null ? [] : _spes.Where(s => s.Extra == _r.ObraId.ToString());
-    private List<Opcao> _obras = [], _ccs = [], _servicos = [], _fornecedores = [], _estabs = [], _grupos = [], _compsOrc = [];
+    private List<Opcao> _obras = [], _ccs = [], _servicos = [], _fornecedores = [], _estabs = [], _grupos = [];
+    private List<SeletorDemanda.ItemServico> _compsOrc = [];
     private List<ProdutoBusca> _produtos = [];
-    private string? _grupoFiltro, _fComp;
+    private string? _grupoFiltro;
     private bool _abertoOrc;
     private int _compsObra;
     private readonly HashSet<Guid> _selComp = [];
@@ -234,7 +213,6 @@
     private Dictionary<Guid, string> _nomeLocal = [];
     /// <summary>Locais da obra da requisição; ao trocar a lista, refaz o dicionário de nomes.</summary>
     private List<Local> _locaisObra { get => _locaisObraLista; set { _locaisObraLista = value; _nomeLocal = value.ToDictionary(l => l.Id, l => l.Codigo); } }
-    private string NomeLocal(Guid id) => _nomeLocal.TryGetValue(id, out var c) ? c : id.ToString()[..8];
     private int _versaoObra;
     private List<string> _atividades = [], _categorias = [];
     private readonly HashSet<Guid> _convidados = [];
@@ -252,10 +230,10 @@
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.Criar();
+        await using var db = Fabrica.CriarLeitura();
         _itens = await db.Requisicoes.AsNoTracking().OrderByDescending(r => r.Numero)
             .Select(r => new Linha(r.Id, r.Numero, db.Obras.Where(o => o.Id == r.ObraId).Select(o => o.Nome).FirstOrDefault() ?? "",
-                r.Tipo, r.Atividade, r.CentroCusto != null ? r.CentroCusto.Nome : null, r.DataEntrega, r.Itens.Count, r.Status, r.CriadoPor, r.CriadoEm)).ToListAsync();
+                r.Tipo, r.Atividade, r.CentroCusto != null ? r.CentroCusto.Nome : null, r.DataEntrega, r.Itens.Count, r.Status, r.CriadoPor, r.CriadoEm)).ToListAsync(Cancelamento);
     }
 
     private void Novo()
@@ -268,9 +246,9 @@
 
     private async Task Abrir(Guid id)
     {
-        await using var db = Fabrica.Criar();
-        _r = await db.Requisicoes.AsNoTracking().Include(r => r.Itens).ThenInclude(i => i.Locais).FirstAsync(r => r.Id == id);
-        _locaisObra = await db.Locais.AsNoTracking().Where(l => l.ObraId == _r.ObraId).ToListAsync();
+        await using var db = Fabrica.CriarLeitura();
+        _r = await db.Requisicoes.AsNoTracking().Include(r => r.Itens).ThenInclude(i => i.Locais).FirstAsync(r => r.Id == id, Cancelamento);
+        _locaisObra = await db.Locais.AsNoTracking().Where(l => l.ObraId == _r.ObraId).ToListAsync(Cancelamento);
         ErrosForm = null; _versao++; _aberto = true;
     }
 
@@ -298,22 +276,23 @@
         if (_r!.SpeId is { } sp && !spes.Any(s => s.Id == sp)) _r.SpeId = null;
         if (spes.Count == 1) _r.SpeId = spes[0].Id;
         if (!string.IsNullOrWhiteSpace(_r!.EnderecoEntrega)) return;
-        await using var db = Fabrica.Criar();
-        _r.EnderecoEntrega = await db.Obras.Where(o => o.Id == _r.ObraId).Select(o => o.EnderecoEntrega).FirstOrDefaultAsync();
+        await using var db = Fabrica.CriarLeitura();
+        _r.EnderecoEntrega = await db.Obras.Where(o => o.Id == _r.ObraId).Select(o => o.EnderecoEntrega).FirstOrDefaultAsync(Cancelamento);
     }
 
     private async Task AbrirOrcamento()
     {
-        await using var db = Fabrica.Criar();
-        var usados = await db.ServicosLocais.AsNoTracking().Where(s => s.ObraId == _r!.ObraId).Select(s => s.ComposicaoId).Distinct().ToListAsync();
+        await using var db = Fabrica.CriarLeitura();
+        var usados = await db.ServicosLocais.AsNoTracking().Where(s => s.ObraId == _r!.ObraId).Select(s => s.ComposicaoId).Distinct().ToListAsync(Cancelamento);
         _compsObra = usados.Count;
-        _compsOrc = (await Cat.ComposicoesAsync()).Where(c => usados.Contains(c.Id)).ToList();
-        _locaisObra = await db.Locais.AsNoTracking().Where(l => l.ObraId == _r!.ObraId).ToListAsync();
+        _compsOrc = await db.Composicoes.AsNoTracking().Where(c => c.Ativa && usados.Contains(c.Id)).OrderBy(c => c.Grupo).ThenBy(c => c.Codigo)
+            .Select(c => new SeletorDemanda.ItemServico(c.Id, c.Codigo, c.Descricao, c.Unidade, c.Grupo)).ToListAsync(Cancelamento);
+        _locaisObra = await db.Locais.AsNoTracking().Where(l => l.ObraId == _r!.ObraId).ToListAsync(Cancelamento);
         _selComp.Clear(); _selLoc = []; _demanda = null; ErrosForm = null; _abertoOrc = true;
     }
 
     private async Task PreviaOrc() =>
-        await Executar(async () => _demanda = DescontarItensDaTela(await Orc.DemandaAsync(_r!.ObraId, _selComp, _selLoc, _r.Tipo, _r.CriadoEm == default ? null : _r.Id)));
+        await Executar(async () => _demanda = DescontarItensDaTela(await Orc.DemandaAsync(_r!.ObraId, _selComp, _selLoc, _r.Tipo, _r.CriadoEm == default ? null : _r.Id, Cancelamento)));
 
     /// <summary>
     /// A demanda do banco não enxerga os itens desta requisição (nova, ou excluída da conta quando já salva):
@@ -357,8 +336,8 @@
         _r!.ObraId = obra;
         foreach (var i in _r.Itens) i.Locais.Clear();
         _selComp.Clear(); _selLoc = []; _demanda = null;
-        await using (var db = Fabrica.Criar())
-            _locaisObra = obra == Guid.Empty ? [] : await db.Locais.AsNoTracking().Where(l => l.ObraId == obra).ToListAsync();
+        await using (var db = Fabrica.CriarLeitura())
+            _locaisObra = obra == Guid.Empty ? [] : await db.Locais.AsNoTracking().Where(l => l.ObraId == obra).ToListAsync(Cancelamento);
         await EnderecoDaObra();
     }
 
@@ -366,11 +345,11 @@
     {
         if (!await Executar(async () =>
         {
-            var spe = await Orc.SpeDosLocaisAsync(_r!.ObraId, _selLoc);
+            var spe = await Orc.SpeDosLocaisAsync(_r!.ObraId, _selLoc, Cancelamento);
             if (TemLocais && spe is not null && _r.SpeId is { } atual && atual != spe) throw new RegraDeNegocioException("Os locais são de outra SPE: faça outra requisição.");
-            await using var db = Fabrica.Criar();
+            await using var db = Fabrica.CriarLeitura();
             var ids = _demanda!.Where(d => d.ProdutoId != null).Select(d => d.ProdutoId!.Value).ToList();
-            var prods = await db.Produtos.AsNoTracking().Include(p => p.MaterialControlado).Where(p => ids.Contains(p.Id)).ToDictionaryAsync(p => p.Id);
+            var prods = await db.Produtos.AsNoTracking().Include(p => p.MaterialControlado).Where(p => ids.Contains(p.Id)).ToDictionaryAsync(p => p.Id, Cancelamento);
             foreach (var i in OrcamentoServico.Itens(_r.Id, _demanda!, prods)) _r.Itens.Add(i);
             if (spe is not null) _r.SpeId = spe;
             _r.RecalcularPrazo();
@@ -384,8 +363,8 @@
     private async Task EscolherProduto(RequisicaoItem i, string? valor)
     {
         if (!Guid.TryParse(valor, out var pid)) { i.ProdutoId = null; return; }
-        await using var db = Fabrica.Criar();
-        var p = await db.Produtos.AsNoTracking().Include(x => x.MaterialControlado).FirstAsync(x => x.Id == pid);
+        await using var db = Fabrica.CriarLeitura();
+        var p = await db.Produtos.AsNoTracking().Include(x => x.MaterialControlado).FirstAsync(x => x.Id == pid, Cancelamento);
         i.EspecificacaoTecnica = null; i.DocumentosExigidos = null;
         i.HerdarDoProduto(p);
         _r!.RecalcularPrazo();
@@ -393,36 +372,36 @@
 
     private async Task Salvar()
     {
-        if (await Executar(async () => { var id = await Sup.SalvarRequisicaoAsync(_r!); await AbrirSilencioso(id); }, "Requisição salva."))
+        if (await Executar(async () => { var id = await RequisicoesSrv.SalvarRequisicaoAsync(_r!, Cancelamento); await AbrirSilencioso(id); }, "Requisição salva."))
             await Carregar();
     }
 
     private async Task AbrirSilencioso(Guid id)
     {
-        await using var db = Fabrica.Criar();
-        _r = await db.Requisicoes.AsNoTracking().Include(r => r.Itens).ThenInclude(i => i.Locais).FirstAsync(r => r.Id == id);
+        await using var db = Fabrica.CriarLeitura();
+        _r = await db.Requisicoes.AsNoTracking().Include(r => r.Itens).ThenInclude(i => i.Locais).FirstAsync(r => r.Id == id, Cancelamento);
         _versao++;
     }
 
     private async Task Enviar()
     {
-        if (await Executar(async () => { await Sup.SalvarRequisicaoAsync(_r!); await Sup.EnviarRequisicaoAsync(_r!.Id); }, "Enviada para aprovação do Engenheiro da Obra."))
+        if (await Executar(async () => { await RequisicoesSrv.SalvarRequisicaoAsync(_r!, Cancelamento); await RequisicoesSrv.EnviarRequisicaoAsync(_r!.Id, Cancelamento); }, "Enviada para aprovação do Engenheiro da Obra."))
             await Recarregar();
     }
 
     private async Task AbrirCotacao()
     {
         var tipo = _r!.Tipo == TipoRequisicao.Material ? TipoFornecimento.Material : TipoFornecimento.ServicoObra | TipoFornecimento.Laboratorio | TipoFornecimento.Consultoria | TipoFornecimento.ServicoEspecializadoEngenharia | TipoFornecimento.Locacao;
-        await using var db = Fabrica.Criar();
+        await using var db = Fabrica.CriarLeitura();
         // Sugestão: fornecedores ligados aos grupos (e subgrupos) do catálogo dos itens ou às ITS dos serviços.
         var prods = _r.Itens.Where(i => i.ProdutoId != null).Select(i => i.ProdutoId!.Value).ToList();
-        var cats = await db.CategoriasProduto.AsNoTracking().ToListAsync();
-        var grupos = (await db.Produtos.AsNoTracking().Where(p => prods.Contains(p.Id)).Select(p => new { p.Grupo, p.SubGrupo }).ToListAsync())
+        var cats = await db.CategoriasProduto.AsNoTracking().ToListAsync(Cancelamento);
+        var grupos = (await db.Produtos.AsNoTracking().Where(p => prods.Contains(p.Id)).Select(p => new { p.Grupo, p.SubGrupo }).ToListAsync(Cancelamento))
             .Select(p => (G: cats.FirstOrDefault(c => c.PaiId == null && c.Nome == p.Grupo), p.SubGrupo)).Where(x => x.G is not null)
             .Select(x => (x.G!.Id, cats.FirstOrDefault(c => c.PaiId == x.G.Id && c.Nome == x.SubGrupo)?.Id)).Distinct().ToList();
         var its = _r.Itens.Where(i => i.ServicoControladoId != null).Select(i => i.ServicoControladoId!.Value).Distinct().ToList();
-        _sugeridos = await Forn.QueAtendemAsync(grupos, its);
-        _fornecedores = (await db.Fornecedores.AsNoTracking().Where(f => f.Ativo).OrderBy(f => f.RazaoSocial).ToListAsync())
+        _sugeridos = await Forn.QueAtendemAsync(grupos, its, Cancelamento);
+        _fornecedores = (await db.Fornecedores.AsNoTracking().Where(f => f.Ativo).OrderBy(f => f.RazaoSocial).ToListAsync(Cancelamento))
             .Where(f => (f.TipoFornecimento & tipo) != 0 || _sugeridos.Contains(f.Id)).OrderByDescending(f => _sugeridos.Contains(f.Id)).ThenBy(f => f.RazaoSocial)
             .Select(f => new Opcao(f.Id, f.RazaoSocial, f.StatusQualificacao.ToString())).ToList();
         _convidados.Clear();
@@ -433,7 +412,7 @@
     private async Task GerarCotacao()
     {
         Guid id = default;
-        if (await Executar(async () => id = await Sup.GerarCotacaoAsync(_r!.Id, _convidados), "Cotação criada."))
+        if (await Executar(async () => id = await CotacoesSrv.GerarCotacaoAsync(_r!.Id, _convidados, Cancelamento), "Cotação criada."))
         { _cotar = false; _aberto = false; Nav.NavigateTo($"cotacoes?id={id}"); }
     }
 }

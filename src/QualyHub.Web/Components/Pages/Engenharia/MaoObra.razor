@@ -4,9 +4,9 @@
 
 <Pagina Titulo="Mão de obra própria e apropriação" AoAtualizar="Atualizar">
     <ChildContent>
-        <div class="pagina">
+        <div class="pagina toque">
             <div class="barra-filtro">
-                <label>Obra <select id="mo-obra" @key="_versaoFiltro" value="@_obraId" @onchange="TrocarObra"><option value="">Selecione…</option>@foreach (var o in _obras) { <option value="@o.Id">@o.Texto</option> }</select></label>
+                <SeletorObra Id="mo-obra" Valor="_obraId" ValorChanged="TrocarObra" Inicial="ObraQuery" />
                 <label>Competência <input id="mo-mes" @key="_versaoFiltro" type="month" value="@_mes.ToString("yyyy-MM")" @onchange="TrocarMes" /></label>
             </div>
             @if (_obraId is null) { <div class="alerta info"><Icone Nome="info" /> Escolha a obra.</div> }
@@ -17,8 +17,8 @@
                 <Erros Lista="ErrosForm" />
                 @if (_aba == "eq")
                 {
-                    <div style="margin:6px 0"><button class="btn sec" id="eq-nova" @onclick="NovaEquipe"><Icone Nome="mais" Tam="14" /> Nova equipe</button></div>
-                    <table class="itens" id="equipes">
+                    <div class="my-6"><button class="btn sec" id="eq-nova" @onclick="NovaEquipe"><Icone Nome="mais" Tam="14" /> Nova equipe</button></div>
+                    <div class="tabela-rolavel"><table class="itens" id="equipes">
                         <thead><tr><th>Código</th><th>Equipe</th><th>Encarregado</th><th class="num">Membros</th><th>Ativa</th><th></th></tr></thead>
                         <tbody>
                             @foreach (var eq in _equipes)
@@ -27,37 +27,37 @@
                             }
                             @if (_equipes.Count == 0) { <tr><td colspan="6" class="mudo">Cadastre as equipes próprias (ex.: Alvenaria 1, Acabamento 2). Os membros são os colaboradores próprios (Segurança e Pessoas › Colaboradores).</td></tr> }
                         </tbody>
-                    </table>
+                    </table></div>
                 }
                 else if (_aba == "custo" && _veCustos)
                 {
-                    <div style="display:flex;gap:8px;margin:6px 0;flex-wrap:wrap">
+                    <div class="barra-botoes">
                         <button class="btn sec" id="custo-add" @onclick="AddCusto"><Icone Nome="mais" Tam="14" /> Linha</button>
                         <button class="btn sec" id="custo-replicar" disabled="@Ocupado" @onclick="Replicar"><Icone Nome="atualizar" Tam="14" /> Replicar de @_mes.AddMonths(-1).ToString("MM/yyyy")</button>
                         <button class="btn prim" id="custo-salvar" disabled="@Ocupado" @onclick="SalvarCustos"><Icone Nome="check" Tam="14" /> Salvar custos do mês</button>
                     </div>
-                    <table class="itens" id="custos">
+                    <div class="tabela-rolavel"><table class="itens" id="custos">
                         <thead><tr><th>Equipe</th><th>Colaborador / função / descrição</th><th class="num">Pessoas</th><th class="num">Salário (R$/pessoa)</th><th class="num">Encargos %</th><th class="num">Benefícios (R$/pessoa)</th><th class="num">Outros (R$)</th><th class="num">Horas/mês</th><th class="num">Total</th><th class="num">R$/h</th><th></th></tr></thead>
                         <tbody>
                             @foreach (var c in _custos)
                             {
                                 <tr @key="c"><td><select @bind="c.EquipeId"><option value="">—</option>@foreach (var eq in _equipes) { <option value="@eq.Id">@eq.Codigo</option> }</select></td>
                                     <td><select @bind="c.ColaboradorId"><option value="">(colaborador)</option>@foreach (var p in _colabs) { <option value="@p.Id">@p.Texto</option> }</select>
-                                        <select style="margin-top:3px" @bind="c.FuncaoObraId"><option value="">(função)</option>@foreach (var f in _funcoes) { <option value="@f.Id">@f.Texto</option> }</select>
-                                        <input style="margin-top:3px" @bind="c.Descricao" placeholder="Descrição (opcional)" /></td>
-                                    <td style="width:70px"><input type="number" min="1" @bind="c.Pessoas" /></td>
-                                    <td style="width:110px"><input type="number" step="0.01" @bind="c.Salario" /></td>
-                                    <td style="width:80px"><input type="number" step="0.01" @bind="c.EncargosPerc" /></td>
-                                    <td style="width:100px"><input type="number" step="0.01" @bind="c.Beneficios" /></td>
-                                    <td style="width:100px"><input type="number" step="0.01" @bind="c.Outros" /></td>
-                                    <td style="width:80px"><input type="number" step="1" @bind="c.HorasMes" /></td>
+                                        <select class="mt-3" @bind="c.FuncaoObraId"><option value="">(função)</option>@foreach (var f in _funcoes) { <option value="@f.Id">@f.Texto</option> }</select>
+                                        <input class="mt-3" @bind="c.Descricao" placeholder="Descrição (opcional)" /></td>
+                                    <td class="larg-70"><input type="number" min="1" @bind="c.Pessoas" /></td>
+                                    <td class="larg-110"><input type="number" step="0.01" @bind="c.Salario" /></td>
+                                    <td class="larg-80"><input type="number" step="0.01" @bind="c.EncargosPerc" /></td>
+                                    <td class="larg-100"><input type="number" step="0.01" @bind="c.Beneficios" /></td>
+                                    <td class="larg-100"><input type="number" step="0.01" @bind="c.Outros" /></td>
+                                    <td class="larg-80"><input type="number" step="1" @bind="c.HorasMes" /></td>
                                     <td class="num">@c.Total.ToString("N2", Br)</td><td class="num">@c.CustoHora.ToString("N2", Br)</td>
-                                    <td><button class="icone-btn" @onclick="() => RemoverCusto(c)"><Icone Nome="lixeira" Tam="16" /></button></td></tr>
+                                    <td><button class="icone-btn" title="Remover linha" @onclick="() => RemoverCusto(c)"><Icone Nome="lixeira" Tam="16" /></button></td></tr>
                             }
                             @if (_custos.Count == 0) { <tr><td colspan="11" class="mudo">Sem custos em @_mes.ToString("MM/yyyy"). Lance por equipe/colaborador ou replique o mês anterior e ajuste.</td></tr> }
                         </tbody>
-                        <tfoot><tr><td colspan="8" style="text-align:right">Total do mês</td><td class="num"><b>@_custos.Sum(c => c.Total).ToString("N2", Br)</b></td><td colspan="2"></td></tr></tfoot>
-                    </table>
+                        <tfoot><tr><td colspan="8" class="texto-dir">Total do mês</td><td class="num"><b>@_custos.Sum(c => c.Total).ToString("N2", Br)</b></td><td colspan="2"></td></tr></tfoot>
+                    </table></div>
                 }
                 else if (_aba == "apr")
                 {
@@ -72,7 +72,7 @@
                                 <Campo Rotulo="Quantidade executada" Classe="s4"><input type="number" step="0.01" @bind="_aQtd" /></Campo>
                                 <Campo Rotulo="Observação" Classe="s12"><input @bind="_aObs" /></Campo>
                             </div>
-                            <button class="btn prim" id="apr-lancar" disabled="@(Ocupado || _aLocais.Count == 0)" @onclick="Apropriar"><Icone Nome="check" Tam="14" /> Lançar em @_aLocais.Count local(is)</button>
+                            <button class="btn prim cheio-cel" id="apr-lancar" disabled="@(Ocupado || _aLocais.Count == 0)" @onclick="Apropriar"><Icone Nome="check" Tam="14" /> Lançar em @_aLocais.Count local(is)</button>
                             <p class="mudo">As horas são rateadas entre os locais pelas quantidades orçadas do serviço.</p>
                         </div>
                         <div>
@@ -81,7 +81,7 @@
                         </div>
                     </div>
                     <div class="secao"><Icone Nome="lista" /> Lançamentos de @_mes.ToString("MM/yyyy")</div>
-                    <table class="itens" id="apropriacoes">
+                    <div class="tabela-rolavel"><table class="itens" id="apropriacoes">
                         <thead><tr><th>Data</th><th>Equipe / colaborador</th><th>Serviço</th><th>Locais</th><th class="num">Horas</th><th class="num">Qtd. exec.</th><th></th></tr></thead>
                         <tbody>
                             @foreach (var g in _aps.GroupBy(a => a.Lancamento).OrderByDescending(g => g.First().Data))
@@ -94,7 +94,7 @@
                             }
                             @if (_aps.Count == 0) { <tr><td colspan="7" class="mudo">Nenhum lançamento no mês.</td></tr> }
                         </tbody>
-                    </table>
+                    </table></div>
                 }
                 else if (_aba == "fech" && _veCustos && _fech is not null)
                 {
@@ -104,12 +104,12 @@
                         <Kpi Rotulo="Custo-hora médio real" Valor="@(_fech.HorasApropriadas == 0 ? "—" : (_fech.CustoTotal / _fech.HorasApropriadas).ToString("N2", Br))" Tom="info" />
                         <Kpi Rotulo="Custo sem apropriação" Valor="@_fech.CustoSemApropriacao.ToString("C2", Br)" Sub="lance as horas dessas equipes" Tom="@(_fech.CustoSemApropriacao > 0 ? "aviso" : "ok")" />
                     </div>
-                    <table class="itens" id="fech-equipes">
+                    <div class="tabela-rolavel"><table class="itens" id="fech-equipes">
                         <thead><tr><th>Equipe</th><th class="num">Custo do mês</th><th class="num">Horas apropriadas</th><th class="num">Custo-hora real</th></tr></thead>
                         <tbody>@foreach (var eq in _fech.Equipes) { <tr><td>@(eq.EquipeId is null ? "(sem equipe)" : _equipes.FirstOrDefault(x => x.Id == eq.EquipeId)?.Nome)</td><td class="num">@eq.CustoMes.ToString("N2", Br)</td><td class="num">@eq.HorasApropriadas.ToString("N1", Br)</td><td class="num">@eq.CustoHoraReal.ToString("N2", Br)</td></tr> }</tbody>
-                    </table>
+                    </table></div>
                     <div class="secao"><Icone Nome="tabela" /> Realizado × orçado (mão de obra própria) por serviço</div>
-                    <table class="itens" id="fech-servicos">
+                    <div class="tabela-rolavel"><table class="itens" id="fech-servicos">
                         <thead><tr><th>Serviço</th><th class="num">Horas</th><th class="num">Custo real</th><th class="num">Qtd. executada</th><th class="num">R$/un real</th><th class="num">R$/un orçado (M.O. própria)</th></tr></thead>
                         <tbody>
                             @foreach (var g in _fech.Celulas.GroupBy(c => c.ComposicaoId))
@@ -120,7 +120,7 @@
                                     <td class="num">@qtd.ToString("N2", Br)</td><td class="num">@(qtd == 0 ? "—" : (g.Sum(x => x.Custo) / qtd).ToString("N2", Br))</td><td class="num">@comp?.Custo(TipoInsumo.MaoObraPropria).ToString("N2", Br)</td></tr>
                             }
                         </tbody>
-                    </table>
+                    </table></div>
                 }
             }
         </div>
@@ -128,7 +128,7 @@
     <Faixa><b>Mão de obra própria</b><span>Equipes · custo mensal (replicável) · horas por serviço × local</span><span>Fechamento: custo-hora real e realizado × orçado</span></Faixa>
 </Pagina>
 
-<Modal @bind-Aberto="_abertoEq" Titulo="Equipe" Tamanho="media">
+<Modal @bind-Aberto="_abertoEq" Titulo="Equipe" Tamanho="media toque">
     <ChildContent>
         @if (_e is not null)
         {
@@ -140,12 +140,12 @@
                 <Campo Rotulo="Encarregado" Classe="s12"><input @bind="_e.Encarregado" /></Campo>
             </div>
             <div class="secao"><Icone Nome="pessoa" /> Membros <span class="acao"><button class="btn sec pq" @onclick="() => _e.Membros.Add(new EquipeMembro { EquipeId = _e.Id, Desde = Hoje })"><Icone Nome="mais" Tam="14" /> Membro</button></span></div>
-            <table class="itens"><thead><tr><th>Colaborador</th><th>Desde</th><th>Até</th><th></th></tr></thead>
+            <div class="tabela-rolavel"><table class="itens"><thead><tr><th>Colaborador</th><th>Desde</th><th>Até</th><th></th></tr></thead>
                 <tbody>@foreach (var m in _e.Membros)
                 {
                     <tr @key="m"><td><select @bind="m.ColaboradorId"><option value="@Guid.Empty">—</option>@foreach (var p in _colabs) { <option value="@p.Id">@p.Texto</option> }</select></td><td><input type="date" @bind="m.Desde" /></td><td><input type="date" @bind="m.Ate" /></td>
-                        <td><button class="icone-btn" @onclick="() => _e.Membros.Remove(m)"><Icone Nome="lixeira" Tam="16" /></button></td></tr>
-                }</tbody></table>
+                        <td><button class="icone-btn" title="Remover membro" @onclick="() => _e.Membros.Remove(m)"><Icone Nome="lixeira" Tam="16" /></button></td></tr>
+                }</tbody></table></div>
             @if (_colabs.Count == 0) { <div class="alerta aviso"><Icone Nome="alerta" /> Nenhum colaborador próprio nesta obra. Cadastre em Segurança e Pessoas › Colaboradores (vínculo próprio).</div> }
         }
     </ChildContent>
@@ -156,7 +156,7 @@
 
 @code {
     [SupplyParameterFromQuery(Name = "obra")] public Guid? ObraQuery { get; set; }
-    private List<Opcao> _obras = [], _funcoes = [], _colabs = [], _comps = [];
+    private List<Opcao> _funcoes = [], _colabs = [], _comps = [];
     private Guid? _obraId, _aEquipe, _aColab, _aComp;
     private DateOnly _mes;
     private string _aba = "eq";
@@ -187,10 +187,8 @@
         _abas = _veCustos
             ? [("eq", "Equipes"), ("custo", "Custos do mês"), ("apr", "Apropriação de horas"), ("fech", "Fechamento do mês")]
             : [("eq", "Equipes"), ("apr", "Apropriação de horas")];
-        _obras = await Cat.ObrasAsync(); _funcoes = await Cat.FuncoesAsync();
-        if (ObraQuery is { } q && _obras.Any(o => o.Id == q)) _obraId = q;
-        else if (_obras.Count == 1) _obraId = _obras[0].Id;
-        await Carregar();
+        // A obra inicial (?obra= ou a única permitida) vem do SeletorObra, que chama TrocarObra.
+        _funcoes = await Cat.FuncoesAsync();
     }
 
     /// <summary>Custos do mês alterados e não salvos (compara com o que veio do banco).</summary>
@@ -207,9 +205,9 @@
 
     private Task Atualizar() => DescartarSeConfirmar(Carregar, "Atualizar a tela");
 
-    private async Task TrocarObra(ChangeEventArgs e)
+    // Se o usuário recusar o descarte, _obraId não muda e o SeletorObra volta a mostrar a obra atual.
+    private async Task TrocarObra(Guid? nova)
     {
-        var nova = Guid.TryParse(e.Value?.ToString(), out var g) ? g : (Guid?)null;
         await DescartarSeConfirmar(async () =>
         {
             _obraId = nova;
@@ -224,18 +222,18 @@
     {
         if (_obraId is not { } o) return;
         _removidos.Clear();
-        await using var db = Fabrica.Criar();
-        _equipes = await db.Equipes.AsNoTracking().Include(e => e.Membros).Where(e => e.ObraId == o).OrderBy(e => e.Codigo).ToListAsync();
-        _colabs = await db.Colaboradores.AsNoTracking().Where(c => c.ObraId == o && c.Vinculo == VinculoColaborador.Proprio && c.DataSaida == null).OrderBy(c => c.Nome).Select(c => new Opcao(c.Id, c.Nome)).ToListAsync();
-        _custos = await db.CustosMaoObra.AsNoTracking().Where(c => c.ObraId == o && c.Competencia == _mes).ToListAsync();
+        await using var db = Fabrica.CriarLeitura();
+        _equipes = await db.Equipes.AsNoTracking().Include(e => e.Membros).Where(e => e.ObraId == o).OrderBy(e => e.Codigo).ToListAsync(Cancelamento);
+        _colabs = await db.Colaboradores.AsNoTracking().Where(c => c.ObraId == o && c.Vinculo == VinculoColaborador.Proprio && c.DataSaida == null).OrderBy(c => c.Nome).Select(c => new Opcao(c.Id, c.Nome)).ToListAsync(Cancelamento);
+        _custos = await db.CustosMaoObra.AsNoTracking().Where(c => c.ObraId == o && c.Competencia == _mes).ToListAsync(Cancelamento);
         var fim = _mes.AddMonths(1);
-        _aps = await db.Apropriacoes.AsNoTracking().Where(a => a.ObraId == o && a.Data >= _mes && a.Data < fim).ToListAsync();
-        _locais = await db.Locais.AsNoTracking().Where(l => l.ObraId == o).ToListAsync();
+        _aps = await db.Apropriacoes.AsNoTracking().Where(a => a.ObraId == o && a.Data >= _mes && a.Data < fim).ToListAsync(Cancelamento);
+        _locais = await db.Locais.AsNoTracking().Where(l => l.ObraId == o).ToListAsync(Cancelamento);
         _porId = _locais.ToDictionary(l => l.Id);
-        var usados = await db.ServicosLocais.AsNoTracking().Where(s => s.ObraId == o).Select(s => s.ComposicaoId).Distinct().ToListAsync();
-        _compsObj = await db.Composicoes.AsNoTracking().Include(c => c.Itens).ToDictionaryAsync(c => c.Id);
+        var usados = await db.ServicosLocais.AsNoTracking().Where(s => s.ObraId == o).Select(s => s.ComposicaoId).Distinct().ToListAsync(Cancelamento);
+        _compsObj = await db.Composicoes.AsNoTracking().Include(c => c.Itens).ToDictionaryAsync(c => c.Id, Cancelamento);
         _comps = _compsObj.Values.Where(c => c.Ativa && (usados.Contains(c.Id) || usados.Count == 0)).OrderBy(c => c.Codigo).Select(c => new Opcao(c.Id, $"{c.Codigo} – {c.Descricao}", c.Unidade)).ToList();
-        _fech = _veCustos ? await Mo.FechamentoAsync(o, _mes) : null;
+        _fech = _veCustos ? await Mo.FechamentoAsync(o, _mes, ct: Cancelamento) : null;
         _instantaneo = Instantaneo();
     }
 
@@ -249,7 +247,7 @@
     private async Task SalvarEquipe()
     {
         _e!.Membros = _e.Membros.Where(m => m.ColaboradorId != Guid.Empty).ToList();
-        if (await Executar(() => Mo.SalvarEquipeAsync(_e), "Equipe salva.")) { _abertoEq = false; await Carregar(); }
+        if (await Executar(() => Mo.SalvarEquipeAsync(_e, ct: Cancelamento), "Equipe salva.")) { _abertoEq = false; await Carregar(); }
     }
 
     private void AddCusto() => _custos.Add(new CustoMaoObraMes { ObraId = _obraId!.Value, Competencia = _mes, EncargosPerc = 80, HorasMes = 220 });
@@ -258,7 +256,7 @@
     private async Task SalvarCustos()
     {
         if (!_veCustos) return;
-        if (await Executar(() => Mo.SalvarCustosMesAsync(_obraId!.Value, _mes, _custos, _removidos.ToList()), "Custos do mês salvos.")) await Carregar();
+        if (await Executar(() => Mo.SalvarCustosMesAsync(_obraId!.Value, _mes, _custos, _removidos.ToList(), ct: Cancelamento), "Custos do mês salvos.")) await Carregar();
     }
 
     private Task Replicar() => DescartarSeConfirmar(ReplicarConfirmado, "Replicar o mês anterior");
@@ -266,14 +264,14 @@
     private async Task ReplicarConfirmado()
     {
         int n = 0;
-        if (await Executar(async () => n = await Mo.ReplicarAsync(_obraId!.Value, _mes.AddMonths(-1), _mes)))
+        if (await Executar(async () => n = await Mo.ReplicarAsync(_obraId!.Value, _mes.AddMonths(-1), _mes, ct: Cancelamento)))
         { Notif.Sucesso($"{n} linha(s) replicada(s) de {_mes.AddMonths(-1):MM/yyyy}. Ajuste e salve."); await Carregar(); }
     }
 
     private async Task Apropriar()
     {
         int n = 0;
-        if (await Executar(async () => n = await Mo.ApropriarAsync(_obraId!.Value, _aData, _aEquipe, _aColab, _aComp ?? Guid.Empty, _aLocais, _aHoras, _aQtd, _aObs)))
+        if (await Executar(async () => n = await Mo.ApropriarAsync(_obraId!.Value, _aData, _aEquipe, _aColab, _aComp ?? Guid.Empty, _aLocais, _aHoras, _aQtd, _aObs, ct: Cancelamento)))
         { Notif.Sucesso($"Horas lançadas em {n} local(is)."); _aLocais = []; _aHoras = 0; _aQtd = null; _aObs = null; await Carregar(); }
     }
 
@@ -282,6 +280,6 @@
 
     private async Task ExcluirConfirmado(Guid lanc)
     {
-        if (await Executar(() => Mo.ExcluirLancamentoAsync(lanc), "Lançamento excluído.")) await Carregar();
+        if (await Executar(() => Mo.ExcluirLancamentoAsync(lanc, ct: Cancelamento), "Lançamento excluído.")) await Carregar();
     }
 }

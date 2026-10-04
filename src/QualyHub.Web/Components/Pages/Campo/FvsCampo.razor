@@ -61,14 +61,14 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        await using var db = Fabrica.Criar();
+        await using var db = Fabrica.CriarLeitura();
         _equipamentos = (await db.Equipamentos.AsNoTracking().ToListAsync()).Where(e => e.UsavelEm(Hoje)).Select(e => new Opcao(e.Id, $"{e.Codigo} – {e.Descricao}")).ToList();
         await Carregar();
     }
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.Criar();
+        await using var db = Fabrica.CriarLeitura();
         _f = await db.Fvss.AsNoTracking().Include(f => f.Itens).Include(f => f.Modelo).Include(f => f.Local).FirstAsync(f => f.Id == Id);
         _prestador = await db.Fornecedores.Where(x => x.Id == _f.FornecedorId).Select(x => x.RazaoSocial).FirstOrDefaultAsync();
     }

@@ -1,6 +1,6 @@
 @page "/cotacoes"
 @inherits PaginaBase
-@inject SuprimentosServico Sup
+@inject CotacoesServico CotacoesSrv
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 
@@ -38,7 +38,7 @@
                 <Kpi Rotulo="Economia vs. referência" Valor="@(Econ.VsReferencia is { } r ? Moeda(r) : "—")" Sub="@(Econ.VsReferenciaPerc is { } rp ? $"{rp:0.0}% vs. preço de referência" : "produto sem preço de referência")" Tom="@(Econ.VsReferencia is < 0 ? "erro" : "ok")" />
                 <Kpi Rotulo="Status" Valor="@De(_c.Status)" />
             </div>
-            @if (_c.FornecedorVencedorId is null) { <p class="mudo" style="margin-top:-6px">Economias calculadas sobre o menor preço de cada item até escolher o vencedor.</p> }
+            @if (_c.FornecedorVencedorId is null) { <p class="mudo mt-menos-6">Economias calculadas sobre o menor preço de cada item até escolher o vencedor.</p> }
 
             <div class="secao"><Icone Nome="predio" /> Fornecedores convidados</div>
             <table class="itens">
@@ -47,16 +47,16 @@
                     @foreach (var f in _c.Fornecedores)
                     {
                         var total = Total(f.FornecedorId);
-                        <tr class="@(f.FornecedorId == _c.FornecedorVencedorId ? "destaque" : "")">
+                        <tr @key="f" class="@(f.FornecedorId == _c.FornecedorVencedorId ? "destaque" : "")">
                             <td><b>@Nome(f.FornecedorId)</b></td>
                             <td><Selo Texto="@De(f.QualificacaoNaData)" Tom="@Tom(f.QualificacaoNaData)" /></td>
                             <td>
                                 <select @bind="f.Status" disabled="@(!Editavel)">@foreach (var s in Enum.GetValues<StatusConvite>()) { <option value="@s">@De(s)</option> }</select>
                             </td>
-                            <td style="width:140px"><input type="date" @bind="f.DataResposta" disabled="@(!Editavel)" /></td>
+                            <td class="larg-140"><input type="date" @bind="f.DataResposta" disabled="@(!Editavel)" /></td>
                             <td><select @bind="f.CondicaoPagamento" disabled="@(!Editavel)"><option value="">—</option>@foreach (var c in _condicoes) { <option>@c</option> }</select></td>
-                            <td style="width:140px"><input type="date" @bind="f.ValidadeProposta" disabled="@(!Editavel)" /></td>
-                            <td style="width:110px"><input type="number" step="0.01" @bind="f.ValorFrete" disabled="@(!Editavel)" /></td>
+                            <td class="larg-140"><input type="date" @bind="f.ValidadeProposta" disabled="@(!Editavel)" /></td>
+                            <td class="larg-110"><input type="number" step="0.01" @bind="f.ValorFrete" disabled="@(!Editavel)" /></td>
                             <td class="num">@Moeda(total)</td>
                             <td>@if (Editavel) { <button class="btn sec pq" title="Copia o link para o fornecedor preencher preços, prazo e frete (sem login)" @onclick="() => CopiarLink(f)"><Icone Nome="enviar" Tam="14" /> Copiar link</button> }</td>
                         </tr>
@@ -65,11 +65,11 @@
             </table>
 
             <div class="secao"><Icone Nome="tabela" /> Mapa comparativo (valor unitário ofertado / negociado)</div>
-            <div style="overflow:auto">
+            <div class="tabela-rolavel">
                 <table class="itens mapa">
                     <thead>
                         <tr><th>Item</th><th>UN</th><th>Quant.</th><th title="Último preço unitário pago pelo mesmo produto">Último</th><th title="Preço de referência do cadastro do produto">Ref.</th>
-                            @foreach (var f in _c.Fornecedores) { <th colspan="2" style="text-align:center">@Nome(f.FornecedorId)</th> }
+                            @foreach (var f in _c.Fornecedores) { <th colspan="2" class="texto-centro">@Nome(f.FornecedorId)</th> }
                         </tr>
                         <tr><th></th><th></th><th></th><th></th><th></th>@foreach (var _ in _c.Fornecedores) { <th>Ofertado</th><th>Negociado</th> }</tr>
                     </thead>
@@ -78,9 +78,9 @@
                         {
                             var primeiro = g.First();
                             var menor = g.Where(i => i.ValorTotal > 0).Select(i => i.ValorTotal).DefaultIfEmpty(0).Min();
-                            <tr>
+                            <tr @key="primeiro">
                                 <td>@primeiro.Descricao @if (primeiro.MaterialControlado) { <Selo Texto="controlado" Tom="info" /> }
-                                    @if (primeiro.RequisicaoItemId is { } rid && _locaisItem.TryGetValue(rid, out var ls)) { <div class="mudo" style="font-size:12px">@string.Join(" · ", ls.Take(6))@(ls.Count > 6 ? $" +{ls.Count - 6}" : "")</div> }</td>
+                                    @if (primeiro.RequisicaoItemId is { } rid && _locaisItem.TryGetValue(rid, out var ls)) { <QuebraPorLocal Codigos="ls" Inline /> }</td>
                                 <td>@primeiro.Unidade</td><td class="num">@Num(primeiro.Quantidade, 3)</td>
                                 <td class="num mudo">@(primeiro.PrecoUltimo is { } pu ? Moeda(pu) : "—")</td>
                                 <td class="num mudo">@(primeiro.PrecoReferencia is { } pr ? Moeda(pr) : "—")</td>
@@ -88,8 +88,8 @@
                                 {
                                     var it = g.FirstOrDefault(i => i.FornecedorId == f.FornecedorId);
                                     if (it is null) { <td></td><td></td> continue; }
-                                    <td class="@(it.ValorTotal > 0 && it.ValorTotal == menor ? "melhor" : "")" style="width:110px"><input type="number" step="0.01" @bind="it.ValorOfertado" @bind:after="Recalcular" disabled="@(!Editavel)" /></td>
-                                    <td style="width:120px"><input type="number" step="0.01" @bind="it.ValorNegociado" @bind:after="Recalcular" disabled="@(!Editavel)" />
+                                    <td class="larg-110 @(it.ValorTotal > 0 && it.ValorTotal == menor ? "melhor" : "")"><input type="number" step="0.01" @bind="it.ValorOfertado" @bind:after="Recalcular" disabled="@(!Editavel)" /></td>
+                                    <td class="larg-120"><input type="number" step="0.01" @bind="it.ValorNegociado" @bind:after="Recalcular" disabled="@(!Editavel)" />
                                         @if (it.EconomiaVsUltimo is { } eu) { <span class="econ @(eu >= 0 ? "pos" : "neg")" title="vs. último preço">últ. @Moeda(eu)</span> }
                                         @if (it.EconomiaVsReferencia is { } er) { <span class="econ @(er >= 0 ? "pos" : "neg")" title="vs. referência">ref. @Moeda(er)</span> }
                                     </td>
@@ -100,7 +100,7 @@
                 </table>
             </div>
 
-            <div class="form" style="margin-top:14px">
+            <div class="form mt-14">
                 <Campo Rotulo="Fornecedor vencedor" Obrigatorio Classe="s4">
                     <select @bind="_c.FornecedorVencedorId" disabled="@(!Editavel)"><option value="">Selecione…</option>
                         @foreach (var f in _c.Fornecedores) { <option value="@f.FornecedorId">@Nome(f.FornecedorId) (@De(f.QualificacaoNaData))</option> }
@@ -169,7 +169,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        await using (var db = Fabrica.Criar()) _p = await ParametrosServico.CarregarAsync(db);
+        await using (var db = Fabrica.CriarLeitura()) _p = await ParametrosServico.CarregarAsync(db, Cancelamento);
         _condicoes = await Cat.ListaAsync(TipoLista.CondicaoPagamento);
         await Carregar();
         if (Nav.Uri.Contains("?id=") && Guid.TryParse(Nav.Uri.Split("?id=")[1], out var id)) await Abrir(id);
@@ -177,26 +177,26 @@
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.Criar();
+        await using var db = Fabrica.CriarLeitura();
         _itens = await db.Cotacoes.AsNoTracking().OrderByDescending(c => c.Numero)
             .Select(c => new Linha(c.Id, c.Numero, c.Nome, db.Obras.Where(o => o.Id == c.ObraId).Select(o => o.Nome).FirstOrDefault() ?? "", c.Tipo,
-                c.PropostasRecebidas, c.PropostasExigidas, c.ValorEstimado, c.FornecedorVencedor != null ? c.FornecedorVencedor.RazaoSocial : null, c.Status, c.CriadoPor, c.CriadoEm)).ToListAsync();
+                c.PropostasRecebidas, c.PropostasExigidas, c.ValorEstimado, c.FornecedorVencedor != null ? c.FornecedorVencedor.RazaoSocial : null, c.Status, c.CriadoPor, c.CriadoEm)).ToListAsync(Cancelamento);
     }
 
-    private Dictionary<Guid, List<string>> _locaisItem = [];
+    private Dictionary<Guid, List<(string Local, decimal Quantidade)>> _locaisItem = [];
 
     private async Task Abrir(Guid id)
     {
-        await using var db = Fabrica.Criar();
-        _c = await db.Cotacoes.AsNoTracking().Include(c => c.Fornecedores).Include(c => c.Itens).FirstAsync(c => c.Id == id);
+        await using var db = Fabrica.CriarLeitura();
+        _c = await db.Cotacoes.AsNoTracking().Include(c => c.Fornecedores).Include(c => c.Itens).FirstAsync(c => c.Id == id, Cancelamento);
         var ids = _c.Fornecedores.Select(f => f.FornecedorId).ToList();
-        _nomes = await db.Fornecedores.AsNoTracking().Where(f => ids.Contains(f.Id)).ToDictionaryAsync(f => f.Id, f => f.NomeFantasia ?? f.RazaoSocial);
+        _nomes = await db.Fornecedores.AsNoTracking().Where(f => ids.Contains(f.Id)).ToDictionaryAsync(f => f.Id, f => f.NomeFantasia ?? f.RazaoSocial, Cancelamento);
         var rids = _c.Itens.Where(i => i.RequisicaoItemId != null).Select(i => i.RequisicaoItemId!.Value).Distinct().ToList();
         _locaisItem = (await (from rl in db.RequisicaoItemLocais.AsNoTracking() join l in db.Locais.AsNoTracking() on rl.LocalId equals l.Id
-                              where rids.Contains(rl.RequisicaoItemId) select new { rl.RequisicaoItemId, l.Codigo, rl.Quantidade }).ToListAsync())
-            .GroupBy(x => x.RequisicaoItemId).ToDictionary(g => g.Key, g => g.OrderBy(x => x.Codigo).Select(x => $"{x.Codigo}: {x.Quantidade:0.###}").ToList());
+                              where rids.Contains(rl.RequisicaoItemId) select new { rl.RequisicaoItemId, l.Codigo, rl.Quantidade }).ToListAsync(Cancelamento))
+            .GroupBy(x => x.RequisicaoItemId).ToDictionary(g => g.Key, g => g.Select(x => (x.Codigo, x.Quantidade)).ToList());
         _c.Recalcular(_p!);
-        await SuprimentosServico.PrecosReferenciaAsync(db, _c);
+        await CotacoesServico.PrecosReferenciaAsync(db, _c, Cancelamento);
         ErrosForm = null; _versao++; _aberto = true;
     }
 
@@ -205,23 +205,23 @@
     private async Task Salvar()
     {
         if (_c!.Status == StatusCotacao.AguardandoPropostas && _c.Fornecedores.Any(f => f.Status != StatusConvite.Convidado)) _c.Status = StatusCotacao.EmAnalise;
-        if (await Executar(() => Sup.SalvarCotacaoAsync(_c!), "Cotação salva.")) await Recarregar();
+        if (await Executar(() => CotacoesSrv.SalvarCotacaoAsync(_c!, Cancelamento), "Cotação salva.")) await Recarregar();
     }
 
     private async Task Enviar()
     {
-        if (await Executar(async () => { await Sup.SalvarCotacaoAsync(_c!); await Sup.EnviarCotacaoAprovacaoAsync(_c!.Id); }, "Cotação enviada para aprovação.")) await Recarregar();
+        if (await Executar(async () => { await CotacoesSrv.SalvarCotacaoAsync(_c!, Cancelamento); await CotacoesSrv.EnviarCotacaoAprovacaoAsync(_c!.Id, Cancelamento); }, "Cotação enviada para aprovação.")) await Recarregar();
     }
 
     private async Task GerarPedido()
     {
         Guid id = default;
-        if (await Executar(async () => id = await Sup.GerarPedidoAsync(_c!.Id), "Pedido gerado.")) { _aberto = false; Nav.NavigateTo($"pedidos?id={id}"); }
+        if (await Executar(async () => id = await CotacoesSrv.GerarPedidoAsync(_c!.Id, Cancelamento), "Pedido gerado.")) { _aberto = false; Nav.NavigateTo($"pedidos?id={id}"); }
     }
 
     private async Task GerarContrato()
     {
         Guid id = default;
-        if (await Executar(async () => id = await Sup.GerarContratoAsync(_c!.Id), "Minuta de contrato gerada.")) { _aberto = false; Nav.NavigateTo($"contratos?id={id}"); }
+        if (await Executar(async () => id = await CotacoesSrv.GerarContratoAsync(_c!.Id, Cancelamento), "Minuta de contrato gerada.")) { _aberto = false; Nav.NavigateTo($"contratos?id={id}"); }
     }
 }

@@ -3,7 +3,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using QualyHub.Domain.Common;
-using QualyHub.Infrastructure.Contexto;
 
 namespace QualyHub.Infrastructure.Dados;
 

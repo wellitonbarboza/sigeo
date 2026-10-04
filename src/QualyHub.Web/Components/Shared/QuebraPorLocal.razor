@@ -1,0 +1,49 @@
+@* Quebra de um item por local da obra (requisição, cotação, contrato, portal do fornecedor).
+   Usa <details> em vez de só tooltip para a lista ser alcançável por teclado e legível no celular. *@
+@if (_linhas.Count > 0)
+{
+    <details class="quebra-local mudo" style="font-size:12px">
+        <summary title="@string.Join("\n", _linhas.Select(l => $"{l.Local}: {Qtd(l.Quantidade)}"))">@Resumo()</summary>
+        <ul style="margin:2px 0 0 14px">@foreach (var l in _linhas) { <li>@l.Local: @Qtd(l.Quantidade)</li> }</ul>
+    </details>
+}
+
+@code {
+    /// <summary>Quebra por id do local; o código vem de <see cref="Nomes"/>.</summary>
+    [Parameter] public IEnumerable<(Guid LocalId, decimal Quantidade)>? Locais { get; set; }
+    [Parameter] public IReadOnlyDictionary<Guid, string>? Nomes { get; set; }
+    /// <summary>Quebra já com o código do local (quando a tela não tem os ids, ex.: portal do fornecedor).</summary>
+    [Parameter] public IEnumerable<(string Local, decimal Quantidade)>? Codigos { get; set; }
+    /// <summary>Texto antes da contagem (ex.: "por local:").</summary>
+    [Parameter] public string? Prefixo { get; set; }
+    /// <summary>Texto depois da contagem/total (ex.: "— medição por local").</summary>
+    [Parameter] public string? Complemento { get; set; }
+    /// <summary>Acrescenta " · {RotuloTotal} {soma}" ao resumo.</summary>
+    [Parameter] public bool MostrarTotal { get; set; }
+    [Parameter] public string RotuloTotal { get; set; } = "total";
+    /// <summary>Resumo com os primeiros códigos em vez da contagem (cabe numa célula de mapa de cotação).</summary>
+    [Parameter] public bool Inline { get; set; }
+
+    private const int MaxInline = 6;
+    private static readonly System.Globalization.CultureInfo Br = new("pt-BR");
+    private List<(string Local, decimal Quantidade)> _linhas = [];
+
+    protected override void OnParametersSet()
+    {
+        var porId = Locais?.Select(l => (Nome(l.LocalId), l.Quantidade)) ?? [];
+        _linhas = porId.Concat(Codigos ?? []).OrderBy(l => l.Item1, StringComparer.OrdinalIgnoreCase).ToList();
+    }
+
+    private string Nome(Guid id) => Nomes is not null && Nomes.TryGetValue(id, out var c) && !string.IsNullOrEmpty(c) ? c : id.ToString()[..8];
+
+    private static string Qtd(decimal q) => q.ToString("#,##0.###", Br);
+
+    private string Resumo()
+    {
+        var corpo = Inline
+            ? string.Join(" · ", _linhas.Take(MaxInline).Select(l => $"{l.Local}: {Qtd(l.Quantidade)}")) + (_linhas.Count > MaxInline ? $" +{_linhas.Count - MaxInline}" : "")
+            : $"{_linhas.Count} local(is)";
+        var total = MostrarTotal ? $" · {RotuloTotal} {Qtd(_linhas.Sum(l => l.Quantidade))}" : "";
+        return string.Join(" ", new[] { Prefixo, corpo + total, Complemento }.Where(t => !string.IsNullOrEmpty(t)));
+    }
+}

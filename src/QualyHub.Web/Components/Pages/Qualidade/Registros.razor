@@ -1,5 +1,6 @@
 @page "/sgq/registros"
 @inherits PaginaBase
+@inject DocumentosServico Docs
 
 <Pagina Titulo="Controle de registros (retenção)" Grade="_grade" AoNovo="Novo" AoAtualizar="Carregar">
     <ChildContent>
@@ -50,25 +51,14 @@
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.Criar();
-        _itens = await db.RegrasRetencao.AsNoTracking().OrderBy(r => r.Identificacao).ToListAsync();
+        await using var db = Fabrica.CriarLeitura();
+        _itens = await db.RegrasRetencao.OrderBy(r => r.Identificacao).ToListAsync(Cancelamento);
     }
 
     private void Novo() { _r = new RegraRetencao(); ErrosForm = null; _aberto = true; }
 
     private async Task Salvar()
     {
-        var ok = await Executar(async () =>
-        {
-            var e = new List<string>();
-            if (string.IsNullOrWhiteSpace(_r!.Identificacao)) e.Add("Informe o registro.");
-            if (string.IsNullOrWhiteSpace(_r.Armazenamento) || string.IsNullOrWhiteSpace(_r.Recuperacao) || string.IsNullOrWhiteSpace(_r.Protecao)
-                || string.IsNullOrWhiteSpace(_r.TempoRetencao) || string.IsNullOrWhiteSpace(_r.Descarte))
-                e.Add("Preencha armazenamento, recuperação, proteção, retenção e descarte.");
-            ValidacaoException.Se(e);
-            await using var db = Fabrica.Criar();
-            await Grafo.SalvarAsync(db, _r); await db.SaveChangesAsync();
-        }, "Regra salva.");
-        if (ok) { _aberto = false; await Carregar(); }
+        if (await Executar(() => Docs.SalvarRegraRetencaoAsync(_r!, Cancelamento), "Regra salva.")) { _aberto = false; await Carregar(); }
     }
 }

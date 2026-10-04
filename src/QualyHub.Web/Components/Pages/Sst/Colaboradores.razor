@@ -66,15 +66,15 @@
                     </tbody>
                 </table>
                 <div class="duas-caixas">
-                    <div class="caixa-sec"><div class="secao"><Icone Nome="alerta" /> Restrição</div><p style="font-size:13px">@(_c.Restricoes == AtividadeRisco.Nenhuma ? "Sem restrição de atividade." : $"Não pode ser incluído em permissão de trabalho de: {De(_c.Restricoes)}.")</p></div>
-                    <div class="caixa-sec"><div class="secao"><Icone Nome="qr" /> Crachá</div><p style="font-size:13px">QR abre a situação atual do colaborador (consulta do técnico de segurança ou encarregado): <code>/sst/colaboradores?id=@_c.Id</code></p></div>
+                    <div class="caixa-sec"><div class="secao"><Icone Nome="alerta" /> Restrição</div><p class="fonte-13">@(_c.Restricoes == AtividadeRisco.Nenhuma ? "Sem restrição de atividade." : $"Não pode ser incluído em permissão de trabalho de: {De(_c.Restricoes)}.")</p></div>
+                    <div class="caixa-sec"><div class="secao"><Icone Nome="qr" /> Crachá</div><p class="fonte-13">QR abre a situação atual do colaborador (consulta do técnico de segurança ou encarregado): <code>/sst/colaboradores?id=@_c.Id</code></p></div>
                 </div>
             }
             else if (_aba == "docs")
             {
                 <table class="itens"><thead><tr><th>Documento</th><th>Emissão</th><th>Validade</th><th>Origem</th><th>Validação</th></tr></thead>
                     <tbody>@foreach (var d in _docs) { <tr><td>@Nome(_exig, d.ExigenciaId)</td><td>@Data(d.DataEmissao)</td><td>@Data(d.Validade)</td><td>@De(d.Origem)</td><td><Selo Texto="@De(d.Validacao)" Tom="@Tom(d.Validacao)" /></td></tr> }</tbody></table>
-                <a class="btn sec pq" href="sst/documentos?colaborador=@_c.Id" style="margin-top:8px">Lançar / validar documentos</a>
+                <a class="btn sec pq marg-topo-8" href="sst/documentos?colaborador=@_c.Id">Lançar / validar documentos</a>
             }
             else if (_aba == "trein")
             {
@@ -117,18 +117,18 @@
     protected override async Task OnInitializedAsync()
     {
         _obras = await Cat.ObrasAsync(); _fornecedores = await Cat.FornecedoresAsync(); _contratos = await Cat.ContratosAtivosAsync(); _funcoes = await Cat.FuncoesAsync();
-        await using (var db = Fabrica.Criar()) _exig = await db.Exigencias.AsNoTracking().Select(e => new Opcao(e.Id, e.Descricao)).ToListAsync();
+        await using (var db = Fabrica.CriarLeitura()) _exig = await db.Exigencias.AsNoTracking().Select(e => new Opcao(e.Id, e.Descricao)).ToListAsync(Cancelamento);
         await Carregar();
         if (Nav.Uri.Contains("?id=") && Guid.TryParse(Nav.Uri.Split("?id=")[1], out var id)) await Abrir(id);
     }
 
-    private async Task Recalcular() { await Sst.RecalcularAsync(); await Carregar(); Notif.Sucesso("Situação recalculada."); }
+    private async Task Recalcular() { await Sst.RecalcularAsync(null, Cancelamento); await Carregar(); Notif.Sucesso("Situação recalculada."); }
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.Criar();
-        _ativos = await db.Colaboradores.AsNoTracking().Where(c => c.DataSaida == null || c.DataSaida > Hoje).OrderBy(c => c.Nome).ToListAsync();
-        var todos = await db.Colaboradores.AsNoTracking().OrderBy(c => c.Nome).ToListAsync();
+        await using var db = Fabrica.CriarLeitura();
+        _ativos = await db.Colaboradores.AsNoTracking().Where(c => c.DataSaida == null || c.DataSaida > Hoje).OrderBy(c => c.Nome).ToListAsync(Cancelamento);
+        var todos = await db.Colaboradores.AsNoTracking().OrderBy(c => c.Nome).ToListAsync(Cancelamento);
         _itens = todos.Select(c => new Linha(c.Id, c.Nome, c.FornecedorId is { } f ? Nome(_fornecedores, f) : "Própria", Nome(_funcoes, c.FuncaoObraId), c.CpfMascarado, c.DataInicio, c.Pendencias, c.Situacao)).ToList();
     }
 
@@ -140,16 +140,16 @@
 
     private async Task Abrir(Guid id)
     {
-        var calc = await Sst.RecalcularAsync([id]);
-        await using var db = Fabrica.Criar();
-        _c = await db.Colaboradores.AsNoTracking().FirstAsync(c => c.Id == id);
+        var calc = await Sst.RecalcularAsync([id], Cancelamento);
+        await using var db = Fabrica.CriarLeitura();
+        _c = await db.Colaboradores.AsNoTracking().FirstAsync(c => c.Id == id, Cancelamento);
         _calc = calc.GetValueOrDefault(id);
-        _docs = await db.DocumentosColaborador.AsNoTracking().Where(d => d.ColaboradorId == id).OrderByDescending(d => d.DataEmissao).ToListAsync();
+        _docs = await db.DocumentosColaborador.AsNoTracking().Where(d => d.ColaboradorId == id).OrderByDescending(d => d.DataEmissao).ToListAsync(Cancelamento);
         _treins = (await db.Participantes.AsNoTracking().Where(p => p.ColaboradorId == id)
             .Join(db.Turmas, p => p.TurmaId, t => t.Id, (p, t) => new { p, t })
-            .Join(db.Treinamentos, x => x.t.TreinamentoId, tr => tr.Id, (x, tr) => new { tr.Descricao, x.t.Codigo, x.t.Data, x.p.Resultado, x.p.ValidoAte }).ToListAsync())
+            .Join(db.Treinamentos, x => x.t.TreinamentoId, tr => tr.Id, (x, tr) => new { tr.Descricao, x.t.Codigo, x.t.Data, x.p.Resultado, x.p.ValidoAte }).ToListAsync(Cancelamento))
             .Select(x => (x.Descricao, x.Codigo, x.Data, x.Resultado, x.ValidoAte)).ToList();
-        _epis = (await db.EntregasEpi.AsNoTracking().Where(e => e.ColaboradorId == id).Join(db.Epis, e => e.EpiId, p => p.Id, (e, p) => new { p.Descricao, p.Ca, e.Quantidade, e.DataEntrega, e.TrocaPrevista, e.Assinatura }).ToListAsync())
+        _epis = (await db.EntregasEpi.AsNoTracking().Where(e => e.ColaboradorId == id).Join(db.Epis, e => e.EpiId, p => p.Id, (e, p) => new { p.Descricao, p.Ca, e.Quantidade, e.DataEntrega, e.TrocaPrevista, e.Assinatura }).ToListAsync(Cancelamento))
             .Select(x => ($"{x.Descricao} (CA {x.Ca})", x.Quantidade, x.DataEntrega, x.TrocaPrevista, x.Assinatura)).ToList();
         _cpf = null; ErrosForm = null; _aberto = true;
     }
@@ -157,6 +157,6 @@
     private async Task Salvar()
     {
         Guid id = default;
-        if (await Executar(async () => id = await Sst.SalvarColaboradorAsync(_c!, _cpf), "Colaborador salvo.")) { await Carregar(); await Abrir(id); _aba = "exig"; }
+        if (await Executar(async () => id = await Sst.SalvarColaboradorAsync(_c!, _cpf, Cancelamento), "Colaborador salvo.")) { await Carregar(); await Abrir(id); _aba = "exig"; }
     }
 }

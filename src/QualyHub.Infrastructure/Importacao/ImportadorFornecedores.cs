@@ -14,10 +14,11 @@ namespace QualyHub.Infrastructure.Importacao;
 /// (funcionários, pedidos, medições): 1) Preparar = staging + validação + prévia; 2) Confirmar = upsert.
 /// Campos QualyHub esperados no layout: CpfCnpj, RazaoSocial, NomeFantasia, Email, Telefone, Cidade, Uf, Codigo.
 /// </summary>
-public sealed class ImportadorFornecedores(QualyHubDbContext db, TimeProvider relogio)
+public sealed class ImportadorFornecedores(IFabricaDb fabrica, TimeProvider relogio)
 {
     public async Task<LoteImportacao> PrepararAsync(LoteImportacao lote, IReadOnlyList<LinhaLida> linhas, CancellationToken ct = default)
     {
+        await using var db = fabrica.CriarLeitura();
         var existentes = await db.Fornecedores.AsNoTracking()
             .ToDictionaryAsync(f => f.CpfCnpj, ct);
 
@@ -57,6 +58,7 @@ public sealed class ImportadorFornecedores(QualyHubDbContext db, TimeProvider re
     /// <summary>Aplica somente linhas válidas. Linhas com erro ficam no lote para correção e reenvio.</summary>
     public async Task ConfirmarAsync(Guid loteId, string confirmadoPor, CancellationToken ct = default)
     {
+        await using var db = fabrica.Criar();
         var lote = await db.LotesImportacao.Include(x => x.Linhas).FirstAsync(x => x.Id == loteId, ct);
         if (lote.Status is not (StatusImportacao.AguardandoConfirmacao or StatusImportacao.ComErros))
             throw new InvalidOperationException("Lote não está aguardando confirmação.");
@@ -106,18 +108,3 @@ public sealed class ImportadorFornecedores(QualyHubDbContext db, TimeProvider re
         d.TryGetValue(k, out var v) && !string.IsNullOrWhiteSpace(v) ? v.Trim() : null;
 }
 
-/// <summary>
-/// LGPD — CPF de funcionário nunca em claro no banco: HMAC-SHA256 com chave do Key Vault (permite casar na importação)
-/// + versão mascarada para exibição.
-/// </summary>
-public sealed class ProtecaoCpf(byte[] chaveHmac)
-{
-    public string Hash(string cpf) =>
-        Convert.ToHexString(HMACSHA256.HashData(chaveHmac, Encoding.UTF8.GetBytes(Conversor.SomenteDigitos(cpf))));
-
-    public static string Mascarar(string cpf)
-    {
-        var d = Conversor.SomenteDigitos(cpf);
-        return d.Length == 11 ? $"***.{d[3..6]}.{d[6..9]}-**" : "***";
-    }
-}

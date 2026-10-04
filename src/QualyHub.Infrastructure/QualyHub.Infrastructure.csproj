@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\QualyHub.Domain\QualyHub.Domain.csproj" />
+    <ProjectReference Include="..\QualyHub.Application\QualyHub.Application.csproj" />
   </ItemGroup>
 
   <ItemGroup>

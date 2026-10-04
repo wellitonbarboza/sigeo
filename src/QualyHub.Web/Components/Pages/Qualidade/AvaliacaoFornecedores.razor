@@ -1,6 +1,6 @@
 @page "/fornecedores/avaliacao"
 @inherits PaginaBase
-@inject SuprimentosServico Sup
+@inject AvaliacaoFornecedoresServico AvaliacaoSrv
 
 <Pagina Titulo="Avaliação consolidada de fornecedores" Grade="_grade" AoAtualizar="Carregar">
     <ChildContent>
@@ -67,7 +67,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        await using (var db = Fabrica.Criar()) _p = await ParametrosServico.CarregarAsync(db);
+        await using (var db = Fabrica.CriarLeitura()) _p = await ParametrosServico.CarregarAsync(db, Cancelamento);
         var atual = AvaliacaoSemestral.PeriodoDe(Hoje);
         var anterior = AvaliacaoSemestral.PeriodoDe(Hoje.AddMonths(-6));
         var antigo = AvaliacaoSemestral.PeriodoDe(Hoje.AddMonths(-12));
@@ -78,21 +78,21 @@
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.Criar();
-        _itens = await db.AvaliacoesSemestrais.AsNoTracking().Include(a => a.Fornecedor).Where(a => a.Periodo == _periodo).OrderBy(a => a.NotaMedia).ToListAsync();
+        await using var db = Fabrica.CriarLeitura();
+        _itens = await db.AvaliacoesSemestrais.AsNoTracking().Include(a => a.Fornecedor).Where(a => a.Periodo == _periodo).OrderBy(a => a.NotaMedia).ToListAsync(Cancelamento);
     }
 
     private async Task Consolidar()
     {
         var n = 0;
-        if (await Executar(async () => n = await Sup.ConsolidarSemestreAsync(_periodo))) { Notif.Sucesso($"{n} fornecedor(es) consolidados em {_periodo}."); await Carregar(); }
+        if (await Executar(async () => n = await AvaliacaoSrv.ConsolidarSemestreAsync(_periodo, Cancelamento))) { Notif.Sucesso($"{n} fornecedor(es) consolidados em {_periodo}."); await Carregar(); }
     }
 
     private async Task Decidir()
     {
         var copia = _a!;
         var f = copia.Fornecedor; copia.Fornecedor = null!;
-        var ok = await Executar(() => Sup.DecidirSemestreAsync(copia), "Decisão registrada.");
+        var ok = await Executar(() => AvaliacaoSrv.DecidirSemestreAsync(copia, Cancelamento), "Decisão registrada.");
         copia.Fornecedor = f;
         if (ok) { _aberto = false; await Carregar(); }
     }

@@ -36,7 +36,7 @@ else
     protected override async Task OnInitializedAsync()
     {
         _fornecedores = await Cat.FornecedoresAsync();
-        await using var db = Fabrica.Criar();
+        await using var db = Fabrica.CriarLeitura();
         _local = await db.Locais.AsNoTracking().FirstOrDefaultAsync(l => l.QrToken == Qr);
         if (_local is null) return;
         var modelos = await Cat.ModelosAsync(TipoModelo.FVS);

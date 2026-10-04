@@ -28,7 +28,7 @@
         {
             <Erros Lista="ErrosForm" />
             <Etapas Itens="Passos()" />
-            <div class="duas-caixas" style="grid-template-columns: 2fr 1fr">
+            <div class="duas-caixas prop-2-1">
                 <div>
                     <div class="form">
                         <Campo Rotulo="Problema" Obrigatorio Classe="s12"><input @bind="_a.Problema" disabled="@Encerrada" /></Campo>
@@ -39,28 +39,30 @@
                         <Campo Rotulo="Causa raiz" Obrigatorio Classe="s12"><input @bind="_a.CausaRaiz" disabled="@Encerrada" /></Campo>
                     </div>
                     <div class="secao"><Icone Nome="lista" /> Plano de ação @if (!Encerrada) { <span class="acao"><button class="btn sec pq" @onclick="() => _a.Itens.Add(new AcaoCorretivaItem { AcaoCorretivaId = _a.Id, Prazo = Hoje.AddDays(7) })"><Icone Nome="mais" Tam="14" /> Ação</button></span> }</div>
+                    <div class="tabela-rolavel">
                     <table class="itens">
                         <thead><tr><th>Ação</th><th>Responsável</th><th>Prazo</th><th>Revisar documento</th><th>Status</th><th></th></tr></thead>
                         <tbody>
                             @foreach (var i in _a.Itens)
                             {
-                                <tr>
+                                <tr @key="i">
                                     <td><input @bind="i.Acao" disabled="@Encerrada" /></td>
-                                    <td style="width:150px"><input @bind="i.Responsavel" disabled="@Encerrada" /></td>
-                                    <td style="width:140px"><input type="date" @bind="i.Prazo" disabled="@Encerrada" /></td>
+                                    <td class="larg-150"><input @bind="i.Responsavel" disabled="@Encerrada" /></td>
+                                    <td class="larg-140"><input type="date" @bind="i.Prazo" disabled="@Encerrada" /></td>
                                     <td><select @bind="i.DocumentoId" disabled="@Encerrada"><option value="">—</option>@foreach (var d in _docs) { <option value="@d.Id">@d.Texto</option> }</select>
                                         @if (i.DocumentoId is { } did) { <a href="sgq/documentos?id=@did" title="Abrir documento para nova revisão"><Icone Nome="seta-dir" Tam="14" /></a> }</td>
-                                    <td style="width:120px"><select @bind="i.Status" disabled="@Encerrada">@foreach (var s in Enum.GetValues<StatusItemPlano>()) { <option value="@s">@De(s)</option> }</select></td>
+                                    <td class="larg-120"><select @bind="i.Status" disabled="@Encerrada">@foreach (var s in Enum.GetValues<StatusItemPlano>()) { <option value="@s">@De(s)</option> }</select></td>
                                     <td>@if (!Encerrada) { <button class="icone-btn" @onclick="() => _a.Itens.Remove(i)"><Icone Nome="lixeira" Tam="16" /></button> }</td>
                                 </tr>
                             }
                         </tbody>
                     </table>
+                    </div>
                 </div>
                 <div>
                     <div class="caixa-sec"><div class="secao"><Icone Nome="clipe" /> Ligações</div>
-                        <p style="font-size:13px">RNC: @(_a.RncsOrigem ?? "—")<br />@foreach (var r in _rncs) { <a href="obra/rnc?id=@r.Id">@r.Numero</a> <span class="mudo">@r.Referencia</span><br /> }</p></div>
-                    <div class="caixa-sec" style="margin-top:12px"><div class="secao"><Icone Nome="check-circulo" /> Verificação de eficácia</div>
+                        <p class="fonte-13">RNC: @(_a.RncsOrigem ?? "—")<br />@foreach (var r in _rncs) { <a href="obra/rnc?id=@r.Id">@r.Numero</a> <span class="mudo">@r.Referencia</span><br /> }</p></div>
+                    <div class="caixa-sec marg-topo-12"><div class="secao"><Icone Nome="check-circulo" /> Verificação de eficácia</div>
                         <div class="form">
                             <Campo Rotulo="Data prevista" Obrigatorio Classe="s12"><input type="date" @bind="_a.DataEficacia" disabled="@Encerrada" /></Campo>
                             <Campo Rotulo="Critério" Obrigatorio Classe="s12"><textarea @bind="_a.CriterioEficacia" disabled="@Encerrada"></textarea></Campo>
@@ -95,15 +97,15 @@
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.Criar();
-        _itens = await db.AcoesCorretivas.AsNoTracking().OrderByDescending(a => a.Numero).ToListAsync();
+        await using var db = Fabrica.CriarLeitura();
+        _itens = await db.AcoesCorretivas.AsNoTracking().OrderByDescending(a => a.Numero).ToListAsync(Cancelamento);
     }
 
     private async Task Abrir(Guid id)
     {
-        await using var db = Fabrica.Criar();
-        _a = await db.AcoesCorretivas.AsNoTracking().Include(a => a.Itens).FirstAsync(a => a.Id == id);
-        _rncs = await db.Rncs.AsNoTracking().Where(r => r.AcaoCorretivaId == id).ToListAsync();
+        await using var db = Fabrica.CriarLeitura();
+        _a = await db.AcoesCorretivas.AsNoTracking().Include(a => a.Itens).FirstAsync(a => a.Id == id, Cancelamento);
+        _rncs = await db.Rncs.AsNoTracking().Where(r => r.AcaoCorretivaId == id).ToListAsync(Cancelamento);
         ErrosForm = null; _aberto = true;
     }
 
@@ -122,6 +124,6 @@
     private async Task Salvar()
     {
         _a!.ResponsavelNome = _usuarios.FirstOrDefault(u => u.Id == _a.ResponsavelId)?.Texto ?? _a.ResponsavelNome;
-        if (await Executar(() => Qob.SalvarAcaoCorretivaAsync(_a), "Ação corretiva salva.")) { await Carregar(); await Abrir(_a.Id); }
+        if (await Executar(() => Qob.SalvarAcaoCorretivaAsync(_a, Cancelamento), "Ação corretiva salva.")) { await Carregar(); await Abrir(_a.Id); }
     }
 }

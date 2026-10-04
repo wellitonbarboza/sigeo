@@ -21,9 +21,9 @@
                             <Icone Nome="pasta" Tam="15" /> @p.Nome <small class="mudo">(@_todos.Count(d => d.PastaId == p.Id))</small>
                         </div>
                     }
-                    @if (Gestor) { <div class="mudo" style="margin-top:8px" @onclick="() => { _novaPasta = new Pasta(); _abertoPasta = true; }"><Icone Nome="mais" Tam="14" /> Nova pasta</div> }
+                    @if (Gestor) { <div class="mudo marg-topo-8" @onclick="() => { _novaPasta = new Pasta(); _abertoPasta = true; }"><Icone Nome="mais" Tam="14" /> Nova pasta</div> }
                 </aside>
-                <div style="flex:1;min-width:0">
+                <div class="flex-1">
                     <Grade T="Linha" @ref="_grade" Itens="_itens" AoClicar="l => Abrir(l.Id)" NomeExportacao="documentos-sgq" CriadoPor="l => l.CriadoPor">
                         <Colunas>
                             <Coluna T="Linha" Titulo="Código" Valor="l => l.Codigo" Largura="110px" />
@@ -195,6 +195,7 @@
             }
             else if (_aba == "log")
             {
+                @if (_eventos.Count >= LimiteEventos) { <p class="mudo">Exibindo os primeiros @LimiteEventos — refine o filtro.</p> }
                 <table class="itens">
                     <thead><tr><th>Data/hora</th><th>Usuário</th><th>Evento</th><th>Detalhe</th></tr></thead>
                     <tbody>
@@ -252,6 +253,7 @@
     private CheckoutDocumento? _checkout;
     private List<Ciencia> _ciencias = [];
     private List<EventoDocumento> _eventos = [];
+    private const int LimiteEventos = 300;
     private Pasta? _novaPasta;
     private bool _aberto, _abertoNovo, _abertoRev, _abertoPasta;
     private string _aba = "revisao";
@@ -266,7 +268,7 @@
     protected override async Task OnInitializedAsync()
     {
         _tipos = await Cat.ListaAsync(TipoLista.TipoDocumentoSgq); _obras = await Cat.ObrasAsync(); _usuarios = await Cat.UsuariosAsync();
-        await using (var db = Fabrica.Criar()) _retencoes = await db.RegrasRetencao.AsNoTracking().OrderBy(r => r.Identificacao).Select(r => new Opcao(r.Id, r.Identificacao + " – " + r.TempoRetencao)).ToListAsync();
+        await using (var db = Fabrica.CriarLeitura()) _retencoes = await db.RegrasRetencao.OrderBy(r => r.Identificacao).Select(r => new Opcao(r.Id, r.Identificacao + " – " + r.TempoRetencao)).ToListAsync(Cancelamento);
         await Carregar();
         if (Nav.Uri.Contains("?id=") && Guid.TryParse(Nav.Uri.Split("?id=")[1], out var id)) await Abrir(id);
     }
@@ -282,12 +284,12 @@
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.Criar();
-        _pastas = await db.Pastas.AsNoTracking().ToListAsync();
+        await using var db = Fabrica.CriarLeitura();
+        _pastas = await db.Pastas.ToListAsync(Cancelamento);
         var nomes = _pastas.ToDictionary(p => p.Id, p => p.Nome);
-        var docs = await db.Documentos.AsNoTracking().Include(d => d.Revisoes).OrderBy(d => d.Codigo).ToListAsync();
+        var docs = await db.Documentos.Include(d => d.Revisoes).OrderBy(d => d.Codigo).ToListAsync(Cancelamento);
         _todos = docs.Select(d => new Linha(d.Id, d.Codigo, d.Titulo, d.Tipo, d.PastaId, nomes.GetValueOrDefault(d.PastaId, ""), d.RevisaoVigente?.Rotulo, d.DataVigencia, d.ProximaAnalise, d.ResponsavelNome, d.Status, d.CriadoPor)).ToList();
-        _aRecolher = await db.Copias.CountAsync(c => c.Status == StatusCopia.RecolhimentoPendente);
+        _aRecolher = await db.Copias.CountAsync(c => c.Status == StatusCopia.RecolhimentoPendente, Cancelamento);
         Filtrar(_pasta);
     }
 
@@ -309,35 +311,26 @@
         _novo!.ResponsavelNome = _usuarios.FirstOrDefault(u => u.Id == _novo.ResponsavelUsuarioId)?.Texto;
         _novo.AprovadorNome = _usuarios.FirstOrDefault(u => u.Id == _novo.AprovadorUsuarioId)?.Texto;
         Guid id = default;
-        if (await Executar(async () => id = await Docs.CriarDocumentoAsync(_novo), "Documento criado — R00 em elaboração.")) { _abertoNovo = false; await Carregar(); await Abrir(id); }
+        if (await Executar(async () => id = await Docs.CriarDocumentoAsync(_novo, Cancelamento), "Documento criado — R00 em elaboração.")) { _abertoNovo = false; await Carregar(); await Abrir(id); }
     }
 
     private async Task SalvarPasta()
     {
-        var ok = await Executar(async () =>
-        {
-            ValidacaoException.Se(string.IsNullOrWhiteSpace(_novaPasta!.Nome) ? ["Informe o nome."] : []);
-            await using var db = Fabrica.Criar();
-            db.Pastas.Add(_novaPasta); await db.SaveChangesAsync();
-        }, "Pasta criada.");
-        if (ok) { _abertoPasta = false; await Carregar(); }
+        if (await Executar(() => Docs.CriarPastaAsync(_novaPasta!, Cancelamento), "Pasta criada.")) { _abertoPasta = false; await Carregar(); }
     }
 
     private async Task Abrir(Guid id)
     {
-        await using var db = Fabrica.Criar();
-        _d = await db.Documentos.AsNoTracking().Include(d => d.Revisoes).ThenInclude(r => r.Etapas).Include(d => d.Revisoes).ThenInclude(r => r.Copias).AsSplitQuery().FirstAsync(d => d.Id == id);
+        await using var db = Fabrica.CriarLeitura();
+        _d = await db.Documentos.Include(d => d.Revisoes).ThenInclude(r => r.Etapas).Include(d => d.Revisoes).ThenInclude(r => r.Copias).AsSplitQuery().FirstAsync(d => d.Id == id, Cancelamento);
         _emAndamento = _d.Revisoes.FirstOrDefault(r => r.Status is < StatusRevisao.Vigente and not StatusRevisao.Recusada);
-        _perm = await Docs.PermissaoAsync(db, _d);
+        _perm = await Docs.PermissaoAsync(db, _d, Cancelamento);
         var revIds = _d.Revisoes.Select(r => r.Id).ToList();
-        _checkout = _emAndamento is null ? null : await db.Checkouts.AsNoTracking().FirstOrDefaultAsync(c => c.DocumentoRevisaoId == _emAndamento.Id && c.CheckinEm == null && c.LiberadoForcadoPor == null);
-        _ciencias = await db.Ciencias.AsNoTracking().Where(c => revIds.Contains(c.DocumentoRevisaoId)).OrderBy(c => c.UsuarioNome).ToListAsync();
-        _eventos = await db.EventosDocumento.AsNoTracking().Where(e => e.DocumentoId == id).OrderByDescending(e => e.DataHora).Take(300).ToListAsync();
-        if (_aberto == false)
-        {
-            Docs.Log(db, EventoDocumentoTipo.Visualizacao, _d.Id, _d.RevisaoVigenteId);
-            await db.SaveChangesAsync();
-        }
+        _checkout = _emAndamento is null ? null : await db.Checkouts.FirstOrDefaultAsync(c => c.DocumentoRevisaoId == _emAndamento.Id && c.CheckinEm == null && c.LiberadoForcadoPor == null, Cancelamento);
+        _ciencias = await db.Ciencias.Where(c => revIds.Contains(c.DocumentoRevisaoId)).OrderBy(c => c.UsuarioNome).ToListAsync(Cancelamento);
+        _eventos = await db.EventosDocumento.Where(e => e.DocumentoId == id).OrderByDescending(e => e.DataHora).Take(LimiteEventos).ToListAsync(Cancelamento);
+        // Só a primeira abertura conta como acesso; recarregar após uma ação na mesma ficha não é nova visualização.
+        if (!_aberto) await Docs.RegistrarVisualizacaoAsync(_d.Id, _d.RevisaoVigenteId, Cancelamento);
         _vigencia = Hoje; _comentario = null; ErrosForm = null; _aberto = true;
     }
 
@@ -362,25 +355,25 @@
 
     private async Task Anexar(InputFileChangeEventArgs e, bool publicado)
     {
-        if (await Executar(async () => { await using var s = e.File.OpenReadStream(50 * 1024 * 1024); await Docs.AnexarArquivoAsync(_emAndamento!.Id, s, e.File.Name, publicado); }, "Arquivo anexado."))
+        if (await Executar(async () => { await using var s = e.File.OpenReadStream(50 * 1024 * 1024, Cancelamento); await Docs.AnexarArquivoAsync(_emAndamento!.Id, s, e.File.Name, publicado, Cancelamento); }, "Arquivo anexado."))
             await Abrir(_d!.Id);
     }
 
-    private async Task Checkout() { if (await Executar(() => Docs.CheckoutAsync(_emAndamento!.Id), "Check-out feito — só você edita até o check-in.")) await Abrir(_d!.Id); }
-    private async Task Checkin(bool forcado) { if (await Executar(() => Docs.CheckinAsync(_emAndamento!.Id, forcado), "Check-in registrado.")) await Abrir(_d!.Id); }
+    private async Task Checkout() { if (await Executar(() => Docs.CheckoutAsync(_emAndamento!.Id, Cancelamento), "Check-out feito — só você edita até o check-in.")) await Abrir(_d!.Id); }
+    private async Task Checkin(bool forcado) { if (await Executar(() => Docs.CheckinAsync(_emAndamento!.Id, forcado, Cancelamento), "Check-in registrado.")) await Abrir(_d!.Id); }
 
     private async Task Decidir(DecisaoEtapa decisao)
     {
-        if (await Executar(() => Docs.DecidirEtapaAsync(_emAndamento!.Id, decisao, _comentario), "Etapa registrada.")) await Recarregar();
+        if (await Executar(() => Docs.DecidirEtapaAsync(_emAndamento!.Id, decisao, _comentario, Cancelamento), "Etapa registrada.")) await Recarregar();
     }
 
     private async Task Publicar()
     {
-        if (await Executar(() => Docs.PublicarAsync(_emAndamento!.Id, _vigencia), "Revisão publicada — leituras e recolhimentos gerados.")) await Recarregar();
+        if (await Executar(() => Docs.PublicarAsync(_emAndamento!.Id, _vigencia, Cancelamento), "Revisão publicada — leituras e recolhimentos gerados.")) await Recarregar();
     }
 
     private async Task NovaRevisao()
     {
-        if (await Executar(() => Docs.NovaRevisaoAsync(_d!.Id, _motivo, _descricao ?? "", _origem), "Revisão aberta em elaboração.")) { _abertoRev = false; _aba = "revisao"; await Recarregar(); }
+        if (await Executar(() => Docs.NovaRevisaoAsync(_d!.Id, _motivo, _descricao ?? "", _origem, Cancelamento), "Revisão aberta em elaboração.")) { _abertoRev = false; _aba = "revisao"; await Recarregar(); }
     }
 }

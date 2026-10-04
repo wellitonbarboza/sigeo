@@ -34,7 +34,18 @@
         </div>
     </aside>
     <main class="principal">
-        <div class="conteudo">@Body</div>
+        <div class="conteudo">
+            @* Erro ao desenhar um componente fica contido aqui: menu e cabeçalho continuam e o usuário pode tentar de novo. *@
+            <ErrorBoundary @ref="_limiteErro">
+                <ChildContent>@Body</ChildContent>
+                <ErrorContent Context="ex">
+                    <div class="alerta erro" role="alert"><Icone Nome="exclamacao" />
+                        <div>Não foi possível exibir esta parte da tela. O erro foi registrado.
+                            <button type="button" class="btn sec pq" @onclick="Recuperar">Tentar de novo</button></div>
+                    </div>
+                </ErrorContent>
+            </ErrorBoundary>
+        </div>
     </main>
 </div>
 <Toasts />
@@ -45,6 +56,11 @@
 </div>
 
 @code {
+    private ErrorBoundary? _limiteErro;
+    private void Recuperar() => _limiteErro?.Recover();
+    // Ao navegar para outra tela, um erro da tela anterior não deve continuar bloqueando o conteúdo.
+    protected override void OnParametersSet() => _limiteErro?.Recover();
+
     private string _tema = "claro";
     private sealed record Grupo(string Id, string Titulo, string Icone, (string Href, string Icone, string Texto)[] Itens);
     private readonly HashSet<string> _abertos = [];

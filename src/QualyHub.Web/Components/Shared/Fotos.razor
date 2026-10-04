@@ -1,16 +1,18 @@
 @* Fotos compactas de um item (FVS, FVM, inspeção). Câmera do celular via accept=image/* capture. Hash SHA-256 no anexo. *@
-@inject FabricaDb Fabrica
-@inject IArmazenamento Armazenamento
+@inject IFabricaDb Fabrica
+@inject AnexosServico Servico
 @inject Notificacoes Notif
+@implements IDisposable
 
 <span class="fotos">
     @foreach (var a in _itens)
     {
-        <a href="arquivos/anexo/@a.Id" target="_blank" title="@a.NomeOriginal · @a.CriadoPor · @Rotulos.DataHora(a.CriadoEm)" class="foto-mini"><Icone Nome="camera" Tam="14" /></a>
+        <a @key="a.Id" href="arquivos/anexo/@a.Id" target="_blank" title="@a.NomeOriginal · @a.CriadoPor · @Rotulos.DataHora(a.CriadoEm)" aria-label="@($"Foto {a.NomeOriginal}")" class="foto-mini"><Icone Nome="camera" Tam="14" /></a>
     }
     @if (!SomenteLeitura)
     {
-        <label class="foto-add" title="Foto"><Icone Nome="mais" Tam="12" /><Icone Nome="camera" Tam="14" /><InputFile OnChange="Enviar" accept="image/*" capture="environment" multiple style="display:none" /></label>
+        @* O input fica visualmente oculto, mas focável: Tab chega nele e Enter/Espaço abre a câmera/galeria. *@
+        <label class="foto-add" title="Foto" for="@_idInput"><Icone Nome="mais" Tam="12" /><Icone Nome="camera" Tam="14" /><span class="so-leitor">Adicionar foto</span><InputFile id="@_idInput" class="so-leitor" OnChange="Enviar" accept="image/*" capture="environment" multiple disabled="@_ocupado" /></label>
     }
     @if (Obrigatoria && _itens.Count == 0) { <small class="texto-erro">foto obrigatória</small> }
 </span>
@@ -20,8 +22,16 @@
     [Parameter] public Guid EntidadeId { get; set; }
     [Parameter] public bool SomenteLeitura { get; set; }
     [Parameter] public bool Obrigatoria { get; set; }
-    private List<Anexo> _itens = [];
+
+    private sealed record Linha(Guid Id, string NomeOriginal, string CriadoPor, DateTimeOffset CriadoEm);
+    private List<Linha> _itens = [];
     private Guid _carregado;
+    private bool _ocupado;
+    private readonly string _idInput = $"foto-{Guid.NewGuid():N}";
+    // Cancelado quando o item sai da tela: upload/consulta não seguem ocupando recursos.
+    private readonly CancellationTokenSource _cts = new();
+
+    public void Dispose() => _cts.Cancel(); // não descarta a fonte: código que ainda está num await lê o token depois e precisa ver "cancelado", não ObjectDisposedException
 
     protected override async Task OnParametersSetAsync()
     {
@@ -32,21 +42,24 @@
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.Criar();
-        _itens = await db.Anexos.AsNoTracking().Where(a => a.Entidade == Entidade && a.EntidadeId == EntidadeId).OrderBy(a => a.CriadoEm).ToListAsync();
+        await using var db = Fabrica.CriarLeitura();
+        _itens = await db.Anexos.Where(a => a.Entidade == Entidade && a.EntidadeId == EntidadeId).OrderBy(a => a.CriadoEm)
+                                .Select(a => new Linha(a.Id, a.NomeOriginal, a.CriadoPor, a.CriadoEm)).ToListAsync(_cts.Token);
     }
 
     private async Task Enviar(InputFileChangeEventArgs e)
     {
-        await using var db = Fabrica.Criar();
-        foreach (var f in e.GetMultipleFiles(6))
+        var arquivos = e.GetMultipleFiles(6).Select(f => new ArquivoEnviado(f.Name, f.Size, f.ContentType, max => f.OpenReadStream(max))).ToList();
+        _ocupado = true;
+        try
         {
-            if (f.Size > 15 * 1024 * 1024) { Notif.Erro($"{f.Name}: limite de 15 MB."); continue; }
-            await using var s = f.OpenReadStream(15 * 1024 * 1024);
-            var salvo = await Armazenamento.SalvarAsync(s, f.Name, "fotos", f.ContentType);
-            db.Anexos.Add(new Anexo { Entidade = Entidade, EntidadeId = EntidadeId, Categoria = "Foto", NomeOriginal = f.Name, ArquivoBlob = salvo.Blob, ArquivoHashSha256 = salvo.Hash, ContentType = f.ContentType, TamanhoBytes = salvo.Tamanho });
+            var recusados = await Servico.AnexarAsync(Entidade, EntidadeId, "Foto", "fotos", AnexosServico.LimiteFotoBytes, arquivos, _cts.Token);
+            foreach (var r in recusados) Notif.Erro(r);
+            await Carregar();
         }
-        await db.SaveChangesAsync();
-        await Carregar();
+        catch (RegraDeNegocioException ex) { Notif.Erro(ex.Message); }
+        catch (ValidacaoException ex) { Notif.Erro(string.Join(" ", ex.Erros)); }
+        catch (OperationCanceledException) { }
+        finally { _ocupado = false; }
     }
 }

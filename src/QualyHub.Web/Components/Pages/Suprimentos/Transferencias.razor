@@ -1,6 +1,6 @@
 @page "/transferencias"
 @inherits PaginaBase
-@inject SuprimentosServico Sup
+@inject TransferenciasServico TransferenciasSrv
 @inject NavigationManager Nav
 
 <Pagina Titulo="Transferências para as obras / SPEs" Grade="_grade" AoAtualizar="Carregar">
@@ -40,19 +40,21 @@
                 <Campo Rotulo="Data" Classe="s3"><input type="date" @bind="_t.Data" disabled="@(_t.Status != StatusTransferencia.Rascunho)" /></Campo>
                 <Campo Rotulo="Observação" Classe="s12"><input id="tr-obs" @bind="_t.Observacao" disabled="@(_t.Status == StatusTransferencia.Recebida)" /></Campo>
             </div>
-            <table class="itens" id="tr-itens">
-                <thead><tr><th>Material</th><th>Un.</th><th>Lote</th><th class="num">Enviado</th><th class="num">Custo unit.</th><th class="num">Valor</th><th class="num">Conferido na obra</th></tr></thead>
-                <tbody>
-                    @foreach (var i in _t.Itens)
-                    {
-                        <tr @key="(i.Id, _versaoConf)"><td>@i.Descricao</td><td>@i.Unidade</td><td>@i.Lote</td>
-                            <td style="width:100px"><input type="number" step="0.001" @bind="i.Quantidade" disabled="@(_t.Status != StatusTransferencia.Rascunho)" /></td>
-                            <td class="num">@i.CustoUnitario.ToString("N2", Br)</td><td class="num">@i.Valor.ToString("N2", Br)</td>
-                            <td style="width:110px">@if (_t.Status == StatusTransferencia.Enviada) { <input type="number" step="0.001" value="@(_conf.GetValueOrDefault(i.Id, i.Quantidade).ToString(System.Globalization.CultureInfo.InvariantCulture))" @onchange="e => DefinirConferido(i, e.Value)" /> } else { @i.QuantidadeRecebida?.ToString("N3", Br) }</td></tr>
-                    }
-                </tbody>
-                <tfoot><tr><td colspan="5" style="text-align:right">Total</td><td class="num"><b>@_t.Valor.ToString("N2", Br)</b></td><td></td></tr></tfoot>
-            </table>
+            <div class="tabela-rolavel">
+                <table class="itens" id="tr-itens">
+                    <thead><tr><th>Material</th><th>Un.</th><th>Lote</th><th class="num">Enviado</th><th class="num">Custo unit.</th><th class="num">Valor</th><th class="num">Conferido na obra</th></tr></thead>
+                    <tbody>
+                        @foreach (var i in _t.Itens)
+                        {
+                            <tr @key="(i.Id, _versaoConf)"><td>@i.Descricao</td><td>@i.Unidade</td><td>@i.Lote</td>
+                                <td class="larg-100"><input type="number" step="0.001" @bind="i.Quantidade" disabled="@(_t.Status != StatusTransferencia.Rascunho)" /></td>
+                                <td class="num">@i.CustoUnitario.ToString("N2", Br)</td><td class="num">@i.Valor.ToString("N2", Br)</td>
+                                <td class="larg-110">@if (_t.Status == StatusTransferencia.Enviada) { <input type="number" step="0.001" value="@(_conf.GetValueOrDefault(i.Id, i.Quantidade).ToString(System.Globalization.CultureInfo.InvariantCulture))" @onchange="e => DefinirConferido(i, e.Value)" /> } else { @i.QuantidadeRecebida?.ToString("N3", Br) }</td></tr>
+                        }
+                    </tbody>
+                    <tfoot><tr><td colspan="5" class="texto-dir">Total</td><td class="num"><b>@_t.Valor.ToString("N2", Br)</b></td><td></td></tr></tfoot>
+                </table>
+            </div>
             @if (_t.ConferidoEm is { } ce) { <p class="mudo">Conferido por @_t.ConferidoPor em @ce.ToLocalTime().ToString("dd/MM/yyyy HH:mm").</p> }
         }
     </ChildContent>
@@ -97,10 +99,10 @@
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.Criar();
-        var lista = await db.Transferencias.AsNoTracking().Include(t => t.Itens).OrderByDescending(t => t.Numero).ToListAsync();
+        await using var db = Fabrica.CriarLeitura();
+        var lista = await db.Transferencias.AsNoTracking().Include(t => t.Itens).OrderByDescending(t => t.Numero).ToListAsync(Cancelamento);
         var idsRec = lista.Where(t => t.RecebimentoId != null).Select(t => t.RecebimentoId!.Value).Distinct().ToList();
-        var recs = await db.Recebimentos.AsNoTracking().Where(r => idsRec.Contains(r.Id)).Select(r => new { r.Id, r.Numero }).ToDictionaryAsync(r => r.Id, r => r.Numero);
+        var recs = await db.Recebimentos.AsNoTracking().Where(r => idsRec.Contains(r.Id)).Select(r => new { r.Id, r.Numero }).ToDictionaryAsync(r => r.Id, r => r.Numero, Cancelamento);
         var obras = _obras.ToDictionary(o => o.Id, o => o.Texto);
         var spes = _spes.ToDictionary(s => s.Id, s => s.Texto);
         _itens = lista.Select(t => new Linha(t.Id, t.Numero, t.Data, obras.GetValueOrDefault(t.ObraId, ""), t.SpeId is { } sp ? spes.GetValueOrDefault(sp) : null,
@@ -109,26 +111,26 @@
 
     private async Task Abrir(Guid id)
     {
-        await using var db = Fabrica.Criar();
-        _t = await db.Transferencias.AsNoTracking().Include(t => t.Itens).FirstAsync(t => t.Id == id);
+        await using var db = Fabrica.CriarLeitura();
+        _t = await db.Transferencias.AsNoTracking().Include(t => t.Itens).FirstAsync(t => t.Id == id, Cancelamento);
         _conf.Clear(); ErrosForm = null; _aberto = true;
     }
 
-    private async Task Salvar() { if (await Executar(() => Sup.SalvarTransferenciaAsync(_t!), "Transferência salva.")) { await Carregar(); await Abrir(_t!.Id); } }
+    private async Task Salvar() { if (await Executar(() => TransferenciasSrv.SalvarTransferenciaAsync(_t!, Cancelamento), "Transferência salva.")) { await Carregar(); await Abrir(_t!.Id); } }
 
     private async Task Enviar()
     {
-        if (await Executar(async () => { await Sup.SalvarTransferenciaAsync(_t!); await Sup.EnviarTransferenciaAsync(_t!.Id); }, "Enviada — a obra confere o recebimento."))
+        if (await Executar(async () => { await TransferenciasSrv.SalvarTransferenciaAsync(_t!, Cancelamento); await TransferenciasSrv.EnviarTransferenciaAsync(_t!.Id, Cancelamento); }, "Enviada — a obra confere o recebimento."))
         { await Carregar(); await Abrir(_t!.Id); }
     }
 
     private void Cancelar() => Confirmar("Cancelar esta transferência? Informe o motivo no campo Observação antes de confirmar.", async () =>
     {
-        if (await Executar(() => Sup.CancelarTransferenciaAsync(_t!.Id, _t.Observacao ?? ""), "Transferência cancelada.")) { await Carregar(); await Abrir(_t!.Id); }
+        if (await Executar(() => TransferenciasSrv.CancelarTransferenciaAsync(_t!.Id, _t.Observacao ?? "", Cancelamento), "Transferência cancelada.")) { await Carregar(); await Abrir(_t!.Id); }
     });
 
     private async Task Conferir()
     {
-        if (await Executar(() => Sup.ConferirTransferenciaAsync(_t!.Id, _conf, _t.Observacao), "Recebimento na obra conferido.")) { await Carregar(); await Abrir(_t!.Id); }
+        if (await Executar(() => TransferenciasSrv.ConferirTransferenciaAsync(_t!.Id, _conf, _t.Observacao, Cancelamento), "Recebimento na obra conferido.")) { await Carregar(); await Abrir(_t!.Id); }
     }
 }

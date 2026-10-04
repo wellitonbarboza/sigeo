@@ -1,10 +1,11 @@
 @* Trilha de aprovação (autorizações) de um registro + decisão da etapa pendente pelo usuário logado. *@
-@inject FabricaDb Fabrica
+@inject IFabricaDb Fabrica
 @inject AprovacaoServico Aprov
 @inject Notificacoes Notif
+@implements IDisposable
 
 <div class="secao"><Icone Nome="pessoa" /> Autorizações</div>
-@if (_s is null) { <div class="mudo" style="padding:4px 2px 8px">Ainda não enviado para aprovação.</div> }
+@if (_s is null) { <div class="mudo vazio-curto">Ainda não enviado para aprovação.</div> }
 else
 {
     <table class="itens">
@@ -13,7 +14,7 @@ else
             <tr><td>0</td><td>Solicitante</td><td>@Rotulos.DataHora(_s.EnviadoEm)</td><td>@_s.SolicitanteNome</td><td><Selo Texto="Enviado" Tom="info" /></td><td>—</td></tr>
             @foreach (var e in _s.Etapas.OrderBy(x => x.Ordem))
             {
-                <tr>
+                <tr @key="e.Id">
                     <td>@e.Ordem</td>
                     <td>@NomeNivel(e)</td>
                     <td>@Rotulos.DataHora(e.DecididoEm)</td>
@@ -26,13 +27,13 @@ else
     </table>
     @if (_pode)
     {
-        <div class="form" style="margin-top:12px">
+        <div class="form mt-12">
             <Campo Rotulo="Justificativa" Classe="s12" Ajuda="Obrigatória para reprovar ou devolver."><textarea @bind="_just" rows="2"></textarea></Campo>
         </div>
-        <div class="linha" style="justify-content:flex-end;margin-top:10px">
-            <button class="btn perigo" @onclick="() => Decidir(DecisaoAprovacao.Reprovado)"><Icone Nome="x-circulo" Tam="16" /> Reprovar</button>
-            <button class="btn sec" @onclick="() => Decidir(DecisaoAprovacao.DevolvidoParaAjuste)"><Icone Nome="atualizar" Tam="16" /> Devolver p/ ajuste</button>
-            <button class="btn ok" @onclick="() => Decidir(DecisaoAprovacao.Aprovado)"><Icone Nome="check-circulo" Tam="16" /> Aprovar (@NomeNivel(_s.Pendente!))</button>
+        <div class="linha fim-linha">
+            <button class="btn perigo" disabled="@_ocupado" @onclick="() => Decidir(DecisaoAprovacao.Reprovado)"><Icone Nome="x-circulo" Tam="16" /> Reprovar</button>
+            <button class="btn sec" disabled="@_ocupado" @onclick="() => Decidir(DecisaoAprovacao.DevolvidoParaAjuste)"><Icone Nome="atualizar" Tam="16" /> Devolver p/ ajuste</button>
+            <button class="btn ok" disabled="@_ocupado" @onclick="() => Decidir(DecisaoAprovacao.Aprovado)"><Icone Nome="check-circulo" Tam="16" /> Aprovar (@NomeNivel(_s.Pendente!))</button>
         </div>
     }
     else if (_s.Status == StatusAprovacao.EmAprovacao)
@@ -61,12 +62,18 @@ else
         await Carregar();
     }
 
+    // Cancelado quando o registro é fechado: a consulta da trilha não fica presa ao pool depois que a tela sai.
+    private readonly CancellationTokenSource _cts = new();
+    private bool _ocupado;
+
+    public void Dispose() => _cts.Cancel(); // não descarta a fonte: código que ainda está num await lê o token depois e precisa ver "cancelado", não ObjectDisposedException
+
     private async Task Carregar()
     {
-        await using var db = Fabrica.Criar();
-        _s = await AprovacaoServico.UltimaAsync(db, Entidade, EntidadeId);
-        _alcadas = await db.Alcadas.AsNoTracking().Where(a => a.Entidade == Entidade).ToListAsync();
-        _pode = _s is not null && await Aprov.PodeDecidirAsync(db, _s);
+        await using var db = Fabrica.CriarLeitura();
+        _s = await AprovacaoServico.UltimaAsync(db, Entidade, EntidadeId, _cts.Token);
+        _alcadas = await db.Alcadas.Where(a => a.Entidade == Entidade).ToListAsync(_cts.Token);
+        _pode = _s is not null && await Aprov.PodeDecidirAsync(db, _s, _cts.Token);
     }
 
     private string NomeNivel(EtapaAprovacao e) =>
@@ -75,16 +82,19 @@ else
 
     private async Task Decidir(DecisaoAprovacao d)
     {
+        _ocupado = true;
         try
         {
-            await using var db = Fabrica.Criar();
-            await Aprov.DecidirAsync(db, _s!.Id, d, _just);
-            await db.SaveChangesAsync();
+            await Aprov.DecidirESalvarAsync(_s!.Id, d, _just, _cts.Token);
             Notif.Sucesso(d == DecisaoAprovacao.Aprovado ? "Aprovado." : d == DecisaoAprovacao.Reprovado ? "Reprovado." : "Devolvido para ajuste.");
             _just = null;
             await Carregar();
             await AoDecidir.InvokeAsync();
         }
         catch (RegraDeNegocioException ex) { Notif.Erro(ex.Message); }
+        catch (ValidacaoException ex) { Notif.Erro(string.Join(" ", ex.Erros)); }
+        catch (Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException) { Notif.Erro("Registro alterado por outra pessoa. Feche e abra novamente."); }
+        catch (OperationCanceledException) { }
+        finally { _ocupado = false; }
     }
 }

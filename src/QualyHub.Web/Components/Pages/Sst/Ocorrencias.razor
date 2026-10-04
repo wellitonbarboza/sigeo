@@ -44,7 +44,7 @@
                 <Campo Rotulo="CAT (nº, se emitida)" Classe="s4"><input @bind="_o.Cat" /></Campo>
                 <Campo Rotulo="Descrição (sem dados médicos)" Obrigatorio Classe="s12"><textarea @bind="_o.Descricao"></textarea></Campo>
                 <Campo Rotulo="Dias de afastamento / debitados" Classe="s4"><input type="number" @bind="_o.DiasPerdidos" /></Campo>
-                <Campo Rotulo="PT relacionada" Classe="s4"><select @bind="_o.PermissaoTrabalhoId"><option value="">—</option>@foreach (var p in _pts) { <option value="@p.Id">@p.Texto</option> }</select></Campo>
+                <Campo Rotulo="PT relacionada" Classe="s4"><select @bind="_o.PermissaoTrabalhoId"><option value="">—</option>@foreach (var p in _pts) { <option value="@p.Id">@p.Texto</option> }@if (_pts.Count >= LimitePts) { <option disabled>Exibindo as primeiras @LimitePts — refine o filtro.</option> }</select></Campo>
                 <Campo Rotulo="Investigação" Classe="s4"><input readonly value="@(_o.AcaoCorretivaId is { } a ? _acs.GetValueOrDefault(a) : "—")" /></Campo>
             </div>
             <div class="alerta aviso"><Icone Nome="cadeado" /> Detalhe médico da lesão fica só no arquivo restrito ao SST; o registro geral guarda tipo de ocorrência, local, empresa e dias perdidos (base das taxas de frequência e gravidade).</div>
@@ -67,6 +67,8 @@
     private Ocorrencia? _o;
     private bool _aberto;
     private Dictionary<Guid, string> _locNomes = [], _acs = [];
+    // A lista de PTs só serve para vincular a ocorrência: as mais recentes bastam e evitam um select gigante.
+    private const int LimitePts = 200;
     private List<Opcao> _obras = [], _locais = [], _fornecedores = [], _colabs = [], _pts = [];
     private static string Nome(List<Opcao> l, Guid id) => l.FirstOrDefault(x => x.Id == id)?.Texto ?? "—";
     private string DiasSem()
@@ -83,11 +85,11 @@
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.Criar();
-        _itens = await db.Ocorrencias.AsNoTracking().OrderByDescending(o => o.DataHora).ToListAsync();
-        _locNomes = await db.Locais.AsNoTracking().ToDictionaryAsync(l => l.Id, l => l.Nome);
-        _acs = await db.AcoesCorretivas.AsNoTracking().ToDictionaryAsync(a => a.Id, a => a.Numero);
-        _pts = await db.PermissoesTrabalho.AsNoTracking().OrderByDescending(p => p.Inicio).Take(200).Select(p => new Opcao(p.Id, p.Numero + " · " + p.Atividade)).ToListAsync();
+        await using var db = Fabrica.CriarLeitura();
+        _itens = await db.Ocorrencias.AsNoTracking().OrderByDescending(o => o.DataHora).ToListAsync(Cancelamento);
+        _locNomes = await db.Locais.AsNoTracking().ToDictionaryAsync(l => l.Id, l => l.Nome, Cancelamento);
+        _acs = await db.AcoesCorretivas.AsNoTracking().ToDictionaryAsync(a => a.Id, a => a.Numero, Cancelamento);
+        _pts = await db.PermissoesTrabalho.AsNoTracking().OrderByDescending(p => p.Inicio).Take(LimitePts).Select(p => new Opcao(p.Id, p.Numero + " · " + p.Atividade)).ToListAsync(Cancelamento);
     }
 
     private async Task Nova()
@@ -99,8 +101,8 @@
 
     private async Task Abrir(Guid id)
     {
-        await using var db = Fabrica.Criar();
-        _o = await db.Ocorrencias.AsNoTracking().FirstAsync(o => o.Id == id);
+        await using var db = Fabrica.CriarLeitura();
+        _o = await db.Ocorrencias.AsNoTracking().FirstAsync(o => o.Id == id, Cancelamento);
         _locais = await Cat.LocaisAsync(_o.ObraId);
         ErrosForm = null; _aberto = true;
     }
@@ -109,12 +111,12 @@
     {
         if (_o!.LocalId == Guid.Empty) { ErrosForm = ["Informe o local."]; return; }
         Guid id = default;
-        if (await Executar(async () => id = await Sst.SalvarOcorrenciaAsync(_o), "Ocorrência registrada.")) { await Carregar(); await Abrir(id); }
+        if (await Executar(async () => id = await Sst.SalvarOcorrenciaAsync(_o, Cancelamento), "Ocorrência registrada.")) { await Carregar(); await Abrir(id); }
     }
 
     private async Task AbrirAc()
     {
         Guid id = default;
-        if (await Executar(async () => id = await Qob.AbrirAcaoCorretivaAsync([], _o!.Id, $"{De(_o.Tipo)} {_o.Numero}: {_o.Descricao}"), "Investigação aberta.")) Nav.NavigateTo($"obra/acoes?id={id}");
+        if (await Executar(async () => id = await Qob.AbrirAcaoCorretivaAsync([], _o!.Id, $"{De(_o.Tipo)} {_o.Numero}: {_o.Descricao}", Cancelamento), "Investigação aberta.")) Nav.NavigateTo($"obra/acoes?id={id}");
     }
 }

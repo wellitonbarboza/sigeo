@@ -1,0 +1,58 @@
+/* Estilos das telas (cadastros-engenharia): classes que substituíram os style="" soltos nas tags.
+   As utilitárias levam !important porque substituem estilo inline, que vencia regras como
+   "table.itens td input { width: 100% }" e ".campo input"; sem isso a largura/caixa mudaria. */
+
+/* Larguras fixas de coluna/campo */
+.larg-52 { width: 52px !important; }
+
+/* Texto */
+
+/* Espaçamentos */
+
+/* Mensagem curta de lista vazia (anexos, notas, contatos) */
+.vazio-curto { padding: 4px 2px 8px; }
+
+/* Disposição */
+.quebra { flex-wrap: wrap !important; }
+
+/* Linha de botões acima de uma tabela (Nova linha, Replicar, Salvar…): quebra no celular. */
+.barra-botoes { display: flex; gap: 8px; margin: 6px 0; flex-wrap: wrap; }
+.barra-botoes.mais-ar { margin: 8px 0; }
+.barra-botoes.fim { justify-content: flex-end; margin: 12px 0; }
+.lado-a-lado { display: flex; gap: 8px; flex-wrap: wrap; }
+.lado-a-lado.estreito { gap: 6px; align-items: center; }
+.lado-a-lado.largo { gap: 10px; align-items: center; }
+.rolagem-360 { max-height: 360px; overflow: auto; }
+.rolagem-60vh { max-height: 60vh; overflow: auto; }
+.fundo-sup2 { background: var(--superficie-2); }
+.alerta.empilhado { flex-direction: column; align-items: stretch; }
+.fieldset-limpo { border: 0; padding: 0; margin: 0; min-width: 0; }
+.faixa.fixa-base { position: sticky; bottom: 0; z-index: 4; }
+.paginacao-barra { gap: 6px !important; align-items: center !important; margin: 6px 0 !important; }
+.fim-linha { justify-content: flex-end; margin-top: 10px; }
+/* Botão de cabeçalho de coluna ordenável: herda o visual do <th>. */
+.cab-ordena { background: none; border: 0; padding: 0; font: inherit; color: inherit; text-transform: inherit; letter-spacing: inherit; cursor: pointer; }
+
+/* ───── Celular (obra): toque confortável nas telas de campo ───── */
+@media (max-width: 640px) {
+    /* Ícones de excluir/editar em linha de tabela e botões pequenos: área de toque ≥ 40px. */
+    .toque .icone-btn, .toque .btn.pq, .toque table.itens td button { min-width: 40px; min-height: 40px; }
+    .toque table.itens td input, .toque table.itens td select { min-height: 40px; font-size: 16px; }
+    .toque .barra-filtro > * { flex: 1 1 100%; }
+    .toque .barra-filtro input, .toque .barra-filtro select { min-height: 40px; font-size: 16px; }
+    .toque .form .campo input, .toque .form .campo select { font-size: 16px; }
+    .toque .btn.prim.cheio-cel { width: 100%; justify-content: center; }
+    /* Tarefas/Home: linhas clicáveis mais altas para o dedo. */
+    .toque table tr.clicavel td, .toque table tr.cursor-mao td { padding-top: 12px; padding-bottom: 12px; }
+    .toque .form .campo textarea { font-size: 16px; }
+    .toque .duas-caixas { grid-template-columns: 1fr; }
+    .toque .filtros-rapidos { flex-wrap: wrap; gap: 4px 18px; }
+    .toque .filtros-rapidos label { min-height: 40px; }
+    /* Apropriação: marcar locais com o dedo (linha e botão de abrir/fechar maiores). */
+    .toque .seletor-locais { max-height: 50vh; }
+    .toque .sl-linha { min-height: 40px; }
+    .toque .sl-linha input[type="checkbox"] { width: 20px; height: 20px; }
+    .toque .sl-abre { width: 32px; min-height: 36px; }
+}
+/* Painel: coluna do gráfico de FVM em verde (a altura vem do dado e fica inline). */
+.colunas-graf span.coluna-verde { background: #16a34a; }

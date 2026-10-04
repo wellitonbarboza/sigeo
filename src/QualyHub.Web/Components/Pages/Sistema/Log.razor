@@ -23,6 +23,7 @@
                         <Coluna T="RegistroAuditoria" Titulo="Origem" Valor="r => r.Origem" />
                     </Colunas>
                 </Grade>
+                <Paginacao Total="_totalA" Pagina="_pagA" Tamanho="TamanhoPagina" AoMudar="IrAuditoria" />
             }
             else
             {
@@ -36,6 +37,7 @@
                         <Coluna T="EventoDocumento" Titulo="Origem" Valor="e => e.Origem" />
                     </Colunas>
                 </Grade>
+                <Paginacao Total="_totalE" Pagina="_pagE" Tamanho="TamanhoPagina" AoMudar="IrEventos" />
             }
         </div>
     </ChildContent>
@@ -48,8 +50,8 @@
         {
             <p class="mudo">@DataHora(_r.Quando) · @_r.Usuario · id @_r.EntidadeId</p>
             <div class="duas-colunas">
-                <div style="flex:1;min-width:0"><b>Antes</b><pre class="json">@Formatar(_r.ValoresAnterioresJson)</pre></div>
-                <div style="flex:1;min-width:0"><b>Depois</b><pre class="json">@Formatar(_r.ValoresNovosJson)</pre></div>
+                <div class="flex-1"><b>Antes</b><pre class="json">@Formatar(_r.ValoresAnterioresJson)</pre></div>
+                <div class="flex-1"><b>Depois</b><pre class="json">@Formatar(_r.ValoresNovosJson)</pre></div>
             </div>
         }
     </ChildContent>
@@ -69,23 +71,47 @@
     private string? _texto;
     private static readonly List<(string, string)> _abas = [("dados", "Alterações de dados"), ("docs", "Eventos de documentos")];
 
+    // Paginação no banco: o log cresce sem limite e o período padrão (30 dias) já pode ter dezenas de milhares de linhas.
+    private const int TamanhoPagina = 200;
+    private int _pagA, _pagE, _totalA, _totalE;
+
     protected override async Task OnInitializedAsync() { _ate = Hoje; _de = Hoje.AddDays(-30); await Carregar(); }
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.Criar();
-        var ini = new DateTimeOffset(_de.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
-        var fim = new DateTimeOffset(_ate.ToDateTime(TimeOnly.MaxValue), TimeSpan.Zero);
-        var qa = db.Auditoria.AsNoTracking().Where(a => a.Quando >= ini && a.Quando <= fim);
-        var qe = db.EventosDocumento.AsNoTracking().Where(e => e.DataHora >= ini && e.DataHora <= fim);
+        _pagA = 0; _pagE = 0;
+        await CarregarAuditoria();
+        await CarregarEventos();
+    }
+
+    private async Task IrAuditoria(int pagina) { _pagA = pagina; await CarregarAuditoria(); }
+    private async Task IrEventos(int pagina) { _pagE = pagina; await CarregarEventos(); }
+
+    private (DateTimeOffset Ini, DateTimeOffset Fim) Periodo() =>
+        (new DateTimeOffset(_de.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero), new DateTimeOffset(_ate.ToDateTime(TimeOnly.MaxValue), TimeSpan.Zero));
+
+    private async Task CarregarAuditoria()
+    {
+        await using var db = Fabrica.CriarLeitura();
+        var (ini, fim) = Periodo();
+        var qa = db.Auditoria.Where(a => a.Quando >= ini && a.Quando <= fim);
         if (!string.IsNullOrWhiteSpace(_texto))
-        {
             qa = qa.Where(a => a.Usuario.Contains(_texto) || a.Entidade.Contains(_texto) || (a.CamposAlterados != null && a.CamposAlterados.Contains(_texto)));
+        _totalA = await qa.CountAsync(Cancelamento);
+        _auditoria = await qa.OrderByDescending(a => a.Quando).ThenByDescending(a => a.Id).Skip(_pagA * TamanhoPagina).Take(TamanhoPagina).ToListAsync(Cancelamento);
+    }
+
+    private async Task CarregarEventos()
+    {
+        await using var db = Fabrica.CriarLeitura();
+        var (ini, fim) = Periodo();
+        var qe = db.EventosDocumento.Where(e => e.DataHora >= ini && e.DataHora <= fim);
+        if (!string.IsNullOrWhiteSpace(_texto))
             qe = qe.Where(e => e.UsuarioNome.Contains(_texto) || (e.Detalhe != null && e.Detalhe.Contains(_texto)));
-        }
-        _auditoria = await qa.OrderByDescending(a => a.Quando).Take(2000).ToListAsync();
-        _eventos = await qe.OrderByDescending(e => e.DataHora).Take(2000).ToListAsync();
-        _docs = await db.Documentos.AsNoTracking().ToDictionaryAsync(d => d.Id, d => d.Codigo);
+        _totalE = await qe.CountAsync(Cancelamento);
+        _eventos = await qe.OrderByDescending(e => e.DataHora).ThenByDescending(e => e.Id).Skip(_pagE * TamanhoPagina).Take(TamanhoPagina).ToListAsync(Cancelamento);
+        var ids = _eventos.Where(e => e.DocumentoId != null).Select(e => e.DocumentoId!.Value).Distinct().ToList();
+        _docs = await db.Documentos.Where(d => ids.Contains(d.Id)).ToDictionaryAsync(d => d.Id, d => d.Codigo, Cancelamento);
     }
 
     private static string Formatar(string? json)

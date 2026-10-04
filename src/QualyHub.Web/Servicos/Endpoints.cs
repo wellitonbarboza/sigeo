@@ -3,7 +3,7 @@ using System.Text;
 using Microsoft.EntityFrameworkCore;
 using QualyHub.Domain.Common;
 using QualyHub.Domain.Estrutura;
-using QualyHub.Infrastructure.Contexto;
+using QualyHub.Application.Abstracoes;
 using QualyHub.Infrastructure.Dados;
 using QualyHub.Infrastructure.Servicos;
 using QualyHub.Web.Seguranca;
@@ -15,7 +15,7 @@ public static class Endpoints
     public static void Mapear(WebApplication app)
     {
         // Configuração inicial (banco vazio): cria a empresa, o administrador e aplica a carga padrão SiAC.
-        app.MapPost("/configuracao-inicial/salvar", async (HttpContext http, FabricaSistema sistema, Microsoft.AspNetCore.Antiforgery.IAntiforgery af) =>
+        app.MapPost("/configuracao-inicial/salvar", async (HttpContext http, IFabricaSistema sistema, Microsoft.AspNetCore.Antiforgery.IAntiforgery af) =>
         {
             if (!await af.IsRequestValidAsync(http)) return Results.Redirect("/configuracao-inicial?erro=1");
             var f = await http.Request.ReadFormAsync();
@@ -52,31 +52,31 @@ public static class Endpoints
         }).DisableAntiforgery().RequireRateLimiting(Autenticacao.PoliticaLogin);
 
         // Download de anexo (sempre autenticado; log de auditoria no acesso a documento do SGQ).
-        app.MapGet("/arquivos/anexo/{id:guid}", async (Guid id, FabricaDb fabrica, IArmazenamento arm) =>
+        app.MapGet("/arquivos/anexo/{id:guid}", async (Guid id, IFabricaDb fabrica, IArmazenamento arm) =>
         {
             await using var db = fabrica.Criar();
             var a = await db.Anexos.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
-            return a is null ? Results.NotFound() : Results.File(await arm.AbrirAsync(a.ArquivoBlob), a.ContentType ?? "application/octet-stream", a.NomeOriginal);
+            return a is null ? Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "Anexo não encontrado") : Results.File(await arm.AbrirAsync(a.ArquivoBlob), a.ContentType ?? "application/octet-stream", a.NomeOriginal);
         }).RequireAuthorization();
 
-        app.MapGet("/arquivos/fornecedor/{id:guid}", async (Guid id, FabricaDb fabrica, IArmazenamento arm) =>
+        app.MapGet("/arquivos/fornecedor/{id:guid}", async (Guid id, IFabricaDb fabrica, IArmazenamento arm) =>
         {
             await using var db = fabrica.Criar();
             var d = await db.FornecedorDocumentos.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
-            return d?.ArquivoBlob is null ? Results.NotFound() : Results.File(await arm.AbrirAsync(d.ArquivoBlob), "application/octet-stream", d.ArquivoNomeOriginal ?? "documento");
+            return d?.ArquivoBlob is null ? Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "Documento do fornecedor não encontrado") : Results.File(await arm.AbrirAsync(d.ArquivoBlob), "application/octet-stream", d.ArquivoNomeOriginal ?? "documento");
         }).RequireAuthorization();
 
-        app.MapGet("/arquivos/sgq/{revisaoId:guid}/{tipo}", async (Guid revisaoId, string tipo, FabricaDb fabrica, IArmazenamento arm, DocumentosServico docs) =>
+        app.MapGet("/arquivos/sgq/{revisaoId:guid}/{tipo}", async (Guid revisaoId, string tipo, IFabricaDb fabrica, IArmazenamento arm, DocumentosServico docs) =>
         {
             await using var db = fabrica.Criar();
             var r = await db.Revisoes.Include(x => x.Documento).FirstOrDefaultAsync(x => x.Id == revisaoId);
-            if (r is null) return Results.NotFound();
+            if (r is null) return Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "Revisão do documento não encontrada");
             var perm = await docs.PermissaoAsync(db, r.Documento);
             var editavel = tipo == "editavel";
             if (editavel ? !perm.Editar : !perm.Baixar) return Results.Forbid();
             if (r.Status == StatusRevisao.Obsoleta && !perm.VerObsoletos) return Results.Forbid();
             var blob = editavel ? r.ArquivoEditavelBlob : r.ArquivoPublicadoBlob;
-            if (blob is null) return Results.NotFound();
+            if (blob is null) return Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "Arquivo da revisão não encontrado");
             docs.Log(db, EventoDocumentoTipo.Download, r.DocumentoId, r.Id, detalhe: $"{(editavel ? "Editável" : "Publicado")} – cópia não controlada");
             await db.SaveChangesAsync();
             return Results.File(await arm.AbrirAsync(blob), editavel ? "application/octet-stream" : "application/pdf",
@@ -84,11 +84,16 @@ public static class Endpoints
         }).RequireAuthorization();
 
         // Confirmação de recebimento da GRD (link externo, sem login).
-        app.MapGet("/grd/confirmar/{token:guid}", async (Guid token, FabricaSistema sistema) =>
+        app.MapGet("/grd/confirmar/{token:guid}", async (Guid token, IFabricaSistema sistema) =>
         {
             await using var db = sistema.Criar(Guid.Empty, "GRD");
             var ok = await DocumentosServico.ConfirmarGrdAsync(db, token, DateTimeOffset.UtcNow);
             return Results.Content(ok ? "<h2 style='font-family:sans-serif'>Recebimento confirmado. Obrigado.</h2>" : "<h2>Link inválido.</h2>", "text/html; charset=utf-8");
         });
+
+        // API do app de campo (versionada). Fica vazia por enquanto: os endpoints entram neste grupo
+        // (var api = ...; api.MapGet/MapPost(...)) e herdam autenticação e Problem Details. Versão nova = novo grupo /api/v2,
+        // mantendo o v1 enquanto houver aparelho com a versão antiga do app.
+        app.MapGroup("/api/v1").RequireAuthorization().AddEndpointFilter<FiltroProblemDetails>();
     }
 }

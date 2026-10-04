@@ -2,10 +2,10 @@
 @attribute [AllowAnonymous]
 @attribute [ExcludeFromInteractiveRouting]
 @layout LayoutPublico
-@inject FabricaSistema Sistema
+@inject IFabricaSistema Sistema
 
 <PageTitle>Verificação de cópia · QualyHub</PageTitle>
-<div class="portal" style="max-width:560px">
+<div class="portal portal-estreito">
     @if (_c is null)
     {
         <div class="caixa"><h2>Cópia não encontrada</h2><p>Este QR não corresponde a uma cópia controlada.</p></div>
@@ -13,7 +13,7 @@
     else
     {
         var vigente = _c.Status == StatusCopia.EmUso && _c.Revisao.Status is StatusRevisao.Vigente or StatusRevisao.VigenteComRessalvas;
-        <div class="alerta @(vigente ? "ok" : "erro")" style="font-size:1.2rem">
+        <div class="alerta alerta-grande @(vigente ? "ok" : "erro")">
             <Icone Nome="@(vigente ? "check" : "x-circulo")" Tam="28" />
             <b>@(vigente ? "CÓPIA VIGENTE — pode usar" : "CÓPIA OBSOLETA — não use, devolva à Qualidade")</b>
         </div>

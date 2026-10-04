@@ -40,6 +40,7 @@
         @if (_colab is not null)
         {
             <Erros Lista="ErrosForm" />
+            <div class="tabela-rolavel">
             <table class="itens">
                 <thead><tr><th>EPI</th><th>CA</th><th>Validade do CA</th><th>Qtd.</th><th>Entregue em</th><th>Troca prevista</th><th>Assinatura</th></tr></thead>
                 <tbody>
@@ -50,6 +51,7 @@
                     }
                 </tbody>
             </table>
+            </div>
             <div class="secao"><Icone Nome="mais" /> Nova entrega</div>
             <div class="form">
                 <Campo Rotulo="EPI" Obrigatorio Classe="s5"><select @bind="_novoEpi"><option value="">Selecione…</option>@foreach (var e in _epis) { <option value="@e.Id">@e.Descricao · CA @e.Ca @(e.ValidadeCa < Hoje ? "(CA vencido)" : "")</option> }</select></Campo>
@@ -103,17 +105,19 @@
     protected override async Task OnInitializedAsync()
     {
         _produtos = await Cat.ProdutosAsync();
-        await using (var db = Fabrica.Criar()) _alertaCa = (await ParametrosServico.CarregarAsync(db)).Int(Parametros.AlertaCaDias);
+        await using (var db = Fabrica.CriarLeitura()) _alertaCa = (await ParametrosServico.CarregarAsync(db, Cancelamento)).Int(Parametros.AlertaCaDias);
         await Carregar();
     }
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.Criar();
-        _epis = await db.Epis.AsNoTracking().Where(e => e.Ativo).OrderBy(e => e.Descricao).ToListAsync();
-        var forn = await db.Fornecedores.AsNoTracking().ToDictionaryAsync(f => f.Id, f => f.NomeExibicao);
-        var cols = await db.Colaboradores.AsNoTracking().Where(c => c.DataSaida == null).OrderBy(c => c.Nome).ToListAsync();
-        var ent = await db.EntregasEpi.AsNoTracking().ToListAsync();
+        await using var db = Fabrica.CriarLeitura();
+        _epis = await db.Epis.AsNoTracking().Where(e => e.Ativo).OrderBy(e => e.Descricao).ToListAsync(Cancelamento);
+        var forn = await db.Fornecedores.AsNoTracking().ToDictionaryAsync(f => f.Id, f => f.NomeExibicao, Cancelamento);
+        var cols = await db.Colaboradores.AsNoTracking().Where(c => c.DataSaida == null).OrderBy(c => c.Nome)
+            .Select(c => new { c.Id, c.Nome, c.FornecedorId }).ToListAsync(Cancelamento);
+        // Só os campos usados no resumo: a tabela de entregas cresce a cada troca de EPI.
+        var ent = await db.EntregasEpi.AsNoTracking().Select(x => new { x.ColaboradorId, x.EpiId, x.DataEntrega, x.TrocaPrevista }).ToListAsync(Cancelamento);
         _linhas = cols.Select(c =>
         {
             var e = ent.Where(x => x.ColaboradorId == c.Id).ToList();
@@ -128,9 +132,9 @@
 
     private async Task AbrirFicha(Guid id)
     {
-        await using var db = Fabrica.Criar();
-        _colab = await db.Colaboradores.AsNoTracking().FirstAsync(c => c.Id == id);
-        _entregas = await db.EntregasEpi.AsNoTracking().Where(e => e.ColaboradorId == id).OrderByDescending(e => e.DataEntrega).ToListAsync();
+        await using var db = Fabrica.CriarLeitura();
+        _colab = await db.Colaboradores.AsNoTracking().FirstAsync(c => c.Id == id, Cancelamento);
+        _entregas = await db.EntregasEpi.AsNoTracking().Where(e => e.ColaboradorId == id).OrderByDescending(e => e.DataEntrega).ToListAsync(Cancelamento);
         _novoEpi = null; _qtd = 1; _motivo = _entregas.Count == 0 ? MotivoEntregaEpi.PrimeiraEntrega : MotivoEntregaEpi.TrocaDesgaste; _assinatura = null; ErrosForm = null; _abertoF = true;
     }
 
@@ -138,16 +142,12 @@
     {
         if (_novoEpi is null) { ErrosForm = ["Escolha o EPI."]; return; }
         var ass = string.IsNullOrWhiteSpace(_assinatura) ? null : $"{_assinatura} · {DateTimeOffset.Now:dd/MM/yyyy HH:mm} · registrado por {Usuario.Nome}";
-        if (await Executar(() => Sst.RegistrarEntregaEpiAsync(_colab!.Id, _novoEpi.Value, _qtd, Hoje, _motivo, ass ?? "", default), "Entrega registrada."))
+        if (await Executar(() => Sst.RegistrarEntregaEpiAsync(_colab!.Id, _novoEpi.Value, _qtd, Hoje, _motivo, ass ?? "", Cancelamento), "Entrega registrada."))
         { await Carregar(); await AbrirFicha(_colab!.Id); }
     }
 
     private async Task SalvarEpi()
     {
-        if (await Executar(async () =>
-        {
-            if (string.IsNullOrWhiteSpace(_epi!.Descricao) || string.IsNullOrWhiteSpace(_epi.Ca)) throw new RegraDeNegocioException("Informe a descrição e o CA.");
-            await using var db = Fabrica.Criar(); await Grafo.SalvarAsync(db, _epi); await db.SaveChangesAsync();
-        }, "EPI salvo.")) { _abertoC = false; await Carregar(); }
+        if (await Executar(() => Sst.SalvarEpiAsync(_epi!, Cancelamento), "EPI salvo.")) { _abertoC = false; await Carregar(); }
     }
 }

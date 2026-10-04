@@ -1,6 +1,6 @@
 @page "/pedidos"
 @inherits PaginaBase
-@inject SuprimentosServico Sup
+@inject PedidosServico PedidosSrv
 @inject NavigationManager Nav
 
 <Pagina Titulo="Pedidos de compra" Grade="_grade" AoAtualizar="Carregar">
@@ -45,7 +45,7 @@
                 @if (_p.SpeId is { } spe) { <Campo Rotulo="@(_p.EstabelecimentoFaturamentoId is null ? "Faturar para (SPE)" : "Destino: SPE (informar na observação da NF)")" Classe="s6"><input id="ped-spe" readonly value="@($"{_spes.FirstOrDefault(s => s.Id == spe)?.Texto ?? "—"}{(_p.RequisicaoId is null ? "" : " · requisição")}")" /></Campo> }
                 @if (_p.EntregaAlmoxarifadoCentral) { <div class="campo s12"><div class="alerta info"><Icone Nome="caixa" /> Entrega no almoxarifado central: FVM no recebimento e transferência para a obra/SPE.</div></div> }
                 <Campo Rotulo="Fornecedor" Classe="s6"><input readonly value="@_fornecedor?.RazaoSocial" /></Campo>
-                <Campo Rotulo="Qualificação" Classe="s2"><div style="padding-top:6px">@if (_fornecedor is not null) { var st = _fornecedor.CalcularStatus(Hoje); <Selo Texto="@De(st)" Tom="@Tom(st)" /> }</div></Campo>
+                <Campo Rotulo="Qualificação" Classe="s2"><div class="pt-6">@if (_fornecedor is not null) { var st = _fornecedor.CalcularStatus(Hoje); <Selo Texto="@De(st)" Tom="@Tom(st)" /> }</div></Campo>
                 <Campo Rotulo="E-mails do fornecedor" Classe="s4"><input readonly value="@_fornecedor?.Emails" /></Campo>
                 <Campo Rotulo="Entrega" Classe="s2"><input type="date" @bind="_p.Entrega" disabled /></Campo>
                 <Campo Rotulo="Condição de pagamento" Classe="s3"><input readonly value="@_p.CondicaoPagamento" /></Campo>
@@ -67,7 +67,7 @@
             </table>
             @if (_p.Status == StatusPedido.Aprovado)
             {
-                <div class="form" style="margin-top:12px"><Campo Rotulo="Cópia do e-mail de envio para (Engenheiro, Almoxarife…)" Classe="s12"><input @bind="_emails" placeholder="email1@exemplo.com; email2@exemplo.com" /></Campo></div>
+                <div class="form mt-12"><Campo Rotulo="Cópia do e-mail de envio para (Engenheiro, Almoxarife…)" Classe="s12"><input @bind="_emails" placeholder="email1@exemplo.com; email2@exemplo.com" /></Campo></div>
             }
             @if (_p.CriadoEm != default) { <Notas Entidade="Pedido" EntidadeId="_p.Id" /> }
             <Autorizacoes Entidade="EntidadeAprovavel.Pedido" EntidadeId="_p.Id" Versao="_versao" AoDecidir="Recarregar" />
@@ -105,17 +105,17 @@
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.Criar();
-        var lista = await db.Pedidos.AsNoTracking().Include(p => p.Itens).Include(p => p.Fornecedor).OrderByDescending(p => p.Numero).ToListAsync();
-        var obras = await db.Obras.AsNoTracking().ToDictionaryAsync(o => o.Id, o => o.Nome);
+        await using var db = Fabrica.CriarLeitura();
+        var lista = await db.Pedidos.AsNoTracking().Include(p => p.Itens).Include(p => p.Fornecedor).OrderByDescending(p => p.Numero).ToListAsync(Cancelamento);
+        var obras = await db.Obras.AsNoTracking().ToDictionaryAsync(o => o.Id, o => o.Nome, Cancelamento);
         _itens = lista.Select(p => new Linha(p.Id, p.Numero, obras.GetValueOrDefault(p.ObraId, ""), p.Fornecedor.NomeExibicao, p.Entrega, p.Valor, p.SemOrcamento, p.Status, p.Bloqueios, p.CriadoPor, p.CriadoEm)).ToList();
     }
 
     private async Task Abrir(Guid id)
     {
-        await using var db = Fabrica.Criar();
-        _p = await db.Pedidos.AsNoTracking().Include(p => p.Itens).FirstAsync(p => p.Id == id);
-        _fornecedor = await db.Fornecedores.AsNoTracking().Include(f => f.Qualificacoes).Include(f => f.Documentos).ThenInclude(d => d.TipoDocumento).FirstAsync(f => f.Id == _p.FornecedorId);
+        await using var db = Fabrica.CriarLeitura();
+        _p = await db.Pedidos.AsNoTracking().Include(p => p.Itens).FirstAsync(p => p.Id == id, Cancelamento);
+        _fornecedor = await db.Fornecedores.AsNoTracking().Include(f => f.Qualificacoes).Include(f => f.Documentos).ThenInclude(d => d.TipoDocumento).FirstAsync(f => f.Id == _p.FornecedorId, Cancelamento);
         _trava = _p.Status == StatusPedido.Emitido ? TravasQualidade.VerificarPedido(_p, _fornecedor, Hoje) : null;
         ErrosForm = null; _versao++; _aberto = true;
     }
@@ -137,12 +137,12 @@
 
     private async Task Enviar()
     {
-        if (await Executar(() => Sup.EnviarPedidoAprovacaoAsync(_p!.Id), "Pedido enviado para aprovação do Diretor.")) await Recarregar();
+        if (await Executar(() => PedidosSrv.EnviarPedidoAprovacaoAsync(_p!.Id, Cancelamento), "Pedido enviado para aprovação do Diretor.")) await Recarregar();
         else await Carregar();
     }
 
     private async Task RegistrarEnvio()
     {
-        if (await Executar(() => Sup.RegistrarEnvioPedidoAsync(_p!.Id, _emails), "Envio ao fornecedor registrado.")) await Recarregar();
+        if (await Executar(() => PedidosSrv.RegistrarEnvioPedidoAsync(_p!.Id, _emails, Cancelamento), "Envio ao fornecedor registrado.")) await Recarregar();
     }
 }

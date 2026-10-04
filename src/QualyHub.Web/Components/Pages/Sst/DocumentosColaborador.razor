@@ -86,7 +86,7 @@
     protected override async Task OnInitializedAsync()
     {
         _colabs = await Cat.ColaboradoresAsync();
-        await using (var db = Fabrica.Criar()) { _exigs = await db.Exigencias.AsNoTracking().OrderBy(e => e.Ordem).ToListAsync(); }
+        await using (var db = Fabrica.CriarLeitura()) { _exigs = await db.Exigencias.AsNoTracking().OrderBy(e => e.Ordem).ToListAsync(Cancelamento); }
         _exig = _exigs.Select(e => new Opcao(e.Id, e.Descricao)).ToList();
         if (Nav.Uri.Contains("?colaborador=") && Guid.TryParse(Nav.Uri.Split("?colaborador=")[1], out var c)) { _filtroColab = c; _aba = "todos"; }
         await Carregar();
@@ -94,12 +94,12 @@
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.Criar();
-        var forn = await db.Fornecedores.AsNoTracking().ToDictionaryAsync(f => f.Id, f => f.NomeExibicao);
-        var cols = await db.Colaboradores.AsNoTracking().ToDictionaryAsync(c => c.Id);
+        await using var db = Fabrica.CriarLeitura();
+        var forn = await db.Fornecedores.AsNoTracking().ToDictionaryAsync(f => f.Id, f => f.NomeExibicao, Cancelamento);
+        var cols = await db.Colaboradores.AsNoTracking().Select(c => new { c.Id, c.Nome, c.FornecedorId }).ToDictionaryAsync(c => c.Id, Cancelamento);
         var q = db.DocumentosColaborador.AsNoTracking();
         if (_filtroColab is { } fc) q = q.Where(d => d.ColaboradorId == fc);
-        _todos = (await q.OrderByDescending(d => d.CriadoEm).ToListAsync()).Select(d =>
+        _todos = (await q.OrderByDescending(d => d.CriadoEm).ToListAsync(Cancelamento)).Select(d =>
         {
             var c = cols.GetValueOrDefault(d.ColaboradorId);
             return new Linha(d.Id, c?.Nome ?? "?", c?.FornecedorId is { } f ? forn.GetValueOrDefault(f) : "Própria", Nome(_exig, d.ExigenciaId), d.Origem, d.CriadoEm, d.Validade, d.Validacao);
@@ -119,8 +119,8 @@
 
     private async Task Abrir(Guid id)
     {
-        await using var db = Fabrica.Criar();
-        _d = await db.DocumentosColaborador.AsNoTracking().FirstAsync(x => x.Id == id);
+        await using var db = Fabrica.CriarLeitura();
+        _d = await db.DocumentosColaborador.AsNoTracking().FirstAsync(x => x.Id == id, Cancelamento);
         _motivo = _d.MotivoRecusa; ErrosForm = null; _aberto = true;
     }
 
@@ -130,13 +130,13 @@
         if (await Executar(async () =>
         {
             await using var s = _arq?.OpenReadStream(15 * 1024 * 1024);
-            await Sst.SalvarDocumentoAsync(_d, s, _arq?.Name, _arq?.ContentType, validarJa: true);
+            await Sst.SalvarDocumentoAsync(_d, s, _arq?.Name, _arq?.ContentType, validarJa: true, Cancelamento);
         }, "Documento lançado e validado.")) { _aberto = false; await Carregar(); }
     }
 
     private async Task Validar(bool ok)
     {
-        if (await Executar(() => Sst.ValidarDocumentoAsync(_d!.Id, ok, _motivo, _d.ConclusaoAso, _d.AptoAtividades, _d.Validade), ok ? "Documento validado — situação recalculada." : "Documento recusado."))
+        if (await Executar(() => Sst.ValidarDocumentoAsync(_d!.Id, ok, _motivo, _d.ConclusaoAso, _d.AptoAtividades, _d.Validade, Cancelamento), ok ? "Documento validado — situação recalculada." : "Documento recusado."))
         { _aberto = false; await Carregar(); }
     }
 }

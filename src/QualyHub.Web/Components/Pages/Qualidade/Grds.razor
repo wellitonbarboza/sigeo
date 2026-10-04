@@ -38,14 +38,14 @@
                 <tbody>
                     @foreach (var i in _g.Itens)
                     {
-                        <tr><td><select @bind="i.DocumentoRevisaoId" disabled="@Enviada"><option value="@Guid.Empty">Selecione…</option>@foreach (var v in _vigentes) { <option value="@v.Id">@v.Texto</option> }</select></td>
-                            <td style="width:40px">@if (!Enviada) { <button class="icone-btn" @onclick="() => _g.Itens.Remove(i)"><Icone Nome="lixeira" Tam="16" /></button> }</td></tr>
+                        <tr @key="i"><td><select @bind="i.DocumentoRevisaoId" disabled="@Enviada"><option value="@Guid.Empty">Selecione…</option>@foreach (var v in _vigentes) { <option value="@v.Id">@v.Texto</option> }</select></td>
+                            <td class="larg-40">@if (!Enviada) { <button class="icone-btn" @onclick="() => _g.Itens.Remove(i)"><Icone Nome="lixeira" Tam="16" /></button> }</td></tr>
                     }
                 </tbody>
             </table>
             @if (Enviada)
             {
-                <div class="alerta info" style="margin-top:12px"><Icone Nome="enviar" /> Link de confirmação para o fornecedor:&nbsp;<code>@Nav.BaseUri@("grd/confirmar/")@_g.TokenConfirmacao</code></div>
+                <div class="alerta info marg-topo-12"><Icone Nome="enviar" /> Link de confirmação para o fornecedor:&nbsp;<code>@Nav.BaseUri@("grd/confirmar/")@_g.TokenConfirmacao</code></div>
             }
         }
     </ChildContent>
@@ -64,20 +64,20 @@
     protected override async Task OnInitializedAsync()
     {
         _fornecedores = await Cat.FornecedoresAsync();
-        await using (var db = Fabrica.Criar())
+        await using (var db = Fabrica.CriarLeitura())
         {
             _vigentes = await db.Revisoes.AsNoTracking().Where(r => r.Status == StatusRevisao.Vigente || r.Status == StatusRevisao.VigenteComRessalvas)
-                .OrderBy(r => r.Documento.Codigo).Select(r => new Opcao(r.Id, r.Documento.Codigo + " R" + r.Revisao.ToString("00") + " – " + r.Documento.Titulo)).ToListAsync();
-            _contratos = await db.Contratos.AsNoTracking().Where(k => k.Status == StatusContrato.Ativo).Select(k => new Opcao(k.Id, k.Numero)).ToListAsync();
+                .OrderBy(r => r.Documento.Codigo).Select(r => new Opcao(r.Id, r.Documento.Codigo + " R" + r.Revisao.ToString("00") + " – " + r.Documento.Titulo)).ToListAsync(Cancelamento);
+            _contratos = await db.Contratos.AsNoTracking().Where(k => k.Status == StatusContrato.Ativo).Select(k => new Opcao(k.Id, k.Numero)).ToListAsync(Cancelamento);
         }
         await Carregar();
     }
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.Criar();
-        var forn = await db.Fornecedores.AsNoTracking().ToDictionaryAsync(f => f.Id, f => f.RazaoSocial);
-        _itens = (await db.Grds.AsNoTracking().Include(g => g.Itens).OrderByDescending(g => g.EnviadoEm).ToListAsync())
+        await using var db = Fabrica.CriarLeitura();
+        var forn = await db.Fornecedores.AsNoTracking().ToDictionaryAsync(f => f.Id, f => f.RazaoSocial, Cancelamento);
+        _itens = (await db.Grds.AsNoTracking().Include(g => g.Itens).OrderByDescending(g => g.EnviadoEm).ToListAsync(Cancelamento))
             .Select(g => new Linha(g.Id, g.Numero, forn.GetValueOrDefault(g.FornecedorId, ""), g.Contato, g.Itens.Count, g.EnviadoEm, g.ConfirmadoEm)).ToList();
     }
 
@@ -85,8 +85,8 @@
 
     private async Task Abrir(Guid id)
     {
-        await using var db = Fabrica.Criar();
-        _g = await db.Grds.AsNoTracking().Include(g => g.Itens).FirstAsync(g => g.Id == id);
+        await using var db = Fabrica.CriarLeitura();
+        _g = await db.Grds.AsNoTracking().Include(g => g.Itens).FirstAsync(g => g.Id == id, Cancelamento);
         ErrosForm = null; _aberto = true;
     }
 
@@ -95,6 +95,6 @@
         _g!.Itens = _g.Itens.Where(i => i.DocumentoRevisaoId != Guid.Empty).ToList();
         if (_g.FornecedorId == Guid.Empty) { ErrosForm = ["Informe o fornecedor."]; return; }
         Guid id = default;
-        if (await Executar(async () => id = await Docs.EnviarGrdAsync(_g), "GRD registrada — cópias externas numeradas.")) { await Carregar(); await Abrir(id); }
+        if (await Executar(async () => id = await Docs.EnviarGrdAsync(_g, Cancelamento), "GRD registrada — cópias externas numeradas.")) { await Carregar(); await Abrir(id); }
     }
 }

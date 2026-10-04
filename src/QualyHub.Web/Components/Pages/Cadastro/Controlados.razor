@@ -1,6 +1,7 @@
 @page "/cadastros/controlados"
 @inherits PaginaBase
 @inject QualyHub.Infrastructure.Importacao.ImportadorEspecificacao Imp
+@inject CadastrosServico Cad
 
 <Pagina Titulo="Materiais e serviços controlados" Grade="GradeAtual" AoNovo="Novo" AoAtualizar="Carregar">
     <ChildContent>
@@ -8,8 +9,8 @@
             @if (_podeImportar)
             {
                 <div class="barra-acoes">
-                    <label class="btn sec pq" style="cursor:@(Ocupado ? "wait" : "pointer")" title="Planilha estruturada da DT.SUP.01.01 (abas 1 Materiais, 2 Documentos, 3 Ensaios, 4 Cadastro de documentos)"><Icone Nome="upload" Tam="14" /> Importar Tabela de Especificação (xlsx)<InputFile OnChange="ImportarTabela" accept=".xlsx" disabled="@Ocupado" style="display:none" /></label>
-                    <label class="btn sec pq" style="cursor:@(Ocupado ? "wait" : "pointer")" title="Mapa do catálogo (aba Produtos com grupo novo e a coluna SUA DECISÃO)"><Icone Nome="upload" Tam="14" /> Aplicar mapa do catálogo (xlsx)<InputFile OnChange="PreverMapa" accept=".xlsx" disabled="@Ocupado" style="display:none" /></label>
+                    <label class="btn sec pq arquivo" style="cursor:@(Ocupado ? "wait" : "pointer")" title="Planilha estruturada da DT.SUP.01.01 (abas 1 Materiais, 2 Documentos, 3 Ensaios, 4 Cadastro de documentos)"><Icone Nome="upload" Tam="14" /> Importar Tabela de Especificação (xlsx)<InputFile OnChange="ImportarTabela" accept=".xlsx" disabled="@Ocupado" class="so-leitor" /></label>
+                    <label class="btn sec pq arquivo" style="cursor:@(Ocupado ? "wait" : "pointer")" title="Mapa do catálogo (aba Produtos com grupo novo e a coluna SUA DECISÃO)"><Icone Nome="upload" Tam="14" /> Aplicar mapa do catálogo (xlsx)<InputFile OnChange="PreverMapa" accept=".xlsx" disabled="@Ocupado" class="so-leitor" /></label>
                     <button class="btn sec pq" disabled="@Ocupado" @onclick="Vincular" title="Reaplica: produto no grupo ligado vira controlado"><Icone Nome="atualizar" Tam="14" /> Vincular produtos pelo grupo</button>
                 </div>
             }
@@ -35,8 +36,9 @@
             else if (_aba == "gen")
             {
                 <div class="alerta aviso"><Icone Nome="alerta" /> Produtos sem vínculo com material controlado. Se pertencem a uma família controlada, vincule em Cadastro › Produtos — sem o vínculo, o "material controlado" da requisição não funciona.</div>
+                @if (_semVinculoCortado) { <div class="alerta info"><Icone Nome="info" /> Exibindo os primeiros @LimiteSemVinculo — refine o filtro (ou exporte em Cadastro › Produtos).</div> }
                 <table class="itens"><thead><tr><th>Código</th><th>Produto</th><th>Grupo</th><th>Subgrupo</th></tr></thead>
-                    <tbody>@foreach (var p in _semVinculo) { <tr><td>@p.Codigo</td><td>@p.Nome</td><td>@p.Grupo</td><td>@p.SubGrupo</td></tr> }</tbody></table>
+                    <tbody>@foreach (var p in _semVinculo) { <tr @key="p.Codigo"><td>@p.Codigo</td><td>@p.Nome</td><td>@p.Grupo</td><td>@p.SubGrupo</td></tr> }</tbody></table>
             }
             else
             {
@@ -57,6 +59,8 @@
     </ChildContent>
     <Faixa><b>Controlados (SiAC)</b><span>Material controlado: especificação + FVM + fornecedor qualificado</span><span>Serviço controlado: ITS + FVS aprovada antes da medição</span><span>Lista inicial genérica — ajuste à realidade da empresa</span></Faixa>
 </Pagina>
+
+@* Rótulo que envolve o InputFile: o input real fica focável (Tab + Enter/Espaço abre o seletor) e o foco aparece no botão. *@
 
 <Modal @bind-Aberto="_abertoMat" Titulo="Material controlado" Tamanho="media">
     <ChildContent>
@@ -115,7 +119,7 @@
             <div class="form">
                 <Campo Rotulo="Código (ITS)" Obrigatorio Classe="s4"><input @bind="_s.Codigo" /></Campo>
                 <Campo Rotulo="Nome" Obrigatorio Classe="s6"><input @bind="_s.Nome" /></Campo>
-                <Campo Rotulo="Sigla (mapa da torre)" Classe="s2"><input @bind="_s.Sigla" maxlength="8" style="text-transform:uppercase" placeholder="ALV" /></Campo>
+                <Campo Rotulo="Sigla (mapa da torre)" Classe="s2"><input @bind="_s.Sigla" maxlength="8" class="maiusc" placeholder="ALV" /></Campo>
                 <Campo Rotulo="Documento ITS (revisão vigente vai no contrato e na GRD)" Classe="s12"><select @bind="_s.DocumentoItsId"><option value="">—</option>@foreach (var d in _docs) { <option value="@d.Id">@d.Texto</option> }</select></Campo>
                 <Campo Rotulo="Regras" Classe="s12">
                     <div class="checks">
@@ -134,7 +138,10 @@
     private IGrade? GradeAtual => _aba == "mat" ? _gMat : _aba == "srv" ? _gSrv : null;
     private Dictionary<Guid, string> _fvm = [], _fvs = [];
     private List<Opcao> _docs = [];
-    private List<Produto> _semVinculo = [];
+    private sealed record LinhaSemVinculo(string Codigo, string Nome, string? Grupo, string? SubGrupo);
+    private const int LimiteSemVinculo = 500;
+    private List<LinhaSemVinculo> _semVinculo = [];
+    private bool _semVinculoCortado;
     private string SitMat(MaterialControlado m) => m.CategoriaProdutoId is null && string.IsNullOrWhiteSpace(m.SubGrupos) ? "Sem vínculo" : string.IsNullOrWhiteSpace(m.EspecificacaoModelo) ? "Sem especificação" : !_fvm.ContainsKey(m.Id) ? "Sem modelo FVM" : "Completo";
     private Grade<MaterialControlado>? _gMat;
     private Grade<ServicoControlado>? _gSrv;
@@ -156,11 +163,11 @@
 
     protected override async Task OnInitializedAsync() { _podeImportar = Perfil(PerfilUsuario.Qualidade, PerfilUsuario.Suprimentos); _grupos = await Cat.GruposProdutoAsync(); await Carregar(); }
 
-    private static async Task<byte[]> Ler(InputFileChangeEventArgs e)
+    private async Task<byte[]> Ler(InputFileChangeEventArgs e)
     {
         if (e.File.Size > 20 * 1024 * 1024) throw new RegraDeNegocioException("Planilha acima de 20 MB.");
         using var ms = new MemoryStream();
-        await e.File.OpenReadStream(20 * 1024 * 1024).CopyToAsync(ms);
+        await e.File.OpenReadStream(20 * 1024 * 1024).CopyToAsync(ms, Cancelamento);
         return ms.ToArray();
     }
 
@@ -168,7 +175,7 @@
     {
         if (!_podeImportar || Ocupado) return;
         QualyHub.Infrastructure.Importacao.ResultadoEspecificacao? r = null;
-        if (await Executar(async () => r = await Imp.ImportarEspecificacaoAsync(new MemoryStream(await Ler(e)))))
+        if (await Executar(async () => r = await Imp.ImportarEspecificacaoAsync(new MemoryStream(await Ler(e)), ct: Cancelamento)))
         { Notif.Sucesso($"Tabela importada: {r!.Materiais} materiais ({r.MateriaisNovos} novos), {r.TiposDocumento} tipos de documento novos, {r.Ensaios} ensaios, {r.GruposLigados} grupos ligados."); _grupos = await Cat.GruposProdutoAsync(); await Carregar(); }
     }
 
@@ -178,13 +185,13 @@
     {
         if (!_podeImportar || Ocupado) return;
         _mapa = null; _previaMapa = null;
-        if (await Executar(async () => { _mapa = await Ler(e); _previaMapa = await Imp.AplicarMapaAsync(new MemoryStream(_mapa), false); })) _abertoMapa = true;
+        if (await Executar(async () => { _mapa = await Ler(e); _previaMapa = await Imp.AplicarMapaAsync(new MemoryStream(_mapa), false, ct: Cancelamento); })) _abertoMapa = true;
     }
 
     private async Task AplicarMapa()
     {
         if (!_podeImportar || _mapa is null) return;
-        if (await Executar(async () => _previaMapa = await Imp.AplicarMapaAsync(new MemoryStream(_mapa!), true)))
+        if (await Executar(async () => _previaMapa = await Imp.AplicarMapaAsync(new MemoryStream(_mapa!), true, ct: Cancelamento)))
         {
             Notif.Sucesso($"Catálogo ajustado: {_previaMapa!.Movidos} produtos movidos, {_previaMapa.Controlados} ligados a material controlado, {_previaMapa.Codigos?.Recodificados ?? 0} recodificados.");
             _abertoMapa = false; _mapa = null; _previaMapa = null; _grupos = await Cat.GruposProdutoAsync(); await Carregar();
@@ -195,20 +202,25 @@
     {
         if (!_podeImportar) return;
         int n = 0;
-        if (await Executar(async () => n = await Imp.VincularPorGrupoAsync())) { Notif.Sucesso($"{n} produto(s) atualizados pelo grupo."); await Carregar(); }
+        if (await Executar(async () => n = await Cad.VincularPorGrupoAsync(Cancelamento))) { Notif.Sucesso($"{n} produto(s) atualizados pelo grupo."); await Carregar(); }
     }
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.Criar();
-        _mats = await db.MateriaisControlados.AsNoTracking().OrderBy(m => m.Codigo).ToListAsync();
-        _srvs = await db.ServicosControlados.AsNoTracking().OrderBy(m => m.Codigo).ToListAsync();
-        var modelos = await db.ModelosInspecao.AsNoTracking().Where(m => m.Situacao == SituacaoModelo.Vigente).ToListAsync();
-        _fvm = modelos.Where(m => m.MaterialControladoId != null).GroupBy(m => m.MaterialControladoId!.Value).ToDictionary(g => g.Key, g => $"{g.First().Codigo} {g.First().Rotulo}");
-        _fvs = modelos.Where(m => m.ServicoControladoId != null && m.Tipo == TipoModelo.FVS).GroupBy(m => m.ServicoControladoId!.Value).ToDictionary(g => g.Key, g => $"{g.First().Codigo} {g.First().Rotulo}");
-        _semVinculo = await db.Produtos.AsNoTracking().Where(p => p.Ativo && p.MaterialControladoId == null).OrderBy(p => p.Nome).Take(500).ToListAsync();
+        await using var db = Fabrica.CriarLeitura();
+        _mats = await db.MateriaisControlados.OrderBy(m => m.Codigo).ToListAsync(Cancelamento);
+        _srvs = await db.ServicosControlados.OrderBy(m => m.Codigo).ToListAsync(Cancelamento);
+        var modelos = await db.ModelosInspecao.Where(m => m.Situacao == SituacaoModelo.Vigente)
+            .Select(m => new { m.MaterialControladoId, m.ServicoControladoId, m.Tipo, m.Codigo, m.Revisao }).ToListAsync(Cancelamento);
+        _fvm = modelos.Where(m => m.MaterialControladoId != null).GroupBy(m => m.MaterialControladoId!.Value).ToDictionary(g => g.Key, g => $"{g.First().Codigo} R{g.First().Revisao:00}");
+        _fvs = modelos.Where(m => m.ServicoControladoId != null && m.Tipo == TipoModelo.FVS).GroupBy(m => m.ServicoControladoId!.Value).ToDictionary(g => g.Key, g => $"{g.First().Codigo} R{g.First().Revisao:00}");
+        // Um a mais que o limite: só para saber se a lista foi cortada.
+        _semVinculo = await db.Produtos.Where(p => p.Ativo && p.MaterialControladoId == null).OrderBy(p => p.Nome)
+            .Select(p => new LinhaSemVinculo(p.Codigo, p.Nome, p.Grupo, p.SubGrupo)).Take(LimiteSemVinculo + 1).ToListAsync(Cancelamento);
+        _semVinculoCortado = _semVinculo.Count > LimiteSemVinculo;
+        if (_semVinculoCortado) _semVinculo.RemoveAt(LimiteSemVinculo);
         _docs = await Cat.DocumentosSgqAsync();
-        _qtdProd = await db.Produtos.AsNoTracking().Where(p => p.MaterialControladoId != null).GroupBy(p => p.MaterialControladoId!.Value).Select(g => new { g.Key, N = g.Count() }).ToDictionaryAsync(x => x.Key, x => x.N);
+        _qtdProd = await db.Produtos.Where(p => p.MaterialControladoId != null).GroupBy(p => p.MaterialControladoId!.Value).Select(g => new { g.Key, N = g.Count() }).ToDictionaryAsync(x => x.Key, x => x.N, Cancelamento);
     }
 
     private void Novo()
@@ -217,36 +229,13 @@
         if (_aba == "mat") { _m = new MaterialControlado(); _abertoMat = true; } else { _s = new ServicoControlado(); _abertoSrv = true; }
     }
 
-    private static List<string> Basico(string codigo, string nome)
-    {
-        var e = new List<string>();
-        if (string.IsNullOrWhiteSpace(codigo)) e.Add("Informe o código.");
-        if (string.IsNullOrWhiteSpace(nome)) e.Add("Informe o nome.");
-        return e;
-    }
-
     private async Task SalvarMat()
     {
-        var ok = await Executar(async () =>
-        {
-            ValidacaoException.Se(Basico(_m!.Codigo, _m.Nome));
-            await using var db = Fabrica.Criar();
-            if (_m.CategoriaProdutoId is { } g && await db.MateriaisControlados.AnyAsync(x => x.Id != _m.Id && x.CategoriaProdutoId == g))
-                throw new RegraDeNegocioException("Este grupo do catálogo já está ligado a outro material (1 grupo = 1 material).");
-            await Grafo.SalvarAsync(db, _m); await db.SaveChangesAsync();
-            await Imp.VincularPorGrupoAsync(); // produtos do grupo ligado viram controlados
-        }, "Material salvo.");
-        if (ok) { _abertoMat = false; await Carregar(); }
+        if (await Executar(() => Cad.SalvarMaterialControladoAsync(_m!, Cancelamento), "Material salvo.")) { _abertoMat = false; await Carregar(); }
     }
 
     private async Task SalvarSrv()
     {
-        var ok = await Executar(async () =>
-        {
-            ValidacaoException.Se(Basico(_s!.Codigo, _s.Nome));
-            await using var db = Fabrica.Criar();
-            await Grafo.SalvarAsync(db, _s); await db.SaveChangesAsync();
-        }, "Serviço salvo.");
-        if (ok) { _abertoSrv = false; await Carregar(); }
+        if (await Executar(() => Cad.SalvarServicoControladoAsync(_s!, Cancelamento), "Serviço salvo.")) { _abertoSrv = false; await Carregar(); }
     }
 }

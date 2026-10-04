@@ -1,10 +1,14 @@
-@if (Lista is { Count: > 0 })
-{
-    <div class="alerta erro"><Icone Nome="exclamacao" />
-        @if (Lista.Count == 1) { <div>@Lista[0]</div> }
-        else { <ul>@foreach (var e in Lista) { <li>@e</li> }</ul> }
-    </div>
-}
+@* Região sempre montada com aria-live: o leitor de tela anuncia as pendências quando aparecem
+   (quem não vê a tela fica sabendo por que a gravação não aconteceu). *@
+<div aria-live="assertive" role="alert" class="erros-regiao">
+    @if (Lista is { Count: > 0 })
+    {
+        <div class="alerta erro"><Icone Nome="exclamacao" />
+            @if (Lista.Count == 1) { <div>@Lista[0]</div> }
+            else { <ul>@foreach (var e in Lista) { <li @key="e">@e</li> }</ul> }
+        </div>
+    }
+</div>
 @code {
     [Parameter] public IReadOnlyList<string>? Lista { get; set; }
 }

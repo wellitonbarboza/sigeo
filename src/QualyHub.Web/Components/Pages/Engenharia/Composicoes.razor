@@ -43,7 +43,7 @@
             </div>
             <div class="secao"><Icone Nome="lista" /> Composição (por @_c.Unidade de serviço) <span class="acao"><button class="btn sec pq" id="ins-add" @onclick="AddItem"><Icone Nome="mais" Tam="14" /> Insumo</button></span></div>
             <table class="itens" id="insumos">
-                <thead><tr><th>Tipo</th><th style="min-width:260px">Insumo</th><th>Un.</th><th class="num">Coeficiente</th><th class="num">Perda %</th><th class="num">Custo unit. (R$)</th><th class="num">R$ por @_c.Unidade</th><th></th></tr></thead>
+                <thead><tr><th>Tipo</th><th class="larg-min-260">Insumo</th><th>Un.</th><th class="num">Coeficiente</th><th class="num">Perda %</th><th class="num">Custo unit. (R$)</th><th class="num">R$ por @_c.Unidade</th><th></th></tr></thead>
                 <tbody>
                     @foreach (var i in _c.Itens.OrderBy(i => i.Ordem))
                     {
@@ -57,18 +57,18 @@
                                 {
                                     <select value="@i.FuncaoObraId" @onchange="e => EscolherFuncao(i, e.Value?.ToString())"><option value="">Função…</option>@foreach (var f in _funcoes) { <option value="@f.Id">@f.Texto</option> }</select>
                                 }
-                                <input style="margin-top:4px" @bind="i.Descricao" placeholder="Descrição" />
+                                <input class="mt-4" @bind="i.Descricao" placeholder="Descrição" />
                             </td>
-                            <td style="width:70px"><input @bind="i.Unidade" /></td>
-                            <td style="width:100px"><input type="number" step="0.0001" @bind="i.Coeficiente" /></td>
-                            <td style="width:80px"><input type="number" step="0.1" @bind="i.PerdaPerc" /></td>
-                            <td style="width:110px"><input type="number" step="0.01" @bind="i.CustoUnitario" /></td>
+                            <td class="larg-70"><input @bind="i.Unidade" /></td>
+                            <td class="larg-100"><input type="number" step="0.0001" @bind="i.Coeficiente" /></td>
+                            <td class="larg-80"><input type="number" step="0.1" @bind="i.PerdaPerc" /></td>
+                            <td class="larg-110"><input type="number" step="0.01" @bind="i.CustoUnitario" /></td>
                             <td class="num">@i.CustoPorUnidade.ToString("N2", Br)</td>
                             <td><button class="icone-btn" @onclick="() => _c.Itens.Remove(i)"><Icone Nome="lixeira" Tam="16" /></button></td></tr>
                     }
                     @if (_c.Itens.Count == 0) { <tr><td colspan="8" class="mudo">Ex.: contrapiso — cimento 7,5 kg/m² · areia 0,045 m³/m² · pedreiro 0,35 h/m² · servente 0,40 h/m².</td></tr> }
                 </tbody>
-                <tfoot><tr><td colspan="6" style="text-align:right">
+                <tfoot><tr><td colspan="6" class="texto-dir">
                     Material @_c.Custo(TipoInsumo.Material).ToString("N2", Br) · M.O. própria @_c.Custo(TipoInsumo.MaoObraPropria).ToString("N2", Br) (@_c.HorasPorUnidade.ToString("N3", Br) h) · Empreitada @_c.Custo(TipoInsumo.MaoObraEmpreitada).ToString("N2", Br) · Equip./terceiros @((_c.Custo(TipoInsumo.Equipamento) + _c.Custo(TipoInsumo.ServicoTerceiro)).ToString("N2", Br))
                     </td><td class="num"><b>@_c.CustoUnitario.ToString("N2", Br)</b></td><td></td></tr></tfoot>
             </table>
@@ -101,16 +101,16 @@
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.Criar();
-        _lista = await db.Composicoes.AsNoTracking().Include(c => c.Itens).OrderBy(c => c.Grupo).ThenBy(c => c.Codigo).ToListAsync();
+        await using var db = Fabrica.CriarLeitura();
+        _lista = await db.Composicoes.AsNoTracking().Include(c => c.Itens).OrderBy(c => c.Grupo).ThenBy(c => c.Codigo).ToListAsync(Cancelamento);
     }
 
     private void Novo() { _c = new Composicao(); ErrosForm = null; _aberto = true; }
 
     private async Task Editar(Composicao c)
     {
-        await using var db = Fabrica.Criar();
-        _c = await db.Composicoes.AsNoTracking().Include(x => x.Itens).FirstAsync(x => x.Id == c.Id);
+        await using var db = Fabrica.CriarLeitura();
+        _c = await db.Composicoes.AsNoTracking().Include(x => x.Itens).FirstAsync(x => x.Id == c.Id, Cancelamento);
         ErrosForm = null; _aberto = true;
     }
 
@@ -124,13 +124,13 @@
 
     private async Task Salvar()
     {
-        if (await Executar(() => Orc.SalvarComposicaoAsync(_c!), "Serviço salvo.")) { _aberto = false; await Carregar(); }
+        if (await Executar(() => Orc.SalvarComposicaoAsync(_c!, ct: Cancelamento), "Serviço salvo.")) { _aberto = false; await Carregar(); }
     }
 
     private async Task Copiar()
     {
         Guid id = default;
-        if (await Executar(async () => id = await Orc.CopiarComposicaoAsync(_c!.Id, _c.Codigo + "-B"), "Serviço copiado (código com -B)."))
+        if (await Executar(async () => id = await Orc.CopiarComposicaoAsync(_c!.Id, _c.Codigo + "-B", ct: Cancelamento), "Serviço copiado (código com -B)."))
         { await Carregar(); await Editar(_lista!.First(x => x.Id == id)); }
     }
 }

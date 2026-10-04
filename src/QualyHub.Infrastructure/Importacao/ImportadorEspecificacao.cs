@@ -16,7 +16,7 @@ public sealed record ResultadoMapa(int Lidos, int Movidos, int Controlados, int 
 /// Importa a Tabela de Especificação e Ensaios de Materiais (planilha estruturada da DT.SUP.01.01: abas "1 Materiais", "2 Documentos",
 /// "3 Ensaios", "4 Cadastro de documentos") e aplica o Mapa do catálogo (aba "Produtos": grupo atual → grupo novo, com a coluna de decisão).
 /// </summary>
-public sealed class ImportadorEspecificacao(FabricaDb fabrica, CodigosProdutoServico codigos)
+public sealed class ImportadorEspecificacao(IFabricaDb fabrica, CodigosProdutoServico codigos)
 {
     private static string N(string? s) => string.Join(' ', new string((s ?? "").Normalize(NormalizationForm.FormD)
         .Where(c => CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark).ToArray()).ToUpperInvariant().Split(' ', StringSplitOptions.RemoveEmptyEntries));

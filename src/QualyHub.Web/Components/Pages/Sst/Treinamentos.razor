@@ -65,23 +65,25 @@
                 <Campo Rotulo="Local" Obrigatorio Classe="s3"><input @bind="_turma.Local" disabled="@fechada" /></Campo>
             </div>
             <div class="secao"><Icone Nome="pessoa" /> Participantes
-                @if (!fechada) { <span class="acao"><select @bind="_novoPart" style="max-width:260px"><option value="">Incluir colaborador…</option>@foreach (var c in _colabs.Where(c => _turma.Participantes.All(p => p.ColaboradorId != c.Id))) { <option value="@c.Id">@c.Texto</option> }</select>
+                @if (!fechada) { <span class="acao"><select @bind="_novoPart" class="larg-max-260"><option value="">Incluir colaborador…</option>@foreach (var c in _colabs.Where(c => _turma.Participantes.All(p => p.ColaboradorId != c.Id))) { <option value="@c.Id">@c.Texto</option> }</select>
                     <button class="btn sec pq" @onclick="Incluir"><Icone Nome="mais" Tam="14" /></button></span> }
             </div>
+            <div class="tabela-rolavel">
             <table class="itens">
                 <thead><tr><th>Participante</th><th>Presença</th><th>Avaliação</th><th>Resultado</th><th>Válido até</th><th></th></tr></thead>
                 <tbody>
                     @foreach (var p in _turma.Participantes)
                     {
-                        <tr><td>@Nome(_colabs, p.ColaboradorId)</td>
+                        <tr @key="p.Id"><td>@Nome(_colabs, p.ColaboradorId)</td>
                             <td><input type="checkbox" @bind="p.Presenca" disabled="@fechada" /></td>
-                            <td style="width:140px"><input @bind="p.Avaliacao" disabled="@fechada" /></td>
+                            <td class="larg-140"><input @bind="p.Avaliacao" disabled="@fechada" /></td>
                             <td>@if (!fechada) { <select @bind="p.Resultado"><option value="">(auto)</option><option value="@ResultadoParticipante.Aprovado">Aprovado</option><option value="@ResultadoParticipante.Reprovado">Reprovado</option></select> } else { @(p.Resultado is { } r ? De(r) : "—") }</td>
                             <td>@(p.ValidoAte == DateOnly.MaxValue ? "sem vencimento" : Data(p.ValidoAte))</td>
                             <td>@if (!fechada) { <button class="icone-btn" @onclick="() => _turma.Participantes.Remove(p)"><Icone Nome="lixeira" Tam="16" /></button> }</td></tr>
                     }
                 </tbody>
             </table>
+            </div>
             <div class="alerta info"><Icone Nome="info" /> Ao concluir: presença + avaliação geram o registro de competência (SiAC 7.2) e atualizam a situação dos colaboradores. Treinamento de ITS habilita o inspetor a assinar a FVS daquela ITS.</div>
             @if (_turma.CriadoEm != default) { <Anexos Entidade="Turma" EntidadeId="_turma.Id" Categoria="Presenca" Titulo="Lista de presença assinada, certificados e qualificação do instrutor" /> }
         }
@@ -140,12 +142,12 @@
 
     private async Task Carregar()
     {
-        await using (var db = Fabrica.Criar())
+        await using (var db = Fabrica.CriarLeitura())
         {
-            _turmas = await db.Turmas.AsNoTracking().Include(t => t.Participantes).OrderByDescending(t => t.Data).ToListAsync();
-            _cat = await db.Treinamentos.AsNoTracking().Where(t => t.Ativo).OrderBy(t => t.Descricao).ToListAsync();
+            _turmas = await db.Turmas.AsNoTracking().Include(t => t.Participantes).OrderByDescending(t => t.Data).ToListAsync(Cancelamento);
+            _cat = await db.Treinamentos.AsNoTracking().Where(t => t.Ativo).OrderBy(t => t.Descricao).ToListAsync(Cancelamento);
         }
-        var calc = await Sst.RecalcularAsync();
+        var calc = await Sst.RecalcularAsync(null, Cancelamento);
         var treinExig = _cat.Select(t => t.Descricao).ToHashSet();
         _necessidades = calc.SelectMany(kv => kv.Value.Detalhe.Where(d => d.Situacao is "Não realizado" or "Vencido" || (d.Ok && d.Validade is not null && d.Validade <= Hoje.AddDays(30)))
             .Select(d => (Nome(_colabs, kv.Key), d.Exigencia, d.Ok ? "Válido" : d.Situacao, d.Validade))).OrderBy(x => x.Item2).ToList();
@@ -160,8 +162,8 @@
 
     private async Task AbrirTurma(Guid id)
     {
-        await using var db = Fabrica.Criar();
-        _turma = await db.Turmas.AsNoTracking().Include(t => t.Participantes).FirstAsync(t => t.Id == id);
+        await using var db = Fabrica.CriarLeitura();
+        _turma = await db.Turmas.AsNoTracking().Include(t => t.Participantes).FirstAsync(t => t.Id == id, Cancelamento);
         ErrosForm = null; _abertoT = true;
     }
 
@@ -174,17 +176,13 @@
     private async Task SalvarTurma()
     {
         Guid id = default;
-        if (await Executar(async () => id = await Sst.SalvarTurmaAsync(_turma!), "Turma salva.")) { await Carregar(); await AbrirTurma(id); }
+        if (await Executar(async () => id = await Sst.SalvarTurmaAsync(_turma!, Cancelamento), "Turma salva.")) { await Carregar(); await AbrirTurma(id); }
     }
 
-    private async Task Concluir() { if (await Executar(() => Sst.ConcluirTurmaAsync(_turma!), "Turma concluída — competências registradas.")) { await Carregar(); await AbrirTurma(_turma!.Id); } }
+    private async Task Concluir() { if (await Executar(() => Sst.ConcluirTurmaAsync(_turma!, Cancelamento), "Turma concluída — competências registradas.")) { await Carregar(); await AbrirTurma(_turma!.Id); } }
 
     private async Task SalvarCatalogo()
     {
-        if (await Executar(async () =>
-        {
-            if (string.IsNullOrWhiteSpace(_t!.Descricao) || string.IsNullOrWhiteSpace(_t.CargaHoraria)) throw new RegraDeNegocioException("Informe o treinamento e a carga horária.");
-            await using var db = Fabrica.Criar(); await Grafo.SalvarAsync(db, _t); await db.SaveChangesAsync();
-        }, "Treinamento salvo.")) { _abertoC = false; await Carregar(); }
+        if (await Executar(() => Sst.SalvarTreinamentoAsync(_t!, Cancelamento), "Treinamento salvo.")) { _abertoC = false; await Carregar(); }
     }
 }

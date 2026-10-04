@@ -92,8 +92,8 @@
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.Criar();
-        var lista = await db.FornecedorDocumentos.AsNoTracking().Include(d => d.TipoDocumento).Include(d => d.Fornecedor).ToListAsync();
+        await using var db = Fabrica.CriarLeitura();
+        var lista = await db.FornecedorDocumentos.AsNoTracking().Include(d => d.TipoDocumento).Include(d => d.Fornecedor).ToListAsync(Cancelamento);
         _todos = lista.Select(d => new Linha(d.Id, d.Fornecedor.RazaoSocial, d.TipoDocumento.Nome, d.Numero, d.DataEmissao, d.DataValidade, d.EnviadoPeloPortal,
             StatusDocumentoCalculo.Calcular(d, Hoje), d.Bloqueia, d.CriadoPor)).OrderBy(l => l.Fornecedor).ThenBy(l => l.Tipo).ToList();
         Filtrar();
@@ -113,8 +113,8 @@
 
     private async Task Abrir(Guid id)
     {
-        await using var db = Fabrica.Criar();
-        _d = await db.FornecedorDocumentos.AsNoTracking().FirstAsync(d => d.Id == id);
+        await using var db = Fabrica.CriarLeitura();
+        _d = await db.FornecedorDocumentos.AsNoTracking().FirstAsync(d => d.Id == id, Cancelamento);
         _arquivo = null; _motivo = _d.MotivoRecusa; ErrosForm = null; _aberto = true;
     }
 
@@ -125,14 +125,14 @@
         var ok = await Executar(async () =>
         {
             await using var s = _arquivo?.OpenReadStream(20 * 1024 * 1024);
-            await Portal.RegistrarDocumentoInternoAsync(_d!, s, _arquivo?.Name, _arquivo?.ContentType);
+            await Portal.RegistrarDocumentoInternoAsync(_d!, s, _arquivo?.Name, _arquivo?.ContentType, ct: Cancelamento);
         }, "Documento salvo.");
         if (ok) { _aberto = false; await Carregar(); }
     }
 
     private async Task Validar(bool aprovado)
     {
-        if (await Executar(() => Portal.ValidarDocumentoAsync(_d!.Id, aprovado, _motivo), aprovado ? "Documento validado." : "Documento recusado."))
+        if (await Executar(() => Portal.ValidarDocumentoAsync(_d!.Id, aprovado, _motivo, ct: Cancelamento), aprovado ? "Documento validado." : "Documento recusado."))
         { _aberto = false; await Carregar(); }
     }
 

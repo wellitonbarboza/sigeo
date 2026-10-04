@@ -1,14 +1,15 @@
 @page "/"
 @inherits PaginaBase
 @inject AprovacaoServico Aprov
+@inject SistemaServico Sistema
 @inject NavigationManager Nav
 
 <PageTitle>Minhas pendências · QualyHub</PageTitle>
 <div class="tela">
     <div class="topo"><h1>Minhas pendências</h1><div class="direita"><button class="btn sec pq" @onclick="AbrirDelegacao"><Icone Nome="pessoa" Tam="14" /> Delegar aprovações (férias/ausência)</button></div></div>
     <div class="miolo">
-        <div class="pagina">
-            <p style="margin:0 0 10px"><b>@Saudacao(), @Usuario.Nome.Split(' ')[0]</b> <span class="mudo">· @(Rotulos.De(Enum.TryParse<PerfilUsuario>(Usuario.Perfil, out var pf) ? pf : PerfilUsuario.Campo)) · @Usuario.EmpresaNome · @Data(Hoje)</span></p>
+        <div class="pagina toque">
+            <p class="mb-10"><b>@Saudacao(), @Usuario.Nome.Split(' ')[0]</b> <span class="mudo">· @(Rotulos.De(Enum.TryParse<PerfilUsuario>(Usuario.Perfil, out var pf) ? pf : PerfilUsuario.Campo)) · @Usuario.EmpresaNome · @Data(Hoje)</span></p>
             <div class="kpis">
                 <Kpi Rotulo="Aprovações pendentes" Valor="@_aprovar.Count" Sub="@($"{_aprovar.Count(a => a.Atrasada)} fora do prazo")" Tom="@(_aprovar.Count > 0 ? "aviso" : "ok")" />
                 <Kpi Rotulo="Pagamentos a liberar" Valor="@_pagamentos.Count" Sub="@Moeda(_pagamentos.Sum(p => p.Valor))" Tom="info" />
@@ -20,12 +21,12 @@
             @if (_aba == "aprovar" || _aba == "pagar")
             {
                 var lista = _aba == "aprovar" ? _aprovar.Where(a => a.Entidade != EntidadeAprovavel.Pagamento).ToList() : _aprovar.Where(a => a.Entidade == EntidadeAprovavel.Pagamento).ToList();
-                <table class="itens">
+                <div class="tabela-rolavel"><table class="itens">
                     <thead><tr><th>Tipo</th><th>Título</th><th>Solicitante</th><th class="num">Valor</th><th>Aguardando há</th><th>Prazo</th><th></th></tr></thead>
                     <tbody>
                         @foreach (var a in lista)
                         {
-                            <tr style="cursor:pointer" @onclick="() => Ir(a.Entidade, a.EntidadeId)">
+                            <tr class="cursor-mao" @onclick="() => Ir(a.Entidade, a.EntidadeId)">
                                 <td><Selo Texto="@De(a.Entidade)" Tom="info" /></td><td>@a.Titulo</td><td>@a.Solicitante</td><td class="num">@Moeda(a.Valor)</td>
                                 <td>@Espera(a.Enviado)</td>
                                 <td>@if (a.Prazo is { } pz) { <Selo Texto="@(a.Atrasada ? "atrasado" : pz.ToLocalTime().ToString("dd/MM HH:mm"))" Tom="@(a.Atrasada ? "erro" : "aviso")" /> }</td>
@@ -34,7 +35,7 @@
                         }
                         @if (lista.Count == 0) { <tr><td colspan="7" class="mudo">Nada pendente com você.</td></tr> }
                     </tbody>
-                </table>
+                </table></div>
             }
             else if (_aba == "alertas")
             {
@@ -45,27 +46,28 @@
             }
             else if (_aba == "tarefas")
             {
-                <table class="itens"><thead><tr><th>Nº</th><th>Título</th><th>Solicitante</th><th>Prioridade</th><th>Prazo</th><th>Status</th></tr></thead>
-                    <tbody>@foreach (var t in _tarefas) { <tr style="cursor:pointer" @onclick='() => Nav.NavigateTo($"tarefas?id={t.Id}")'><td>@t.Numero</td><td>@t.Titulo @if (t.Leituras.Count == 0) { <Selo Texto="nova" Tom="info" /> }</td><td>@t.CriadoPor</td><td><Selo Texto="@De(t.Prioridade)" Tom="@Tom(t.Prioridade)" /></td><td class="@(t.Atrasada(Hoje) ? "texto-erro" : "")">@Data(t.Prazo)</td><td><Selo Texto="@De(t.Status)" Tom="@Tom(t.Status)" /></td></tr> }
-                    @if (_tarefas.Count == 0) { <tr><td colspan="6" class="mudo">Nenhuma tarefa aberta para você.</td></tr> }</tbody></table>
+                <div class="tabela-rolavel"><table class="itens"><thead><tr><th>Nº</th><th>Título</th><th>Solicitante</th><th>Prioridade</th><th>Prazo</th><th>Status</th></tr></thead>
+                    <tbody>@foreach (var t in _tarefas) { <tr class="cursor-mao" @onclick='() => Nav.NavigateTo($"tarefas?id={t.Id}")'><td>@t.Numero</td><td>@t.Titulo @if (t.Leituras.Count == 0) { <Selo Texto="nova" Tom="info" /> }</td><td>@t.CriadoPor</td><td><Selo Texto="@De(t.Prioridade)" Tom="@Tom(t.Prioridade)" /></td><td class="@(t.Atrasada(Hoje) ? "texto-erro" : "")">@Data(t.Prazo)</td><td><Selo Texto="@De(t.Status)" Tom="@Tom(t.Status)" /></td></tr> }
+                    @if (_tarefas.Count == 0) { <tr><td colspan="6" class="mudo">Nenhuma tarefa aberta para você.</td></tr> }</tbody></table></div>
             }
             else if (_aba == "leituras")
             {
-                <table class="itens"><thead><tr><th>Documento</th><th>Prazo</th><th></th></tr></thead>
+                <div class="tabela-rolavel"><table class="itens"><thead><tr><th>Documento</th><th>Prazo</th><th></th></tr></thead>
                     <tbody>@foreach (var l in _leituras) { <tr><td>@l.Documento</td><td>@Data(l.Prazo)</td><td><a class="btn pq prim" href="sgq/leituras">Ler</a></td></tr> }
-                    @if (_leituras.Count == 0) { <tr><td colspan="3" class="mudo">Nenhuma leitura pendente.</td></tr> }</tbody></table>
+                    @if (_leituras.Count == 0) { <tr><td colspan="3" class="mudo">Nenhuma leitura pendente.</td></tr> }</tbody></table></div>
             }
             else
             {
-                <table class="itens"><thead><tr><th>Tipo</th><th>Título</th><th>Enviado</th><th>Etapa</th><th>Status</th></tr></thead>
-                    <tbody>@foreach (var s in _meus) { <tr style="cursor:pointer" @onclick="() => Ir(s.Entidade, s.EntidadeId)"><td>@De(s.Entidade)</td><td>@s.Titulo</td><td>@DataHora(s.EnviadoEm)</td><td>@s.EtapaAtual de @s.Etapas.Count</td><td><Selo Texto="@De(s.Status)" Tom="@(s.Status == StatusAprovacao.Aprovado ? "ok" : s.Status == StatusAprovacao.Reprovado ? "erro" : "aviso")" /></td></tr> }
-                    @if (_meus.Count == 0) { <tr><td colspan="5" class="mudo">Você não enviou nada para aprovação nos últimos 60 dias.</td></tr> }</tbody></table>
+                <div class="tabela-rolavel"><table class="itens"><thead><tr><th>Tipo</th><th>Título</th><th>Enviado</th><th>Etapa</th><th>Status</th></tr></thead>
+                    <tbody>@foreach (var s in _meus) { <tr class="cursor-mao" @onclick="() => Ir(s.Entidade, s.EntidadeId)"><td>@De(s.Entidade)</td><td>@s.Titulo</td><td>@DataHora(s.EnviadoEm)</td><td>@s.EtapaAtual de @s.Etapas.Count</td><td><Selo Texto="@De(s.Status)" Tom="@(s.Status == StatusAprovacao.Aprovado ? "ok" : s.Status == StatusAprovacao.Reprovado ? "erro" : "aviso")" /></td></tr> }
+                    @if (_meus.Count == 0) { <tr><td colspan="5" class="mudo">Você não enviou nada para aprovação nos últimos 60 dias.</td></tr> }</tbody></table></div>
+                @if (_meus.Count >= LimiteMeus) { <div class="alerta info"><Icone Nome="info" /> Exibindo os primeiros @LimiteMeus (os mais recentes) — veja os demais na tela de cada documento.</div> }
             }
 
             <div class="duas-caixas">
                 <div class="caixa-sec"><div class="secao"><Icone Nome="pessoa" /> Delegação ativa</div>
-                    @if (_delegacao is null) { <p style="font-size:13px">Nenhuma delegação ativa. Ao delegar, as aprovações do período vão para o substituto e o log registra "aprovado por X em nome de @Usuario.Nome".</p> }
-                    else { <p style="font-size:13px">Suas aprovações estão com <b>@_delegacao.Value.Substituto</b> até <b>@_delegacao.Value.Fim.ToLocalTime().ToString("dd/MM/yyyy")</b>.</p> }
+                    @if (_delegacao is null) { <p class="fonte-13">Nenhuma delegação ativa. Ao delegar, as aprovações do período vão para o substituto e o log registra "aprovado por X em nome de @Usuario.Nome".</p> }
+                    else { <p class="fonte-13">Suas aprovações estão com <b>@_delegacao.Value.Substituto</b> até <b>@_delegacao.Value.Fim.ToLocalTime().ToString("dd/MM/yyyy")</b>.</p> }
                 </div>
                 @if (_vazio)
                 {
@@ -88,7 +90,7 @@
     <div class="faixa"><b>Tela 25 · Minhas pendências</b><span>Caixa de entrada por usuário: aprovar, liberar, alertas e leituras</span><span>Prazo por etapa (alçada)</span></div>
 </div>
 
-<Modal @bind-Aberto="_abertoDel" Titulo="Delegar minhas aprovações" Tamanho="media">
+<Modal @bind-Aberto="_abertoDel" Titulo="Delegar minhas aprovações" Tamanho="media toque">
     <ChildContent>
         <Erros Lista="ErrosForm" />
         <div class="form">
@@ -111,6 +113,7 @@
     private List<(string Texto, int Qtd, string Tom, string Link)> _alertas = [];
     private List<(string Documento, DateOnly Prazo)> _leituras = [];
     private List<QualyHub.Domain.Colaboracao.Tarefa> _tarefas = [];
+    private const int LimiteMeus = 50;
     private List<SolicitacaoAprovacao> _meus = [];
     private (string Substituto, DateTimeOffset Fim)? _delegacao;
     private List<Opcao> _usuarios = [];
@@ -126,14 +129,14 @@
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.Criar();
+        await using var db = Fabrica.CriarLeitura();
         var agora = DateTimeOffset.UtcNow;
-        var alcadas = await db.Alcadas.AsNoTracking().ToListAsync();
-        var abertas = await db.SolicitacoesAprovacao.AsNoTracking().Include(s => s.Etapas).Where(s => s.Status == StatusAprovacao.EmAprovacao).OrderBy(s => s.EnviadoEm).ToListAsync();
+        var alcadas = await db.Alcadas.AsNoTracking().ToListAsync(Cancelamento);
+        var abertas = await db.SolicitacoesAprovacao.AsNoTracking().Include(s => s.Etapas).Where(s => s.Status == StatusAprovacao.EmAprovacao).OrderBy(s => s.EnviadoEm).ToListAsync(Cancelamento);
         _aprovar = [];
         if (Usuario.UsuarioId is not null)
             foreach (var s in abertas)
-                if (await Aprov.PodeDecidirAsync(db, s))
+                if (await Aprov.PodeDecidirAsync(db, s, Cancelamento))
                 {
                     var horas = alcadas.FirstOrDefault(a => a.Entidade == s.Entidade && a.Ordem == s.EtapaAtual)?.PrazoHoras;
                     var desde = s.Etapas.Where(e => e.DecididoEm != null).Select(e => e.DecididoEm).Max() ?? s.EnviadoEm;
@@ -142,37 +145,37 @@
                 }
         _pagamentos = _aprovar.Where(a => a.Entidade == EntidadeAprovavel.Pagamento).Select(a => (a.Valor, a.EntidadeId)).ToList();
         var eu = Usuario.UsuarioId;
-        _leituras = (await db.Ciencias.AsNoTracking().Include(c => c.Revisao).ThenInclude(r => r.Documento).Where(c => c.UsuarioId == eu && c.LidoEm == null).ToListAsync())
+        _leituras = (await db.Ciencias.AsNoTracking().Include(c => c.Revisao).ThenInclude(r => r.Documento).Where(c => c.UsuarioId == eu && c.LidoEm == null).ToListAsync(Cancelamento))
             .Select(c => ($"{c.Revisao.Documento.Codigo} {c.Revisao.Rotulo} – {c.Revisao.Documento.Titulo}", c.Prazo)).ToList();
         _tarefas = await db.Tarefas.AsNoTracking().Include(t => t.Leituras).Where(t => t.ResponsavelId == eu && (t.Status == StatusTarefa.Aberta || t.Status == StatusTarefa.EmAndamento))
-                                   .OrderBy(t => t.Prazo).ToListAsync();
+                                   .OrderBy(t => t.Prazo).ToListAsync(Cancelamento);
         var ha60 = agora.AddDays(-60);
-        _meus = await db.SolicitacoesAprovacao.AsNoTracking().Include(s => s.Etapas).Where(s => s.SolicitanteUsuarioId == eu && s.EnviadoEm >= ha60).OrderByDescending(s => s.EnviadoEm).Take(50).ToListAsync();
-        var del = await db.DelegacoesAprovacao.AsNoTracking().Where(d => d.TitularUsuarioId == eu && !d.Revogada && d.Inicio <= agora && d.Fim > agora).FirstOrDefaultAsync();
+        _meus = await db.SolicitacoesAprovacao.AsNoTracking().Include(s => s.Etapas).Where(s => s.SolicitanteUsuarioId == eu && s.EnviadoEm >= ha60).OrderByDescending(s => s.EnviadoEm).Take(LimiteMeus).ToListAsync(Cancelamento);
+        var del = await db.DelegacoesAprovacao.AsNoTracking().Where(d => d.TitularUsuarioId == eu && !d.Revogada && d.Inicio <= agora && d.Fim > agora).FirstOrDefaultAsync(Cancelamento);
         _delegacao = del is null ? null : (_usuarios.FirstOrDefault(u => u.Id == del.SubstitutoUsuarioId)?.Texto ?? "?", del.Fim);
 
-        var p = await ParametrosServico.CarregarAsync(db);
+        var p = await ParametrosServico.CarregarAsync(db, Cancelamento);
         _alertas = [];
         void A(int n, string texto, string tom, string link) { if (n > 0) _alertas.Add((texto, n, tom, link)); }
-        A(await db.FornecedorDocumentos.CountAsync(d => d.Bloqueia && d.DataValidade != null && d.DataValidade < Hoje && d.Status != StatusDocumento.Reprovado), "documento(s) de fornecedor vencido(s) — pedidos e medições bloqueados", "erro", "fornecedores/documentos");
-        A(await db.FornecedorDocumentos.CountAsync(d => d.Status == StatusDocumento.EmValidacao), "documento(s) enviados pelo portal aguardando validação", "aviso", "fornecedores/documentos");
-        A(await db.Documentos.CountAsync(d => d.ProximaAnalise != null && d.ProximaAnalise < Hoje), "documento(s) do SGQ com análise crítica vencida", "erro", "sgq/documentos");
-        A(await db.Copias.CountAsync(c => c.Status == StatusCopia.RecolhimentoPendente && c.PrazoRecolhimento < Hoje), "cópia(s) obsoleta(s) com recolhimento atrasado", "erro", "sgq/copias");
-        A(await db.Grds.CountAsync(g => g.ConfirmadoEm == null && g.EnviadoEm < agora.AddDays(-1)), "GRD sem confirmação há mais de 1 dia", "aviso", "sgq/grd");
-        A(await db.Fvss.CountAsync(f => f.Status == StatusFvs.Reprovada), "FVS reprovada(s) aguardando reinspeção", "aviso", "obra/fvs");
-        A(await db.Fvss.CountAsync(f => f.Status == StatusFvs.Aprovada), "FVS aprovada(s) aguardando liberação do engenheiro", "info", "obra/fvs");
-        A(await db.Rncs.CountAsync(r => (r.Status == StatusRnc.Aberta || r.Status == StatusRnc.EmTratamento) && r.Prazo < Hoje), "RNC vencida(s)", "erro", "obra/rnc");
-        A(await db.AcoesCorretivas.CountAsync(a => a.Status == StatusAcaoCorretiva.AguardandoEficacia && a.DataEficacia <= Hoje), "ação(ões) corretiva(s) com eficácia a verificar", "aviso", "obra/acoes");
-        A((await db.Equipamentos.AsNoTracking().ToListAsync()).Count(e => e.Status(Hoje, p.Int(Parametros.AlertaCalibracaoDias)) is StatusEquipamento.VenceEmBreve or StatusEquipamento.Bloqueado), "equipamento(s) de medição vencendo ou bloqueados", "aviso", "obra/equipamentos");
-        A(await db.EnsaiosRecebimento.CountAsync(x => x.Situacao == SituacaoEnsaio.Aguardando && x.DataPrevista < Hoje), "ensaio(s) de recebimento com resultado atrasado", "erro", "recebimentos");
-        A(await db.Tarefas.CountAsync(t => (t.Status == StatusTarefa.Aberta || t.Status == StatusTarefa.EmAndamento) && t.Prazo < Hoje), "tarefa(s) atrasada(s) na empresa", "erro", "tarefas");
-        A(await db.PlanosAcao.CountAsync(x => x.Status != StatusPlanoAcao.Concluida && x.Prazo < Hoje), "plano(s) de ação de fornecedor vencido(s)", "erro", "fornecedores/planos");
-        A(await db.Contratos.CountAsync(k => k.Status == StatusContrato.Ativo && k.VigenciaFim <= Hoje.AddDays(30)), "contrato(s) vencendo em 30 dias", "aviso", "contratos");
-        A(await db.Colaboradores.CountAsync(c => c.Situacao == SituacaoColaborador.Bloqueado && (c.DataSaida == null || c.DataSaida > Hoje)), "colaborador(es) bloqueados (ASO/integração)", "erro", "sst/colaboradores");
-        A(await db.DocumentosColaborador.CountAsync(d => d.Validacao == ValidacaoDoc.Aguardando), "documento(s) de colaborador aguardando validação do SST", "aviso", "sst/documentos");
-        A(await db.PermissoesTrabalho.CountAsync(x => x.Status == StatusPermissaoTrabalho.Liberada && x.Fim < agora), "PT sem encerramento", "erro", "sst/pt");
-        A(await db.Epis.CountAsync(e => e.Ativo && e.ValidadeCa <= Hoje.AddDays(p.Int(Parametros.AlertaCaDias))), "EPI com CA vencendo/vencido", "aviso", "sst/epi");
-        _vazio = !await db.Obras.AnyAsync() || !await db.Fornecedores.AnyAsync();
+        A(await db.FornecedorDocumentos.CountAsync(d => d.Bloqueia && d.DataValidade != null && d.DataValidade < Hoje && d.Status != StatusDocumento.Reprovado, Cancelamento), "documento(s) de fornecedor vencido(s) — pedidos e medições bloqueados", "erro", "fornecedores/documentos");
+        A(await db.FornecedorDocumentos.CountAsync(d => d.Status == StatusDocumento.EmValidacao, Cancelamento), "documento(s) enviados pelo portal aguardando validação", "aviso", "fornecedores/documentos");
+        A(await db.Documentos.CountAsync(d => d.ProximaAnalise != null && d.ProximaAnalise < Hoje, Cancelamento), "documento(s) do SGQ com análise crítica vencida", "erro", "sgq/documentos");
+        A(await db.Copias.CountAsync(c => c.Status == StatusCopia.RecolhimentoPendente && c.PrazoRecolhimento < Hoje, Cancelamento), "cópia(s) obsoleta(s) com recolhimento atrasado", "erro", "sgq/copias");
+        A(await db.Grds.CountAsync(g => g.ConfirmadoEm == null && g.EnviadoEm < agora.AddDays(-1), Cancelamento), "GRD sem confirmação há mais de 1 dia", "aviso", "sgq/grd");
+        A(await db.Fvss.CountAsync(f => f.Status == StatusFvs.Reprovada, Cancelamento), "FVS reprovada(s) aguardando reinspeção", "aviso", "obra/fvs");
+        A(await db.Fvss.CountAsync(f => f.Status == StatusFvs.Aprovada, Cancelamento), "FVS aprovada(s) aguardando liberação do engenheiro", "info", "obra/fvs");
+        A(await db.Rncs.CountAsync(r => (r.Status == StatusRnc.Aberta || r.Status == StatusRnc.EmTratamento) && r.Prazo < Hoje, Cancelamento), "RNC vencida(s)", "erro", "obra/rnc");
+        A(await db.AcoesCorretivas.CountAsync(a => a.Status == StatusAcaoCorretiva.AguardandoEficacia && a.DataEficacia <= Hoje, Cancelamento), "ação(ões) corretiva(s) com eficácia a verificar", "aviso", "obra/acoes");
+        A((await db.Equipamentos.AsNoTracking().ToListAsync(Cancelamento)).Count(e => e.Status(Hoje, p.Int(Parametros.AlertaCalibracaoDias)) is StatusEquipamento.VenceEmBreve or StatusEquipamento.Bloqueado), "equipamento(s) de medição vencendo ou bloqueados", "aviso", "obra/equipamentos");
+        A(await db.EnsaiosRecebimento.CountAsync(x => x.Situacao == SituacaoEnsaio.Aguardando && x.DataPrevista < Hoje, Cancelamento), "ensaio(s) de recebimento com resultado atrasado", "erro", "recebimentos");
+        A(await db.Tarefas.CountAsync(t => (t.Status == StatusTarefa.Aberta || t.Status == StatusTarefa.EmAndamento) && t.Prazo < Hoje, Cancelamento), "tarefa(s) atrasada(s) na empresa", "erro", "tarefas");
+        A(await db.PlanosAcao.CountAsync(x => x.Status != StatusPlanoAcao.Concluida && x.Prazo < Hoje, Cancelamento), "plano(s) de ação de fornecedor vencido(s)", "erro", "fornecedores/planos");
+        A(await db.Contratos.CountAsync(k => k.Status == StatusContrato.Ativo && k.VigenciaFim <= Hoje.AddDays(30), Cancelamento), "contrato(s) vencendo em 30 dias", "aviso", "contratos");
+        A(await db.Colaboradores.CountAsync(c => c.Situacao == SituacaoColaborador.Bloqueado && (c.DataSaida == null || c.DataSaida > Hoje), Cancelamento), "colaborador(es) bloqueados (ASO/integração)", "erro", "sst/colaboradores");
+        A(await db.DocumentosColaborador.CountAsync(d => d.Validacao == ValidacaoDoc.Aguardando, Cancelamento), "documento(s) de colaborador aguardando validação do SST", "aviso", "sst/documentos");
+        A(await db.PermissoesTrabalho.CountAsync(x => x.Status == StatusPermissaoTrabalho.Liberada && x.Fim < agora, Cancelamento), "PT sem encerramento", "erro", "sst/pt");
+        A(await db.Epis.CountAsync(e => e.Ativo && e.ValidadeCa <= Hoje.AddDays(p.Int(Parametros.AlertaCaDias)), Cancelamento), "EPI com CA vencendo/vencido", "aviso", "sst/epi");
+        _vazio = !await db.Obras.AnyAsync(Cancelamento) || !await db.Fornecedores.AnyAsync(Cancelamento);
     }
 
     private void Ir(EntidadeAprovavel e, Guid id)
@@ -194,15 +197,6 @@
 
     private async Task SalvarDelegacao()
     {
-        if (await Executar(async () =>
-        {
-            var e = new List<string>();
-            if (_d.SubstitutoUsuarioId == Guid.Empty) e.Add("Informe o substituto.");
-            if (_d.Fim <= _d.Inicio) e.Add("Fim deve ser posterior ao início.");
-            if (string.IsNullOrWhiteSpace(_d.Motivo)) e.Add("Informe o motivo.");
-            ValidacaoException.Se(e);
-            await using var db = Fabrica.Criar();
-            db.DelegacoesAprovacao.Add(_d); await db.SaveChangesAsync();
-        }, "Delegação registrada.")) { _abertoDel = false; await Carregar(); }
+        if (await Executar(() => Sistema.DelegarMinhasAprovacoesAsync(_d, Cancelamento), "Delegação registrada.")) { _abertoDel = false; await Carregar(); }
     }
 }

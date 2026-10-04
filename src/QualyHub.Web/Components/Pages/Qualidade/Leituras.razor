@@ -48,9 +48,9 @@
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.Criar();
+        await using var db = Fabrica.CriarLeitura();
         var eu = Usuario.UsuarioId;
-        var lista = await db.Ciencias.AsNoTracking().Include(c => c.Revisao).ThenInclude(r => r.Documento).OrderBy(c => c.Prazo).ToListAsync();
+        var lista = await db.Ciencias.AsNoTracking().Include(c => c.Revisao).ThenInclude(r => r.Documento).OrderBy(c => c.Prazo).ToListAsync(Cancelamento);
         _todos = lista.Select(c => new Linha(c.Id, c.DocumentoRevisaoId, c.Revisao.Documento.Codigo + " – " + c.Revisao.Documento.Titulo, c.Revisao.Rotulo, c.UsuarioNome, c.Funcao,
             c.Prazo, c.LidoEm, c.ExigeTreinamento, c.Status(Hoje), c.UsuarioId == eu)).ToList();
         Filtrar();
@@ -63,5 +63,5 @@
         _ => _todos
     };
 
-    private async Task Confirmar(Guid id) { if (await Executar(() => Docs.ConfirmarLeituraAsync(id), "Leitura confirmada.")) await Carregar(); }
+    private async Task Confirmar(Guid id) { if (await Executar(() => Docs.ConfirmarLeituraAsync(id, Cancelamento), "Leitura confirmada.")) await Carregar(); }
 }

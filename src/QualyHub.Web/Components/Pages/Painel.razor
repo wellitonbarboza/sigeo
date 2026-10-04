@@ -6,7 +6,7 @@
         <div class="pagina">
             <div class="barra-filtro">
                 <label>Período <select @bind="_meses" @bind:after="Carregar"><option value="3">3 meses</option><option value="6">6 meses</option><option value="12">12 meses</option></select></label>
-                <label>Obra <select value="@_obra" @onchange="async e => { _obra = Guid.TryParse(e.Value?.ToString(), out var g) ? g : null; await Carregar(); }"><option value="">Todas</option>@foreach (var o in _obras) { <option value="@o.Id">@o.Texto</option> }</select></label>
+                <SeletorObra Valor="_obra" ValorChanged="TrocarObra" PermitirTodas />
             </div>
             <div class="kpis">
                 <Kpi Rotulo="Lead time requisição → pedido" Valor="@(_leadTime is null ? "—" : $"{_leadTime:0.0} dias")" Sub="meta ≤ 7" Tom="@(_leadTime <= 7 ? "ok" : "aviso")" />
@@ -18,7 +18,7 @@
             </div>
             <div class="duas-caixas">
                 <div class="caixa-sec"><div class="secao"><Icone Nome="grafico" /> FVM aprovadas por mês (%)</div>
-                    <div class="colunas-graf">@foreach (var (m, v) in _fvmMes) { <div><b>@(v is null ? "—" : $"{v:0}")</b><span style="height:@(Alt(v, 100));background:#16a34a"></span><small>@m</small></div> }</div></div>
+                    <div class="colunas-graf">@foreach (var (m, v) in _fvmMes) { <div><b>@(v is null ? "—" : $"{v:0}")</b><span class="coluna-verde" style="height:@(Alt(v, 100))"></span><small>@m</small></div> }</div></div>
                 <div class="caixa-sec"><div class="secao"><Icone Nome="grafico" /> Nota média dos prestadores</div>
                     <div class="colunas-graf">@foreach (var (m, v) in _notaMes) { <div><b>@(v is null ? "—" : $"{v:0.0}")</b><span style="height:@(Alt(v, 10))"></span><small>@m</small></div> }</div></div>
             </div>
@@ -36,7 +36,7 @@
                 <div class="caixa-sec"><div class="secao"><Icone Nome="x-circulo" /> Qualidade da obra</div>
                     <table class="itens"><tbody>@foreach (var (k, v) in _qob) { <tr><td>@k</td><td class="num"><b>@v</b></td></tr> }</tbody></table></div>
                 <div class="caixa-sec"><div class="secao"><Icone Nome="info" /> Uso na análise crítica</div>
-                    <p style="font-size:13px">Estes indicadores alimentam a análise crítica pela direção (SiAC 9.3). Exporte a tela (Ctrl+P) ou use as grades de cada módulo em Excel para o relatório.</p></div>
+                    <p class="fonte-13">Estes indicadores alimentam a análise crítica pela direção (SiAC 9.3). Exporte a tela (Ctrl+P) ou use as grades de cada módulo em Excel para o relatório.</p></div>
             </div>
         </div>
     </ChildContent>
@@ -47,7 +47,6 @@
     private int _meses = 6;
     private Guid? _obra;
     private decimal _metaFvs = 85;
-    private List<Opcao> _obras = [];
     private decimal? _leadTime, _pctPropostas, _pctFvm, _notaMedia, _pctFvs1a, _pctDocs;
     private int _analiseVencida;
     private List<(string, decimal?)> _fvmMes = [], _notaMes = [];
@@ -56,38 +55,39 @@
     private static string Alt(decimal? v, decimal max) => $"{(v is null ? 0 : Math.Min(100, 100 * v.Value / max)).ToString("0", System.Globalization.CultureInfo.InvariantCulture)}%";
     private static readonly string[] Meses = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 
+    private async Task TrocarObra(Guid? obra) { _obra = obra; await Carregar(); }
+
     protected override async Task OnInitializedAsync()
     {
-        _obras = await Cat.ObrasAsync();
-        await using (var db = Fabrica.Criar()) _metaFvs = (await ParametrosServico.CarregarAsync(db))[Parametros.MetaFvs1aInspecaoPerc];
+        await using (var db = Fabrica.CriarLeitura()) _metaFvs = (await ParametrosServico.CarregarAsync(db, ct: Cancelamento))[Parametros.MetaFvs1aInspecaoPerc];
         await Carregar();
     }
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.Criar();
-        var p = await ParametrosServico.CarregarAsync(db);
+        await using var db = Fabrica.CriarLeitura();
+        var p = await ParametrosServico.CarregarAsync(db, ct: Cancelamento);
         var ini = Hoje.AddMonths(-_meses);
         var iniDt = new DateTimeOffset(ini.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
 
-        var peds = await db.Pedidos.AsNoTracking().Where(x => x.CriadoEm >= iniDt && (_obra == null || x.ObraId == _obra)).Select(x => new { x.RequisicaoId, x.CriadoEm }).ToListAsync();
+        var peds = await db.Pedidos.AsNoTracking().Where(x => x.CriadoEm >= iniDt && (_obra == null || x.ObraId == _obra)).Select(x => new { x.RequisicaoId, x.CriadoEm }).ToListAsync(Cancelamento);
         var reqIds = peds.Where(x => x.RequisicaoId != null).Select(x => x.RequisicaoId!.Value).ToList();
-        var reqs = await db.Requisicoes.AsNoTracking().Where(r => reqIds.Contains(r.Id)).ToDictionaryAsync(r => r.Id, r => r.CriadoEm);
+        var reqs = await db.Requisicoes.AsNoTracking().Where(r => reqIds.Contains(r.Id)).ToDictionaryAsync(r => r.Id, r => r.CriadoEm, Cancelamento);
         var leads = peds.Where(x => x.RequisicaoId is { } r && reqs.ContainsKey(r)).Select(x => (decimal)(x.CriadoEm - reqs[x.RequisicaoId!.Value]).TotalDays).ToList();
         _leadTime = leads.Count == 0 ? null : Math.Round(leads.Average(), 1);
 
-        var cots = await db.Cotacoes.AsNoTracking().Where(c => c.CriadoEm >= iniDt && c.Status >= StatusCotacao.Aprovado && (_obra == null || c.ObraId == _obra)).ToListAsync();
+        var cots = await db.Cotacoes.AsNoTracking().Where(c => c.CriadoEm >= iniDt && c.Status >= StatusCotacao.Aprovado && (_obra == null || c.ObraId == _obra)).ToListAsync(Cancelamento);
         var acima = cots.Where(c => c.ValorEstimado > p[Parametros.LimiteUmOrcamento]).ToList();
         _pctPropostas = acima.Count == 0 ? null : Math.Round(100m * acima.Count(c => c.PropostasRecebidas >= c.PropostasExigidas) / acima.Count, 0);
 
-        var recs = await db.Recebimentos.AsNoTracking().Include(r => r.Itens).Where(r => r.DataRecebimento >= iniDt && (_obra == null || r.ObraId == _obra)).ToListAsync();
+        var recs = await db.Recebimentos.AsNoTracking().Include(r => r.Itens).Where(r => r.DataRecebimento >= iniDt && (_obra == null || r.ObraId == _obra)).ToListAsync(Cancelamento);
         var aval = recs.Where(r => r.FvmAprovada is not null).ToList();
         _pctFvm = aval.Count == 0 ? null : Math.Round(100m * aval.Count(r => r.FvmAprovada == true) / aval.Count, 0);
 
-        var meds = await db.Medicoes.AsNoTracking().Include(m => m.Contrato).ThenInclude(k => k.Fornecedor).Where(m => m.NotaFinal != null && m.PeriodoFim >= ini && (_obra == null || m.ObraId == _obra)).ToListAsync();
+        var meds = await db.Medicoes.AsNoTracking().Include(m => m.Contrato).ThenInclude(k => k.Fornecedor).Where(m => m.NotaFinal != null && m.PeriodoFim >= ini && (_obra == null || m.ObraId == _obra)).ToListAsync(Cancelamento);
         _notaMedia = meds.Count == 0 ? null : Math.Round(meds.Average(m => m.NotaFinal!.Value), 2);
 
-        var fvs = await db.Fvss.AsNoTracking().Include(f => f.Itens).Where(f => f.DataInspecao >= iniDt && f.Status != StatusFvs.EmInspecao && (_obra == null || f.ObraId == _obra)).ToListAsync();
+        var fvs = await db.Fvss.AsNoTracking().Include(f => f.Itens).Where(f => f.DataInspecao >= iniDt && f.Status != StatusFvs.EmInspecao && (_obra == null || f.ObraId == _obra)).ToListAsync(Cancelamento);
         _pctFvs1a = fvs.Count == 0 ? null : Math.Round(100m * fvs.Count(f => f.Aprovada1aInspecao) / fvs.Count, 0);
 
         _fvmMes = []; _notaMes = [];
@@ -100,27 +100,27 @@
             _notaMes.Add((Meses[m.Month - 1], mm.Count == 0 ? null : mm.Average(x => x.NotaFinal!.Value)));
         }
 
-        var planos = await db.PlanosAcao.AsNoTracking().Where(x => x.Status != StatusPlanoAcao.Concluida).ToListAsync();
-        var forn = await db.Fornecedores.AsNoTracking().ToDictionaryAsync(f => f.Id, f => f.NomeExibicao);
+        var planos = await db.PlanosAcao.AsNoTracking().Where(x => x.Status != StatusPlanoAcao.Concluida).ToListAsync(Cancelamento);
+        var forn = await db.Fornecedores.AsNoTracking().ToDictionaryAsync(f => f.Id, f => f.NomeExibicao, Cancelamento);
         _piores = meds.GroupBy(m => m.Contrato.FornecedorId).Select(g => (g.Key, Nota: g.Average(x => x.NotaFinal!.Value))).Where(x => x.Nota < p[Parametros.NotaPlanoPontual])
             .Select(x => (forn.GetValueOrDefault(x.Key, "?"), "Nota média", $"{x.Nota:0.00}", planos.FirstOrDefault(pl => pl.FornecedorId == x.Key)?.Numero, planos.Any(pl => pl.FornecedorId == x.Key && pl.Prazo < Hoje)))
             .Concat(aval.GroupBy(r => r.FornecedorId).Select(g => (g.Key, Pct: 100m * g.Count(r => r.FvmAprovada == true) / g.Count())).Where(x => x.Pct < 95)
                 .Select(x => (forn.GetValueOrDefault(x.Key, "?"), "FVM aprovadas", $"{x.Pct:0}%", planos.FirstOrDefault(pl => pl.FornecedorId == x.Key)?.Numero, planos.Any(pl => pl.FornecedorId == x.Key && pl.Prazo < Hoje))))
             .Take(8).ToList();
 
-        var docs = await db.Documentos.AsNoTracking().Where(d => d.Status != StatusDocumentoSgq.Cancelado).ToListAsync();
+        var docs = await db.Documentos.AsNoTracking().Where(d => d.Status != StatusDocumentoSgq.Cancelado).ToListAsync(Cancelamento);
         _analiseVencida = docs.Count(d => d.AnaliseVencida(Hoje));
         var vig = docs.Count(d => d.RevisaoVigenteId != null);
         _pctDocs = vig == 0 ? null : Math.Round(100m * (vig - docs.Count(d => d.RevisaoVigenteId != null && d.AnaliseVencida(Hoje))) / vig, 1);
-        var copias = await db.Copias.AsNoTracking().CountAsync(c => c.Status == StatusCopia.RecolhimentoPendente);
-        var leituras = await db.Ciencias.AsNoTracking().CountAsync(c => c.LidoEm == null && c.Prazo < Hoje);
-        var docForn = await db.FornecedorDocumentos.AsNoTracking().CountAsync(d => d.Bloqueia && d.DataValidade < Hoje && d.Status != StatusDocumento.Reprovado);
+        var copias = await db.Copias.AsNoTracking().CountAsync(c => c.Status == StatusCopia.RecolhimentoPendente, Cancelamento);
+        var leituras = await db.Ciencias.AsNoTracking().CountAsync(c => c.LidoEm == null && c.Prazo < Hoje, Cancelamento);
+        var docForn = await db.FornecedorDocumentos.AsNoTracking().CountAsync(d => d.Bloqueia && d.DataValidade < Hoje && d.Status != StatusDocumento.Reprovado, Cancelamento);
         _docs = [("Documentos vigentes", vig.ToString()), ("Análise crítica vencida", _analiseVencida.ToString()), ("Cópias obsoletas não recolhidas", copias.ToString()),
                  ("Leituras obrigatórias em atraso", leituras.ToString()), ("Documentos de fornecedor vencidos que bloqueiam", docForn.ToString())];
 
-        var rncs = await db.Rncs.AsNoTracking().Where(r => _obra == null || r.ObraId == _obra).ToListAsync();
-        var acs = await db.AcoesCorretivas.AsNoTracking().ToListAsync();
-        var eq = (await db.Equipamentos.AsNoTracking().ToListAsync()).Count(e => e.Status(Hoje, p.Int(Parametros.AlertaCalibracaoDias)) is StatusEquipamento.Bloqueado or StatusEquipamento.VenceEmBreve);
+        var rncs = await db.Rncs.AsNoTracking().Where(r => _obra == null || r.ObraId == _obra).ToListAsync(Cancelamento);
+        var acs = await db.AcoesCorretivas.AsNoTracking().ToListAsync(Cancelamento);
+        var eq = (await db.Equipamentos.AsNoTracking().ToListAsync(Cancelamento)).Count(e => e.Status(Hoje, p.Int(Parametros.AlertaCalibracaoDias)) is StatusEquipamento.Bloqueado or StatusEquipamento.VenceEmBreve);
         _qob = [("RNC abertas", rncs.Count(r => r.Status is StatusRnc.Aberta or StatusRnc.EmTratamento).ToString()), ("RNC vencidas", rncs.Count(r => r.Vencida(Hoje)).ToString()),
                 ("Ações corretivas aguardando eficácia", acs.Count(a => a.Status == StatusAcaoCorretiva.AguardandoEficacia).ToString()),
                 ("Equipamentos bloqueados / a vencer", eq.ToString()), ("FVS reprovadas abertas", fvs.Count(f => f.Status == StatusFvs.Reprovada).ToString())];

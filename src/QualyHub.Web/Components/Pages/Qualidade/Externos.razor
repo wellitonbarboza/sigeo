@@ -1,5 +1,6 @@
 @page "/sgq/externos"
 @inherits PaginaBase
+@inject DocumentosServico Docs
 
 <Pagina Titulo="Documentos externos (normas e legislação)" Grade="_grade" AoNovo="Novo" AoAtualizar="Carregar">
     <ChildContent>
@@ -58,31 +59,20 @@
     protected override async Task OnInitializedAsync()
     {
         _emissores = await Cat.ListaAsync(TipoLista.EmissorExterno);
-        await using (var db = Fabrica.Criar()) _meses = (await ParametrosServico.CarregarAsync(db)).Int(Parametros.VerificacaoExternosMeses);
+        await using (var db = Fabrica.CriarLeitura()) _meses = (await ParametrosServico.CarregarAsync(db, Cancelamento)).Int(Parametros.VerificacaoExternosMeses);
         await Carregar();
     }
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.Criar();
-        _itens = await db.DocumentosExternos.AsNoTracking().OrderBy(e => e.Identificacao).ToListAsync();
+        await using var db = Fabrica.CriarLeitura();
+        _itens = await db.DocumentosExternos.OrderBy(e => e.Identificacao).ToListAsync(Cancelamento);
     }
 
     private void Novo() { _e = new DocumentoExterno { DataVerificacao = Hoje }; ErrosForm = null; _aberto = true; }
 
     private async Task Salvar()
     {
-        var ok = await Executar(async () =>
-        {
-            var e = new List<string>();
-            if (string.IsNullOrWhiteSpace(_e!.Identificacao)) e.Add("Informe a identificação.");
-            if (string.IsNullOrWhiteSpace(_e.Titulo)) e.Add("Informe o título.");
-            if (string.IsNullOrWhiteSpace(_e.Edicao)) e.Add("Informe a edição.");
-            if (string.IsNullOrWhiteSpace(_e.Emissor)) e.Add("Informe o emissor.");
-            ValidacaoException.Se(e);
-            await using var db = Fabrica.Criar();
-            await Grafo.SalvarAsync(db, _e); await db.SaveChangesAsync();
-        }, "Documento externo salvo.");
-        if (ok) { _aberto = false; await Carregar(); }
+        if (await Executar(() => Docs.SalvarExternoAsync(_e!, Cancelamento), "Documento externo salvo.")) { _aberto = false; await Carregar(); }
     }
 }

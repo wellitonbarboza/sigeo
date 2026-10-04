@@ -6,22 +6,22 @@
     <ChildContent>
         <div class="pagina">
             <div class="alerta info"><Icone Nome="info" /> <span><b>Matriz inicial</b> para validação do SST: substitua pelas funções e riscos do PGR/PCMSO da obra. <b>O</b> = obrigatório · <b>C</b> = conforme a atividade (só de quem executa) · — = não se aplica. Clique na célula para alternar.</span></div>
-            <div style="display:flex;gap:8px;margin-bottom:10px">
+            <div class="barra-botoes-sst">
                 <button class="btn sec pq" @onclick="() => { _f = new FuncaoObra(); ErrosForm = null; _abertoF = true; }"><Icone Nome="mais" Tam="14" /> Função</button>
                 <button class="btn sec pq" @onclick="() => { _e = new Exigencia { Tipo = TipoExigencia.Treinamento, Ordem = _exig.Count + 1 }; ErrosForm = null; _abertoE = true; }"><Icone Nome="mais" Tam="14" /> Exigência</button>
                 @if (_alterado) { <button class="btn prim pq" disabled="@Ocupado" @onclick="SalvarMatriz"><Icone Nome="check" Tam="14" /> Salvar matriz</button> }
             </div>
-            <div style="overflow:auto;background:var(--superficie);border:1px solid var(--borda);border-radius:10px">
+            <div class="quadro-rolavel justo">
                 <table class="itens matriz">
-                    <thead><tr><th>Função</th>@foreach (var e in _exig) { <th style="cursor:pointer;text-align:center" title="Editar exigência" @onclick="() => { _e = e; ErrosForm = null; _abertoE = true; }">@e.Descricao</th> }</tr></thead>
+                    <thead><tr><th>Função</th>@foreach (var e in _exig) { <th @key="e.Id" class="ponteiro texto-centro" title="Editar exigência" @onclick="() => { _e = e; ErrosForm = null; _abertoE = true; }">@e.Descricao</th> }</tr></thead>
                     <tbody>
                         @foreach (var f in _funcoes)
                         {
-                            <tr><td style="cursor:pointer" @onclick="() => { _f = f; ErrosForm = null; _abertoF = true; }"><Icone Nome="editar" Tam="13" /> @f.Descricao</td>
+                            <tr @key="f.Id"><td class="ponteiro" @onclick="() => { _f = f; ErrosForm = null; _abertoF = true; }"><Icone Nome="editar" Tam="13" /> @f.Descricao</td>
                                 @foreach (var e in _exig)
                                 {
                                     var v = f.Exigencias.FirstOrDefault(x => x.ExigenciaId == e.Id);
-                                    <td style="text-align:center;cursor:pointer" @onclick="() => Alternar(f, e)">
+                                    <td @key="e.Id" class="texto-centro ponteiro" @onclick="() => Alternar(f, e)">
                                         @if (v is null) { <span class="mudo">—</span> } else { <span class="pilula @(v.Obrigatoriedade == Obrigatoriedade.Obrigatorio ? "ok" : "info")">@(v.Obrigatoriedade == Obrigatoriedade.Obrigatorio ? "O" : "C")</span> }
                                     </td>
                                 }
@@ -88,10 +88,10 @@
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.Criar();
-        _funcoes = await db.Funcoes.AsNoTracking().Include(f => f.Exigencias).Where(f => f.Ativa).OrderBy(f => f.Descricao).ToListAsync();
-        _exig = await db.Exigencias.AsNoTracking().OrderBy(e => e.Ordem).ToListAsync();
-        _treinamentos = await db.Treinamentos.AsNoTracking().Select(t => new Opcao(t.Id, t.Descricao)).ToListAsync();
+        await using var db = Fabrica.CriarLeitura();
+        _funcoes = await db.Funcoes.AsNoTracking().Include(f => f.Exigencias).Where(f => f.Ativa).OrderBy(f => f.Descricao).ToListAsync(Cancelamento);
+        _exig = await db.Exigencias.AsNoTracking().OrderBy(e => e.Ordem).ToListAsync(Cancelamento);
+        _treinamentos = await db.Treinamentos.AsNoTracking().Select(t => new Opcao(t.Id, t.Descricao)).ToListAsync(Cancelamento);
         _alterado = false;
     }
 
@@ -106,32 +106,17 @@
 
     private async Task SalvarMatriz()
     {
-        if (await Executar(async () =>
-        {
-            await using var db = Fabrica.Criar();
-            foreach (var f in _funcoes) await Grafo.SalvarAsync(db, f, nameof(FuncaoObra.Exigencias));
-            await db.SaveChangesAsync();
-        }, "Matriz salva — situação dos colaboradores recalculada."))
-        { await Sst.RecalcularAsync(); await Carregar(); }
+        if (await Executar(() => Sst.SalvarMatrizAsync(_funcoes, Cancelamento), "Matriz salva — situação dos colaboradores recalculada."))
+            await Carregar();
     }
 
     private async Task SalvarExigencia()
     {
-        if (await Executar(async () =>
-        {
-            if (string.IsNullOrWhiteSpace(_e!.Descricao) || string.IsNullOrWhiteSpace(_e.Fonte)) throw new RegraDeNegocioException("Informe a exigência e a fonte (NR/PGR/PCMSO).");
-            await using var db = Fabrica.Criar();
-            await Grafo.SalvarAsync(db, _e); await db.SaveChangesAsync();
-        }, "Exigência salva.")) { _abertoE = false; await Carregar(); }
+        if (await Executar(() => Sst.SalvarExigenciaAsync(_e!, Cancelamento), "Exigência salva.")) { _abertoE = false; await Carregar(); }
     }
 
     private async Task SalvarFuncao()
     {
-        if (await Executar(async () =>
-        {
-            if (string.IsNullOrWhiteSpace(_f!.Descricao)) throw new RegraDeNegocioException("Informe a função.");
-            await using var db = Fabrica.Criar();
-            await Grafo.SalvarAsync(db, _f, nameof(FuncaoObra.Exigencias)); await db.SaveChangesAsync();
-        }, "Função salva.")) { _abertoF = false; Cat.Invalidar(); await Carregar(); }
+        if (await Executar(() => Sst.SalvarFuncaoAsync(_f!, Cancelamento), "Função salva.")) { _abertoF = false; await Carregar(); }
     }
 }

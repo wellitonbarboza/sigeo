@@ -76,20 +76,22 @@
             <div class="secao"><Icone Nome="lista" /> Documentos (somente revisões vigentes)
                 @if (_s.Numero == 0) { <span class="acao"><button class="btn sec pq" @onclick="() => _s.Itens.Add(new SolicitacaoCopiaItem())"><Icone Nome="mais" Tam="14" /> Documento</button></span> }
             </div>
+            <div class="tabela-rolavel">
             <table class="itens">
                 <thead><tr><th>Documento</th><th>Qtd.</th><th>Destinatário (local/função)</th><th></th></tr></thead>
                 <tbody>
                     @foreach (var i in _s.Itens)
                     {
-                        <tr>
+                        <tr @key="i">
                             <td><select @bind="i.DocumentoRevisaoId" disabled="@(_s.Numero > 0)"><option value="@Guid.Empty">Selecione…</option>@foreach (var v in _vigentes) { <option value="@v.Id">@v.Texto</option> }</select></td>
-                            <td style="width:80px"><input type="number" min="1" @bind="i.Quantidade" disabled="@(_s.Numero > 0)" /></td>
+                            <td class="larg-80"><input type="number" min="1" @bind="i.Quantidade" disabled="@(_s.Numero > 0)" /></td>
                             <td><input @bind="i.Destinatario" disabled="@(_s.Numero > 0)" /></td>
                             <td>@if (_s.Numero == 0) { <button class="icone-btn" @onclick="() => _s.Itens.Remove(i)"><Icone Nome="lixeira" Tam="16" /></button> }</td>
                         </tr>
                     }
                 </tbody>
             </table>
+            </div>
         }
     </ChildContent>
     <Rodape>
@@ -122,13 +124,13 @@
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.Criar();
+        await using var db = Fabrica.CriarLeitura();
         _copias = await db.Copias.AsNoTracking().OrderByDescending(c => c.CriadoEm)
             .Select(c => new Linha(c.Id, c.NumeroCopia, c.Revisao.Documento.Codigo + " – " + c.Revisao.Documento.Titulo, "R" + c.Revisao.Revisao.ToString("00"),
-                c.TipoCopia, c.Destinatario, c.EntregueEm, c.PrazoRecolhimento, c.Status, c.QrToken)).ToListAsync();
-        _solic = await db.SolicitacoesCopia.AsNoTracking().Include(s => s.Itens).OrderByDescending(s => s.Numero).ToListAsync();
+                c.TipoCopia, c.Destinatario, c.EntregueEm, c.PrazoRecolhimento, c.Status, c.QrToken)).ToListAsync(Cancelamento);
+        _solic = await db.SolicitacoesCopia.AsNoTracking().Include(s => s.Itens).OrderByDescending(s => s.Numero).ToListAsync(Cancelamento);
         _vigentes = await db.Revisoes.AsNoTracking().Where(r => r.Status == StatusRevisao.Vigente || r.Status == StatusRevisao.VigenteComRessalvas)
-            .OrderBy(r => r.Documento.Codigo).Select(r => new Opcao(r.Id, r.Documento.Codigo + " R" + r.Revisao.ToString("00") + " – " + r.Documento.Titulo)).ToListAsync();
+            .OrderBy(r => r.Documento.Codigo).Select(r => new Opcao(r.Id, r.Documento.Codigo + " R" + r.Revisao.ToString("00") + " – " + r.Documento.Titulo)).ToListAsync(Cancelamento);
         MudarAba(_aba);
     }
 
@@ -153,21 +155,21 @@
     {
         _s!.Itens = _s.Itens.Where(i => i.DocumentoRevisaoId != Guid.Empty).ToList();
         if (string.IsNullOrWhiteSpace(_s.Copiadora)) { ErrosForm = ["Informe a copiadora / local de impressão."]; return; }
-        if (await Executar(() => Docs.SolicitarCopiasAsync(_s), "Solicitação enviada à Qualidade.")) { _abertoSol = false; _aba = "solic"; await Carregar(); }
+        if (await Executar(() => Docs.SolicitarCopiasAsync(_s, Cancelamento), "Solicitação enviada à Qualidade.")) { _abertoSol = false; _aba = "solic"; await Carregar(); }
     }
 
     private async Task Liberar()
     {
-        if (await Executar(() => Docs.LiberarSolicitacaoAsync(_s!.Id), "Cópias liberadas e numeradas.")) { _abertoSol = false; await Carregar(); }
+        if (await Executar(() => Docs.LiberarSolicitacaoAsync(_s!.Id, Cancelamento), "Cópias liberadas e numeradas.")) { _abertoSol = false; await Carregar(); }
     }
 
     private async Task Entregar()
     {
-        if (await Executar(() => Docs.RegistrarEntregaAsync(_sel!.Id, _recebidoPor), "Entrega registrada.")) { _abertoEntrega = false; await Carregar(); }
+        if (await Executar(() => Docs.RegistrarEntregaAsync(_sel!.Id, _recebidoPor, Cancelamento), "Entrega registrada.")) { _abertoEntrega = false; await Carregar(); }
     }
 
     private async Task Recolher()
     {
-        if (await Executar(() => Docs.RecolherCopiaAsync(_sel!.Id, _destino), "Cópia recolhida.")) { _abertoRecolher = false; await Carregar(); }
+        if (await Executar(() => Docs.RecolherCopiaAsync(_sel!.Id, _destino, Cancelamento), "Cópia recolhida.")) { _abertoRecolher = false; await Carregar(); }
     }
 }

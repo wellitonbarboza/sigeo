@@ -1,6 +1,6 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Components.Authorization;
-using QualyHub.Infrastructure.Contexto;
+using QualyHub.Application.Abstracoes;
 
 namespace QualyHub.Web.Seguranca;
 

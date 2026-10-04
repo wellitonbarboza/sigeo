@@ -1,0 +1,40 @@
+/* Estilos das telas (suprimentos): classes que substituíram os style="" soltos nas tags. */
+/* Também usado pelas telas públicas (login, portal do fornecedor, cotação, QR). */
+
+/* Larguras fixas de coluna com campo editável: evita que o input "estique" a tabela. */
+
+/* Espaçamentos verticais pontuais. */
+
+/* Alinhamentos de texto. */
+
+/* Caixa secundária mais densa (resumo do fluxo de aditivo). */
+.caixa-sec.compacta { font-size: 13px; padding: 12px; }
+
+/* Linha de botões alinhada à direita (fim de formulário). */
+.acoes-dir { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; flex-wrap: wrap; }
+.campo.botoes-dir { flex-direction: row; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+.campo.campo-fim { align-items: flex-end; }
+.btn.btn-centro { justify-content: center; }
+
+/* Telas públicas. */
+.login .caixa.caixa-640 { width: min(640px, 94vw); }
+.portal.portal-estreito { max-width: 560px; }
+.alerta.alerta-grande { font-size: 1.2rem; }
+
+/* ───── Celular (obra / portal): ajustes das telas de campo ───── */
+@media (max-width: 640px) {
+    /* Portal e caixas de envio: menos recuo para sobrar largura útil. */
+    .portal { padding: 14px 10px; }
+    .portal-topo { padding: 14px; }
+    .portal-topo h1 { font-size: 18px; }
+    .caixa-envio .btn { width: 100%; justify-content: center; }
+    .login .caixa { padding: 22px 18px; }
+    /* Botões de resultado (Conforme / Não conf. / N/A) e de critério: alvo de toque confortável. */
+    .botoes-resultado { flex-wrap: wrap; }
+    .criterio .botoes { flex-wrap: wrap; }
+    .criterio .botoes .btn { flex: 1; justify-content: center; }
+    /* Linha de botões no fim do formulário ocupa a largura toda. */
+    .acoes-dir .btn, .campo.botoes-dir .btn { flex: 1; justify-content: center; }
+    /* Inputs numéricos dentro da tabela: altura de toque. */
+    table.itens td input, table.itens td select { min-height: 40px; }
+}

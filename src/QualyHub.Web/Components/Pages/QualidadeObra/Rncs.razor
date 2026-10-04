@@ -91,10 +91,10 @@
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.Criar();
-        _itens = await db.Rncs.AsNoTracking().OrderByDescending(r => r.Numero).ToListAsync();
-        _acs = await db.AcoesCorretivas.AsNoTracking().ToDictionaryAsync(a => a.Id, a => a.Numero);
-        _locNomes = await db.Locais.AsNoTracking().ToDictionaryAsync(l => l.Id, l => l.Nome);
+        await using var db = Fabrica.CriarLeitura();
+        _itens = await db.Rncs.AsNoTracking().OrderByDescending(r => r.Numero).ToListAsync(Cancelamento);
+        _acs = await db.AcoesCorretivas.AsNoTracking().ToDictionaryAsync(a => a.Id, a => a.Numero, Cancelamento);
+        _locNomes = await db.Locais.AsNoTracking().ToDictionaryAsync(l => l.Id, l => l.Nome, Cancelamento);
     }
 
     private void Novo()
@@ -105,8 +105,8 @@
 
     private async Task Abrir(Guid id)
     {
-        await using var db = Fabrica.Criar();
-        _r = await db.Rncs.AsNoTracking().FirstAsync(x => x.Id == id);
+        await using var db = Fabrica.CriarLeitura();
+        _r = await db.Rncs.AsNoTracking().FirstAsync(x => x.Id == id, Cancelamento);
         _locais = _r.ObraId is { } o ? await Cat.LocaisAsync(o) : [];
         ErrosForm = null; _aberto = true;
     }
@@ -115,14 +115,14 @@
     {
         _r!.ResponsavelNome = _usuarios.FirstOrDefault(u => u.Id == _r.ResponsavelId)?.Texto ?? _r.ResponsavelNome;
         Guid id = default;
-        if (await Executar(async () => id = await Qob.SalvarRncAsync(_r), "RNC salva.")) { await Carregar(); await Abrir(id); }
+        if (await Executar(async () => id = await Qob.SalvarRncAsync(_r, Cancelamento), "RNC salva.")) { await Carregar(); await Abrir(id); }
     }
 
-    private async Task Encerrar() { if (await Executar(() => Qob.EncerrarRncAsync(_r!.Id), "RNC atualizada.")) { await Carregar(); await Abrir(_r!.Id); } }
+    private async Task Encerrar() { if (await Executar(() => Qob.EncerrarRncAsync(_r!.Id, Cancelamento), "RNC atualizada.")) { await Carregar(); await Abrir(_r!.Id); } }
 
     private async Task AbrirAc()
     {
         Guid id = default;
-        if (await Executar(async () => id = await Qob.AbrirAcaoCorretivaAsync([_r!.Id], null, _r!.Descricao), "Ação corretiva aberta.")) Nav.NavigateTo($"obra/acoes?id={id}");
+        if (await Executar(async () => id = await Qob.AbrirAcaoCorretivaAsync([_r!.Id], null, _r!.Descricao, Cancelamento), "Ação corretiva aberta.")) Nav.NavigateTo($"obra/acoes?id={id}");
     }
 }

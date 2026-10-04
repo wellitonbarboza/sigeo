@@ -1,33 +1,41 @@
 @* Anexos de qualquer registro (proposta, contrato assinado, evidência, fotos, ata…). Arquivo com hash SHA-256. *@
-@inject FabricaDb Fabrica
-@inject IArmazenamento Armazenamento
+@inject IFabricaDb Fabrica
+@inject AnexosServico Servico
 @inject Notificacoes Notif
+@implements IDisposable
 
 <div class="secao"><Icone Nome="clipe" /> @Titulo <span class="acao">
     @if (!SomenteLeitura)
     {
-        <label class="btn sec pq" style="cursor:pointer"><Icone Nome="upload" Tam="14" /> Anexar<InputFile OnChange="Enviar" multiple style="display:none" /></label>
+        @* O input fica visualmente oculto, mas focável: Tab chega nele e Enter/Espaço abre a escolha de arquivos. *@
+        <label class="btn sec pq anexar cursor-mao" for="@_idInput"><Icone Nome="upload" Tam="14" /> Anexar<InputFile id="@_idInput" class="so-leitor" OnChange="Enviar" multiple disabled="@_ocupado" /></label>
     }
 </span></div>
-@if (_itens.Count == 0) { <div class="mudo" style="padding:4px 2px 8px">Nenhum anexo.</div> }
+@if (_itens.Count == 0) { <div class="mudo vazio-curto">Nenhum anexo.</div> }
 else
 {
     <table class="itens">
-        <thead><tr><th>Arquivo</th><th>Categoria</th><th>Tamanho</th><th>SHA-256</th><th>Enviado por / em</th></tr></thead>
+        <thead><tr><th>Arquivo</th><th>Categoria</th><th>Tamanho</th><th>SHA-256</th><th>Enviado por / em</th>@if (!SomenteLeitura) { <th></th> }</tr></thead>
         <tbody>
             @foreach (var a in _itens)
             {
-                <tr>
+                <tr @key="a.Id">
                     <td><a href="arquivos/anexo/@a.Id" target="_blank"><Icone Nome="clipe" Tam="14" /> @a.NomeOriginal</a></td>
                     <td>@a.Categoria</td>
                     <td>@(a.TamanhoBytes / 1024) KB</td>
-                    <td class="mudo">@a.ArquivoHashSha256[..12]…</td>
+                    <td class="mudo">@a.Hash[..Math.Min(12, a.Hash.Length)]…</td>
                     <td>@a.CriadoPor · @Rotulos.DataHora(a.CriadoEm)</td>
+                    @if (!SomenteLeitura)
+                    {
+                        <td><button type="button" class="icone-btn" title="Excluir anexo" aria-label="@($"Excluir {a.NomeOriginal}")" disabled="@_ocupado" @onclick="() => _excluir = a"><Icone Nome="lixeira" Tam="16" /></button></td>
+                    }
                 </tr>
             }
         </tbody>
     </table>
 }
+<Confirmacao Pergunta="@(_excluir is null ? null : $"Excluir o anexo \"{_excluir.NomeOriginal}\"? O arquivo fica preservado como evidência e a exclusão vai para o log.")"
+             TextoSim="Excluir" AoSim="Excluir" AoNao="() => _excluir = null" />
 @code {
     [Parameter] public string Entidade { get; set; } = "";
     [Parameter] public Guid EntidadeId { get; set; }
@@ -35,30 +43,55 @@ else
     [Parameter] public string Titulo { get; set; } = "Anexos";
     [Parameter] public bool SomenteLeitura { get; set; }
     [Parameter] public EventCallback AoMudar { get; set; }
-    private List<Anexo> _itens = [];
+
+    private sealed record Linha(Guid Id, string NomeOriginal, string Categoria, long TamanhoBytes, string Hash, string CriadoPor, DateTimeOffset CriadoEm);
+    private List<Linha> _itens = [];
+    private Linha? _excluir;
+    private bool _ocupado;
+    private readonly string _idInput = $"anexo-{Guid.NewGuid():N}";
+    // Cancelado quando o componente sai da tela (registro fechado): upload/consulta não seguem ocupando recursos.
+    private readonly CancellationTokenSource _cts = new();
+
+    public void Dispose() => _cts.Cancel(); // não descarta a fonte: código que ainda está num await lê o token depois e precisa ver "cancelado", não ObjectDisposedException
 
     protected override async Task OnParametersSetAsync() => await Carregar();
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.Criar();
-        _itens = await db.Anexos.AsNoTracking().Where(a => a.Entidade == Entidade && a.EntidadeId == EntidadeId && a.Categoria == Categoria)
-                                .OrderByDescending(a => a.CriadoEm).ToListAsync();
+        await using var db = Fabrica.CriarLeitura();
+        _itens = await db.Anexos.Where(a => a.Entidade == Entidade && a.EntidadeId == EntidadeId && a.Categoria == Categoria)
+                                .OrderByDescending(a => a.CriadoEm)
+                                .Select(a => new Linha(a.Id, a.NomeOriginal, a.Categoria, a.TamanhoBytes, a.ArquivoHashSha256, a.CriadoPor, a.CriadoEm))
+                                .ToListAsync(_cts.Token);
     }
 
     private async Task Enviar(InputFileChangeEventArgs e)
     {
-        await using var db = Fabrica.Criar();
-        foreach (var f in e.GetMultipleFiles(10))
+        var arquivos = e.GetMultipleFiles(10).Select(f => new ArquivoEnviado(f.Name, f.Size, f.ContentType, max => f.OpenReadStream(max))).ToList();
+        if (await Tentar(async () =>
         {
-            if (f.Size > 25 * 1024 * 1024) { Notif.Erro($"{f.Name}: limite de 25 MB."); continue; }
-            await using var s = f.OpenReadStream(25 * 1024 * 1024);
-            var salvo = await Armazenamento.SalvarAsync(s, f.Name, Entidade.ToLowerInvariant(), f.ContentType);
-            db.Anexos.Add(new Anexo { Entidade = Entidade, EntidadeId = EntidadeId, Categoria = Categoria, NomeOriginal = f.Name, ArquivoBlob = salvo.Blob, ArquivoHashSha256 = salvo.Hash, ContentType = f.ContentType, TamanhoBytes = salvo.Tamanho });
-        }
-        await db.SaveChangesAsync();
-        Notif.Sucesso("Anexo registrado.");
-        await Carregar();
-        await AoMudar.InvokeAsync();
+            var recusados = await Servico.AnexarAsync(Entidade, EntidadeId, Categoria, Entidade.ToLowerInvariant(), AnexosServico.LimiteAnexoBytes, arquivos, _cts.Token);
+            foreach (var r in recusados) Notif.Erro(r);
+            if (recusados.Count < arquivos.Count) Notif.Sucesso("Anexo registrado.");
+        })) await AoMudar.InvokeAsync();
+    }
+
+    private async Task Excluir()
+    {
+        var a = _excluir; _excluir = null;
+        if (a is not null && await Tentar(async () => { await Servico.ExcluirAsync(a.Id, _cts.Token); Notif.Sucesso("Anexo excluído."); }))
+            await AoMudar.InvokeAsync();
+    }
+
+    /// <summary>Componente compartilhado não herda a PaginaBase: trata aqui as mensagens de regra/validação.</summary>
+    private async Task<bool> Tentar(Func<Task> acao)
+    {
+        _ocupado = true;
+        try { await acao(); await Carregar(); return true; }
+        catch (RegraDeNegocioException ex) { Notif.Erro(ex.Message); }
+        catch (ValidacaoException ex) { Notif.Erro(string.Join(" ", ex.Erros)); }
+        catch (OperationCanceledException) { }
+        finally { _ocupado = false; }
+        return false;
     }
 }

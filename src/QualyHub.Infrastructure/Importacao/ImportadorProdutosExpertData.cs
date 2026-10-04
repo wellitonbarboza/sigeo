@@ -28,7 +28,7 @@ public sealed record PreviaImportacaoProdutos(IReadOnlyList<LinhaProdutoPlanilha
 /// NCM só é aceito com 8 dígitos e diferente de 00000000 (o export usa zero para "sem NCM"). Produto cujo sub-grupo está listado num material controlado é vinculado a ele automaticamente.
 /// Campo vazio na planilha nunca apaga dado do QualyHub.
 /// </summary>
-public sealed class ImportadorProdutosExpertData(FabricaDb fabrica)
+public sealed class ImportadorProdutosExpertData(IFabricaDb fabrica)
 {
     private static readonly Dictionary<string, string> Unidades = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -115,7 +115,7 @@ public sealed class ImportadorProdutosExpertData(FabricaDb fabrica)
     }
 
     private async Task<(List<LinhaProdutoPlanilha> Linhas, Dictionary<string, string> Conv, List<(Registro R, Produto? Atual, Guid? Ctrl)> Validos)> AnalisarAsync(
-        Stream arquivo, Infrastructure.Dados.QualyHubDbContext db, bool rastrear, CancellationToken ct)
+        Stream arquivo, IQualyHubDb db, bool rastrear, CancellationToken ct)
     {
         var regs = Ler(arquivo);
         var q = rastrear ? db.Produtos : db.Produtos.AsNoTracking();

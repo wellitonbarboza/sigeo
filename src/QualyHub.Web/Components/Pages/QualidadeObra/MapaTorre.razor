@@ -6,7 +6,7 @@
     <ChildContent>
         <div class="pagina">
             <div class="barra-filtro">
-                <label>Obra <select id="mt-obra" value="@_obraId" @onchange="async e => { _obraId = Guid.TryParse(e.Value?.ToString(), out var g) ? g : null; _torreId = null; _sel = null; _aberto = false; await CarregarObra(); }"><option value="">Selecione…</option>@foreach (var o in _obras) { <option value="@o.Id">@o.Texto</option> }</select></label>
+                <SeletorObra Id="mt-obra" Valor="_obraId" ValorChanged="TrocarObra" Inicial="ObraQuery" />
                 <label>Torre <select id="mt-torre" value="@_torreId" @onchange="async e => { _torreId = Guid.TryParse(e.Value?.ToString(), out var g) ? g : null; _sel = null; _aberto = false; await Carregar(); }"><option value="">Selecione…</option>@foreach (var t in _torres) { <option value="@t.Id">@t.Codigo – @t.Nome</option> }</select></label>
                 <label>Serviço <select @bind="_fIts"><option value="">Todos</option>@foreach (var s in _its.Values.OrderBy(s => s.Codigo)) { <option value="@s.Id">@Sigla(s) – @s.Nome</option> }</select></label>
             </div>
@@ -25,6 +25,7 @@
                         @foreach (var c in _comunsCond.Concat(_comunsTorre)) { <div class="predio-comum" @key="c.Id" @onclick="() => Abrir(c)"><b>@c.Nome</b>@Chips(c)</div> }
                     </div>
                 }
+                <div class="tabela-rolavel">
                 <div class="predio" id="mapa-torre">
                     @foreach (var p in _pavs)
                     {
@@ -35,6 +36,7 @@
                         </div>
                     }
                     <div class="predio-base">@_torre?.Nome</div>
+                </div>
                 </div>
                 <div class="legenda"><span><i class="st-ok"></i>Aprovada / liberada</span><span><i class="st-and"></i>Em inspeção / parcial</span><span><i class="st-erro"></i>Reprovada</span><span><i class="st-pend"></i>Não iniciada</span></div>
             }
@@ -49,6 +51,7 @@
         {
             var locais = new[] { _sel }.Concat(_filhos[_sel.Id].OrderBy(x => x.Ordem)).ToList();
             var its = ItsDe(_sel).Select(c => c.Its).ToList();
+            <div class="tabela-rolavel">
             <table class="itens" id="mapa-detalhe">
                 <thead><tr><th>Local</th>@foreach (var s in its) { <th class="num" title="@s.Nome">@Sigla(s)</th> }</tr></thead>
                 <tbody>
@@ -59,12 +62,13 @@
                             {
                                 if (!_celulas.Contains((s.Id, l.Id))) { <td></td> continue; }
                                 var (st, f) = Situacao(s.Id, l.Id);
-                                <td class="num"><span class="chip @Classe(st)" style="cursor:pointer" title="@(f is null ? "Abrir nova FVS" : $"{f.Numero} · {De(f.Status)}")" @onclick="() => AbrirFvs(l.Id, s.Id, f)">@Sigla(s)</span></td>
+                                <td class="num"><span class="chip @Classe(st) ponteiro" title="@(f is null ? "Abrir nova FVS" : $"{f.Numero} · {De(f.Status)}")" @onclick="() => AbrirFvs(l.Id, s.Id, f)">@Sigla(s)</span></td>
                             }
                         </tr>
                     }
                 </tbody>
             </table>
+            </div>
             <p class="mudo">Só aparecem as células orçadas (serviço × local). FVS aberta no apartamento vale para os cômodos dele.</p>
         }
     </ChildContent>
@@ -72,7 +76,6 @@
 
 @code {
     [SupplyParameterFromQuery(Name = "obra")] public Guid? ObraQuery { get; set; }
-    private List<Opcao> _obras = [];
     private Guid? _obraId, _torreId, _fIts;
     private List<Local> _torres = [], _pavs = [], _comunsTorre = [], _comunsCond = [];
     private Local? _torre, _sel;
@@ -92,19 +95,18 @@
 
     private enum St { Pend, And, Ok, Erro }
 
-    protected override async Task OnInitializedAsync()
+    // A obra inicial (?obra= ou a única permitida) vem do SeletorObra, que chama TrocarObra.
+    private async Task TrocarObra(Guid? obra)
     {
-        _obras = await Cat.ObrasAsync();
-        if (ObraQuery is { } q && _obras.Any(o => o.Id == q)) _obraId = q;
-        else if (_obras.Count == 1) _obraId = _obras[0].Id;
+        _obraId = obra; _torreId = null; _sel = null; _aberto = false;
         await CarregarObra();
     }
 
     private async Task CarregarObra()
     {
         if (_obraId is not { } o) { _torres = []; return; }
-        await using var db = Fabrica.Criar();
-        _torres = await db.Locais.AsNoTracking().Where(l => l.ObraId == o && l.Tipo == GeradorEmpreendimento.TipoTorre).OrderBy(l => l.Codigo).ToListAsync();
+        await using var db = Fabrica.CriarLeitura();
+        _torres = await db.Locais.AsNoTracking().Where(l => l.ObraId == o && l.Tipo == GeradorEmpreendimento.TipoTorre).OrderBy(l => l.Codigo).ToListAsync(Cancelamento);
         if (_torreId is null && _torres.Count > 0) _torreId = _torres[0].Id;
         await Carregar();
     }
@@ -112,8 +114,8 @@
     private async Task Carregar()
     {
         if (_obraId is not { } o || _torreId is not { } t) return;
-        await using var db = Fabrica.Criar();
-        var locais = await db.Locais.AsNoTracking().Where(l => l.ObraId == o).ToListAsync();
+        await using var db = Fabrica.CriarLeitura();
+        var locais = await db.Locais.AsNoTracking().Where(l => l.ObraId == o).ToListAsync(Cancelamento);
         _porId = locais.ToDictionary(l => l.Id);
         _filhos = locais.ToLookup(l => l.LocalPaiId);
         if (!_porId.TryGetValue(t, out var torre)) { _torreId = null; return; }
@@ -125,14 +127,14 @@
         _comunsTorre = _filhos[t].Where(l => l.Tipo == GeradorEmpreendimento.TipoAreaComum).OrderBy(l => l.Ordem).ToList();
         _comunsCond = _filhos[_torre.LocalPaiId].Where(l => l.Tipo == GeradorEmpreendimento.TipoAreaComum).OrderBy(l => l.Ordem).ToList();
         foreach (var c in _comunsCond) sub.Add(c.Id);
-        var comps = await db.Composicoes.AsNoTracking().Where(c => c.ServicoControladoId != null).ToDictionaryAsync(c => c.Id, c => c.ServicoControladoId!.Value);
-        var cels = await db.ServicosLocais.AsNoTracking().Where(s => s.ObraId == o).Select(s => new { s.ComposicaoId, s.LocalId }).ToListAsync();
+        var comps = await db.Composicoes.AsNoTracking().Where(c => c.ServicoControladoId != null).ToDictionaryAsync(c => c.Id, c => c.ServicoControladoId!.Value, Cancelamento);
+        var cels = await db.ServicosLocais.AsNoTracking().Where(s => s.ObraId == o).Select(s => new { s.ComposicaoId, s.LocalId }).ToListAsync(Cancelamento);
         _celulas = cels.Where(c => sub.Contains(c.LocalId) && comps.ContainsKey(c.ComposicaoId)).Select(c => (comps[c.ComposicaoId], c.LocalId)).ToHashSet();
         _itsPorLocal = _celulas.ToLookup(c => c.Local, c => c.Its);
         var ids = _celulas.Select(c => c.Its).Distinct().ToList();
-        _its = await db.ServicosControlados.AsNoTracking().Where(s => ids.Contains(s.Id)).ToDictionaryAsync(s => s.Id);
+        _its = await db.ServicosControlados.AsNoTracking().Where(s => ids.Contains(s.Id)).ToDictionaryAsync(s => s.Id, Cancelamento);
         var fvs = await db.Fvss.AsNoTracking().Where(f => f.ObraId == o && f.Status != StatusFvs.Cancelada && f.ServicoControladoId != null)
-            .OrderByDescending(f => f.DataInspecao).ToListAsync();
+            .OrderByDescending(f => f.DataInspecao).ToListAsync(Cancelamento);
         _fvsPor = [];
         foreach (var f in fvs) _fvsPor.TryAdd((f.ServicoControladoId!.Value, f.LocalId), f); // a 1ª é a mais recente
         _sitCache.Clear();

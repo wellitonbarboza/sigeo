@@ -41,12 +41,13 @@
         {
             var edita = _i.Status != StatusInspecaoSst.Concluida;
             <Erros Lista="ErrosForm" />
+            <div class="tabela-rolavel">
             <table class="itens">
-                <thead><tr><th>#</th><th>Item</th><th>Ref.</th><th style="min-width:220px">Resultado</th><th>Gravidade</th><th>Responsável / empresa</th><th>Prazo</th><th>Foto</th><th>Obs.</th><th>Corrigido</th></tr></thead>
+                <thead><tr><th>#</th><th>Item</th><th>Ref.</th><th class="larg-min-220">Resultado</th><th>Gravidade</th><th>Responsável / empresa</th><th>Prazo</th><th>Foto</th><th>Obs.</th><th>Corrigido</th></tr></thead>
                 <tbody>
                     @foreach (var x in _i.Itens.OrderBy(x => x.Ordem))
                     {
-                        <tr class="@(x.Resultado == ResultadoItem.NaoConforme && !x.Corrigido ? "alerta-linha" : "")">
+                        <tr @key="x.Id" class="@(x.Resultado == ResultadoItem.NaoConforme && !x.Corrigido ? "alerta-linha" : "")">
                             <td>@x.Ordem</td><td>@x.Descricao</td><td>@x.Referencia</td>
                             <td><div class="botoes-resultado">
                                 <button class="btn pq @(x.Resultado == ResultadoItem.Conforme ? "ok" : "sec")" disabled="@(!edita)" @onclick="() => x.Resultado = ResultadoItem.Conforme">Conforme</button>
@@ -56,16 +57,17 @@
                             {
                                 <td><select @bind="x.Gravidade" disabled="@(!edita)"><option value="">—</option>@foreach (var g in Enum.GetValues<Gravidade>()) { <option value="@g">@De(g)</option> }</select></td>
                                 <td><input @bind="x.Responsavel" disabled="@(!edita)" /></td>
-                                <td style="width:130px"><input type="date" @bind="x.Prazo" disabled="@(!edita)" /></td>
+                                <td class="larg-130"><input type="date" @bind="x.Prazo" disabled="@(!edita)" /></td>
                                 <td><Fotos Entidade="InspecaoItem" EntidadeId="x.Id" SomenteLeitura="!edita" Obrigatoria="true" /></td>
                                 <td><input @bind="x.Observacao" disabled="@(!edita)" /></td>
-                                <td style="text-align:center"><input type="checkbox" @bind="x.Corrigido" disabled="@(!edita)" /> @if (x.RncId is { } r) { <a href="obra/rnc?id=@r">RNC</a> }</td>
+                                <td class="texto-centro"><input type="checkbox" @bind="x.Corrigido" disabled="@(!edita)" /> @if (x.RncId is { } r) { <a href="obra/rnc?id=@r">RNC</a> }</td>
                             }
                             else { <td colspan="6"></td> }
                         </tr>
                     }
                 </tbody>
             </table>
+            </div>
             @if (_i.Itens.Any(x => x.Gravidade == Gravidade.RiscoGraveIminente) || !string.IsNullOrEmpty(_i.Paralisacao))
             {
                 <div class="alerta erro"><Icone Nome="alerta" /> Risco grave e iminente: registre a paralisação da frente (NR-03). Gera RNC / ação corretiva e aviso ao engenheiro e à empresa.</div>
@@ -101,9 +103,9 @@
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.Criar();
-        _itens = await db.InspecoesSeguranca.AsNoTracking().Include(i => i.Itens).OrderByDescending(i => i.Data).ToListAsync();
-        _locNomes = await db.Locais.AsNoTracking().ToDictionaryAsync(l => l.Id, l => l.Nome);
+        await using var db = Fabrica.CriarLeitura();
+        _itens = await db.InspecoesSeguranca.AsNoTracking().Include(i => i.Itens).OrderByDescending(i => i.Data).ToListAsync(Cancelamento);
+        _locNomes = await db.Locais.AsNoTracking().ToDictionaryAsync(l => l.Id, l => l.Nome, Cancelamento);
     }
 
     private async Task Nova()
@@ -116,18 +118,18 @@
     {
         if (_modelo is null || _local is null) { ErrosForm = ["Informe o checklist e o local."]; return; }
         Guid id = default;
-        if (await Executar(async () => id = await Sst.AbrirInspecaoAsync(_modelo.Value, _local.Value), "Inspeção iniciada.")) { _nova = false; await Carregar(); await Abrir(id); }
+        if (await Executar(async () => id = await Sst.AbrirInspecaoAsync(_modelo.Value, _local.Value, Cancelamento), "Inspeção iniciada.")) { _nova = false; await Carregar(); await Abrir(id); }
     }
 
     private async Task Abrir(Guid id)
     {
-        await using var db = Fabrica.Criar();
-        _i = await db.InspecoesSeguranca.AsNoTracking().Include(i => i.Itens).FirstAsync(i => i.Id == id);
+        await using var db = Fabrica.CriarLeitura();
+        _i = await db.InspecoesSeguranca.AsNoTracking().Include(i => i.Itens).FirstAsync(i => i.Id == id, Cancelamento);
         ErrosForm = null; _aberto = true;
     }
 
     private async Task Salvar(bool concluir)
     {
-        if (await Executar(() => Sst.SalvarInspecaoAsync(_i!, concluir), concluir ? "Inspeção concluída." : "Inspeção salva.")) { await Carregar(); await Abrir(_i!.Id); }
+        if (await Executar(() => Sst.SalvarInspecaoAsync(_i!, concluir, Cancelamento), concluir ? "Inspeção concluída." : "Inspeção salva.")) { await Carregar(); await Abrir(_i!.Id); }
     }
 }

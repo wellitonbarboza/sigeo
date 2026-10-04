@@ -5,7 +5,7 @@
 
 <Pagina Titulo="Tarefas" Grade="_grade" AoNovo="Nova" AoAtualizar="Carregar">
     <ChildContent>
-        <div class="pagina">
+        <div class="pagina toque">
             <div class="kpis">
                 <Kpi Rotulo="Minhas abertas" Valor="@_itens?.Count(t => t.ResponsavelId == Usuario.UsuarioId && !t.Encerrada)" Tom="info" />
                 <Kpi Rotulo="Atrasadas" Valor="@_itens?.Count(t => t.Atrasada(Hoje))" Tom="erro" Sub="prazo vencido" />
@@ -19,6 +19,7 @@
                 <label><input type="radio" name="ft" checked="@(_filtro == "abertas")" @onchange='() => Filtrar("abertas")' /> Todas abertas</label>
                 <label><input type="radio" name="ft" checked="@(_filtro == "todas")" @onchange='() => Filtrar("todas")' /> Todas</label>
             </div>
+            @if (_itens?.Count >= Limite) { <div class="alerta info"><Icone Nome="info" /> Exibindo as @Limite tarefas mais recentes — tarefas mais antigas não entram nos números acima.</div> }
             <Grade T="Tarefa" @ref="_grade" Itens="_visiveis" AoClicar="t => Abrir(t.Id)" NomeExportacao="tarefas" CriadoPor="t => t.CriadoPor">
                 <Colunas>
                     <Coluna T="Tarefa" Titulo="Nº" Valor="t => t.Numero" Largura="70px" />
@@ -39,7 +40,7 @@
     <Faixa><b>Tarefas internas</b><span>Prazo, responsável e prioridade</span><span>Prorrogação só com justificativa (prazo original guardado)</span><span>Leitura confirmada quando o responsável abre</span></Faixa>
 </Pagina>
 
-<Modal @bind-Aberto="_aberto" Titulo="@(_t?.Numero > 0 ? $"Tarefa {_t.Numero} — {_t.Titulo}" : "Nova tarefa")" Tamanho="media">
+<Modal @bind-Aberto="_aberto" Titulo="@(_t?.Numero > 0 ? $"Tarefa {_t.Numero} — {_t.Titulo}" : "Nova tarefa")" Tamanho="media toque">
     <ChildContent>
         @if (_t is not null)
         {
@@ -63,7 +64,7 @@
                 <Campo Rotulo="Obra" Classe="s3"><select @bind="_t.ObraId" disabled="@_t.Encerrada"><option value="">—</option>@foreach (var o in _obras) { <option value="@o.Id">@o.Texto</option> }</select></Campo>
                 @if (_t.OrigemDescricao is not null)
                 {
-                    <Campo Rotulo="Origem" Classe="s12"><div style="padding-top:6px">@if (LinkOrigem(_t) is { } href) { <a href="@href">@_t.OrigemDescricao</a> } else { @_t.OrigemDescricao }</div></Campo>
+                    <Campo Rotulo="Origem" Classe="s12"><div class="pt-6">@if (LinkOrigem(_t) is { } href) { <a href="@href">@_t.OrigemDescricao</a> } else { @_t.OrigemDescricao }</div></Campo>
                 }
                 @if (_t.Encerrada) { <Campo Rotulo="Resolução" Classe="s12"><textarea readonly>@_t.Resolucao</textarea></Campo> }
             </div>
@@ -88,8 +89,8 @@
             @if (_t.Prorrogacoes.Count > 0)
             {
                 <div class="secao"><Icone Nome="relogio" /> Histórico de prorrogações</div>
-                <table class="itens"><thead><tr><th>Em</th><th>Por</th><th>De</th><th>Para</th><th class="num">Dias</th><th>Justificativa</th></tr></thead>
-                    <tbody>@foreach (var p in _t.Prorrogacoes.OrderBy(p => p.Em)) { <tr><td>@DataHora(p.Em)</td><td>@p.Usuario</td><td>@Data(p.PrazoAnterior)</td><td>@Data(p.NovoPrazo)</td><td class="num">@p.Dias</td><td>@p.Justificativa</td></tr> }</tbody></table>
+                <div class="tabela-rolavel"><table class="itens"><thead><tr><th>Em</th><th>Por</th><th>De</th><th>Para</th><th class="num">Dias</th><th>Justificativa</th></tr></thead>
+                    <tbody>@foreach (var p in _t.Prorrogacoes.OrderBy(p => p.Em)) { <tr><td>@DataHora(p.Em)</td><td>@p.Usuario</td><td>@Data(p.PrazoAnterior)</td><td>@Data(p.NovoPrazo)</td><td class="num">@p.Dias</td><td>@p.Justificativa</td></tr> }</tbody></table></div>
             }
             @if (_t.Numero > 0)
             {
@@ -104,6 +105,7 @@
 </Modal>
 
 @code {
+    private const int Limite = 2000;
     private Grade<Tarefa>? _grade;
     private List<Tarefa>? _itens, _visiveis;
     private Tarefa? _t;
@@ -131,8 +133,8 @@
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.Criar();
-        _itens = await db.Tarefas.AsNoTracking().Include(t => t.Prorrogacoes).Include(t => t.Leituras).OrderByDescending(t => t.Numero).Take(2000).ToListAsync();
+        await using var db = Fabrica.CriarLeitura();
+        _itens = await db.Tarefas.AsNoTracking().Include(t => t.Prorrogacoes).Include(t => t.Leituras).OrderByDescending(t => t.Numero).Take(Limite).ToListAsync(Cancelamento);
         Filtrar(_filtro);
     }
 
@@ -167,7 +169,7 @@
     private async Task Abrir(Guid id)
     {
         ErrosForm = null; _novoPrazo = null; _justif = null; _resolucao = null;
-        _t = await Colab.CarregarTarefaAsync(id, registrarLeitura: true);
+        _t = await Colab.CarregarTarefaAsync(id, registrarLeitura: true, ct: Cancelamento);
         _aberto = true;
         await Carregar();
     }
@@ -175,21 +177,21 @@
     private async Task Salvar()
     {
         Guid id = default;
-        if (await Executar(async () => id = await Colab.SalvarTarefaAsync(_t!), "Tarefa salva.")) { await Abrir(id); }
+        if (await Executar(async () => id = await Colab.SalvarTarefaAsync(_t!, ct: Cancelamento), "Tarefa salva.")) { await Abrir(id); }
     }
 
     private async Task Prorrogar()
     {
-        if (await Executar(() => Colab.ProrrogarAsync(_t!.Id, _novoPrazo ?? default, _justif ?? ""), "Prazo prorrogado.")) await Abrir(_t!.Id);
+        if (await Executar(() => Colab.ProrrogarAsync(_t!.Id, _novoPrazo ?? default, _justif ?? "", ct: Cancelamento), "Prazo prorrogado.")) await Abrir(_t!.Id);
     }
 
     private async Task Concluir()
     {
-        if (await Executar(() => Colab.ConcluirAsync(_t!.Id, _resolucao ?? ""), "Tarefa concluída.")) await Abrir(_t!.Id);
+        if (await Executar(() => Colab.ConcluirAsync(_t!.Id, _resolucao ?? "", ct: Cancelamento), "Tarefa concluída.")) await Abrir(_t!.Id);
     }
 
     private async Task Cancelar()
     {
-        if (await Executar(() => Colab.CancelarAsync(_t!.Id, _resolucao ?? ""), "Tarefa cancelada.")) await Abrir(_t!.Id);
+        if (await Executar(() => Colab.CancelarAsync(_t!.Id, _resolucao ?? "", ct: Cancelamento), "Tarefa cancelada.")) await Abrir(_t!.Id);
     }
 }

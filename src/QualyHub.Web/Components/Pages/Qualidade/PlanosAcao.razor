@@ -1,5 +1,6 @@
 @page "/fornecedores/planos"
 @inherits PaginaBase
+@inject PlanosAcaoServico Planos
 
 <Pagina Titulo="Planos de ação de fornecedores" Grade="_grade" AoNovo="Novo" AoAtualizar="Carregar">
     <ChildContent>
@@ -58,8 +59,12 @@
     <Rodape>
         @if (_p is not null && !Concluido)
         {
-            @if (!string.IsNullOrEmpty(_p.Numero)) { <button class="btn ok" disabled="@Ocupado" @onclick="Concluir"><Icone Nome="check" Tam="16" /> Concluir</button> }
-            <button class="btn prim" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="16" /> Salvar</button>
+            @* Concluído com eficácia verificada é registro fechado: só leitura (o serviço também recusa alterar). *@
+            @if (!Concluido)
+            {
+                @if (!string.IsNullOrEmpty(_p.Numero)) { <button class="btn ok" disabled="@Ocupado" @onclick="Concluir"><Icone Nome="check" Tam="16" /> Concluir</button> }
+                <button class="btn prim" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="16" /> Salvar</button>
+            }
         }
     </Rodape>
 </Modal>
@@ -78,46 +83,15 @@
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.Criar();
-        _itens = await db.PlanosAcao.AsNoTracking().Include(p => p.Fornecedor).OrderByDescending(p => p.Numero).ToListAsync();
+        await using var db = Fabrica.CriarLeitura();
+        _itens = await db.PlanosAcao.Include(p => p.Fornecedor).OrderByDescending(p => p.Numero).ToListAsync(Cancelamento);
     }
 
     private void Novo() { _p = new PlanoAcaoFornecedor { Prazo = Hoje.AddDays(30), Origem = OrigemPlanoAcao.Reclamacao, TipoPlano = TipoPlanoAcao.Pontual }; ErrosForm = null; _aberto = true; }
 
     private void Abrir(PlanoAcaoFornecedor p) { _p = p; _eficacia = p.Eficacia; _comentario = p.EficaciaComentario; ErrosForm = null; _aberto = true; }
 
-    private async Task<bool> Gravar(Action<PlanoAcaoFornecedor>? antes, string msg)
-    {
-        return await Executar(async () =>
-        {
-            var e = new List<string>();
-            if (_p!.FornecedorId == Guid.Empty) e.Add("Informe o fornecedor.");
-            if (string.IsNullOrWhiteSpace(_p.Problema)) e.Add("Descreva o problema.");
-            if (string.IsNullOrWhiteSpace(_p.Acao)) e.Add("Descreva a ação.");
-            if (string.IsNullOrWhiteSpace(_p.Responsavel)) e.Add("Informe o responsável.");
-            ValidacaoException.Se(e);
-            await using var db = Fabrica.Criar();
-            var atual = await db.PlanosAcao.FirstOrDefaultAsync(x => x.Id == _p.Id);
-            if (atual is null)
-            {
-                var novo = new PlanoAcaoFornecedor
-                {
-                    Id = _p.Id, FornecedorId = _p.FornecedorId, Origem = _p.Origem, TipoPlano = _p.TipoPlano, Problema = _p.Problema, Acao = _p.Acao,
-                    Responsavel = _p.Responsavel, Prazo = _p.Prazo, Status = _p.Status,
-                    Numero = $"PA-{await Numerador.ProximoAsync(db, "PlanoAcao"):0000}"
-                };
-                db.PlanosAcao.Add(novo); atual = novo;
-            }
-            else
-            {
-                atual.TipoPlano = _p.TipoPlano; atual.Problema = _p.Problema; atual.Acao = _p.Acao; atual.Responsavel = _p.Responsavel; atual.Prazo = _p.Prazo; atual.Status = _p.Status;
-            }
-            antes?.Invoke(atual);
-            await db.SaveChangesAsync();
-        }, msg);
-    }
+    private async Task Salvar() { if (await Executar(() => Planos.SalvarAsync(_p!, Cancelamento), "Plano salvo.")) { _aberto = false; await Carregar(); } }
 
-    private async Task Salvar() { if (await Gravar(null, "Plano salvo.")) { _aberto = false; await Carregar(); } }
-
-    private async Task Concluir() { if (await Gravar(a => a.Concluir(_eficacia, _comentario), "Plano concluído.")) { _aberto = false; await Carregar(); } }
+    private async Task Concluir() { if (await Executar(() => Planos.ConcluirAsync(_p!, _eficacia, _comentario, Cancelamento), "Plano concluído.")) { _aberto = false; await Carregar(); } }
 }

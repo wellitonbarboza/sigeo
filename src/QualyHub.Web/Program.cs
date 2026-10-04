@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using QualyHub.Domain.Common;
 using QualyHub.Domain.Estrutura;
 using QualyHub.Infrastructure;
-using QualyHub.Infrastructure.Contexto;
+using QualyHub.Application.Abstracoes;
 using QualyHub.Infrastructure.Dados;
 using QualyHub.Infrastructure.Servicos;
 using QualyHub.Web.Components;
@@ -40,18 +40,22 @@ else
         builder.Configuration["Armazenamento:PastaLocal"] is { Length: > 0 } pasta ? pasta : Path.Combine(builder.Environment.ContentRootPath, "App_Data", "arquivos")));
 builder.Services.AddScoped<Notificacoes>();
 builder.Services.AddScoped<Catalogos>();
+builder.Services.AddScoped<EstadoGrades>();
+// Endpoints HTTP (downloads, GRD, configuração inicial, /api) respondem erro em Problem Details (RFC 9457).
+builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<TratadorErrosApi>();
 
 var app = builder.Build();
 
 // Banco: aplica migrations automaticamente só em desenvolvimento (produção: pipeline/deploy.sh).
 if (app.Environment.IsDevelopment() || builder.Configuration.GetValue<bool>("Banco:MigrarAoIniciar"))
 {
-    await using var db = app.Services.GetRequiredService<FabricaSistema>().Criar(Guid.Empty, "Migracao");
+    await using var db = app.Services.GetRequiredService<IFabricaSistema>().Criar(Guid.Empty, "Migracao");
     await db.Database.MigrateAsync();
     // Carga padrão é idempotente: empresas já existentes recebem as listas e cadastros novos de cada versão.
     // Uma vez por versão da carga; trava de aplicação no SQL evita duas instâncias aplicando ao mesmo tempo;
     // falha numa empresa é registrada e não impede o app de subir.
-    var fs = app.Services.GetRequiredService<FabricaSistema>();
+    var fs = app.Services.GetRequiredService<IFabricaSistema>();
     var log = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("CargaPadrao");
     await db.Database.OpenConnectionAsync();
     await db.Database.ExecuteSqlRawAsync("EXEC sp_getapplock @Resource = N'QualyHub:CargaPadrao', @LockMode = N'Exclusive', @LockOwner = N'Session', @LockTimeout = 60000");
@@ -62,8 +66,8 @@ if (app.Environment.IsDevelopment() || builder.Configuration.GetValue<bool>("Ban
             try
             {
                 await using var dbe = fs.Criar(id, "CargaPadrao");
-                if (await QualyHub.Infrastructure.Dados.CargaPadrao.AplicarSeNovaVersaoAsync(dbe, id))
-                    log.LogInformation("Carga padrão v{Versao} aplicada na empresa {Empresa}.", QualyHub.Infrastructure.Dados.CargaPadrao.Versao, id);
+                if (await CargaPadrao.AplicarSeNovaVersaoAsync(dbe, id))
+                    log.LogInformation("Carga padrão v{Versao} aplicada na empresa {Empresa}.", CargaPadrao.Versao, id);
             }
             catch (Exception ex) { log.LogError(ex, "Falha ao aplicar a carga padrão na empresa {Empresa}.", id); }
         }
@@ -80,6 +84,8 @@ if (!app.Environment.IsDevelopment())
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
     app.UseHsts();
 }
+// Interno ao /Error: erros dos endpoints viram Problem Details antes de chegar ao tratador das páginas.
+app.UseWhen(ctx => ProblemasApi.EhEndpoint(ctx.Request.Path), ramo => ramo.UseExceptionHandler());
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
 app.UseHttpsRedirection();
 app.UseAuthentication();
@@ -95,7 +101,7 @@ app.Use(async (ctx, next) =>
     if (p == "/saude") { await next(); return; }
     if (!p.StartsWith("/configuracao-inicial") && !p.StartsWith("/_") && !p.Contains('.') && !p.StartsWith("/portal") && !p.StartsWith("/cotacao/") && !p.StartsWith("/qr"))
     {
-        await using var db = ctx.RequestServices.GetRequiredService<FabricaSistema>().Criar(Guid.Empty, "Web");
+        await using var db = ctx.RequestServices.GetRequiredService<IFabricaSistema>().Criar(Guid.Empty, "Web");
         if (!await db.Empresas.AnyAsync()) { ctx.Response.Redirect("/configuracao-inicial"); return; }
     }
     await next();

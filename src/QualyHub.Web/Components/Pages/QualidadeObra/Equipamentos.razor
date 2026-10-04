@@ -51,6 +51,7 @@
             @if (_e.CriadoEm != default)
             {
                 <div class="secao"><Icone Nome="relogio" /> Calibrações e verificações</div>
+                <div class="tabela-rolavel">
                 <table class="itens">
                     <thead><tr><th>Data</th><th>Tipo</th><th>Executante</th><th>Certificado</th><th>Erro</th><th>Resultado</th></tr></thead>
                     <tbody>
@@ -65,9 +66,10 @@
                         </tr>
                     </tbody>
                 </table>
-                @if (_nova.Resultado == ResultadoCalibracao.Reprovado) { <div class="form" style="margin-top:8px"><Campo Rotulo="Avaliação de impacto (FVS feitas desde a última aprovação)" Obrigatorio Classe="s12"><textarea @bind="_nova.AvaliacaoImpacto"></textarea></Campo></div> }
+                </div>
+                @if (_nova.Resultado == ResultadoCalibracao.Reprovado) { <div class="form marg-topo-8"><Campo Rotulo="Avaliação de impacto (FVS feitas desde a última aprovação)" Obrigatorio Classe="s12"><textarea @bind="_nova.AvaliacaoImpacto"></textarea></Campo></div> }
                 @if (_afetadas.Count > 0) { <div class="alerta erro"><Icone Nome="alerta" /> FVS a avaliar: @string.Join(", ", _afetadas)</div> }
-                <div style="margin-top:8px"><button class="btn sec" disabled="@Ocupado" @onclick="Registrar"><Icone Nome="mais" Tam="14" /> Registrar calibração / verificação</button></div>
+                <div class="marg-topo-8"><button class="btn sec" disabled="@Ocupado" @onclick="Registrar"><Icone Nome="mais" Tam="14" /> Registrar calibração / verificação</button></div>
                 <Anexos Entidade="Equipamento" EntidadeId="_e.Id" Categoria="Certificado" Titulo="Certificados" />
                 <div class="alerta aviso"><Icone Nome="ampulheta" /> Vencido o prazo, o equipamento fica bloqueado e não aparece para escolha na FVS.</div>
             }
@@ -92,23 +94,23 @@
     protected override async Task OnInitializedAsync()
     {
         _obras = await Cat.ObrasAsync();
-        await using (var db = Fabrica.Criar()) { _p = await ParametrosServico.CarregarAsync(db); _alerta = _p.Int(Parametros.AlertaCalibracaoDias); }
+        await using (var db = Fabrica.CriarLeitura()) { _p = await ParametrosServico.CarregarAsync(db, Cancelamento); _alerta = _p.Int(Parametros.AlertaCalibracaoDias); }
         await Carregar();
     }
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.Criar();
-        _itens = await db.Equipamentos.AsNoTracking().OrderBy(e => e.Codigo).ToListAsync();
+        await using var db = Fabrica.CriarLeitura();
+        _itens = await db.Equipamentos.AsNoTracking().OrderBy(e => e.Codigo).ToListAsync(Cancelamento);
     }
 
     private void Novo() { _e = new EquipamentoMedicao { PeriodicidadeMeses = _p!.Int(Parametros.PeriodicidadeVerificacaoMeses), ObraId = _obras.Count == 1 ? _obras[0].Id : null }; _cals = []; ErrosForm = null; _aberto = true; }
 
     private async Task Abrir(EquipamentoMedicao e)
     {
-        await using var db = Fabrica.Criar();
-        _e = await db.Equipamentos.AsNoTracking().FirstAsync(x => x.Id == e.Id);
-        _cals = await db.Calibracoes.AsNoTracking().Where(c => c.EquipamentoMedicaoId == e.Id).OrderByDescending(c => c.Data).ToListAsync();
+        await using var db = Fabrica.CriarLeitura();
+        _e = await db.Equipamentos.AsNoTracking().FirstAsync(x => x.Id == e.Id, Cancelamento);
+        _cals = await db.Calibracoes.AsNoTracking().Where(c => c.EquipamentoMedicaoId == e.Id).OrderByDescending(c => c.Data).ToListAsync(Cancelamento);
         _nova = new Calibracao { Data = Hoje, Tipo = _e.TipoControle == TipoControleEquipamento.VerificacaoInterna ? TipoControleEquipamento.VerificacaoInterna : TipoControleEquipamento.CalibracaoExterna };
         _afetadas = []; ErrosForm = null; _aberto = true;
     }
@@ -116,13 +118,13 @@
     private async Task Salvar()
     {
         Guid id = default;
-        if (await Executar(async () => id = await Qob.SalvarEquipamentoAsync(_e!), "Equipamento salvo.")) { await Carregar(); await Abrir(_itens!.First(x => x.Id == id)); }
+        if (await Executar(async () => id = await Qob.SalvarEquipamentoAsync(_e!, Cancelamento), "Equipamento salvo.")) { await Carregar(); await Abrir(_itens!.First(x => x.Id == id)); }
     }
 
     private async Task Registrar()
     {
         IReadOnlyList<string> af = [];
-        if (await Executar(async () => af = await Qob.RegistrarCalibracaoAsync(_e!.Id, _nova), "Registro incluído."))
+        if (await Executar(async () => af = await Qob.RegistrarCalibracaoAsync(_e!.Id, _nova, Cancelamento), "Registro incluído."))
         { await Carregar(); await Abrir(_e!); _afetadas = af; }
     }
 }

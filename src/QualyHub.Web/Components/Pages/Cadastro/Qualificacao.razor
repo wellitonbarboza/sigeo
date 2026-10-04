@@ -1,6 +1,6 @@
 @page "/fornecedores/qualificacao"
 @inherits PaginaBase
-@inject SuprimentosServico Sup
+@inject AvaliacaoFornecedoresServico AvaliacaoSrv
 @inject NavigationManager Nav
 
 <Pagina Titulo="Qualificação de fornecedores" Grade="_grade" AoNovo="Novo" AoAtualizar="Carregar">
@@ -91,7 +91,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        await using (var db = Fabrica.Criar()) _p = await ParametrosServico.CarregarAsync(db);
+        await using (var db = Fabrica.CriarLeitura()) _p = await ParametrosServico.CarregarAsync(db, ct: Cancelamento);
         _fornecedores = await Cat.FornecedoresAsync(); _materiais = await Cat.MateriaisAsync(); _servicos = await Cat.ServicosAsync();
         _criterios = await Cat.ListaAsync(TipoLista.CriterioQualificacao);
         if (Nav.Uri.Contains("?f=") && Guid.TryParse(Nav.Uri.Split("?f=")[1], out var f)) _filtro = f;
@@ -101,13 +101,13 @@
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.Criar();
+        await using var db = Fabrica.CriarLeitura();
         var q = db.Qualificacoes.AsNoTracking();
         if (_filtro is { } f) q = q.Where(x => x.FornecedorId == f);
         _itens = await q.OrderByDescending(x => x.DataQualificacao)
             .Select(x => new Linha(x.Id, x.Fornecedor.RazaoSocial, x.TipoFornecimento,
                 x.MaterialControlado != null ? x.MaterialControlado.Nome : x.ServicoControlado != null ? x.ServicoControlado.Nome : null,
-                x.CriterioQualificacao, x.Psq, x.DataQualificacao, x.DataValidade, x.Resultado, x.ResponsavelNome, x.CriadoPor)).ToListAsync();
+                x.CriterioQualificacao, x.Psq, x.DataQualificacao, x.DataValidade, x.Resultado, x.ResponsavelNome, x.CriadoPor)).ToListAsync(Cancelamento);
     }
 
     private void Novo()
@@ -118,13 +118,13 @@
 
     private async Task Abrir(Guid id)
     {
-        await using var db = Fabrica.Criar();
-        _q = await db.Qualificacoes.AsNoTracking().FirstAsync(x => x.Id == id);
+        await using var db = Fabrica.CriarLeitura();
+        _q = await db.Qualificacoes.AsNoTracking().FirstAsync(x => x.Id == id, Cancelamento);
         ErrosForm = null; _aberto = true;
     }
 
     private async Task Salvar()
     {
-        if (await Executar(() => Sup.SalvarQualificacaoAsync(_q!), "Qualificação salva — status do fornecedor recalculado.")) { _aberto = false; await Carregar(); }
+        if (await Executar(() => AvaliacaoSrv.SalvarQualificacaoAsync(_q!, ct: Cancelamento), "Qualificação salva — status do fornecedor recalculado.")) { _aberto = false; await Carregar(); }
     }
 }

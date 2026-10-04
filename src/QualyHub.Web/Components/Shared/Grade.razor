@@ -1,6 +1,9 @@
 @typeparam T
 @implements IGrade
+@implements IDisposable
 @inject IJSRuntime JS
+@inject NavigationManager Nav
+@inject QualyHub.Web.Servicos.EstadoGrades Estados
 
 <CascadingValue Value="this" IsFixed="true">@Colunas</CascadingValue>
 
@@ -39,10 +42,17 @@
                 @if (Acoes is not null) { <th></th> }
                 @foreach (var c in Visiveis)
                 {
+                    @* Ordenação por botão dentro do th: alcançável por Tab e acionável por Enter/Espaço; aria-sort anuncia o estado. *@
                     <th class="@(c.Ordenavel ? "ordenavel" : "") @(c.Alinhar)" draggable="true" style="@(c.Largura is null ? "" : $"width:{c.Largura}")"
-                        @ondragstart="() => _arrastada = c" @onclick="() => Ordenar(c)">
-                        @c.Titulo
-                        @if (_ordem == c) { <span>@(_desc ? " ▾" : " ▴")</span> }
+                        @ondragstart="() => _arrastada = c" aria-sort="@(c.Ordenavel ? (_ordem == c ? (_desc ? "descending" : "ascending") : "none") : null)">
+                        @if (c.Ordenavel)
+                        {
+                            <button type="button" class="ordenar" @onclick="() => Ordenar(c)">
+                                @c.Titulo
+                                @if (_ordem == c) { <span aria-hidden="true">@(_desc ? " ▾" : " ▴")</span> }
+                            </button>
+                        }
+                        else { @c.Titulo }
                     </th>
                 }
             </tr>
@@ -52,14 +62,17 @@
                     @if (Acoes is not null) { <th></th> }
                     @foreach (var c in Visiveis)
                     {
-                        <th><input placeholder="Filtrar…" value="@c.Filtro" @oninput="e => { c.Filtro = e.Value?.ToString(); _pagina = 0; }" /></th>
+                        <th><input placeholder="Filtrar…" aria-label="@($"Filtrar {c.Titulo}")" value="@c.Filtro" @oninput="e => { c.Filtro = e.Value?.ToString(); _pagina = 0; }" /></th>
                     }
                 </tr>
             }
         </thead>
         <tbody>
             @{
-                var linhas = Filtradas().ToList();
+                // Filtro/ordenação calculados uma vez por renderização (a lista pode ter milhares de itens).
+                var linhas = _linhas = Filtradas().ToList();
+                // Página restaurada pode não existir mais (lista encolheu desde a última visita).
+                if (Itens is not null && _pagina > 0 && _pagina * TamanhoPagina >= linhas.Count) _pagina = Math.Max(0, (linhas.Count - 1) / TamanhoPagina);
                 var pagina = linhas.Skip(_pagina * TamanhoPagina).Take(TamanhoPagina).ToList();
                 var nCols = Visiveis.Count() + (Acoes is null ? 0 : 1);
             }
@@ -86,17 +99,20 @@
         </tbody>
     </table>
 </div>
-@if (Itens is not null && Filtradas().Count() > TamanhoPagina)
+@* Região viva sempre presente: o leitor de tela anuncia a nova contagem quando um filtro muda a lista. *@
+<div class="so-leitor" role="status" aria-live="polite">@(Itens is null ? "" : $"{_linhas.Count} registros")</div>
+@if (Itens is not null && _linhas.Count > TamanhoPagina)
 {
-    var total = Filtradas().Count();
-    <div class="paginacao">
-        <span>@total registros</span>
+    var total = _linhas.Count;
+    var paginas = (total - 1) / TamanhoPagina + 1;
+    <nav class="paginacao" aria-label="Paginação">
+        <span aria-hidden="true">@total registros</span>
         <span class="linha">
-            <button disabled="@(_pagina == 0)" @onclick="() => _pagina--">‹ Anterior</button>
-            <span>Página @(_pagina + 1) de @((total - 1) / TamanhoPagina + 1)</span>
-            <button disabled="@((_pagina + 1) * TamanhoPagina >= total)" @onclick="() => _pagina++">Próxima ›</button>
+            <button type="button" disabled="@(_pagina == 0)" @onclick="() => _pagina--" aria-label="Página anterior">‹ Anterior</button>
+            <span>Página @(_pagina + 1) de @paginas</span>
+            <button type="button" disabled="@((_pagina + 1) * TamanhoPagina >= total)" @onclick="() => _pagina++" aria-label="Próxima página">Próxima ›</button>
         </span>
-    </div>
+    </nav>
 }
 
 @code {
@@ -125,11 +141,78 @@
     public bool TemSelecionado => Selecionado is not null;
     private IEnumerable<Coluna<T>> Visiveis => _colunas.Where(c => c.Visivel);
 
-    internal void Registrar(Coluna<T> c) { if (!_colunas.Contains(c)) { _colunas.Add(c); StateHasChanged(); } }
+    internal void Registrar(Coluna<T> c)
+    {
+        if (_colunas.Contains(c)) return;
+        _colunas.Add(c);
+        RestaurarColuna(c);
+        StateHasChanged();
+    }
+
+    // ───── Estado guardado por tela (EstadoGrades, um por circuito) ─────
+    // As colunas só se registram durante o 1º render (Coluna.OnInitialized), depois do OnParametersSet da grade;
+    // por isso o estado geral é lido no OnParametersSet e o de cada coluna é aplicado quando ela se registra.
+    private EstadoGrade? _salvo;
+    private string? _chave;
+
+    private string ChaveEstado()
+    {
+        var rota = Nav.ToBaseRelativePath(Nav.Uri);
+        var corte = rota.IndexOfAny(['?', '#']);
+        return (corte >= 0 ? rota[..corte] : rota) + "|" + NomeExportacao;
+    }
+
+    protected override void OnParametersSet()
+    {
+        var chave = ChaveEstado();
+        if (chave == _chave) return;
+        // Mesma instância reaproveitada em outra rota (ex.: /obras/1 → /obras/2): guarda a anterior e carrega a nova.
+        if (_chave is not null) Guardar();
+        _chave = chave;
+        _salvo = Estados.Obter(chave);
+        if (_salvo is null) return;
+        _pagina = _salvo.Pagina;
+        _somenteMeus = _salvo.SomenteMeus;
+        _compacto = _salvo.Compacto;
+        _filtros = _salvo.MostrarFiltros;
+        foreach (var c in _colunas) RestaurarColuna(c);
+    }
+
+    private void RestaurarColuna(Coluna<T> c)
+    {
+        if (_salvo is null) return;
+        c.Filtro = _salvo.Filtros.GetValueOrDefault(c.Titulo);
+        if (_salvo.Ordem == c.Titulo && c.Ordenavel) { _ordem = c; _desc = _salvo.Desc; }
+        // Mantém a ordem original dos agrupamentos, independente da ordem em que as colunas se registram.
+        if (c.Agrupavel && _salvo.Grupos.Contains(c.Titulo) && !_grupos.Contains(c))
+        {
+            _grupos.Add(c);
+            _grupos.Sort((a, b) => IndiceGrupo(a).CompareTo(IndiceGrupo(b)));
+        }
+    }
+
+    private int IndiceGrupo(Coluna<T> c) => _salvo is null ? 0 : _salvo.Grupos.ToList().IndexOf(c.Titulo);
+
+    private void Guardar()
+    {
+        // Antes das colunas se registrarem não há o que guardar — evitaria apagar o estado salvo com um vazio.
+        if (_chave is null || _colunas.Count == 0) return;
+        _salvo = new EstadoGrade(
+            _colunas.Where(c => !string.IsNullOrWhiteSpace(c.Filtro)).GroupBy(c => c.Titulo).ToDictionary(g => g.Key, g => g.First().Filtro!),
+            _ordem?.Titulo, _desc, _grupos.Select(g => g.Titulo).ToList(), _pagina, _somenteMeus, _compacto, _filtros);
+        Estados.Guardar(_chave, _salvo);
+    }
+
+    // Guardar a cada render é barato (só um dicionário em memória) e cobre toda forma de mudança de estado.
+    protected override void OnAfterRender(bool firstRender) => Guardar();
+
+    public void Dispose() => Guardar();
 
     private RenderFragment Linha(T i) => __builder =>
     {
-        <tr class="@(Equals(i, Selecionado) ? "sel" : "") @ClasseLinha?.Invoke(i)" @onclick="() => Clicar(i)" style="cursor:pointer">
+        @* Linha abre o registro também pelo teclado (Tab + Enter/Espaço) e é anunciada pelo leitor de tela. *@
+        <tr class="@(Equals(i, Selecionado) ? "sel" : "") @ClasseLinha?.Invoke(i) clicavel" @onclick="() => Clicar(i)"
+            tabindex="0" role="button" aria-label="Abrir registro" @onkeydown="e => Tecla(e, i)">
             @if (Acoes is not null) { <td class="acoes" @onclick:stopPropagation="true">@Acoes(i)</td> }
             @foreach (var c in Visiveis)
             {
@@ -139,6 +222,12 @@
     };
 
     private async Task Clicar(T i) { Selecionado = i; await AoClicar.InvokeAsync(i); }
+
+    private List<T> _linhas = [];
+    private async Task Tecla(KeyboardEventArgs e, T i)
+    {
+        if (e.Key is "Enter" or " " or "Spacebar") await Clicar(i);
+    }
 
     private IEnumerable<T> Filtradas()
     {

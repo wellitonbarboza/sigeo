@@ -77,42 +77,45 @@
             <div class="secao"><Icone Nome="lista" /> Itens de verificação
                 @if (Editavel) { <span class="acao"><button class="btn sec pq" @onclick="NovoItem"><Icone Nome="mais" Tam="14" /> Incluir item</button></span> }
             </div>
+            <div class="tabela-rolavel">
             <table class="itens">
-                <thead><tr><th>#</th><th style="min-width:220px">Item de verificação</th><th>@(Sst ? "Referência (NR)" : "Método / equipamento")</th><th>Tolerância / critério</th><th>Mín.</th><th>Máx.</th><th>Foto</th><th>Equip. calibrado</th><th>Bloqueia</th><th></th></tr></thead>
+                <thead><tr><th>#</th><th class="larg-min-220">Item de verificação</th><th>@(Sst ? "Referência (NR)" : "Método / equipamento")</th><th>Tolerância / critério</th><th>Mín.</th><th>Máx.</th><th>Foto</th><th>Equip. calibrado</th><th>Bloqueia</th><th></th></tr></thead>
                 <tbody>
                     @foreach (var i in _m.Itens.OrderBy(i => i.Ordem))
                     {
-                        <tr>
-                            <td style="width:40px"><input type="number" @bind="i.Ordem" disabled="@(!Editavel)" /></td>
+                        <tr @key="i">
+                            <td class="larg-40"><input type="number" @bind="i.Ordem" disabled="@(!Editavel)" /></td>
                             <td><input @bind="i.Descricao" disabled="@(!Editavel)" /></td>
                             <td>@if (Sst) { <input @bind="i.Referencia" disabled="@(!Editavel)" /> } else { <input @bind="i.Metodo" disabled="@(!Editavel)" /> }</td>
                             <td><input @bind="i.Criterio" disabled="@(!Editavel)" /></td>
-                            <td style="width:80px"><input type="number" step="0.01" @bind="i.ValorMin" disabled="@(!Editavel)" /></td>
-                            <td style="width:80px"><input type="number" step="0.01" @bind="i.ValorMax" disabled="@(!Editavel)" /></td>
+                            <td class="larg-80"><input type="number" step="0.01" @bind="i.ValorMin" disabled="@(!Editavel)" /></td>
+                            <td class="larg-80"><input type="number" step="0.01" @bind="i.ValorMax" disabled="@(!Editavel)" /></td>
                             <td><select @bind="i.Foto" disabled="@(!Editavel)">@foreach (var f in Enum.GetValues<FotoItem>()) { <option value="@f">@De(f)</option> }</select></td>
-                            <td style="text-align:center"><input type="checkbox" @bind="i.ExigeEquipamento" disabled="@(!Editavel)" /></td>
-                            <td style="text-align:center"><input type="checkbox" @bind="i.Bloqueia" disabled="@(!Editavel)" /></td>
+                            <td class="texto-centro"><input type="checkbox" @bind="i.ExigeEquipamento" disabled="@(!Editavel)" /></td>
+                            <td class="texto-centro"><input type="checkbox" @bind="i.Bloqueia" disabled="@(!Editavel)" /></td>
                             <td>@if (Editavel) { <button class="icone-btn" @onclick="() => _m.Itens.Remove(i)"><Icone Nome="lixeira" Tam="16" /></button> }</td>
                         </tr>
                     }
                 </tbody>
             </table>
+            </div>
 
             @if (Fvm)
             {
                 <div class="secao"><Icone Nome="regua" /> Ensaios do modelo
                     @if (Editavel) { <span class="acao"><button class="btn sec pq" @onclick="() => _m.Ensaios.Add(new EnsaioModelo { ModeloInspecaoId = _m.Id })"><Icone Nome="mais" Tam="14" /> Incluir ensaio</button></span> }
                 </div>
+                <div class="tabela-rolavel">
                 <table class="itens">
                     <thead><tr><th>Ensaio</th><th>Norma</th><th>Quando</th><th>Idade/prazo (dias)</th><th>Frequência / amostra</th><th>Executante</th><th>Critério</th><th>Se reprovar</th><th></th></tr></thead>
                     <tbody>
                         @foreach (var x in _m.Ensaios)
                         {
-                            <tr>
+                            <tr @key="x">
                                 <td><input @bind="x.Ensaio" disabled="@(!Editavel)" /></td>
                                 <td><input @bind="x.Norma" disabled="@(!Editavel)" /></td>
                                 <td><select @bind="x.Momento" disabled="@(!Editavel)">@foreach (var e in Enum.GetValues<MomentoEnsaio>()) { <option value="@e">@De(e)</option> }</select></td>
-                                <td style="width:90px"><input @bind="x.PrazoDias" placeholder="7 e 28" disabled="@(!Editavel)" /></td>
+                                <td class="larg-90"><input @bind="x.PrazoDias" placeholder="7 e 28" disabled="@(!Editavel)" /></td>
                                 <td><input @bind="x.Frequencia" disabled="@(!Editavel)" /></td>
                                 <td><select @bind="x.Executante" disabled="@(!Editavel)">@foreach (var e in Enum.GetValues<ExecutanteEnsaio>()) { <option value="@e">@De(e)</option> }</select></td>
                                 <td><input @bind="x.Criterio" disabled="@(!Editavel)" /></td>
@@ -122,8 +125,9 @@
                         }
                     </tbody>
                 </table>
+                </div>
             }
-            <div class="alerta info" style="margin-top:12px"><Icone Nome="info" /> Critérios e amostragens da carga são exemplos: os valores oficiais vêm das ITS e especificações vigentes. O modelo segue a revisão do documento; FVS e FVM novas usam sempre o modelo vigente.</div>
+            <div class="alerta info marg-topo-12"><Icone Nome="info" /> Critérios e amostragens da carga são exemplos: os valores oficiais vêm das ITS e especificações vigentes. O modelo segue a revisão do documento; FVS e FVM novas usam sempre o modelo vigente.</div>
         }
     </ChildContent>
     <Rodape>
@@ -163,8 +167,8 @@
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.Criar();
-        _itens = await db.ModelosInspecao.AsNoTracking().Include(m => m.Itens).Include(m => m.Ensaios).Where(m => m.Tipo == Tipo).OrderBy(m => m.Codigo).ToListAsync();
+        await using var db = Fabrica.CriarLeitura();
+        _itens = await db.ModelosInspecao.AsNoTracking().Include(m => m.Itens).Include(m => m.Ensaios).Where(m => m.Tipo == Tipo).OrderBy(m => m.Codigo).ToListAsync(Cancelamento);
         var vigentes = _itens.Where(m => m.Situacao == SituacaoModelo.Vigente).ToList();
         _semModelo = Fvm ? _materiais.Where(x => vigentes.All(m => m.MaterialControladoId != x.Id)).Select(x => x.Texto).ToList()
                    : Sst ? [] : _servicos.Where(x => vigentes.All(m => m.ServicoControladoId != x.Id)).Select(x => x.Texto).ToList();
@@ -180,19 +184,19 @@
 
     private async Task Abrir(ModeloInspecao m)
     {
-        await using var db = Fabrica.Criar();
-        _m = await db.ModelosInspecao.AsNoTracking().Include(x => x.Itens).Include(x => x.Ensaios).FirstAsync(x => x.Id == m.Id);
+        await using var db = Fabrica.CriarLeitura();
+        _m = await db.ModelosInspecao.AsNoTracking().Include(x => x.Itens).Include(x => x.Ensaios).FirstAsync(x => x.Id == m.Id, Cancelamento);
         ErrosForm = null; _aberto = true;
     }
 
     private async Task Salvar()
     {
-        if (await Executar(async () => await Qob.SalvarModeloAsync(_m!), "Modelo salvo.")) { await Carregar(); await Abrir(_m!); }
+        if (await Executar(async () => await Qob.SalvarModeloAsync(_m!, Cancelamento), "Modelo salvo.")) { await Carregar(); await Abrir(_m!); }
     }
 
     private async Task Publicar()
     {
-        if (await Executar(async () => { await Qob.SalvarModeloAsync(_m!); await Qob.PublicarModeloAsync(_m!.Id); }, "Modelo vigente."))
+        if (await Executar(async () => { await Qob.SalvarModeloAsync(_m!, Cancelamento); await Qob.PublicarModeloAsync(_m!.Id, Cancelamento); }, "Modelo vigente."))
         { await Carregar(); await Abrir(_m!); }
     }
 }

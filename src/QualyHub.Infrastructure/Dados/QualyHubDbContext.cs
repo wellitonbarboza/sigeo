@@ -11,11 +11,10 @@ using QualyHub.Domain.Documentos;
 using QualyHub.Domain.Engenharia;
 using QualyHub.Domain.Sst;
 using QualyHub.Domain.Suprimentos;
-using QualyHub.Infrastructure.Contexto;
 
 namespace QualyHub.Infrastructure.Dados;
 
-public class QualyHubDbContext(DbContextOptions<QualyHubDbContext> options, IUsuarioAtual usuario) : DbContext(options)
+public class QualyHubDbContext(DbContextOptions<QualyHubDbContext> options, IUsuarioAtual usuario) : DbContext(options), IQualyHubDb
 {
     // Lidas pelos filtros globais a cada consulta (parametrizadas pelo EF por instância do contexto).
     public Guid EmpresaAtualId => usuario.EmpresaId;
@@ -239,9 +238,3 @@ public class QualyHubDbContext(DbContextOptions<QualyHubDbContext> options, IUsu
         mb.Entity<T>().HasQueryFilter(FiltrosNomes.Obra, e => AcessoTodasObras || ObrasPermitidas.Contains(e.ObraId));
 }
 
-/// <summary>Nomes dos filtros globais (EF Core 10: filtros nomeados podem ser desligados individualmente).</summary>
-public static class FiltrosNomes
-{
-    public const string Empresa = "empresa";
-    public const string Obra = "obra";
-}

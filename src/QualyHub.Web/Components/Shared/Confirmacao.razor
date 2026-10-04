@@ -1,6 +1,6 @@
 @* Confirmação de ação destrutiva/irreversível. Uso: <Confirmacao Pergunta="@PerguntaConfirmacao" AoSim="ConfirmacaoSim" AoNao="ConfirmacaoNao" /> *@
 <Modal Aberto="@(Pergunta is not null)" AbertoChanged="Fechou" Titulo="@Titulo" Tamanho="pequena">
-    <ChildContent><p style="margin:0">@Pergunta</p></ChildContent>
+    <ChildContent><p class="m-0">@Pergunta</p></ChildContent>
     <Rodape>
         <button class="btn sec" id="conf-nao" @onclick="AoNao">Cancelar</button>
         <button class="btn perigo" id="conf-sim" @onclick="AoSim"><Icone Nome="check" Tam="16" /> @TextoSim</button>

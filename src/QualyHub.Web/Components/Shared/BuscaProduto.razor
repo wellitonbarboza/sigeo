@@ -8,7 +8,7 @@
             @foreach (var p in Resultado)
             {
                 <li @onmousedown="() => Escolher(p)" @onmousedown:preventDefault>
-                    <b>@p.Codigo</b> @p.Nome <span class="mudo">· @p.Unidade · @p.Grupo › @p.SubGrupo</span>@if (p.Controlado) { <span class="selo info" style="margin-left:4px">controlado</span> }
+                    <b>@p.Codigo</b> @p.Nome <span class="mudo">· @p.Unidade · @p.Grupo › @p.SubGrupo</span>@if (p.Controlado) { <span class="selo info ml-4">controlado</span> }
                 </li>
             }
         </ul>

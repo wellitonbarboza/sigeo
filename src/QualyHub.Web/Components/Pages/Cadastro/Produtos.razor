@@ -2,46 +2,60 @@
 @inherits PaginaBase
 @inject QualyHub.Infrastructure.Importacao.ImportadorProdutosExpertData ImpProd
 @inject CodigosProdutoServico Codigos
+@inject CadastrosServico Cad
+@inject IJSRuntime JS
 
-<Pagina Titulo="Produtos (insumos)" Grade="_grade" AoNovo="Novo" AoAtualizar="Carregar">
+@* Catálogo com milhares de itens: a lista é paginada no banco (a Grade filtra/agrupa em memória, por isso não é usada aqui). *@
+<Pagina Titulo="Produtos (insumos)" AoNovo="Novo" AoAtualizar="Carregar">
     <ChildContent>
         <div class="pagina">
             <div class="kpis">
-                <Kpi Rotulo="Produtos ativos" Valor="@_itens?.Count(p => p.Ativo)" />
-                <Kpi Rotulo="A classificar" Valor="@_itens?.Count(p => p.Ativo && p.AClassificar)" Sub="grupo 'A Cadastrar' ou vazio" Tom="aviso" />
-                <Kpi Rotulo="Sem NCM" Valor="@_itens?.Count(p => p.Ativo && string.IsNullOrEmpty(p.Ncm))" Sub="não casa com a NF-e" Tom="aviso" />
-                <Kpi Rotulo="Vinculados a controlado" Valor="@_itens?.Count(p => p.MaterialControladoId != null)" Tom="ok" />
+                <Kpi Rotulo="Produtos ativos" Valor="@_resumo?.Ativos" />
+                <Kpi Rotulo="A classificar" Valor="@_resumo?.AClassificar" Sub="grupo 'A Cadastrar' ou vazio" Tom="aviso" />
+                <Kpi Rotulo="Sem NCM" Valor="@_resumo?.SemNcm" Sub="não casa com a NF-e" Tom="aviso" />
+                <Kpi Rotulo="Vinculados a controlado" Valor="@_resumo?.Vinculados" Tom="ok" />
             </div>
             <div class="barra-acoes">
                 <a class="btn sec pq" href="cadastros/categorias"><Icone Nome="lista" Tam="14" /> Categorias e siglas</a>
                 <button class="btn sec pq" disabled="@Ocupado" @onclick="PreverPadronizacao" title="Aplica o padrão GRUPO-SUBGRUPO-0000 aos produtos ainda não usados"><Icone Nome="atualizar" Tam="14" /> Padronizar códigos</button>
-                <label class="btn sec pq" style="cursor:pointer" title="Planilha 'Export Produto Genérico' do ExpertData (.xlsx)"><Icone Nome="upload" Tam="14" /> Importar planilha (ExpertData)<InputFile OnChange="Prever" accept=".xlsx" style="display:none" /></label>
+                <label class="btn sec pq arquivo cursor-mao" title="Planilha 'Export Produto Genérico' do ExpertData (.xlsx)"><Icone Nome="upload" Tam="14" /> Importar planilha (ExpertData)<InputFile OnChange="Prever" accept=".xlsx" class="so-leitor" /></label>
+                <button class="btn sec pq" disabled="@Ocupado" @onclick="Exportar" title="Exporta todos os produtos do filtro atual (não só a página)"><Icone Nome="excel" Tam="14" /> Exportar Excel</button>
             </div>
-            <Grade T="Produto" @ref="_grade" Itens="_itens" AoClicar="Abrir" NomeExportacao="produtos" CriadoPor="p => p.CriadoPor">
-                <Colunas>
-                    <Coluna T="Produto" Titulo="Código" Valor="p => p.Codigo" Largura="110px" />
-                    <Coluna T="Produto" Titulo="Nome" Valor="p => p.Nome" />
-                    <Coluna T="Produto" Titulo="UN" Valor="p => p.Unidade" Largura="60px" />
-                    <Coluna T="Produto" Titulo="Grupo" Valor="p => p.Grupo" />
-                    <Coluna T="Produto" Titulo="Subgrupo" Valor="p => p.SubGrupo" />
-                    <Coluna T="Produto" Titulo="NCM" Valor="p => p.Ncm" Largura="100px" />
-                    <Coluna T="Produto" Titulo="Descrição completa" Valor="p => p.DescricaoCompleta" Visivel="false" />
-                    <Coluna T="Produto" Titulo="Marca" Valor="p => p.Marca" Visivel="false" />
-                    <Coluna T="Produto" Titulo="Referência" Valor="p => p.Referencia" Visivel="false" />
-                    <Coluna T="Produto" Titulo="EAN" Valor="p => p.Ean" Visivel="false" />
-                    <Coluna T="Produto" Titulo="Qtd/emb." Valor="p => p.QuantidadePorEmbalagem" Alinhar="num" Visivel="false" />
-                    <Coluna T="Produto" Titulo="Código anterior" Valor="p => p.CodigoAnterior" Visivel="false" />
-                    <Coluna T="Produto" Titulo="Origem" Valor="p => p.OrigemSistema" Visivel="false" />
-                    <Coluna T="Produto" Titulo="Lead time (dias)" Valor="p => p.LeadTimeDias" Alinhar="num" />
-                    <Coluna T="Produto" Titulo="Preço ref." Valor="p => p.PrecoReferencia" Formato="C2" Alinhar="num" />
-                    <Coluna T="Produto" Titulo="Material controlado" Valor="p => p.MaterialControlado == null ? null : p.MaterialControlado.Nome" />
-                    <Coluna T="Produto" Titulo="Ativo" Valor="p => p.Ativo" />
-                </Colunas>
-            </Grade>
+            <div class="barra-filtro">
+                <label>Buscar (código ou nome) <input type="search" @bind="_fTexto" @bind:after="Filtrar" placeholder="Digite e tecle Enter" /></label>
+                <label>Grupo <select @bind="_fGrupo" @bind:after="Filtrar"><option value="">Todos</option>@foreach (var g in _grupos) { <option value="@g">@g</option> }</select></label>
+                <label>Situação <select @bind="_fAtivo" @bind:after="Filtrar"><option value="">Todos</option><option value="sim">Ativos</option><option value="nao">Inativos</option></select></label>
+                <span class="mudo" role="status">@(_pagina is null ? "Carregando…" : $"{_pagina.Total} registro(s)")</span>
+            </div>
+            @if (_pagina is not null)
+            {
+                <table class="itens">
+                    <thead><tr>
+                        <th class="larg-130" aria-sort="@AriaOrdem(OrdemProdutos.Codigo)"><button type="button" class="cab-ordena" @onclick="() => Ordenar(OrdemProdutos.Codigo)">Código @Seta(OrdemProdutos.Codigo)</button></th>
+                        <th aria-sort="@AriaOrdem(OrdemProdutos.Nome)"><button type="button" class="cab-ordena" @onclick="() => Ordenar(OrdemProdutos.Nome)">Nome @Seta(OrdemProdutos.Nome)</button></th>
+                        <th class="larg-60">UN</th><th>Grupo</th><th>Subgrupo</th><th class="larg-100">NCM</th>
+                        <th class="num">Lead time (dias)</th><th class="num">Preço ref.</th><th>Material controlado</th><th>Ativo</th>
+                    </tr></thead>
+                    <tbody>
+                        @foreach (var p in _pagina.Itens)
+                        {
+                            <tr @key="p.Id" class="clicavel" tabindex="0" role="button" aria-label="@($"Abrir produto {p.Codigo} {p.Nome}")"
+                                @onclick="() => Abrir(p.Id)" @onkeydown="e => Tecla(e, p.Id)">
+                                <td>@p.Codigo</td><td>@p.Nome</td><td>@p.Unidade</td><td>@p.Grupo</td><td>@p.SubGrupo</td><td>@p.Ncm</td>
+                                <td class="num">@p.LeadTimeDias</td><td class="num">@p.PrecoReferencia?.ToString("C2")</td><td>@p.MaterialControlado</td><td>@(p.Ativo ? "Sim" : "Não")</td>
+                            </tr>
+                        }
+                        @if (_pagina.Total == 0) { <tr><td colspan="10" class="mudo">Nenhum produto encontrado com esse filtro.</td></tr> }
+                    </tbody>
+                </table>
+                <Paginacao Total="_pagina.Total" Pagina="_pagina.Pagina" Tamanho="TamPagina" AoMudar="IrPara" />
+            }
         </div>
     </ChildContent>
     <Faixa><b>Produtos</b><span>Vincule ao material controlado para herdar especificação e documentos exigidos na requisição</span><span>Lead time alimenta o alerta de cronograma</span></Faixa>
 </Pagina>
+
+@* Rótulo que envolve o InputFile: o input real continua focável (Tab + Enter/Espaço abre o seletor) e o foco aparece no botão. *@
 
 <Modal @bind-Aberto="_aberto" Titulo="Produto" Tamanho="media">
     <ChildContent>
@@ -106,7 +120,7 @@
                 <div class="alerta info"><Icone Nome="info" /> Unidades padronizadas: @string.Join(" · ", _previa.UnidadesConvertidas.Select(kv => $"{kv.Key} → {kv.Value}"))</div>
             }
             <div class="filtros-rapidos">@foreach (var f in new[] { "Todos", "Inserir", "Atualizar", "Duplicado", "Erro" }) { <label><input type="radio" name="fprod" checked="@(_filtroImp == f)" @onchange="() => _filtroImp = f" /> @f</label> }</div>
-            <div style="max-height:360px;overflow:auto">
+            <div class="rolagem-360">
                 <table class="itens"><thead><tr><th>Linha</th><th>Descrição genérica</th><th>UN</th><th>Grupo › Subgrupo</th><th>Ação</th><th>Detalhe</th></tr></thead>
                     <tbody>@foreach (var l in _previa.Linhas.Where(l => _filtroImp == "Todos" || l.Acao == _filtroImp).Take(500))
                     {
@@ -122,19 +136,25 @@
 </Modal>
 
 @code {
-    private Grade<Produto>? _grade;
-    private List<Produto>? _itens;
+    private const int TamPagina = 50;
+    // Cabeçalho ordenável é um botão (teclado e leitor de tela), mas com a aparência do título da coluna.
+    private PaginaProdutos? _pagina;
+    private int _paginaAtual;
+    private ResumoProdutos? _resumo;
+    private string? _fTexto, _fGrupo, _fAtivo;
+    private OrdemProdutos _ordem = OrdemProdutos.Codigo;
+    private bool _desc;
     private Produto? _p;
     private bool _aberto;
     private List<Opcao> _materiais = [];
 
     private bool _abertoPad;
     private ResultadoPadronizacao? _pad;
-    private async Task PreverPadronizacao() { if (await Executar(async () => _pad = await Codigos.PadronizarAsync(false))) _abertoPad = true; }
+    private async Task PreverPadronizacao() { if (await Executar(async () => _pad = await Codigos.PadronizarAsync(false, Cancelamento))) _abertoPad = true; }
     private async Task AplicarPadronizacao()
     {
         ResultadoPadronizacao? r = null;
-        if (await Executar(async () => r = await Codigos.PadronizarAsync(true)))
+        if (await Executar(async () => r = await Codigos.PadronizarAsync(true, Cancelamento)))
         { Notif.Sucesso($"{r!.Recodificados + r.Provisorios} código(s) padronizado(s)."); _abertoPad = false; await Carregar(); }
     }
     private List<string> _grupos = [];
@@ -152,9 +172,9 @@
         {
             if (e.File.Size > 30 * 1024 * 1024) throw new RegraDeNegocioException("Planilha acima de 30 MB.");
             using var ms = new MemoryStream();
-            await e.File.OpenReadStream(30 * 1024 * 1024).CopyToAsync(ms);
+            await e.File.OpenReadStream(30 * 1024 * 1024, Cancelamento).CopyToAsync(ms, Cancelamento);
             _arquivoImp = ms.ToArray();
-            _previa = await ImpProd.PreverAsync(new MemoryStream(_arquivoImp));
+            _previa = await ImpProd.PreverAsync(new MemoryStream(_arquivoImp), Cancelamento);
             _filtroImp = "Todos"; _abertoImp = true;
         });
     }
@@ -162,7 +182,7 @@
     private async Task ConfirmarImportacao()
     {
         (int Inseridos, int Atualizados) r = default;
-        if (await Executar(async () => r = await ImpProd.ImportarAsync(new MemoryStream(_arquivoImp!))))
+        if (await Executar(async () => r = await ImpProd.ImportarAsync(new MemoryStream(_arquivoImp!), Cancelamento)))
         {
             Notif.Sucesso($"{r.Inseridos} produto(s) incluído(s) e {r.Atualizados} atualizado(s).");
             _abertoImp = false; _previa = null; _arquivoImp = null;
@@ -170,39 +190,82 @@
         }
     }
 
+    private FiltroProdutos Filtro => new(_fTexto, string.IsNullOrEmpty(_fGrupo) ? null : _fGrupo,
+        _fAtivo switch { "sim" => true, "nao" => false, _ => null }, _ordem, _desc);
+
+    /// <summary>Recarrega indicadores, grupos e a página atual (após salvar, importar ou padronizar).</summary>
     private async Task Carregar()
     {
-        await using var db = Fabrica.Criar();
-        _itens = await db.Produtos.AsNoTracking().Include(p => p.MaterialControlado).OrderBy(p => p.Nome).ToListAsync();
-        _grupos = _itens.Where(p => !string.IsNullOrWhiteSpace(p.Grupo)).Select(p => p.Grupo!).Distinct().Order().ToList();
-        _subgrupos = _itens.Where(p => !string.IsNullOrWhiteSpace(p.SubGrupo)).Select(p => (p.Grupo, p.SubGrupo!)).Distinct().OrderBy(x => x.Item2).ToList();
+        _resumo = await Cad.ResumoProdutosAsync(Cancelamento);
+        (_grupos, _subgrupos) = await Cad.GruposProdutoAsync(Cancelamento);
+        await CarregarPagina();
+    }
+
+    private async Task CarregarPagina()
+    {
+        _pagina = await Cad.ListarProdutosAsync(Filtro, _paginaAtual, TamPagina, Cancelamento);
+        _paginaAtual = _pagina.Pagina; // o serviço ajusta quando o total encolheu (ex.: produto inativado na última página)
+    }
+
+    private Task Filtrar() { _paginaAtual = 0; return CarregarPagina(); }
+    private Task IrPara(int p) { _paginaAtual = p; return CarregarPagina(); }
+
+    private Task Ordenar(OrdemProdutos o)
+    {
+        _desc = _ordem == o && !_desc;
+        _ordem = o;
+        return Filtrar();
+    }
+    private string Seta(OrdemProdutos o) => _ordem != o ? "" : _desc ? "▼" : "▲";
+    private string AriaOrdem(OrdemProdutos o) => _ordem != o ? "none" : _desc ? "descending" : "ascending";
+
+    private async Task Tecla(KeyboardEventArgs e, Guid id)
+    {
+        if (e.Key is "Enter" or " " or "Spacebar") await Abrir(id);
+    }
+
+    /// <summary>Planilha com o filtro inteiro (todas as páginas), montada no servidor a partir do serviço.</summary>
+    private async Task Exportar()
+    {
+        await Executar(async () =>
+        {
+            var linhas = await Cad.ExportarProdutosAsync(Filtro, Cancelamento);
+            using var wb = new ClosedXML.Excel.XLWorkbook();
+            var ws = wb.AddWorksheet("Produtos");
+            string[] titulos = ["Código", "Nome", "UN", "Grupo", "Subgrupo", "NCM", "Descrição completa", "Marca", "Referência", "EAN", "Qtd/emb.",
+                                "Código anterior", "Origem", "Lead time (dias)", "Preço ref.", "Material controlado", "Ativo"];
+            for (var c = 0; c < titulos.Length; c++) { ws.Cell(1, c + 1).Value = titulos[c]; ws.Cell(1, c + 1).Style.Font.Bold = true; }
+            var r = 2;
+            foreach (var l in linhas)
+            {
+                ws.Cell(r, 1).Value = l.Codigo; ws.Cell(r, 2).Value = l.Nome; ws.Cell(r, 3).Value = l.Unidade; ws.Cell(r, 4).Value = l.Grupo;
+                ws.Cell(r, 5).Value = l.SubGrupo; ws.Cell(r, 6).Value = l.Ncm; ws.Cell(r, 7).Value = l.DescricaoCompleta; ws.Cell(r, 8).Value = l.Marca;
+                ws.Cell(r, 9).Value = l.Referencia; ws.Cell(r, 10).Value = l.Ean; ws.Cell(r, 11).Value = l.QuantidadePorEmbalagem;
+                ws.Cell(r, 12).Value = l.CodigoAnterior; ws.Cell(r, 13).Value = l.OrigemSistema; ws.Cell(r, 14).Value = l.LeadTimeDias;
+                ws.Cell(r, 15).Value = l.PrecoReferencia; ws.Cell(r, 16).Value = l.MaterialControlado; ws.Cell(r, 17).Value = l.Ativo ? "Sim" : "Não";
+                r++;
+            }
+            ws.Column(15).Style.NumberFormat.Format = "#,##0.00";
+            ws.Columns().AdjustToContents(8, 60);
+            using var ms = new MemoryStream();
+            wb.SaveAs(ms);
+            await JS.InvokeVoidAsync("qh.baixar", Cancelamento, $"produtos-{Relogio.GetLocalNow():yyyyMMdd-HHmm}.xlsx", Convert.ToBase64String(ms.ToArray()),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        });
     }
 
     private void Novo() { _p = new Produto(); ErrosForm = null; _aberto = true; }
-    private void Abrir(Produto p) { _p = p; ErrosForm = null; _aberto = true; }
+
+    private async Task Abrir(Guid id)
+    {
+        Produto? p = null;
+        if (!await Executar(async () => p = await Cad.ObterProdutoAsync(id, Cancelamento))) return;
+        if (p is null) { Notif.Erro("Produto não encontrado (pode ter sido excluído)."); await CarregarPagina(); return; }
+        _p = p; ErrosForm = null; _aberto = true;
+    }
 
     private async Task Salvar()
     {
-        var ok = await Executar(async () =>
-        {
-            var e = new List<string>();
-            if (string.IsNullOrWhiteSpace(_p!.Nome)) e.Add("Informe a descrição genérica.");
-            if (!string.IsNullOrWhiteSpace(_p.Grupo) && !_p.AClassificar && string.IsNullOrWhiteSpace(_p.SubGrupo)) e.Add("Informe o subgrupo (o código usa grupo + subgrupo).");
-            if (_p.LeadTimeDias < 0) e.Add("Lead time não pode ser negativo.");
-            if (_p.PrecoReferencia is < 0) e.Add("Preço de referência não pode ser negativo.");
-            _p.Ncm = string.IsNullOrWhiteSpace(_p.Ncm) ? null : new string(_p.Ncm.Where(char.IsDigit).ToArray());
-            if (_p.Ncm is { Length: not 8 }) e.Add("NCM deve ter 8 dígitos.");
-            else if (_p.Ncm is not null && _p.Ncm.Trim('0').Length == 0) _p.Ncm = null;
-            _p.Ean = string.IsNullOrWhiteSpace(_p.Ean) ? null : new string(_p.Ean.Where(char.IsDigit).ToArray());
-            if (_p.Ean is { Length: not (8 or 12 or 13 or 14) }) e.Add("EAN deve ter 8, 12, 13 ou 14 dígitos.");
-            if (_p.QuantidadePorEmbalagem is <= 0) e.Add("Quantidade por embalagem deve ser maior que zero.");
-            ValidacaoException.Se(e);
-            await using var db = Fabrica.Criar();
-            _p.MaterialControlado = null;
-            await CodigosProdutoServico.AplicarAoSalvarAsync(db, _p, new CodigosProdutoServico.Cache());
-            await Grafo.SalvarAsync(db, _p);
-            await db.SaveChangesAsync();
-        }, "Produto salvo.");
-        if (ok) { _aberto = false; await Carregar(); }
+        if (await Executar(() => Cad.SalvarProdutoAsync(_p!, Cancelamento), "Produto salvo.")) { _aberto = false; await Carregar(); }
     }
 }

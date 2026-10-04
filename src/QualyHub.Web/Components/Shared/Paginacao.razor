@@ -2,7 +2,7 @@
 @if (Total > Tamanho)
 {
     var ultima = (Total - 1) / Tamanho;
-    <div class="barra-filtro" style="gap:6px;align-items:center;margin:6px 0">
+    <div class="barra-filtro paginacao-barra">
         <button type="button" class="btn sec pq" disabled="@(Pagina <= 0)" @onclick="() => Ir(0)">«</button>
         <button type="button" class="btn sec pq" disabled="@(Pagina <= 0)" @onclick="() => Ir(Pagina - 1)">‹</button>
         <span class="mudo">@(Pagina * Tamanho + 1)–@Math.Min(Total, (Pagina + 1) * Tamanho) de @Total · página @(Pagina + 1)/@(ultima + 1)</span>

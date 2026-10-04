@@ -27,7 +27,7 @@ public sealed record PreviaImportacaoFornecedores(IReadOnlyList<LinhaFornecedorP
 /// valores-sentinela do sistema de origem (capital 1, fundação 01/01/2001 ou 0001, "NAO CONSTA") viram vazio;
 /// tipo de fornecimento e qualificação NUNCA vêm da importação (decisão da Qualidade/Suprimentos).
 /// </summary>
-public sealed class ImportadorFornecedoresExpertData(FabricaDb fabrica)
+public sealed class ImportadorFornecedoresExpertData(IFabricaDb fabrica)
 {
     private static readonly CultureInfo Br = new("pt-BR");
 

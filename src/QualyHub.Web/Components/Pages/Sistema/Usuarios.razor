@@ -1,6 +1,7 @@
 @page "/sistema/usuarios"
 @inherits PaginaBase
 @inject ContaServico Conta
+@inject SistemaServico Sistema
 
 <Pagina Titulo="Usuários, alçadas e delegações" Grade="GradeAtual" AoNovo="Novo" AoAtualizar="Carregar">
     <ChildContent>
@@ -68,7 +69,7 @@
             <Erros Lista="ErrosForm" />
             <div class="form">
                 <Campo Rotulo="Nome" Obrigatorio Classe="s5"><input id="usu-nome" @bind="_u.Nome" disabled="@(!Perfil())" /></Campo>
-                <Campo Rotulo="Login" Obrigatorio Classe="s3" Ajuda="Letras, números, ponto, hífen e sublinhado"><input id="usu-login" @bind="_u.Login" autocomplete="off" style="text-transform:lowercase" disabled="@(!Perfil())" /></Campo>
+                <Campo Rotulo="Login" Obrigatorio Classe="s3" Ajuda="Letras, números, ponto, hífen e sublinhado"><input id="usu-login" @bind="_u.Login" autocomplete="off" class="minusc" disabled="@(!Perfil())" /></Campo>
                 <Campo Rotulo="E-mail" Obrigatorio Classe="s4"><input id="usu-email" type="email" @bind="_u.Email" disabled="@(!Perfil())" /></Campo>
                 <Campo Rotulo="Perfil" Obrigatorio Classe="s4"><select @bind="_u.Perfil" disabled="@(!Perfil())">@foreach (var p in Enum.GetValues<PerfilUsuario>()) { <option value="@p">@De(p)</option> }</select></Campo>
                 <Campo Rotulo="Função (nome exibido nas aprovações)" Classe="s5"><select @bind="_u.Funcao" disabled="@(!Perfil())"><option value="">—</option>@foreach (var f in _funcoes) { <option>@f</option> }</select></Campo>
@@ -89,7 +90,7 @@
             @if (_u.CriadoEm != default)
             {
                 <div class="secao"><Icone Nome="cadeado" /> Senha e acesso</div>
-                <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+                <div class="lado-a-lado largo">
                     <span>@SituacaoAcesso(_u.Id)</span>
                     @if (Perfil())
                     {
@@ -99,7 +100,7 @@
                 </div>
                 @if (_senhaGerada is not null)
                 {
-                    <div class="alerta aviso" style="flex-direction:column;align-items:stretch">
+                    <div class="alerta aviso empilhado">
                         <div><b>Senha provisória de @_u.Login</b> — anote e entregue ao usuário. Ela não será mostrada de novo; no primeiro acesso ele define a própria senha.</div>
                         <div class="senha-gerada" id="senha-gerada">@_senhaGerada</div>
                     </div>
@@ -114,12 +115,12 @@
                 <tbody>
                     @foreach (var l in _u.LimitesAprovacao)
                     {
-                        <tr>
+                        <tr @key="l.Id">
                             <td><select @bind="l.Entidade" disabled="@(!Perfil())">@foreach (var e in Enum.GetValues<EntidadeAprovavel>()) { <option value="@e">@De(e)</option> }</select></td>
                             <td><select @bind="l.ObraId" disabled="@(!Perfil())"><option value="">Todas</option>@foreach (var o in _obras) { <option value="@o.Id">@o.Texto</option> }</select></td>
-                            <td style="width:150px"><input type="number" step="0.01" @bind="l.ValorMaximo" disabled="@(!Perfil())" /></td>
+                            <td class="larg-150"><input type="number" step="0.01" @bind="l.ValorMaximo" disabled="@(!Perfil())" /></td>
                             <td><input type="checkbox" @bind="l.Ativo" disabled="@(!Perfil())" /></td>
-                            <td>@if (Perfil()) { <button class="icone-btn" @onclick="() => _u.LimitesAprovacao.Remove(l)"><Icone Nome="lixeira" Tam="16" /></button> }</td>
+                            <td>@if (Perfil()) { <button type="button" class="icone-btn" title="Remover limite" aria-label="Remover limite" @onclick="() => _u.LimitesAprovacao.Remove(l)"><Icone Nome="lixeira" Tam="16" /></button> }</td>
                         </tr>
                     }
                     @if (_u.LimitesAprovacao.Count == 0) { <tr><td colspan="5" class="mudo">Sem limite: aprova conforme o perfil nas alçadas (sem teto por usuário).</td></tr> }
@@ -175,11 +176,12 @@
     <Rodape>
         @if (_d is not null && Perfil() && !_d.Revogada)
         {
-            @if (_delegacoes?.Any(x => x.Id == _d.Id) == true) { <button class="btn perigo" disabled="@Ocupado" @onclick="Revogar">Revogar</button> }
+            @if (_delegacoes?.Any(x => x.Id == _d.Id) == true) { <button class="btn perigo" disabled="@Ocupado" @onclick='() => Confirmar("Revogar esta delegação? O substituto deixa de aprovar em nome do titular a partir de agora.", Revogar)'>Revogar</button> }
             <button class="btn prim" disabled="@Ocupado" @onclick="SalvarDelegacao"><Icone Nome="check" Tam="16" /> Salvar</button>
         }
     </Rodape>
 </Modal>
+<Confirmacao Pergunta="@PerguntaConfirmacao" AoSim="ConfirmacaoSim" AoNao="ConfirmacaoNao" TextoSim="Revogar" />
 
 @code {
     private IGrade? GradeAtual => _aba switch { "usuarios" => _gU, "alcadas" => _gA, _ => _gD };
@@ -209,11 +211,11 @@
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.Criar();
-        _usuarios = await db.Usuarios.AsNoTracking().Include(u => u.Obras).Include(u => u.LimitesAprovacao).OrderBy(u => u.Nome).ToListAsync();
-        _alcadas = await db.Alcadas.AsNoTracking().OrderBy(a => a.Entidade).ThenBy(a => a.Ordem).ToListAsync();
-        _delegacoes = await db.DelegacoesAprovacao.AsNoTracking().OrderByDescending(d => d.Inicio).ToListAsync();
-        _credenciais = await Conta.SituacaoAsync();
+        await using var db = Fabrica.CriarLeitura();
+        _usuarios = await db.Usuarios.Include(u => u.Obras).Include(u => u.LimitesAprovacao).OrderBy(u => u.Nome).ToListAsync(Cancelamento);
+        _alcadas = await db.Alcadas.OrderBy(a => a.Entidade).ThenBy(a => a.Ordem).ToListAsync(Cancelamento);
+        _delegacoes = await db.DelegacoesAprovacao.OrderByDescending(d => d.Inicio).ToListAsync(Cancelamento);
+        _credenciais = await Conta.SituacaoAsync(Cancelamento);
         _usuariosOp = _usuarios.Where(u => u.Ativo).Select(u => new Opcao(u.Id, $"{u.Nome} ({De(u.Perfil)})")).ToList();
     }
 
@@ -245,12 +247,12 @@
     private async Task GerarSenha()
     {
         string? senha = null;
-        if (await Executar(async () => senha = await Conta.DefinirSenhaProvisoriaAsync(_u!.Id), null)) { _senhaGerada = senha; _credenciais = await Conta.SituacaoAsync(); }
+        if (await Executar(async () => senha = await Conta.DefinirSenhaProvisoriaAsync(_u!.Id, Cancelamento), null)) { _senhaGerada = senha; _credenciais = await Conta.SituacaoAsync(Cancelamento); }
     }
 
     private async Task Desbloquear()
     {
-        if (await Executar(() => Conta.DesbloquearAsync(_u!.Id), "Usuário desbloqueado.")) _credenciais = await Conta.SituacaoAsync();
+        if (await Executar(() => Conta.DesbloquearAsync(_u!.Id, Cancelamento), "Usuário desbloqueado.")) _credenciais = await Conta.SituacaoAsync(Cancelamento);
     }
 
     private void AlternarObra(Guid obra, bool marcado)
@@ -263,74 +265,29 @@
     private async Task SalvarUsuario()
     {
         var novo = _u!.CriadoEm == default;
-        var ok = await Executar(async () =>
-        {
-            var e = new List<string>();
-            if (string.IsNullOrWhiteSpace(_u!.Nome)) e.Add("Informe o nome.");
-            if (string.IsNullOrWhiteSpace(_u.Email) || !_u.Email.Contains('@')) e.Add("Informe um e-mail válido.");
-            _u.Login = PoliticaSenha.NormalizarLogin(_u.Login);
-            _u.Email = _u.Email.Trim().ToLowerInvariant();
-            e.AddRange(PoliticaSenha.ValidarLogin(_u.Login));
-            if (_u.LimitesAprovacao.Any(l => l.ValorMaximo < 0)) e.Add("Limite não pode ser negativo.");
-            if (_u.Id == Usuario.UsuarioId && _u.Perfil != PerfilUsuario.Administrador) e.Add("Você não pode remover o próprio perfil de Administrador.");
-            ValidacaoException.Se(e);
-            await using var db = Fabrica.Criar();
-            if (await db.Usuarios.AnyAsync(x => x.Email == _u.Email && x.Id != _u.Id)) throw new RegraDeNegocioException("E-mail já cadastrado.");
-            if (await db.Usuarios.IgnoreQueryFilters().AnyAsync(x => x.Login == _u.Login && x.Id != _u.Id && !x.Excluido)) throw new RegraDeNegocioException("Login já está em uso.");
-            foreach (var o in _u.Obras) o.Obra = null!;
-            if (_u.AcessoTodasObras) _u.Obras.Clear();
-            await Grafo.SalvarAsync(db, _u, nameof(QualyHub.Domain.Estrutura.Usuario.Obras), nameof(QualyHub.Domain.Estrutura.Usuario.LimitesAprovacao));
-            await db.SaveChangesAsync();
-        }, "Usuário salvo.");
+        Guid id = default;
+        var ok = await Executar(async () => id = await Sistema.SalvarUsuarioAsync(_u!, Cancelamento), "Usuário salvo.");
         if (ok)
         {
-            var id = _u!.Id;
             await Carregar();
             // Usuário novo: mantém aberto para gerar a senha provisória.
-            if (novo && _usuarios.FirstOrDefault(x => x.Id == id) is { } salvo) { _u = salvo; Notif.Sucesso("Usuário criado. Gere a senha provisória."); }
+            if (novo && _usuarios?.FirstOrDefault(x => x.Id == id) is { } salvo) { _u = salvo; Notif.Sucesso("Usuário criado. Gere a senha provisória."); }
             else _abertoU = false;
         }
     }
 
     private async Task SalvarAlcada()
     {
-        var ok = await Executar(async () =>
-        {
-            var e = new List<string>();
-            if (_a!.Ordem < 1) e.Add("Ordem deve ser 1 ou maior.");
-            if (_a.ValorMinimo is { } mi && _a.ValorMaximo is { } ma && ma < mi) e.Add("Valor até menor que valor a partir de.");
-            ValidacaoException.Se(e);
-            await using var db = Fabrica.Criar();
-            await Grafo.SalvarAsync(db, _a); await db.SaveChangesAsync();
-        }, "Alçada salva — vale para novos envios.");
-        if (ok) { _abertoA = false; await Carregar(); }
+        if (await Executar(() => Sistema.SalvarAlcadaAsync(_a!, Cancelamento), "Alçada salva — vale para novos envios.")) { _abertoA = false; await Carregar(); }
     }
 
     private async Task SalvarDelegacao()
     {
-        var ok = await Executar(async () =>
-        {
-            var e = new List<string>();
-            if (_d!.TitularUsuarioId == Guid.Empty || _d.SubstitutoUsuarioId == Guid.Empty) e.Add("Informe titular e substituto.");
-            if (_d.TitularUsuarioId == _d.SubstitutoUsuarioId) e.Add("Titular e substituto devem ser diferentes.");
-            if (_d.Fim <= _d.Inicio) e.Add("Fim deve ser posterior ao início.");
-            if (string.IsNullOrWhiteSpace(_d.Motivo)) e.Add("Informe o motivo.");
-            ValidacaoException.Se(e);
-            await using var db = Fabrica.Criar();
-            await Grafo.SalvarAsync(db, _d); await db.SaveChangesAsync();
-        }, "Delegação salva.");
-        if (ok) { _abertoD = false; await Carregar(); }
+        if (await Executar(() => Sistema.SalvarDelegacaoAsync(_d!, Cancelamento), "Delegação salva.")) { _abertoD = false; await Carregar(); }
     }
 
     private async Task Revogar()
     {
-        var ok = await Executar(async () =>
-        {
-            await using var db = Fabrica.Criar();
-            var d = await db.DelegacoesAprovacao.FirstAsync(x => x.Id == _d!.Id);
-            d.Revogada = true; d.RevogadaEm = DateTimeOffset.UtcNow;
-            await db.SaveChangesAsync();
-        }, "Delegação revogada.");
-        if (ok) { _abertoD = false; await Carregar(); }
+        if (await Executar(() => Sistema.RevogarDelegacaoAsync(_d!.Id, Cancelamento), "Delegação revogada.")) { _abertoD = false; await Carregar(); }
     }
 }

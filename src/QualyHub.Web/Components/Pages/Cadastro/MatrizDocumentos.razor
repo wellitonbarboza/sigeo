@@ -34,7 +34,7 @@
         {
             <Erros Lista="ErrosForm" />
             @if (!_podeEditar) { <div class="alerta info"><Icone Nome="info" /> Somente Qualidade e Suprimentos alteram a matriz de documentos.</div> }
-            <fieldset disabled="@(!_podeEditar)" style="border:0;padding:0;margin:0;min-width:0">
+            <fieldset disabled="@(!_podeEditar)" class="fieldset-limpo">
             <div class="form">
                 <Campo Rotulo="Documento" Obrigatorio Classe="s8"><input id="mat-nome" @bind="_t.Nome" /></Campo>
                 <Campo Rotulo="Categoria" Classe="s4"><select @bind="_t.Categoria"><option value="">—</option>@foreach (var c in _categorias) { <option>@c</option> }</select></Campo>
@@ -83,8 +83,8 @@
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.Criar();
-        _tipos = await db.TiposDocumento.AsNoTracking().Where(t => t.AplicaA == AplicaA.Fornecedor).OrderBy(t => t.Categoria).ThenBy(t => t.Ordem).ThenBy(t => t.Nome).ToListAsync();
+        await using var db = Fabrica.CriarLeitura();
+        _tipos = await db.TiposDocumento.AsNoTracking().Where(t => t.AplicaA == AplicaA.Fornecedor).OrderBy(t => t.Categoria).ThenBy(t => t.Ordem).ThenBy(t => t.Nome).ToListAsync(Cancelamento);
     }
 
     private IEnumerable<TipoDocumentoExigido> Filtrados() => _filtro switch
@@ -104,6 +104,6 @@
     private async Task Salvar()
     {
         if (!_podeEditar) return;
-        if (await Executar(() => Forn.SalvarTipoDocumentoAsync(_t!), "Documento salvo na matriz.")) { _aberto = false; await Carregar(); }
+        if (await Executar(() => Forn.SalvarTipoDocumentoAsync(_t!, ct: Cancelamento), "Documento salvo na matriz.")) { _aberto = false; await Carregar(); }
     }
 }

@@ -9,9 +9,21 @@ using QualyHub.Web.Servicos;
 namespace QualyHub.Web.Components;
 
 /// <summary>Base das telas: acesso ao banco, usuário, mensagens e execução com tratamento de regra de negócio.</summary>
-public abstract class PaginaBase : ComponentBase
+public abstract class PaginaBase : ComponentBase, IDisposable
 {
-    [Inject] protected FabricaDb Fabrica { get; set; } = default!;
+    // Cancelado quando o usuário sai da tela ou fecha a aba: consulta em andamento não fica ocupando conexão do pool.
+    private readonly CancellationTokenSource _cts = new();
+    protected CancellationToken Cancelamento => _cts.Token;
+
+    public virtual void Dispose()
+    {
+        // Só cancela, não descarta a fonte: uma carga que ainda está num await vai ler Cancelamento depois do Dispose
+        // e precisa receber "cancelado" (o Blazor ignora), não ObjectDisposedException (que derrubaria o circuito).
+        if (!_cts.IsCancellationRequested) _cts.Cancel();
+        GC.SuppressFinalize(this);
+    }
+
+    [Inject] protected IFabricaDb Fabrica { get; set; } = default!;
     [Inject] protected UsuarioAtualWeb Usuario { get; set; } = default!;
     [Inject] protected Notificacoes Notif { get; set; } = default!;
     [Inject] protected Catalogos Cat { get; set; } = default!;

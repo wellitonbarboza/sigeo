@@ -36,21 +36,21 @@
                 <Campo Rotulo="Início" Classe="s3"><input type="datetime-local" @bind="_p.Inicio" disabled="@(!edita)" /></Campo>
                 <Campo Rotulo="Fim (máx. um turno)" Classe="s3"><input type="datetime-local" @bind="_p.Fim" disabled="@(!edita)" /></Campo>
             </div>
-            <div class="duas-caixas" style="grid-template-columns: 3fr 2fr">
+            <div class="duas-caixas prop-3-2">
                 <div class="caixa-sec"><div class="secao"><Icone Nome="pessoa" /> Executantes (só aptos para o risco)
-                    @if (edita) { <span class="acao"><select @bind="_novoExec" style="max-width:220px"><option value="">Incluir…</option>@foreach (var c in _colabs.Where(c => _p.Executantes.All(x => x.ColaboradorId != c.Id))) { <option value="@c.Id">@c.Texto</option> }</select> <button class="btn sec pq" @onclick="IncluirExec"><Icone Nome="mais" Tam="14" /></button></span> }
+                    @if (edita) { <span class="acao"><select @bind="_novoExec" class="larg-max-220"><option value="">Incluir…</option>@foreach (var c in _colabs.Where(c => _p.Executantes.All(x => x.ColaboradorId != c.Id))) { <option value="@c.Id">@c.Texto</option> }</select> <button class="btn sec pq" @onclick="IncluirExec"><Icone Nome="mais" Tam="14" /></button></span> }
                 </div>
-                    <table class="itens"><thead><tr><th>Colaborador</th><th>Papel</th><th>Situação</th><th></th></tr></thead>
+                    <div class="tabela-rolavel"><table class="itens"><thead><tr><th>Colaborador</th><th>Papel</th><th>Situação</th><th></th></tr></thead>
                         <tbody>@foreach (var x in _p.Executantes)
                         {
-                            <tr><td>@(string.IsNullOrEmpty(x.Nome) ? Nome(_colabs, x.ColaboradorId) : x.Nome)</td>
+                            <tr @key="x.ColaboradorId"><td>@(string.IsNullOrEmpty(x.Nome) ? Nome(_colabs, x.ColaboradorId) : x.Nome)</td>
                                 <td><select @bind="x.Papel" disabled="@(!edita)">@foreach (var pp in Enum.GetValues<PapelPt>()) { <option value="@pp">@De(pp)</option> }</select></td>
                                 <td>@if (string.IsNullOrEmpty(x.Nome)) { <span class="mudo">salve para verificar</span> } else if (x.Liberado) { <Selo Texto="Liberado" Tom="ok" /> } else { <Selo Texto="Não pode entrar" Tom="erro" /> <small class="mudo">@x.Motivo</small> }</td>
                                 <td>@if (edita) { <button class="icone-btn" @onclick="() => _p.Executantes.Remove(x)"><Icone Nome="lixeira" Tam="16" /></button> }</td></tr>
-                        }</tbody></table>
+                        }</tbody></table></div>
                 </div>
                 <div class="caixa-sec"><div class="secao"><Icone Nome="escudo-check" /> Medidas de controle</div>
-                    <div class="checks" style="flex-direction:column;gap:6px">
+                    <div class="checks coluna">
                         @foreach (var (m, idx) in _p.Medidas.Split(';', StringSplitOptions.RemoveEmptyEntries).Select((m, i) => (m, i)))
                         {
                             <label><input type="checkbox" checked="@Marcada(idx)" disabled="@(!edita)" @onchange="e => Marcar(idx, (bool)e.Value!)" /> @m</label>
@@ -58,7 +58,7 @@
                     </div>
                 </div>
             </div>
-            <div class="form" style="margin-top:12px">
+            <div class="form marg-topo-12">
                 <Campo Rotulo="Emitente (SST)" Obrigatorio Classe="s4"><input @bind="_p.Emitente" disabled="@(!edita)" /></Campo>
                 <Campo Rotulo="Responsável da área" Obrigatorio Classe="s4"><input @bind="_p.ResponsavelArea" disabled="@(!edita)" /></Campo>
                 <Campo Rotulo="Encerramento" Classe="s4"><input readonly value="@(_p.EncerradaEm is null ? "— (obrigatório ao fim do turno)" : $"{DataHora(_p.EncerradaEm)} · {_p.EncerradaPor}")" /></Campo>
@@ -100,9 +100,9 @@
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.Criar();
-        _itens = await db.PermissoesTrabalho.AsNoTracking().Include(p => p.Executantes).OrderByDescending(p => p.Inicio).ToListAsync();
-        _locNomes = await db.Locais.AsNoTracking().ToDictionaryAsync(l => l.Id, l => l.Nome);
+        await using var db = Fabrica.CriarLeitura();
+        _itens = await db.PermissoesTrabalho.AsNoTracking().Include(p => p.Executantes).OrderByDescending(p => p.Inicio).ToListAsync(Cancelamento);
+        _locNomes = await db.Locais.AsNoTracking().ToDictionaryAsync(l => l.Id, l => l.Nome, Cancelamento);
     }
 
     private async Task Nova()
@@ -115,8 +115,8 @@
 
     private async Task Abrir(Guid id)
     {
-        await using var db = Fabrica.Criar();
-        _p = await db.PermissoesTrabalho.AsNoTracking().Include(p => p.Executantes).FirstAsync(p => p.Id == id);
+        await using var db = Fabrica.CriarLeitura();
+        _p = await db.PermissoesTrabalho.AsNoTracking().Include(p => p.Executantes).FirstAsync(p => p.Id == id, Cancelamento);
         _locais = await Cat.LocaisAsync(_p.ObraId);
         ErrosForm = null; _aberto = true;
     }
@@ -134,9 +134,9 @@
     private async Task Salvar()
     {
         Guid id = default;
-        if (await Executar(async () => id = await Sst.SalvarPtAsync(_p!), "PT salva — executantes verificados.")) { await Carregar(); await Abrir(id); }
+        if (await Executar(async () => id = await Sst.SalvarPtAsync(_p!, Cancelamento), "PT salva — executantes verificados.")) { await Carregar(); await Abrir(id); }
     }
 
-    private async Task Liberar() { if (await Executar(() => Sst.LiberarPtAsync(_p!), "PT liberada.")) { await Carregar(); await Abrir(_p!.Id); } }
-    private async Task Mudar(StatusPermissaoTrabalho s) { if (await Executar(() => Sst.MudarStatusPtAsync(_p!.Id, s), "PT atualizada.")) { await Carregar(); await Abrir(_p!.Id); } }
+    private async Task Liberar() { if (await Executar(() => Sst.LiberarPtAsync(_p!, Cancelamento), "PT liberada.")) { await Carregar(); await Abrir(_p!.Id); } }
+    private async Task Mudar(StatusPermissaoTrabalho s) { if (await Executar(() => Sst.MudarStatusPtAsync(_p!.Id, s, Cancelamento), "PT atualizada.")) { await Carregar(); await Abrir(_p!.Id); } }
 }

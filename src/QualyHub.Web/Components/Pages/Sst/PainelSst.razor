@@ -6,7 +6,7 @@
     <ChildContent>
         <div class="pagina">
             <div class="barra-filtro">
-                <label>Obra <select value="@_obra" @onchange="async e => { _obra = Guid.TryParse(e.Value?.ToString(), out var g) ? g : null; await Carregar(); }"><option value="">Todas</option>@foreach (var o in _obras) { <option value="@o.Id">@o.Texto</option> }</select></label>
+                <SeletorObra Valor="_obra" ValorChanged="TrocarObra" PermitirTodas />
                 <label>Horas-homem no período (taxa de frequência) <input type="number" @bind="_horasHomem" @bind:after="StateHasChanged" /></label>
             </div>
             <div class="kpis">
@@ -19,7 +19,7 @@
                 <div class="caixa-sec"><div class="secao"><Icone Nome="predio" /> Pendências por empresa</div>
                     @foreach (var (emp, n) in _porEmpresa)
                     {
-                        <div class="barra-nota"><span>@emp</span><div class="trilho"><i style="width:@(Pct(n, _porEmpresa.Select(x => x.Item2).DefaultIfEmpty(1).Max()));background:#ef4444"></i></div><b>@n</b></div>
+                        <div class="barra-nota"><span>@emp</span><div class="trilho"><i class="barra-erro" style="width:@(Pct(n, _porEmpresa.Select(x => x.Item2).DefaultIfEmpty(1).Max()))"></i></div><b>@n</b></div>
                     }
                     @if (_porEmpresa.Count == 0) { <p class="mudo">Sem pendências.</p> }
                     <small class="mudo">documentos vencidos + treinamentos vencidos + EPI sem entrega</small>
@@ -32,7 +32,7 @@
                     @if (_vencendo.Count == 0) { <p class="mudo">Nada vencendo.</p> }
                 </div>
             </div>
-            <div class="alerta info" style="margin-top:12px"><Icone Nome="sino" /> Aviso de vencimento para a empresa e o encarregado por e-mail/WhatsApp conforme Sistema › Parâmetros e notificações.</div>
+            <div class="alerta info marg-topo-12"><Icone Nome="sino" /> Aviso de vencimento para a empresa e o encarregado por e-mail/WhatsApp conforme Sistema › Parâmetros e notificações.</div>
         </div>
     </ChildContent>
     <Faixa><b>Tela 49 · Painel SST</b><span>Aptidão, vencimentos, inspeções e taxas de acidentes (NBR 14280)</span></Faixa>
@@ -40,7 +40,6 @@
 
 @code {
     private Guid? _obra;
-    private List<Opcao> _obras = [];
     private int _ativos, _aptos, _acidentesAfast;
     private string _diasSem = "—";
     private decimal _horasHomem, _metaAptos = 95, _metaInsp = 90;
@@ -48,12 +47,13 @@
     private List<(string, int)> _porEmpresa = [], _vencendo = [];
     private static string Pct(int n, int max) => $"{(max == 0 ? 0 : 100.0 * n / max).ToString("0", System.Globalization.CultureInfo.InvariantCulture)}%";
 
+    private async Task TrocarObra(Guid? obra) { _obra = obra; await Carregar(); }
+
     protected override async Task OnInitializedAsync()
     {
-        _obras = await Cat.ObrasAsync();
-        await using (var db = Fabrica.Criar())
+        await using (var db = Fabrica.CriarLeitura())
         {
-            var p = await ParametrosServico.CarregarAsync(db);
+            var p = await ParametrosServico.CarregarAsync(db, Cancelamento);
             _metaAptos = p[Parametros.MetaAptosPerc]; _metaInsp = p[Parametros.MetaConformidadeInspecaoPerc];
         }
         await Carregar();
@@ -61,25 +61,25 @@
 
     private async Task Carregar()
     {
-        var calc = await Sst.RecalcularAsync();
-        await using var db = Fabrica.Criar();
-        var cols = await db.Colaboradores.AsNoTracking().Where(c => (c.DataSaida == null || c.DataSaida > Hoje) && (_obra == null || c.ObraId == _obra)).ToListAsync();
+        var calc = await Sst.RecalcularAsync(null, Cancelamento);
+        await using var db = Fabrica.CriarLeitura();
+        var cols = await db.Colaboradores.AsNoTracking().Where(c => (c.DataSaida == null || c.DataSaida > Hoje) && (_obra == null || c.ObraId == _obra)).ToListAsync(Cancelamento);
         _horasHomem = _horasHomem == 0 ? cols.Count * 176m * 12 : _horasHomem;
         _ativos = cols.Count; _aptos = cols.Count(c => c.Situacao == SituacaoColaborador.Apto);
-        var forn = await db.Fornecedores.AsNoTracking().ToDictionaryAsync(f => f.Id, f => f.NomeExibicao);
+        var forn = await db.Fornecedores.AsNoTracking().ToDictionaryAsync(f => f.Id, f => f.NomeExibicao, Cancelamento);
         _porEmpresa = cols.Where(c => c.Situacao != SituacaoColaborador.Apto)
             .GroupBy(c => c.FornecedorId is { } f ? forn.GetValueOrDefault(f, "?") : "Própria")
             .Select(g => (g.Key, g.Sum(c => calc.TryGetValue(c.Id, out var s) ? s.Detalhe.Count(d => !d.Ok) : 1))).OrderByDescending(x => x.Item2).Take(8).ToList();
         _vencendo = cols.SelectMany(c => calc.TryGetValue(c.Id, out var s) ? s.Detalhe.Where(d => d.Ok && d.Validade >= Hoje && d.Validade <= Hoje.AddDays(30)).Select(d => d.Exigencia) : [])
             .GroupBy(x => x).Select(g => (g.Key, g.Count())).OrderByDescending(x => x.Item2).ToList();
-        var epiVencendo = await db.EntregasEpi.AsNoTracking().CountAsync(e => e.TrocaPrevista >= Hoje && e.TrocaPrevista <= Hoje.AddDays(30));
+        var epiVencendo = await db.EntregasEpi.AsNoTracking().CountAsync(e => e.TrocaPrevista >= Hoje && e.TrocaPrevista <= Hoje.AddDays(30), Cancelamento);
         if (epiVencendo > 0) _vencendo.Add(("Troca de EPI", epiVencendo));
-        var ocs = await db.Ocorrencias.AsNoTracking().Where(o => _obra == null || o.ObraId == _obra).ToListAsync();
+        var ocs = await db.Ocorrencias.AsNoTracking().Where(o => _obra == null || o.ObraId == _obra).ToListAsync(Cancelamento);
         var desde = DateTimeOffset.Now.AddYears(-1);
         _acidentesAfast = ocs.Count(o => o.Tipo == TipoOcorrencia.AcidenteComAfastamento && o.DataHora >= desde);
         var ult = ocs.Where(o => o.Tipo == TipoOcorrencia.AcidenteComAfastamento).Select(o => (DateTimeOffset?)o.DataHora).Max();
         _diasSem = ult is null ? "—" : ((int)(DateTimeOffset.Now - ult.Value).TotalDays).ToString();
-        var insp = await db.InspecoesSeguranca.AsNoTracking().Where(i => i.Conformidade != null && (_obra == null || i.ObraId == _obra) && i.Data >= DateTimeOffset.Now.AddDays(-90)).Select(i => i.Conformidade!.Value).ToListAsync();
+        var insp = await db.InspecoesSeguranca.AsNoTracking().Where(i => i.Conformidade != null && (_obra == null || i.ObraId == _obra) && i.Data >= DateTimeOffset.Now.AddDays(-90)).Select(i => i.Conformidade!.Value).ToListAsync(Cancelamento);
         _conformidade = insp.Count == 0 ? null : Math.Round(insp.Average(), 0);
     }
 }

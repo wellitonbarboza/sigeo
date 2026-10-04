@@ -7,7 +7,7 @@
     <ChildContent>
         <div class="pagina">
             <div class="barra-filtro">
-                <label>Obra <select id="tip-obra" value="@_obraId" @onchange="async e => { _obraId = Guid.TryParse(e.Value?.ToString(), out var g) ? g : null; _t = null; _aberto = false; _fTexto = null; _fGrupo = null; _soMarcados = false; await Carregar(); }"><option value="">Selecione…</option>@foreach (var o in _obras) { <option value="@o.Id">@o.Texto</option> }</select></label>
+                <SeletorObra Id="tip-obra" Valor="_obraId" ValorChanged="TrocarObra" Inicial="ObraQuery" />
                 <div class="filtros-rapidos">@foreach (var t in Enum.GetValues<TipoTipologia>()) { <label><input type="radio" name="ttip" checked="@(_tipo == t)" @onchange="() => _tipo = t" /> @De(t)</label> }</div>
                 <a class="btn sec" href="@(_obraId is null ? "engenharia/obras" : $"engenharia/obras?obra={_obraId}")"><Icone Nome="predio" Tam="14" /> Estrutura e gerador</a>
             </div>
@@ -53,7 +53,7 @@
                         <Campo Rotulo="Suítes" Classe="s2"><input id="tip-suites" type="number" @bind="_t.Suites" /></Campo>
                         <Campo Rotulo="Área privativa (m²)" Obrigatorio Classe="s3"><input id="tip-area" type="number" step="0.01" @bind="_t.AreaPrivativa" /></Campo>
                         <Campo Rotulo="Área equivalente (m²)" Classe="s2"><input type="number" step="0.01" @bind="_t.AreaEquivalente" /></Campo>
-                        <Campo Rotulo="Soma dos cômodos" Classe="s3"><div style="display:flex;gap:6px;align-items:center"><b>@_t.SomaAreaComodos.ToString("N2", Br) m²</b><button class="btn sec pq" @onclick="() => _t.AreaPrivativa = _t.SomaAreaComodos">usar</button></div></Campo>
+                        <Campo Rotulo="Soma dos cômodos" Classe="s3"><div class="lado-a-lado estreito"><b>@_t.SomaAreaComodos.ToString("N2", Br) m²</b><button class="btn sec pq" @onclick="() => _t.AreaPrivativa = _t.SomaAreaComodos">usar</button></div></Campo>
                     }
                     @if (_t.Tipo == TipoTipologia.Torre)
                     {
@@ -71,9 +71,9 @@
                         <tbody>
                             @foreach (var m in _t.Mix.OrderBy(m => m.Ordem))
                             {
-                                <tr @key="m"><td style="width:90px"><input type="number" min="1" @bind="m.PavimentoDe" /></td><td style="width:90px"><input type="number" min="1" @bind="m.PavimentoAte" /></td>
+                                <tr @key="m"><td class="larg-90"><input type="number" min="1" @bind="m.PavimentoDe" /></td><td class="larg-90"><input type="number" min="1" @bind="m.PavimentoAte" /></td>
                                     <td><select @bind="m.ApartamentoTipologiaId"><option value="@Guid.Empty">—</option>@foreach (var a in _lista.Where(x => x.Tipo == TipoTipologia.Apartamento)) { <option value="@a.Id">@a.Codigo – @a.Nome (@a.AreaPrivativa.ToString("N2", Br) m²)</option> }</select></td>
-                                    <td style="width:120px"><input type="number" min="1" @bind="m.Quantidade" /></td>
+                                    <td class="larg-120"><input type="number" min="1" @bind="m.Quantidade" /></td>
                                     <td><button class="icone-btn" @onclick="() => _t.Mix.Remove(m)"><Icone Nome="lixeira" Tam="16" /></button></td></tr>
                             }
                             @if (_t.Mix.Count == 0) { <tr><td colspan="5" class="mudo">Ex.: pav. 1 a 8 · 2Q-56 · 8 aptos por pavimento.</td></tr> }
@@ -89,19 +89,19 @@
                     <tbody>
                         @foreach (var a in _t.Ambientes.OrderBy(a => a.Ordem))
                         {
-                            <tr @key="a"><td><input @bind="a.Nome" style="min-width:140px" /></td><td style="width:80px"><input @bind="a.Sigla" maxlength="8" style="text-transform:uppercase" placeholder="auto" /></td>
-                                <td><input @bind="a.Categoria" list="tipos-comodo" style="min-width:120px" /></td>
+                            <tr @key="a"><td><input @bind="a.Nome" class="larg-min-140" /></td><td class="larg-80"><input @bind="a.Sigla" maxlength="8" class="maiusc" placeholder="auto" /></td>
+                                <td><input @bind="a.Categoria" list="tipos-comodo" class="larg-min-120" /></td>
                                 @if (_t.Tipo == TipoTipologia.Torre)
                                 {
                                     <td><select @bind="a.Escopo"><option value="@EscopoAmbiente.AreaComumPavimento">Pavimento</option><option value="@EscopoAmbiente.AreaComumTorre">Torre</option></select></td>
-                                    <td style="white-space:nowrap">@if (a.Escopo == EscopoAmbiente.AreaComumPavimento) { <input type="number" style="width:52px" @bind="a.PavimentoDe" /><span> – </span><input type="number" style="width:52px" @bind="a.PavimentoAte" /> }</td>
+                                    <td class="sem-quebra">@if (a.Escopo == EscopoAmbiente.AreaComumPavimento) { <input type="number" class="larg-52" @bind="a.PavimentoDe" /><span> – </span><input type="number" class="larg-52" @bind="a.PavimentoAte" /> }</td>
                                 }
-                                <td style="width:90px"><input type="number" step="0.01" @bind="a.AreaPiso" /></td>
-                                <td style="width:90px"><input type="number" step="0.01" @bind="a.Perimetro" /></td>
-                                <td style="width:80px"><input type="number" step="0.01" @bind="a.PeDireito" placeholder="@_t.PeDireitoPadrao?.ToString("0.00")" /></td>
-                                <td style="width:80px"><input type="number" step="0.01" @bind="a.AreaVaos" /></td>
+                                <td class="larg-90"><input type="number" step="0.01" @bind="a.AreaPiso" /></td>
+                                <td class="larg-90"><input type="number" step="0.01" @bind="a.Perimetro" /></td>
+                                <td class="larg-80"><input type="number" step="0.01" @bind="a.PeDireito" placeholder="@_t.PeDireitoPadrao?.ToString("0.00")" /></td>
+                                <td class="larg-80"><input type="number" step="0.01" @bind="a.AreaVaos" /></td>
                                 <td class="num">@a.AreaParede(_t.PeDireitoPadrao).ToString("N2", Br)</td>
-                                <td style="white-space:nowrap"><button class="icone-btn" title="Subir" @onclick="() => Mover(a, -1)">↑</button><button class="icone-btn" title="Remover" @onclick="() => _t.Ambientes.Remove(a)"><Icone Nome="lixeira" Tam="16" /></button></td></tr>
+                                <td class="sem-quebra"><button class="icone-btn" title="Subir" @onclick="() => Mover(a, -1)">↑</button><button class="icone-btn" title="Remover" @onclick="() => _t.Ambientes.Remove(a)"><Icone Nome="lixeira" Tam="16" /></button></td></tr>
                         }
                         @if (_t.Ambientes.Count == 0) { <tr><td colspan="11" class="mudo">@(_t.Tipo == TipoTipologia.Apartamento ? "Inclua os cômodos (sala, cozinha, dormitórios, BWC…) com as medidas do projeto." : "Inclua as áreas comuns (hall, escada, fachada, guarita, lazer…).")</td></tr> }
                     </tbody>
@@ -118,10 +118,10 @@
                     <a class="btn sec pq" href="engenharia/composicoes" target="_blank">Serviços e composições ↗</a>
                 </div>
                 @if (_t.Ambientes.Any(a => !_ambSalvos.Contains(a.Id))) { <div class="alerta aviso"><Icone Nome="alerta" /> Há ambientes ainda não salvos — salve a tipologia (aba Dados) para que apareçam na matriz.</div> }
-                <div style="overflow:auto;max-height:60vh">
+                <div class="rolagem-60vh">
                     <table class="itens matriz-serv" id="matriz-serv">
                         @{ var cols = Colunas().ToList(); }
-                        <thead><tr><th style="min-width:240px">Serviço</th><th>Un.</th>@foreach (var c in cols) { <th title="@c.Titulo" class="num">@c.Rotulo</th> }</tr></thead>
+                        <thead><tr><th class="larg-min-240">Serviço</th><th>Un.</th>@foreach (var c in cols) { <th title="@c.Titulo" class="num">@c.Rotulo</th> }</tr></thead>
                         <tbody>
                             @foreach (var s in ServicosFiltrados())
                             {
@@ -152,7 +152,6 @@
 @code {
     private sealed record Col(string Rotulo, string Titulo, AlvoServico Alvo, Guid? AmbienteId);
     private Grade<Tipologia>? _grade;
-    private List<Opcao> _obras = [];
     private Guid? _obraId;
     private TipoTipologia _tipo = TipoTipologia.Apartamento;
     private List<Tipologia> _lista = [];
@@ -175,23 +174,26 @@
 
     protected override async Task OnInitializedAsync()
     {
-        _obras = await Cat.ObrasAsync();
+        // A obra inicial (?obra= ou a única permitida) vem do SeletorObra, que chama TrocarObra.
         _comodos = await Cat.ListaAsync(TipoLista.TipoComodo);
         _grupos = await Cat.ListaAsync(TipoLista.GrupoServico);
-        if (ObraQuery is { } q && _obras.Any(o => o.Id == q)) _obraId = q;
-        else if (_obras.Count == 1) _obraId = _obras[0].Id;
+    }
+
+    private async Task TrocarObra(Guid? obra)
+    {
+        _obraId = obra; _t = null; _aberto = false; _fTexto = null; _fGrupo = null; _soMarcados = false;
         await Carregar();
     }
 
     private async Task Carregar()
     {
         if (_obraId is not { } o) { _lista = []; return; }
-        await using var db = Fabrica.Criar();
-        _lista = await db.Tipologias.AsNoTracking().Include(t => t.Ambientes).Include(t => t.Mix).Where(t => t.ObraId == o).OrderBy(t => t.Codigo).ToListAsync();
-        _aplic = await db.ServicoAplicacoes.AsNoTracking().Where(a => a.ObraId == o).ToListAsync();
+        await using var db = Fabrica.CriarLeitura();
+        _lista = await db.Tipologias.AsNoTracking().Include(t => t.Ambientes).Include(t => t.Mix).Where(t => t.ObraId == o).OrderBy(t => t.Codigo).ToListAsync(Cancelamento);
+        _aplic = await db.ServicoAplicacoes.AsNoTracking().Where(a => a.ObraId == o).ToListAsync(Cancelamento);
         Indexar();
-        _usos = await db.Locais.AsNoTracking().Where(l => l.ObraId == o && l.TipologiaId != null).GroupBy(l => l.TipologiaId!.Value).Select(g => new { g.Key, N = g.Count() }).ToDictionaryAsync(x => x.Key, x => x.N);
-        _comps = await db.Composicoes.AsNoTracking().Where(c => c.Ativa).OrderBy(c => c.Grupo).ThenBy(c => c.Codigo).ToListAsync();
+        _usos = await db.Locais.AsNoTracking().Where(l => l.ObraId == o && l.TipologiaId != null).GroupBy(l => l.TipologiaId!.Value).Select(g => new { g.Key, N = g.Count() }).ToDictionaryAsync(x => x.Key, x => x.N, Cancelamento);
+        _comps = await db.Composicoes.AsNoTracking().Where(c => c.Ativa).OrderBy(c => c.Grupo).ThenBy(c => c.Codigo).ToListAsync(Cancelamento);
     }
 
     private void Indexar()
@@ -211,8 +213,8 @@
 
     private async Task Editar(Tipologia t)
     {
-        await using var db = Fabrica.Criar();
-        _t = await db.Tipologias.AsNoTracking().Include(x => x.Ambientes).Include(x => x.Mix).FirstAsync(x => x.Id == t.Id);
+        await using var db = Fabrica.CriarLeitura();
+        _t = await db.Tipologias.AsNoTracking().Include(x => x.Ambientes).Include(x => x.Mix).FirstAsync(x => x.Id == t.Id, Cancelamento);
         _ambSalvos = _t.Ambientes.Select(a => a.Id).ToHashSet();
         _abaEd = "dados"; ErrosForm = null; _aberto = true;
     }
@@ -236,7 +238,7 @@
 
     private async Task Salvar()
     {
-        if (await Executar(() => Eng.SalvarTipologiaAsync(_t!), "Tipologia salva."))
+        if (await Executar(() => Eng.SalvarTipologiaAsync(_t!, ct: Cancelamento), "Tipologia salva."))
         {
             await Carregar();
             await Editar(_t!);
@@ -246,7 +248,7 @@
     private async Task Copiar()
     {
         Guid id = default;
-        if (await Executar(async () => id = await Eng.CopiarTipologiaAsync(_t!.Id, _t.Codigo + "-B"), "Tipologia copiada (código com -B) — ajuste o código e as diferenças."))
+        if (await Executar(async () => id = await Eng.CopiarTipologiaAsync(_t!.Id, _t.Codigo + "-B", ct: Cancelamento), "Tipologia copiada (código com -B) — ajuste o código e as diferenças."))
         { await Carregar(); await Editar(_lista.First(x => x.Id == id)); }
     }
 
@@ -270,9 +272,9 @@
 
     private async Task Marcar(Guid comp, AlvoServico alvo, Guid? amb, bool on)
     {
-        var ok = await Executar(() => Orc.MarcarAplicacaoAsync(_t!.Id, comp, alvo, amb, on));
-        await using var db = Fabrica.Criar();
-        _aplic = await db.ServicoAplicacoes.AsNoTracking().Where(a => a.ObraId == _obraId).ToListAsync();
+        var ok = await Executar(() => Orc.MarcarAplicacaoAsync(_t!.Id, comp, alvo, amb, on, ct: Cancelamento));
+        await using var db = Fabrica.CriarLeitura();
+        _aplic = await db.ServicoAplicacoes.AsNoTracking().Where(a => a.ObraId == _obraId).ToListAsync(Cancelamento);
         Indexar();
         if (!ok) _versaoMatriz++; // falhou: recria as linhas para o checkbox voltar ao estado gravado
     }

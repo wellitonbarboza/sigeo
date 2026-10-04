@@ -1,7 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.Extensions.DependencyInjection;
-using QualyHub.Infrastructure.Contexto;
 using QualyHub.Infrastructure.Dados;
 using QualyHub.Infrastructure.Importacao;
 
@@ -22,26 +21,41 @@ public static class DependencyInjection
             {
                 sql.EnableRetryOnFailure(5);          // Azure SQL serverless "acorda" do auto-pause em alguns segundos
                 sql.MigrationsHistoryTable("__Migracoes", "qh");
+                // Várias coleções no mesmo Include viram consultas separadas (sem produto cartesiano: a linha-pai não volta N×M vezes).
+                sql.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery);
             })
             .AddInterceptors(sp.GetRequiredService<AuditoriaInterceptor>()));
         services.AddScoped<ImportadorFornecedores>();
-        services.AddSingleton(new Servicos.FabricaSistema(connectionString));
-        services.AddScoped<Servicos.FabricaDb>();
-        services.AddScoped<Servicos.AprovacaoServico>();
-        services.AddScoped<Servicos.SuprimentosServico>();
-        services.AddScoped<Servicos.DocumentosServico>();
-        services.AddScoped<Servicos.PortalServico>();
-        services.AddScoped<Servicos.QualidadeObraServico>();
-        services.AddScoped<Servicos.SstServico>();
-        services.AddScoped<Servicos.ColaboracaoServico>();
-        services.AddScoped<Servicos.CodigosProdutoServico>();
-        services.AddScoped<Servicos.EngenhariaServico>();
-        services.AddScoped<Servicos.OrcamentoServico>();
-        services.AddScoped<Servicos.MaoObraServico>();
-        services.AddScoped<Servicos.EstabelecimentosServico>();
-        services.AddScoped<Servicos.FornecedoresServico>();
+        services.AddSingleton<IFabricaSistema>(new Servicos.FabricaSistema(connectionString));
+        services.AddScoped<IFabricaDb, Servicos.FabricaDb>();
+        services.AddScoped<AprovacaoServico>();
+        // Suprimentos: um serviço por processo (antes um só com 7 processos).
+        services.AddScoped<RequisicoesServico>();
+        services.AddScoped<CotacoesServico>();
+        services.AddScoped<PedidosServico>();
+        services.AddScoped<ContratosServico>();
+        services.AddScoped<RecebimentosServico>();
+        services.AddScoped<TransferenciasServico>();
+        services.AddScoped<MedicoesServico>();
+        services.AddScoped<PagamentosServico>();
+        services.AddScoped<AvaliacaoFornecedoresServico>();
+        services.AddScoped<PlanosAcaoServico>();
+        services.AddScoped<CadastrosServico>();
+        services.AddScoped<SistemaServico>();
+        services.AddScoped<AnexosServico>();
+        services.AddScoped<DocumentosServico>();
+        services.AddScoped<PortalServico>();
+        services.AddScoped<QualidadeObraServico>();
+        services.AddScoped<SstServico>();
+        services.AddScoped<ColaboracaoServico>();
+        services.AddScoped<CodigosProdutoServico>();
+        services.AddScoped<EngenhariaServico>();
+        services.AddScoped<OrcamentoServico>();
+        services.AddScoped<MaoObraServico>();
+        services.AddScoped<EstabelecimentosServico>();
+        services.AddScoped<FornecedoresServico>();
         services.AddScoped<Importacao.ImportadorEspecificacao>();
-        services.AddScoped<Servicos.ContaServico>();
+        services.AddScoped<ContaServico>();
         services.AddScoped<Importacao.ImportadorFornecedoresExpertData>();
         services.AddScoped<Importacao.ImportadorProdutosExpertData>();
         // LGPD: chave HMAC do CPF vem do Key Vault em produção; sem chave, gera uma efêmera (apenas desenvolvimento).
@@ -55,8 +69,9 @@ public sealed class DesignTimeFactory : IDesignTimeDbContextFactory<QualyHubDbCo
 {
     public QualyHubDbContext CreateDbContext(string[] args)
     {
+        // Sem senha no código: a connection string vem só do ambiente de quem gera a migração.
         var cs = Environment.GetEnvironmentVariable("QH_SQL")
-                 ?? "Server=localhost,1433;Database=QualyHub;User Id=sa;Password=Dev@12345;TrustServerCertificate=True";
+                 ?? throw new InvalidOperationException("Defina a variável QH_SQL com a connection string do SQL Server local para gerar migrações.");
         var opts = new DbContextOptionsBuilder<QualyHubDbContext>().UseSqlServer(cs, s => s.MigrationsHistoryTable("__Migracoes", "qh")).Options;
         return new QualyHubDbContext(opts, new UsuarioSistema(Guid.Empty, "Migracao"));
     }

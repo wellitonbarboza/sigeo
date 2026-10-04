@@ -37,22 +37,24 @@
             <div class="secao"><Icone Nome="lista" /> Checklist e constatações
                 @if (!Fechada) { <span class="acao"><button class="btn sec pq" @onclick="CarregarChecklist">Checklist sugerido</button> <button class="btn sec pq" @onclick="() => _a.Constatacoes.Add(new Constatacao { AuditoriaInternaId = _a.Id })"><Icone Nome="mais" Tam="14" /> Item</button></span> }
             </div>
+            <div class="tabela-rolavel">
             <table class="itens">
                 <thead><tr><th>Requisito</th><th>Pergunta</th><th>Evidência</th><th>Resultado</th><th>RNC</th><th></th></tr></thead>
                 <tbody>
                     @foreach (var c in _a.Constatacoes.OrderBy(c => c.Ordem))
                     {
-                        <tr>
-                            <td style="width:80px"><input @bind="c.Requisito" disabled="@Fechada" /></td>
+                        <tr @key="c">
+                            <td class="larg-80"><input @bind="c.Requisito" disabled="@Fechada" /></td>
                             <td><input @bind="c.Pergunta" disabled="@Fechada" /></td>
                             <td><input @bind="c.Evidencia" disabled="@Fechada" /></td>
-                            <td style="width:200px"><select @bind="c.Tipo" disabled="@Fechada">@foreach (var t in Enum.GetValues<TipoConstatacao>()) { <option value="@t">@De(t)</option> }</select></td>
+                            <td class="larg-200"><select @bind="c.Tipo" disabled="@Fechada">@foreach (var t in Enum.GetValues<TipoConstatacao>()) { <option value="@t">@De(t)</option> }</select></td>
                             <td>@if (c.RncId is { } r) { <a href="obra/rnc?id=@r">ver</a> } else { <span class="mudo">—</span> }</td>
                             <td>@if (!Fechada) { <button class="icone-btn" @onclick="() => _a.Constatacoes.Remove(c)"><Icone Nome="lixeira" Tam="16" /></button> }</td>
                         </tr>
                     }
                 </tbody>
             </table>
+            </div>
             <div class="alerta info"><Icone Nome="info" /> Constatação "Não conformidade" gera RNC com origem Auditoria ao emitir o relatório; "Oportunidade de melhoria" fica registrada. O resultado entra na análise crítica pela direção.</div>
             @if (_a.Status == StatusAuditoria.RelatorioEmitido)
             {
@@ -92,8 +94,8 @@
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.Criar();
-        _itens = await db.AuditoriasInternas.AsNoTracking().Include(a => a.Constatacoes).OrderByDescending(a => a.Inicio).ToListAsync();
+        await using var db = Fabrica.CriarLeitura();
+        _itens = await db.AuditoriasInternas.AsNoTracking().Include(a => a.Constatacoes).OrderByDescending(a => a.Inicio).ToListAsync(Cancelamento);
     }
 
     private void Novo() { _a = new AuditoriaInterna { Inicio = Hoje.AddDays(14), Fim = Hoje.AddDays(15), Criterio = "SiAC/PBQP-H · procedimentos e ITS vigentes", Independencia = "Auditor não audita o próprio trabalho" }; ErrosForm = null; _aberto = true; }
@@ -107,8 +109,8 @@
 
     private async Task Abrir(Guid id)
     {
-        await using var db = Fabrica.Criar();
-        _a = await db.AuditoriasInternas.AsNoTracking().Include(a => a.Constatacoes).FirstAsync(a => a.Id == id);
+        await using var db = Fabrica.CriarLeitura();
+        _a = await db.AuditoriasInternas.AsNoTracking().Include(a => a.Constatacoes).FirstAsync(a => a.Id == id, Cancelamento);
         _resumo = _a.ResumoAnaliseCritica ?? $"{_a.Ncs} não conformidade(s), {_a.Oms} oportunidade(s) de melhoria.";
         ErrosForm = null; _aberto = true;
     }
@@ -116,15 +118,15 @@
     private async Task Salvar()
     {
         Guid id = default;
-        if (await Executar(async () => id = await Qob.SalvarAuditoriaAsync(_a!), "Auditoria salva.")) { await Carregar(); await Abrir(id); }
+        if (await Executar(async () => id = await Qob.SalvarAuditoriaAsync(_a!, Cancelamento), "Auditoria salva.")) { await Carregar(); await Abrir(id); }
     }
 
     private async Task Emitir()
     {
         var n = 0;
-        if (await Executar(async () => { await Qob.SalvarAuditoriaAsync(_a!); n = await Qob.EmitirRelatorioAuditoriaAsync(_a!.Id); }))
+        if (await Executar(async () => { await Qob.SalvarAuditoriaAsync(_a!, Cancelamento); n = await Qob.EmitirRelatorioAuditoriaAsync(_a!.Id, Cancelamento); }))
         { Notif.Sucesso($"Relatório emitido · {n} RNC aberta(s)."); await Carregar(); await Abrir(_a!.Id); }
     }
 
-    private async Task Encerrar() { if (await Executar(() => Qob.EncerrarAuditoriaAsync(_a!.Id, _resumo), "Auditoria encerrada.")) { _aberto = false; await Carregar(); } }
+    private async Task Encerrar() { if (await Executar(() => Qob.EncerrarAuditoriaAsync(_a!.Id, _resumo, Cancelamento), "Auditoria encerrada.")) { _aberto = false; await Carregar(); } }
 }

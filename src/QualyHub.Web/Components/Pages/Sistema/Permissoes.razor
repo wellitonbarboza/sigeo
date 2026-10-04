@@ -1,5 +1,6 @@
 @page "/sistema/permissoes"
 @inherits PaginaBase
+@inject SistemaServico Sistema
 
 <Pagina Titulo="Permissões de documentos do SGQ" Grade="_grade" AoNovo="Novo" AoAtualizar="Carregar">
     <ChildContent>
@@ -56,11 +57,12 @@
     <Rodape>
         @if (_p is not null && Gestor)
         {
-            @if (_itens?.Any(x => x.Id == _p.Id) == true) { <button class="btn perigo" disabled="@Ocupado" @onclick="Excluir">Excluir</button> }
+            @if (_itens?.Any(x => x.Id == _p.Id) == true) { <button class="btn perigo" disabled="@Ocupado" @onclick='() => Confirmar("Excluir esta regra de permissão? A exclusão fica registrada no log.", Excluir)'>Excluir</button> }
             <button class="btn prim" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="16" /> Salvar</button>
         }
     </Rodape>
 </Modal>
+<Confirmacao Pergunta="@PerguntaConfirmacao" AoSim="ConfirmacaoSim" AoNao="ConfirmacaoNao" />
 
 @code {
     private sealed record Linha(Guid Id, EscopoPermissao Escopo, string Alvo, string Para, PermissaoDocumento P);
@@ -75,10 +77,10 @@
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.Criar();
-        _pastas = await db.Pastas.AsNoTracking().OrderBy(p => p.Ordem).Select(p => new Opcao(p.Id, p.Nome)).ToListAsync();
-        _docs = await db.Documentos.AsNoTracking().OrderBy(d => d.Codigo).Select(d => new Opcao(d.Id, d.Codigo + " – " + d.Titulo)).ToListAsync();
-        var regras = await db.Permissoes.AsNoTracking().ToListAsync();
+        await using var db = Fabrica.CriarLeitura();
+        _pastas = await db.Pastas.OrderBy(p => p.Ordem).Select(p => new Opcao(p.Id, p.Nome)).ToListAsync(Cancelamento);
+        _docs = await db.Documentos.OrderBy(d => d.Codigo).Select(d => new Opcao(d.Id, d.Codigo + " – " + d.Titulo)).ToListAsync(Cancelamento);
+        var regras = await db.Permissoes.ToListAsync(Cancelamento);
         string Alvo(PermissaoDocumento p) => (p.Escopo == EscopoPermissao.Pasta ? _pastas : _docs).FirstOrDefault(o => o.Id == p.AlvoId)?.Texto ?? "?";
         string Para(PermissaoDocumento p) => p.UsuarioId is { } u ? _usuarios.FirstOrDefault(x => x.Id == u)?.Texto ?? "?" : p.Perfil is { } pf ? $"Perfil {De(pf)}" : "—";
         _itens = regras.Select(r => new Linha(r.Id, r.Escopo, Alvo(r), Para(r), r)).OrderBy(l => l.Alvo).ToList();
@@ -90,33 +92,11 @@
 
     private async Task Salvar()
     {
-        var ok = await Executar(async () =>
-        {
-            var e = new List<string>();
-            if (_p!.AlvoId == Guid.Empty) e.Add("Informe a pasta ou documento.");
-            if (_p.Perfil is null && _p.UsuarioId is null) e.Add("Informe o perfil ou o usuário.");
-            if (_p.Perfil is not null && _p.UsuarioId is not null) e.Add("Escolha perfil OU usuário.");
-            ValidacaoException.Se(e);
-            await using var db = Fabrica.Criar();
-            await Grafo.SalvarAsync(db, _p);
-            db.EventosDocumento.Add(new EventoDocumento { EmpresaId = Usuario.EmpresaId, DataHora = DateTimeOffset.UtcNow, UsuarioId = Usuario.UsuarioId, UsuarioNome = Usuario.Nome,
-                Evento = EventoDocumentoTipo.PermissaoAlterada, DocumentoId = _p.Escopo == EscopoPermissao.Documento ? _p.AlvoId : null, Detalhe = $"Regra {_p.Escopo} salva", Origem = "Web" });
-            await db.SaveChangesAsync();
-        }, "Permissão salva.");
-        if (ok) { _aberto = false; await Carregar(); }
+        if (await Executar(() => Sistema.SalvarPermissaoAsync(_p!, Cancelamento), "Permissão salva.")) { _aberto = false; await Carregar(); }
     }
 
     private async Task Excluir()
     {
-        var ok = await Executar(async () =>
-        {
-            await using var db = Fabrica.Criar();
-            var r = await db.Permissoes.FirstAsync(x => x.Id == _p!.Id);
-            db.Permissoes.Remove(r); // exclusão lógica pelo interceptor de auditoria
-            db.EventosDocumento.Add(new EventoDocumento { EmpresaId = Usuario.EmpresaId, DataHora = DateTimeOffset.UtcNow, UsuarioId = Usuario.UsuarioId, UsuarioNome = Usuario.Nome,
-                Evento = EventoDocumentoTipo.PermissaoAlterada, Detalhe = "Regra excluída", Origem = "Web" });
-            await db.SaveChangesAsync();
-        }, "Regra excluída.");
-        if (ok) { _aberto = false; await Carregar(); }
+        if (await Executar(() => Sistema.ExcluirPermissaoAsync(_p!.Id, Cancelamento), "Regra excluída.")) { _aberto = false; await Carregar(); }
     }
 }

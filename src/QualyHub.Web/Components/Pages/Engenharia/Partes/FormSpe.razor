@@ -1,0 +1,19 @@
+@* Formulário do modal "SPE" avulsa (Obras e empreendimentos): separado da tela para encurtá-la.
+   Edita a SPE recebida por referência — quem salva é a tela. Os ids são usados pelos testes de interface. *@
+<div class="form">
+    <Campo Rotulo="Sigla" Obrigatorio Classe="s3" Ajuda="Usada nos códigos (ex.: IRE)"><input id="spe2-sigla" @bind="Spe.Codigo" maxlength="10" class="maiusc" /></Campo>
+    <Campo Rotulo="CNPJ" Obrigatorio Classe="s4"><input id="spe2-cnpj" @bind="Spe.Cnpj" /></Campo>
+    <Campo Rotulo="Nome curto" Classe="s5"><input @bind="Spe.NomeFantasia" /></Campo>
+    <Campo Rotulo="Condomínio" Classe="s4"><select id="spe2-quadra" @bind="Spe.QuadraId"><option value="">— (sem condomínio)</option>@foreach (var q in Quadras) { <option value="@q.Id">@q.Codigo – @q.Nome</option> }</select></Campo>
+    <Campo Rotulo="Razão social" Obrigatorio Classe="s8"><input id="spe2-razao" @bind="Spe.RazaoSocial" /></Campo>
+    <Campo Rotulo="Inscrição estadual" Classe="s4"><input @bind="Spe.InscricaoEstadual" /></Campo>
+    <Campo Rotulo="Endereço de faturamento" Classe="s8"><input @bind="Spe.EnderecoFaturamento" /></Campo>
+    <Campo Rotulo="E-mail para NF" Classe="s4"><input type="email" @bind="Spe.EmailFiscal" /></Campo>
+    <Campo Rotulo="Patrimônio de afetação / RET" Classe="s4"><select @bind="Spe.PatrimonioAfetacao"><option>Indefinido</option><option>Sim</option><option>Não</option></select></Campo>
+    <Campo Rotulo="" Classe="s4"><label><input type="checkbox" id="spe2-ativa" @bind="Spe.Ativa" /> Ativa</label></Campo>
+</div>
+@if (Spe.QuadraId is null) { <div class="alerta aviso"><Icone Nome="alerta" /> SPE sem condomínio (cadastro antigo). Ligue-a a um condomínio ou desative-a.</div> }
+@code {
+    [Parameter, EditorRequired] public Spe Spe { get; set; } = default!;
+    [Parameter] public IReadOnlyList<Quadra> Quadras { get; set; } = [];
+}

@@ -1,0 +1,100 @@
+@* Escolha "serviços × locais → calcular quantidades" sobre o orçamento por local (contratar no Orçamento, puxar na Requisição).
+   Só apresentação: a tela calcula a demanda (cada uma desconta coisas diferentes) e devolve em Demanda; as ações
+   (criar requisição, incluir itens) ficam na tela, no slot Acoes ou no rodapé do modal. *@
+<div class="grade-2">
+    <div>
+        <div class="secao"><Icone Nome="lista" /> @TituloServicos</div>
+        <div class="barra-filtro">
+            <label>Buscar <input @bind="_busca" @bind:event="oninput" placeholder="serviço…" /></label>
+            @if (_grupos.Count > 1) { <label>Grupo <select @bind="_grupo"><option value="">Todos</option>@foreach (var g in _grupos) { <option>@g</option> }</select></label> }
+        </div>
+        <div class="seletor-locais">
+            @foreach (var c in Filtrados())
+            {
+                <div class="sl-linha" @key="c.Id"><label><input type="checkbox" checked="@ServicosSelecionados.Contains(c.Id)" @onchange="e => MarcarServico(c.Id, (bool)e.Value!)" /> <b>@c.Codigo</b> @c.Descricao <span class="mudo">@c.Unidade</span></label></div>
+            }
+            @if (Servicos.Count == 0 && TextoSemServicos is not null) { <div class="mudo">@TextoSemServicos</div> }
+        </div>
+    </div>
+    <div>
+        <div class="secao"><Icone Nome="predio" /> @TituloLocais</div>
+        <SeletorLocais Locais="Locais" Selecionados="LocaisSelecionados" SelecionadosChanged="AoMudarSelecao" />
+    </div>
+</div>
+<div style="display:flex;gap:8px;margin:10px 0;flex-wrap:wrap">
+    <button class="btn sec" id="@IdCalcular" disabled="@(Ocupado || ServicosSelecionados.Count == 0 || LocaisSelecionados.Count == 0)" @onclick="AoCalcular"><Icone Nome="lupa" Tam="14" /> @TextoCalcular</button>
+    @Acoes
+</div>
+@if (Demanda is not null)
+{
+    <table class="itens" id="@IdTabela">
+        <thead><tr><th>@RotuloItem</th><th>Un.</th><th class="num">@RotuloOrcado</th><th class="num">Já requisitado</th><th class="num">@RotuloSaldo</th>@if (MostrarReferencia) { <th class="num">Ref. empreitada (R$/un)</th> }<th class="num">Locais</th></tr></thead>
+        <tbody>
+            @foreach (var d in Demanda)
+            {
+                <tr class="@(d.Saldo <= 0 ? "mudo" : "")"><td>@d.Descricao</td><td>@d.Unidade</td><td class="num">@Qtd(d.Orcado)</td><td class="num">@Qtd(d.Requisitado)</td><td class="num"><b>@Qtd(d.Saldo)</b></td>
+                    @if (MostrarReferencia) { <td class="num">@d.ValorReferencia.ToString("N2", Br)</td> }<td class="num">@d.Locais.Count</td></tr>
+            }
+            @if (Demanda.Count == 0 && TextoSemDemanda is not null) { <tr><td colspan="@(MostrarReferencia ? 7 : 6)" class="mudo">@TextoSemDemanda</td></tr> }
+        </tbody>
+    </table>
+    @Nota
+}
+
+@code {
+    /// <summary>Serviço (composição) com células no orçamento da obra.</summary>
+    public sealed record ItemServico(Guid Id, string Codigo, string Descricao, string? Unidade, string? Grupo);
+
+    [Parameter] public IReadOnlyList<ItemServico> Servicos { get; set; } = [];
+    [Parameter] public IReadOnlyList<Local> Locais { get; set; } = [];
+    /// <summary>Conjuntos da tela (ela usa para calcular e para a ação); o componente marca/desmarca neles.</summary>
+    [Parameter] public HashSet<Guid> ServicosSelecionados { get; set; } = [];
+    [Parameter] public HashSet<Guid> LocaisSelecionados { get; set; } = [];
+    /// <summary>Resultado do cálculo; null = ainda não calculado (a tabela não aparece).</summary>
+    [Parameter] public List<LinhaDemanda>? Demanda { get; set; }
+    /// <summary>Qualquer mudança de serviço ou local — a tela descarta a demanda calculada.</summary>
+    [Parameter] public EventCallback AoMudarSelecao { get; set; }
+    [Parameter] public EventCallback AoCalcular { get; set; }
+    [Parameter] public bool Ocupado { get; set; }
+    [Parameter] public RenderFragment? Acoes { get; set; }
+    [Parameter] public RenderFragment? Nota { get; set; }
+
+    [Parameter] public string? IdCalcular { get; set; }
+    [Parameter] public string? IdTabela { get; set; }
+    [Parameter] public string TituloServicos { get; set; } = "1. Serviços";
+    [Parameter] public string TituloLocais { get; set; } = "2. Locais";
+    [Parameter] public string TextoCalcular { get; set; } = "Calcular quantidades";
+    [Parameter] public string RotuloItem { get; set; } = "Serviço";
+    [Parameter] public string RotuloOrcado { get; set; } = "Orçado";
+    [Parameter] public string RotuloSaldo { get; set; } = "Saldo";
+    [Parameter] public string? TextoSemServicos { get; set; }
+    [Parameter] public string? TextoSemDemanda { get; set; }
+    [Parameter] public bool MostrarReferencia { get; set; }
+    [Parameter] public int Casas { get; set; } = 2;
+
+    private static readonly System.Globalization.CultureInfo Br = new("pt-BR");
+    private string? _busca, _grupo;
+    private List<string> _grupos = [];
+
+    protected override void OnParametersSet()
+    {
+        _grupos = Servicos.Select(c => c.Grupo).Where(g => !string.IsNullOrEmpty(g)).Distinct().Order().ToList()!;
+        // Trocou a obra: um grupo que não existe mais deixaria a lista vazia com o select mostrando "Todos".
+        if (_grupo is not null && !_grupos.Contains(_grupo)) _grupo = null;
+    }
+
+    private IEnumerable<ItemServico> Filtrados()
+    {
+        var busca = string.IsNullOrWhiteSpace(_busca) ? null : Rotulos.SemAcento(_busca);
+        return Servicos.Where(c => (string.IsNullOrEmpty(_grupo) || c.Grupo == _grupo)
+                                && (busca is null || Rotulos.SemAcento($"{c.Codigo} {c.Descricao}").Contains(busca)));
+    }
+
+    private async Task MarcarServico(Guid id, bool on)
+    {
+        if (on) ServicosSelecionados.Add(id); else ServicosSelecionados.Remove(id);
+        await AoMudarSelecao.InvokeAsync();
+    }
+
+    private string Qtd(decimal v) => v.ToString($"N{Casas}", Br);
+}
