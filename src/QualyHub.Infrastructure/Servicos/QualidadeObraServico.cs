@@ -31,12 +31,12 @@ public sealed class QualidadeObraServico(FabricaDb fabrica, IUsuarioAtual usuari
         await using var db = fabrica.Criar();
         if (await db.Locais.AnyAsync(x => x.ObraId == l.ObraId && x.Codigo == l.Codigo && x.Id != l.Id, ct)) e.Add($"Código {l.Codigo} já existe nesta obra.");
         if (l.LocalPaiId == l.Id) e.Add("Local não pode ser pai de si mesmo.");
-        // Quadra, prédio, pavimento e unidade nascem só pelo gerador do empreendimento (estrutura das SPEs).
-        var gerados = new[] { "Quadra", "Prédio", "Pavimento", "Unidade" };
+        // Condomínio, torre, pavimento, apartamento, cômodo e áreas comuns das tipologias nascem só pelo gerador.
+        var gerados = Domain.Engenharia.GeradorEmpreendimento.Gerados;
         var existente = await db.Locais.AsNoTracking().FirstOrDefaultAsync(x => x.Id == l.Id, ct);
-        if (existente is null && gerados.Contains(l.Tipo)) e.Add("Quadra, prédio, pavimento e unidade são criados pelo gerador do empreendimento.");
-        if (existente is not null && gerados.Contains(existente.Tipo) && (existente.Codigo != l.Codigo || existente.Tipo != l.Tipo || existente.LocalPaiId != l.LocalPaiId))
-            e.Add("Local gerado pela estrutura das SPEs: só a descrição pode ser alterada.");
+        if (existente is null && gerados.Contains(l.Tipo)) e.Add("Condomínio, torre, pavimento, apartamento e cômodo são criados pelo gerador do empreendimento (tipologias).");
+        if (existente is not null && (gerados.Contains(existente.Tipo) || existente.AmbienteModeloId is not null) && (existente.Codigo != l.Codigo || existente.Tipo != l.Tipo || existente.LocalPaiId != l.LocalPaiId))
+            e.Add("Local gerado pela estrutura do condomínio: só a descrição pode ser alterada.");
         Checar(e);
         l.LocalPai = null; l.Filhos = [];
         await Grafo.SalvarAsync(db, l);

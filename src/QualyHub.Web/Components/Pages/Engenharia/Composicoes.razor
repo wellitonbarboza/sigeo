@@ -1,0 +1,136 @@
+@page "/engenharia/composicoes"
+@inherits PaginaBase
+@inject OrcamentoServico Orc
+
+<Pagina Titulo="Serviços e composições" Grade="_grade" AoNovo="Novo" AoAtualizar="Carregar">
+    <ChildContent>
+        <div class="pagina">
+            <Grade T="Composicao" @ref="_grade" Itens="_lista" AoClicar="Editar" NomeExportacao="composicoes" CriadoPor="c => c.CriadoPor">
+                <Colunas>
+                    <Coluna T="Composicao" Titulo="Código" Valor="c => c.Codigo" Largura="110px" />
+                    <Coluna T="Composicao" Titulo="Serviço" Valor="c => c.Descricao" />
+                    <Coluna T="Composicao" Titulo="Grupo (EAP)" Valor="c => c.Grupo" />
+                    <Coluna T="Composicao" Titulo="Un." Valor="c => c.Unidade" Largura="60px" />
+                    <Coluna T="Composicao" Titulo="Quantidade por" Valor="c => De(c.Regra)" />
+                    <Coluna T="Composicao" Titulo="ITS" Valor="c => _servicos.FirstOrDefault(s => s.Id == c.ServicoControladoId)?.Extra" />
+                    <Coluna T="Composicao" Titulo="Material (R$/un)" Valor="c => c.Custo(TipoInsumo.Material)" Formato="N2" Alinhar="num" />
+                    <Coluna T="Composicao" Titulo="M.O. própria (h/un)" Valor="c => c.HorasPorUnidade" Formato="N3" Alinhar="num" />
+                    <Coluna T="Composicao" Titulo="Custo unit. (R$)" Valor="c => c.CustoUnitario" Formato="N2" Alinhar="num" />
+                    <Coluna T="Composicao" Titulo="Ativo" Valor="c => c.Ativa" />
+                </Colunas>
+            </Grade>
+            <div class="alerta info"><Icone Nome="info" /> Cada serviço tem a composição (insumos por unidade): materiais do cadastro de produtos, mão de obra própria em horas (base da apropriação), empreitada (R$/un — vai para a cotação), equipamentos e terceiros. A ITS liga o serviço ao modelo de FVS e ao mapa da torre.</div>
+        </div>
+    </ChildContent>
+    <Faixa><b>Composições</b><span>Serviço × insumos × coeficiente × perda</span><span>Quantidade do serviço sai da geometria do local (piso, parede, perímetro, unidade)</span></Faixa>
+</Pagina>
+
+<Modal @bind-Aberto="_aberto" Titulo="@(_c?.CriadoEm == default ? "Novo serviço" : $"Serviço {_c?.Codigo}")" Tamanho="grande">
+    <ChildContent>
+        @if (_c is not null)
+        {
+            <Erros Lista="ErrosForm" />
+            <div class="form">
+                <Campo Rotulo="Código" Obrigatorio Classe="s2"><input id="comp-cod" @bind="_c.Codigo" placeholder="CTP-01" /></Campo>
+                <Campo Rotulo="Descrição do serviço" Obrigatorio Classe="s6"><input id="comp-desc" @bind="_c.Descricao" placeholder="Contrapiso convencional e = 4 cm" /></Campo>
+                <Campo Rotulo="Unidade" Obrigatorio Classe="s2"><input id="comp-un" @bind="_c.Unidade" list="un-serv" /><datalist id="un-serv"><option>m²</option><option>m</option><option>m³</option><option>un</option><option>vb</option><option>kg</option></datalist></Campo>
+                <Campo Rotulo="" Classe="s2"><label><input type="checkbox" @bind="_c.Ativa" /> Ativo</label></Campo>
+                <Campo Rotulo="Grupo (EAP)" Classe="s4"><select id="comp-grupo" @bind="_c.Grupo"><option value="">—</option>@foreach (var g in _grupos) { <option>@g</option> }</select></Campo>
+                <Campo Rotulo="Quantidade por local" Obrigatorio Classe="s3"><select id="comp-regra" @bind="_c.Regra">@foreach (var r in Enum.GetValues<RegraQuantidade>()) { <option value="@r">@De(r)</option> }</select></Campo>
+                <Campo Rotulo="Fator" Classe="s1" Ajuda="× medida"><input type="number" step="0.01" @bind="_c.Fator" /></Campo>
+                <Campo Rotulo="ITS (serviço controlado → FVS)" Classe="s4"><select id="comp-its" @bind="_c.ServicoControladoId"><option value="">— (não controlado)</option>@foreach (var s in _servicos) { <option value="@s.Id">@s.Texto</option> }</select></Campo>
+                <Campo Rotulo="Observação" Classe="s12"><input @bind="_c.Observacao" /></Campo>
+            </div>
+            <div class="secao"><Icone Nome="lista" /> Composição (por @_c.Unidade de serviço) <span class="acao"><button class="btn sec pq" id="ins-add" @onclick="AddItem"><Icone Nome="mais" Tam="14" /> Insumo</button></span></div>
+            <table class="itens" id="insumos">
+                <thead><tr><th>Tipo</th><th style="min-width:260px">Insumo</th><th>Un.</th><th class="num">Coeficiente</th><th class="num">Perda %</th><th class="num">Custo unit. (R$)</th><th class="num">R$ por @_c.Unidade</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var i in _c.Itens.OrderBy(i => i.Ordem))
+                    {
+                        <tr><td><select @bind="i.Tipo">@foreach (var t in Enum.GetValues<TipoInsumo>()) { <option value="@t">@De(t)</option> }</select></td>
+                            <td>
+                                @if (i.Tipo == TipoInsumo.Material)
+                                {
+                                    <BuscaProduto Produtos="_produtos" Valor="i.ProdutoId" AoEscolher="p => { i.ProdutoId = p.Id; i.Descricao = p.Nome; i.Unidade = p.Unidade; if (i.CustoUnitario == 0 && p.Preco is { } pr) i.CustoUnitario = pr; }" />
+                                }
+                                else if (i.Tipo == TipoInsumo.MaoObraPropria)
+                                {
+                                    <select value="@i.FuncaoObraId" @onchange="e => EscolherFuncao(i, e.Value?.ToString())"><option value="">Função…</option>@foreach (var f in _funcoes) { <option value="@f.Id">@f.Texto</option> }</select>
+                                }
+                                <input style="margin-top:4px" @bind="i.Descricao" placeholder="Descrição" />
+                            </td>
+                            <td style="width:70px"><input @bind="i.Unidade" /></td>
+                            <td style="width:100px"><input type="number" step="0.0001" @bind="i.Coeficiente" /></td>
+                            <td style="width:80px"><input type="number" step="0.1" @bind="i.PerdaPerc" /></td>
+                            <td style="width:110px"><input type="number" step="0.01" @bind="i.CustoUnitario" /></td>
+                            <td class="num">@i.CustoPorUnidade.ToString("N2", Br)</td>
+                            <td><button class="icone-btn" @onclick="() => _c.Itens.Remove(i)"><Icone Nome="lixeira" Tam="16" /></button></td></tr>
+                    }
+                    @if (_c.Itens.Count == 0) { <tr><td colspan="8" class="mudo">Ex.: contrapiso — cimento 7,5 kg/m² · areia 0,045 m³/m² · pedreiro 0,35 h/m² · servente 0,40 h/m².</td></tr> }
+                </tbody>
+                <tfoot><tr><td colspan="6" style="text-align:right">
+                    Material @_c.Custo(TipoInsumo.Material).ToString("N2", Br) · M.O. própria @_c.Custo(TipoInsumo.MaoObraPropria).ToString("N2", Br) (@_c.HorasPorUnidade.ToString("N3", Br) h) · Empreitada @_c.Custo(TipoInsumo.MaoObraEmpreitada).ToString("N2", Br) · Equip./terceiros @((_c.Custo(TipoInsumo.Equipamento) + _c.Custo(TipoInsumo.ServicoTerceiro)).ToString("N2", Br))
+                    </td><td class="num"><b>@_c.CustoUnitario.ToString("N2", Br)</b></td><td></td></tr></tfoot>
+            </table>
+            <p class="mudo">Custo do item = coeficiente × (1 + perda) × custo unitário. Material puxa o preço de referência do produto. Mão de obra própria: o custo-hora real vem do fechamento mensal da apropriação.</p>
+        }
+    </ChildContent>
+    <Rodape>
+        @if (_c is not null)
+        {
+            @if (_c.CriadoEm != default) { <div class="esq"><button class="btn sec" @onclick="Copiar"><Icone Nome="mais" Tam="14" /> Copiar</button></div> }
+            <button class="btn prim" id="comp-salvar" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="16" /> Salvar</button>
+        }
+    </Rodape>
+</Modal>
+
+@code {
+    private Grade<Composicao>? _grade;
+    private List<Composicao>? _lista;
+    private Composicao? _c;
+    private bool _aberto;
+    private List<Opcao> _servicos = [], _funcoes = [];
+    private List<ProdutoBusca> _produtos = [];
+    private List<string> _grupos = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _servicos = await Cat.ServicosAsync(); _funcoes = await Cat.FuncoesAsync(); _produtos = await Cat.ProdutosBuscaAsync(); _grupos = await Cat.ListaAsync(TipoLista.GrupoServico);
+        await Carregar();
+    }
+
+    private async Task Carregar()
+    {
+        await using var db = Fabrica.Criar();
+        _lista = await db.Composicoes.AsNoTracking().Include(c => c.Itens).OrderBy(c => c.Grupo).ThenBy(c => c.Codigo).ToListAsync();
+    }
+
+    private void Novo() { _c = new Composicao(); ErrosForm = null; _aberto = true; }
+
+    private async Task Editar(Composicao c)
+    {
+        await using var db = Fabrica.Criar();
+        _c = await db.Composicoes.AsNoTracking().Include(x => x.Itens).FirstAsync(x => x.Id == c.Id);
+        ErrosForm = null; _aberto = true;
+    }
+
+    private void AddItem() => _c!.Itens.Add(new ComposicaoItem { ComposicaoId = _c.Id, Ordem = _c.Itens.Count + 1, Coeficiente = 1 });
+
+    private void EscolherFuncao(ComposicaoItem i, string? v)
+    {
+        i.FuncaoObraId = Guid.TryParse(v, out var g) ? g : null;
+        if (_funcoes.FirstOrDefault(f => f.Id == i.FuncaoObraId) is { } f) { i.Descricao = f.Texto; i.Unidade = "h"; }
+    }
+
+    private async Task Salvar()
+    {
+        if (await Executar(() => Orc.SalvarComposicaoAsync(_c!), "Serviço salvo.")) { _aberto = false; await Carregar(); }
+    }
+
+    private async Task Copiar()
+    {
+        Guid id = default;
+        if (await Executar(async () => id = await Orc.CopiarComposicaoAsync(_c!.Id, _c.Codigo + "-B"), "Serviço copiado (código com -B)."))
+        { await Carregar(); await Editar(_lista!.First(x => x.Id == id)); }
+    }
+}

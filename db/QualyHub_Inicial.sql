@@ -5826,3 +5826,1442 @@ END;
 COMMIT;
 GO
 
+BEGIN TRANSACTION;
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    DROP INDEX [IX_Spes_QuadraId] ON [qh].[Spes];
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    WITH x AS (SELECT Id, ROW_NUMBER() OVER (PARTITION BY QuadraId ORDER BY CriadoEm) AS N FROM qh.Spes WHERE QuadraId IS NOT NULL AND Excluido = 0)
+    UPDATE s SET QuadraId = NULL FROM qh.Spes s JOIN x ON x.Id = s.Id WHERE x.N > 1;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    ALTER TABLE [qh].[TiposDocumento] ADD [Categoria] nvarchar(400) NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    ALTER TABLE [qh].[TiposDocumento] ADD [DeFuncionario] bit NOT NULL DEFAULT CAST(0 AS bit);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    ALTER TABLE [qh].[TiposDocumento] ADD [DiaLimite] int NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    ALTER TABLE [qh].[TiposDocumento] ADD [Frequencia] nvarchar(40) NOT NULL DEFAULT N'Validade';
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    ALTER TABLE [qh].[TiposDocumento] ADD [Ordem] int NOT NULL DEFAULT 0;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    ALTER TABLE [qh].[Tipologias] ADD [Observacoes] nvarchar(400) NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    ALTER TABLE [qh].[Tipologias] ADD [Pavimentos] int NOT NULL DEFAULT 0;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    ALTER TABLE [qh].[Tipologias] ADD [PeDireitoPadrao] decimal(18,4) NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    ALTER TABLE [qh].[Tipologias] ADD [PrimeiroTerreo] bit NOT NULL DEFAULT CAST(0 AS bit);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    ALTER TABLE [qh].[Tipologias] ADD [Tipo] nvarchar(40) NOT NULL DEFAULT N'Apartamento';
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    ALTER TABLE [qh].[ServicosControlados] ADD [Sigla] nvarchar(8) NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    ALTER TABLE [qh].[Requisicoes] ADD [EstabelecimentoFaturamentoId] uniqueidentifier NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    ALTER TABLE [qh].[Requisicoes] ADD [JustificativaAcimaOrcado] nvarchar(max) NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    ALTER TABLE [qh].[RequisicaoItens] ADD [ComposicaoId] uniqueidentifier NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    ALTER TABLE [qh].[Recebimentos] ADD [AlmoxarifadoCentral] bit NOT NULL DEFAULT CAST(0 AS bit);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    ALTER TABLE [qh].[Recebimentos] ADD [EstabelecimentoId] uniqueidentifier NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    ALTER TABLE [qh].[Quadras] ADD [ImplantacaoId] uniqueidentifier NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    ALTER TABLE [qh].[Pedidos] ADD [EntregaAlmoxarifadoCentral] bit NOT NULL DEFAULT CAST(0 AS bit);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    ALTER TABLE [qh].[Pedidos] ADD [EstabelecimentoFaturamentoId] uniqueidentifier NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    ALTER TABLE [qh].[MateriaisControlados] ADD [CategoriaProdutoId] uniqueidentifier NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    ALTER TABLE [qh].[Locais] ADD [AmbienteModeloId] uniqueidentifier NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    ALTER TABLE [qh].[Locais] ADD [AreaParede] decimal(18,4) NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    ALTER TABLE [qh].[Locais] ADD [AreaPiso] decimal(18,4) NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    ALTER TABLE [qh].[Locais] ADD [Categoria] nvarchar(60) NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    ALTER TABLE [qh].[Locais] ADD [PeDireito] decimal(18,4) NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    ALTER TABLE [qh].[Locais] ADD [Perimetro] decimal(18,4) NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    ALTER TABLE [qh].[Fornecedores] ADD [IncluirDocsFuncionarios] bit NOT NULL DEFAULT CAST(0 AS bit);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    ALTER TABLE [qh].[Fornecedores] ADD [PreCadastro] bit NOT NULL DEFAULT CAST(0 AS bit);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    ALTER TABLE [qh].[FornecedorDocumentos] ADD [Competencia] date NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    ALTER TABLE [qh].[Contratos] ADD [EstabelecimentoFaturamentoId] uniqueidentifier NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    ALTER TABLE [qh].[ContratoItens] ADD [ComposicaoId] uniqueidentifier NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    ALTER TABLE [qh].[CentrosCusto] ADD [CodigoErp] nvarchar(60) NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    ALTER TABLE [qh].[CentrosCusto] ADD [EstabelecimentosPermitidos] nvarchar(2000) NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    ALTER TABLE [qh].[CentrosCusto] ADD [PaiId] uniqueidentifier NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    IF SCHEMA_ID(N'qh_hist') IS NULL EXEC(N'CREATE SCHEMA [qh_hist];');
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE TABLE [qh].[Composicoes] (
+        [Id] uniqueidentifier NOT NULL,
+        [Codigo] nvarchar(30) NOT NULL,
+        [Descricao] nvarchar(max) NOT NULL,
+        [Unidade] nvarchar(10) NOT NULL,
+        [Grupo] nvarchar(80) NULL,
+        [Regra] nvarchar(40) NOT NULL,
+        [Fator] decimal(18,6) NOT NULL,
+        [ServicoControladoId] uniqueidentifier NULL,
+        [Ativa] bit NOT NULL,
+        [Observacao] nvarchar(max) NULL,
+        [PeriodEnd] datetime2 GENERATED ALWAYS AS ROW END HIDDEN NOT NULL,
+        [PeriodStart] datetime2 GENERATED ALWAYS AS ROW START HIDDEN NOT NULL,
+        [EmpresaId] uniqueidentifier NOT NULL,
+        [CriadoEm] datetimeoffset NOT NULL,
+        [CriadoPor] nvarchar(150) NOT NULL,
+        [AlteradoEm] datetimeoffset NULL,
+        [AlteradoPor] nvarchar(150) NULL,
+        [Excluido] bit NOT NULL,
+        [ExcluidoEm] datetimeoffset NULL,
+        [ExcluidoPor] nvarchar(150) NULL,
+        [RowVersion] rowversion NOT NULL,
+        CONSTRAINT [PK_Composicoes] PRIMARY KEY ([Id]),
+        CONSTRAINT [FK_Composicoes_ServicosControlados_ServicoControladoId] FOREIGN KEY ([ServicoControladoId]) REFERENCES [qh].[ServicosControlados] ([Id]) ON DELETE NO ACTION,
+        PERIOD FOR SYSTEM_TIME([PeriodStart], [PeriodEnd])
+    ) WITH (SYSTEM_VERSIONING = ON (HISTORY_TABLE = [qh_hist].[Composicao_Historico]));
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE TABLE [qh].[ContratoItemLocais] (
+        [Id] uniqueidentifier NOT NULL,
+        [ContratoItemId] uniqueidentifier NOT NULL,
+        [LocalId] uniqueidentifier NOT NULL,
+        [Quantidade] decimal(18,4) NOT NULL,
+        CONSTRAINT [PK_ContratoItemLocais] PRIMARY KEY ([Id]),
+        CONSTRAINT [FK_ContratoItemLocais_ContratoItens_ContratoItemId] FOREIGN KEY ([ContratoItemId]) REFERENCES [qh].[ContratoItens] ([Id]) ON DELETE NO ACTION,
+        CONSTRAINT [FK_ContratoItemLocais_Locais_LocalId] FOREIGN KEY ([LocalId]) REFERENCES [qh].[Locais] ([Id]) ON DELETE NO ACTION
+    );
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE TABLE [qh].[Equipes] (
+        [Id] uniqueidentifier NOT NULL,
+        [Codigo] nvarchar(20) NOT NULL,
+        [Nome] nvarchar(120) NOT NULL,
+        [Encarregado] nvarchar(400) NULL,
+        [Ativa] bit NOT NULL,
+        [EmpresaId] uniqueidentifier NOT NULL,
+        [CriadoEm] datetimeoffset NOT NULL,
+        [CriadoPor] nvarchar(150) NOT NULL,
+        [AlteradoEm] datetimeoffset NULL,
+        [AlteradoPor] nvarchar(150) NULL,
+        [Excluido] bit NOT NULL,
+        [ExcluidoEm] datetimeoffset NULL,
+        [ExcluidoPor] nvarchar(150) NULL,
+        [RowVersion] rowversion NOT NULL,
+        [ObraId] uniqueidentifier NOT NULL,
+        CONSTRAINT [PK_Equipes] PRIMARY KEY ([Id])
+    );
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE TABLE [qh].[Estabelecimentos] (
+        [Id] uniqueidentifier NOT NULL,
+        [Codigo] nvarchar(20) NOT NULL,
+        [Tipo] nvarchar(40) NOT NULL,
+        [RazaoSocial] nvarchar(200) NOT NULL,
+        [NomeFantasia] nvarchar(400) NULL,
+        [Cnpj] nvarchar(20) NOT NULL,
+        [Raiz] nvarchar(8) NOT NULL,
+        [InscricaoEstadual] nvarchar(400) NULL,
+        [Endereco] nvarchar(400) NULL,
+        [Atividade] nvarchar(400) NULL,
+        [SpeId] uniqueidentifier NULL,
+        [FaturaMateriais] bit NOT NULL,
+        [AlmoxarifadoCentral] bit NOT NULL,
+        [EnderecoEntrega] nvarchar(400) NULL,
+        [Ativo] bit NOT NULL,
+        [CodigoErp] nvarchar(60) NULL,
+        [UltimaImportacaoId] uniqueidentifier NULL,
+        [EmpresaId] uniqueidentifier NOT NULL,
+        [CriadoEm] datetimeoffset NOT NULL,
+        [CriadoPor] nvarchar(150) NOT NULL,
+        [AlteradoEm] datetimeoffset NULL,
+        [AlteradoPor] nvarchar(150) NULL,
+        [Excluido] bit NOT NULL,
+        [ExcluidoEm] datetimeoffset NULL,
+        [ExcluidoPor] nvarchar(150) NULL,
+        [RowVersion] rowversion NOT NULL,
+        CONSTRAINT [PK_Estabelecimentos] PRIMARY KEY ([Id]),
+        CONSTRAINT [FK_Estabelecimentos_Spes_SpeId] FOREIGN KEY ([SpeId]) REFERENCES [qh].[Spes] ([Id]) ON DELETE NO ACTION
+    );
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE TABLE [qh].[FornecedorExigencias] (
+        [Id] uniqueidentifier NOT NULL,
+        [FornecedorId] uniqueidentifier NOT NULL,
+        [TipoDocumentoExigidoId] uniqueidentifier NOT NULL,
+        [Obrigatorio] bit NOT NULL,
+        CONSTRAINT [PK_FornecedorExigencias] PRIMARY KEY ([Id]),
+        CONSTRAINT [FK_FornecedorExigencias_Fornecedores_FornecedorId] FOREIGN KEY ([FornecedorId]) REFERENCES [qh].[Fornecedores] ([Id]) ON DELETE NO ACTION,
+        CONSTRAINT [FK_FornecedorExigencias_TiposDocumento_TipoDocumentoExigidoId] FOREIGN KEY ([TipoDocumentoExigidoId]) REFERENCES [qh].[TiposDocumento] ([Id]) ON DELETE NO ACTION
+    );
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE TABLE [qh].[FornecedorGrupos] (
+        [Id] uniqueidentifier NOT NULL,
+        [FornecedorId] uniqueidentifier NOT NULL,
+        [CategoriaProdutoId] uniqueidentifier NOT NULL,
+        [Subgrupos] nvarchar(2000) NULL,
+        CONSTRAINT [PK_FornecedorGrupos] PRIMARY KEY ([Id]),
+        CONSTRAINT [FK_FornecedorGrupos_CategoriasProduto_CategoriaProdutoId] FOREIGN KEY ([CategoriaProdutoId]) REFERENCES [qh].[CategoriasProduto] ([Id]) ON DELETE NO ACTION,
+        CONSTRAINT [FK_FornecedorGrupos_Fornecedores_FornecedorId] FOREIGN KEY ([FornecedorId]) REFERENCES [qh].[Fornecedores] ([Id]) ON DELETE NO ACTION
+    );
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE TABLE [qh].[FornecedorServicos] (
+        [Id] uniqueidentifier NOT NULL,
+        [FornecedorId] uniqueidentifier NOT NULL,
+        [ServicoControladoId] uniqueidentifier NOT NULL,
+        CONSTRAINT [PK_FornecedorServicos] PRIMARY KEY ([Id]),
+        CONSTRAINT [FK_FornecedorServicos_Fornecedores_FornecedorId] FOREIGN KEY ([FornecedorId]) REFERENCES [qh].[Fornecedores] ([Id]) ON DELETE NO ACTION,
+        CONSTRAINT [FK_FornecedorServicos_ServicosControlados_ServicoControladoId] FOREIGN KEY ([ServicoControladoId]) REFERENCES [qh].[ServicosControlados] ([Id]) ON DELETE NO ACTION
+    );
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE TABLE [qh].[RequisicaoItemLocais] (
+        [Id] uniqueidentifier NOT NULL,
+        [RequisicaoItemId] uniqueidentifier NOT NULL,
+        [LocalId] uniqueidentifier NOT NULL,
+        [ComposicaoId] uniqueidentifier NULL,
+        [Quantidade] decimal(18,4) NOT NULL,
+        CONSTRAINT [PK_RequisicaoItemLocais] PRIMARY KEY ([Id]),
+        CONSTRAINT [FK_RequisicaoItemLocais_Locais_LocalId] FOREIGN KEY ([LocalId]) REFERENCES [qh].[Locais] ([Id]) ON DELETE NO ACTION,
+        CONSTRAINT [FK_RequisicaoItemLocais_RequisicaoItens_RequisicaoItemId] FOREIGN KEY ([RequisicaoItemId]) REFERENCES [qh].[RequisicaoItens] ([Id]) ON DELETE NO ACTION
+    );
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE TABLE [qh].[TipologiaAmbientes] (
+        [Id] uniqueidentifier NOT NULL,
+        [TipologiaId] uniqueidentifier NOT NULL,
+        [Ordem] int NOT NULL,
+        [Escopo] nvarchar(40) NOT NULL,
+        [Nome] nvarchar(80) NOT NULL,
+        [Sigla] nvarchar(8) NULL,
+        [Categoria] nvarchar(60) NULL,
+        [AreaPiso] decimal(18,4) NOT NULL,
+        [Perimetro] decimal(18,4) NOT NULL,
+        [PeDireito] decimal(18,4) NULL,
+        [AreaVaos] decimal(18,4) NOT NULL,
+        [PavimentoDe] int NULL,
+        [PavimentoAte] int NULL,
+        CONSTRAINT [PK_TipologiaAmbientes] PRIMARY KEY ([Id]),
+        CONSTRAINT [FK_TipologiaAmbientes_Tipologias_TipologiaId] FOREIGN KEY ([TipologiaId]) REFERENCES [qh].[Tipologias] ([Id]) ON DELETE NO ACTION
+    );
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE TABLE [qh].[TipologiaMix] (
+        [Id] uniqueidentifier NOT NULL,
+        [TipologiaId] uniqueidentifier NOT NULL,
+        [Ordem] int NOT NULL,
+        [PavimentoDe] int NOT NULL,
+        [PavimentoAte] int NOT NULL,
+        [ApartamentoTipologiaId] uniqueidentifier NOT NULL,
+        [Quantidade] int NOT NULL,
+        CONSTRAINT [PK_TipologiaMix] PRIMARY KEY ([Id]),
+        CONSTRAINT [FK_TipologiaMix_Tipologias_ApartamentoTipologiaId] FOREIGN KEY ([ApartamentoTipologiaId]) REFERENCES [qh].[Tipologias] ([Id]) ON DELETE NO ACTION,
+        CONSTRAINT [FK_TipologiaMix_Tipologias_TipologiaId] FOREIGN KEY ([TipologiaId]) REFERENCES [qh].[Tipologias] ([Id]) ON DELETE NO ACTION
+    );
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE TABLE [qh].[Transferencias] (
+        [Id] uniqueidentifier NOT NULL,
+        [Numero] int NOT NULL,
+        [RecebimentoId] uniqueidentifier NULL,
+        [PedidoId] uniqueidentifier NULL,
+        [OrigemEstabelecimentoId] uniqueidentifier NULL,
+        [SpeId] uniqueidentifier NULL,
+        [Data] date NOT NULL,
+        [Status] nvarchar(40) NOT NULL,
+        [ConferidoPor] nvarchar(400) NULL,
+        [ConferidoEm] datetimeoffset NULL,
+        [Observacao] nvarchar(max) NULL,
+        [PeriodEnd] datetime2 GENERATED ALWAYS AS ROW END HIDDEN NOT NULL,
+        [PeriodStart] datetime2 GENERATED ALWAYS AS ROW START HIDDEN NOT NULL,
+        [EmpresaId] uniqueidentifier NOT NULL,
+        [CriadoEm] datetimeoffset NOT NULL,
+        [CriadoPor] nvarchar(150) NOT NULL,
+        [AlteradoEm] datetimeoffset NULL,
+        [AlteradoPor] nvarchar(150) NULL,
+        [Excluido] bit NOT NULL,
+        [ExcluidoEm] datetimeoffset NULL,
+        [ExcluidoPor] nvarchar(150) NULL,
+        [RowVersion] rowversion NOT NULL,
+        [ObraId] uniqueidentifier NOT NULL,
+        CONSTRAINT [PK_Transferencias] PRIMARY KEY ([Id]),
+        CONSTRAINT [FK_Transferencias_Obras_ObraId] FOREIGN KEY ([ObraId]) REFERENCES [qh].[Obras] ([Id]) ON DELETE NO ACTION,
+        CONSTRAINT [FK_Transferencias_Recebimentos_RecebimentoId] FOREIGN KEY ([RecebimentoId]) REFERENCES [qh].[Recebimentos] ([Id]) ON DELETE NO ACTION,
+        CONSTRAINT [FK_Transferencias_Spes_SpeId] FOREIGN KEY ([SpeId]) REFERENCES [qh].[Spes] ([Id]) ON DELETE NO ACTION,
+        PERIOD FOR SYSTEM_TIME([PeriodStart], [PeriodEnd])
+    ) WITH (SYSTEM_VERSIONING = ON (HISTORY_TABLE = [qh_hist].[TransferenciaMaterial_Historico]));
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE TABLE [qh].[ComposicaoItens] (
+        [Id] uniqueidentifier NOT NULL,
+        [ComposicaoId] uniqueidentifier NOT NULL,
+        [Ordem] int NOT NULL,
+        [Tipo] nvarchar(40) NOT NULL,
+        [ProdutoId] uniqueidentifier NULL,
+        [FuncaoObraId] uniqueidentifier NULL,
+        [Descricao] nvarchar(max) NOT NULL,
+        [Unidade] nvarchar(10) NOT NULL,
+        [Coeficiente] decimal(18,6) NOT NULL,
+        [PerdaPerc] decimal(9,4) NOT NULL,
+        [CustoUnitario] decimal(18,4) NOT NULL,
+        CONSTRAINT [PK_ComposicaoItens] PRIMARY KEY ([Id]),
+        CONSTRAINT [FK_ComposicaoItens_Composicoes_ComposicaoId] FOREIGN KEY ([ComposicaoId]) REFERENCES [qh].[Composicoes] ([Id]) ON DELETE NO ACTION,
+        CONSTRAINT [FK_ComposicaoItens_Funcoes_FuncaoObraId] FOREIGN KEY ([FuncaoObraId]) REFERENCES [qh].[Funcoes] ([Id]) ON DELETE NO ACTION,
+        CONSTRAINT [FK_ComposicaoItens_Produtos_ProdutoId] FOREIGN KEY ([ProdutoId]) REFERENCES [qh].[Produtos] ([Id]) ON DELETE NO ACTION
+    );
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE TABLE [qh].[ServicoAplicacoes] (
+        [Id] uniqueidentifier NOT NULL,
+        [ObraId] uniqueidentifier NOT NULL,
+        [TipologiaId] uniqueidentifier NOT NULL,
+        [ComposicaoId] uniqueidentifier NOT NULL,
+        [Alvo] nvarchar(40) NOT NULL,
+        [AmbienteModeloId] uniqueidentifier NULL,
+        [QuantidadeFixa] decimal(18,4) NULL,
+        [EmpresaId] uniqueidentifier NOT NULL,
+        [CriadoEm] datetimeoffset NOT NULL,
+        [CriadoPor] nvarchar(150) NOT NULL,
+        [AlteradoEm] datetimeoffset NULL,
+        [AlteradoPor] nvarchar(150) NULL,
+        [Excluido] bit NOT NULL,
+        [ExcluidoEm] datetimeoffset NULL,
+        [ExcluidoPor] nvarchar(150) NULL,
+        [RowVersion] rowversion NOT NULL,
+        CONSTRAINT [PK_ServicoAplicacoes] PRIMARY KEY ([Id]),
+        CONSTRAINT [FK_ServicoAplicacoes_Composicoes_ComposicaoId] FOREIGN KEY ([ComposicaoId]) REFERENCES [qh].[Composicoes] ([Id]) ON DELETE NO ACTION,
+        CONSTRAINT [FK_ServicoAplicacoes_Tipologias_TipologiaId] FOREIGN KEY ([TipologiaId]) REFERENCES [qh].[Tipologias] ([Id]) ON DELETE NO ACTION
+    );
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE TABLE [qh].[ServicosLocais] (
+        [Id] uniqueidentifier NOT NULL,
+        [ComposicaoId] uniqueidentifier NOT NULL,
+        [LocalId] uniqueidentifier NOT NULL,
+        [SpeId] uniqueidentifier NULL,
+        [Quantidade] decimal(18,4) NOT NULL,
+        [CustoUnitario] decimal(18,4) NOT NULL,
+        [Custo] decimal(18,2) NOT NULL,
+        [Origem] nvarchar(20) NOT NULL,
+        [Travado] bit NOT NULL,
+        [EmpresaId] uniqueidentifier NOT NULL,
+        [CriadoEm] datetimeoffset NOT NULL,
+        [CriadoPor] nvarchar(150) NOT NULL,
+        [AlteradoEm] datetimeoffset NULL,
+        [AlteradoPor] nvarchar(150) NULL,
+        [Excluido] bit NOT NULL,
+        [ExcluidoEm] datetimeoffset NULL,
+        [ExcluidoPor] nvarchar(150) NULL,
+        [RowVersion] rowversion NOT NULL,
+        [ObraId] uniqueidentifier NOT NULL,
+        CONSTRAINT [PK_ServicosLocais] PRIMARY KEY ([Id]),
+        CONSTRAINT [FK_ServicosLocais_Composicoes_ComposicaoId] FOREIGN KEY ([ComposicaoId]) REFERENCES [qh].[Composicoes] ([Id]) ON DELETE NO ACTION,
+        CONSTRAINT [FK_ServicosLocais_Locais_LocalId] FOREIGN KEY ([LocalId]) REFERENCES [qh].[Locais] ([Id]) ON DELETE NO ACTION
+    );
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE TABLE [qh].[Apropriacoes] (
+        [Id] uniqueidentifier NOT NULL,
+        [Data] date NOT NULL,
+        [EquipeId] uniqueidentifier NULL,
+        [ColaboradorId] uniqueidentifier NULL,
+        [ComposicaoId] uniqueidentifier NOT NULL,
+        [LocalId] uniqueidentifier NOT NULL,
+        [Horas] decimal(18,2) NOT NULL,
+        [QuantidadeExecutada] decimal(18,4) NULL,
+        [Observacao] nvarchar(max) NULL,
+        [Lancamento] uniqueidentifier NOT NULL,
+        [EmpresaId] uniqueidentifier NOT NULL,
+        [CriadoEm] datetimeoffset NOT NULL,
+        [CriadoPor] nvarchar(150) NOT NULL,
+        [AlteradoEm] datetimeoffset NULL,
+        [AlteradoPor] nvarchar(150) NULL,
+        [Excluido] bit NOT NULL,
+        [ExcluidoEm] datetimeoffset NULL,
+        [ExcluidoPor] nvarchar(150) NULL,
+        [RowVersion] rowversion NOT NULL,
+        [ObraId] uniqueidentifier NOT NULL,
+        CONSTRAINT [PK_Apropriacoes] PRIMARY KEY ([Id]),
+        CONSTRAINT [FK_Apropriacoes_Colaboradores_ColaboradorId] FOREIGN KEY ([ColaboradorId]) REFERENCES [qh].[Colaboradores] ([Id]) ON DELETE NO ACTION,
+        CONSTRAINT [FK_Apropriacoes_Composicoes_ComposicaoId] FOREIGN KEY ([ComposicaoId]) REFERENCES [qh].[Composicoes] ([Id]) ON DELETE NO ACTION,
+        CONSTRAINT [FK_Apropriacoes_Equipes_EquipeId] FOREIGN KEY ([EquipeId]) REFERENCES [qh].[Equipes] ([Id]) ON DELETE NO ACTION,
+        CONSTRAINT [FK_Apropriacoes_Locais_LocalId] FOREIGN KEY ([LocalId]) REFERENCES [qh].[Locais] ([Id]) ON DELETE NO ACTION
+    );
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE TABLE [qh].[CustosMaoObra] (
+        [Id] uniqueidentifier NOT NULL,
+        [Competencia] date NOT NULL,
+        [EquipeId] uniqueidentifier NULL,
+        [ColaboradorId] uniqueidentifier NULL,
+        [FuncaoObraId] uniqueidentifier NULL,
+        [Descricao] nvarchar(max) NOT NULL,
+        [Pessoas] int NOT NULL,
+        [Salario] decimal(18,2) NOT NULL,
+        [EncargosPerc] decimal(9,4) NOT NULL,
+        [Beneficios] decimal(18,2) NOT NULL,
+        [Outros] decimal(18,2) NOT NULL,
+        [HorasMes] decimal(9,2) NOT NULL,
+        [EmpresaId] uniqueidentifier NOT NULL,
+        [CriadoEm] datetimeoffset NOT NULL,
+        [CriadoPor] nvarchar(150) NOT NULL,
+        [AlteradoEm] datetimeoffset NULL,
+        [AlteradoPor] nvarchar(150) NULL,
+        [Excluido] bit NOT NULL,
+        [ExcluidoEm] datetimeoffset NULL,
+        [ExcluidoPor] nvarchar(150) NULL,
+        [RowVersion] rowversion NOT NULL,
+        [ObraId] uniqueidentifier NOT NULL,
+        CONSTRAINT [PK_CustosMaoObra] PRIMARY KEY ([Id]),
+        CONSTRAINT [FK_CustosMaoObra_Colaboradores_ColaboradorId] FOREIGN KEY ([ColaboradorId]) REFERENCES [qh].[Colaboradores] ([Id]) ON DELETE NO ACTION,
+        CONSTRAINT [FK_CustosMaoObra_Equipes_EquipeId] FOREIGN KEY ([EquipeId]) REFERENCES [qh].[Equipes] ([Id]) ON DELETE NO ACTION,
+        CONSTRAINT [FK_CustosMaoObra_Funcoes_FuncaoObraId] FOREIGN KEY ([FuncaoObraId]) REFERENCES [qh].[Funcoes] ([Id]) ON DELETE NO ACTION
+    );
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE TABLE [qh].[EquipeMembros] (
+        [Id] uniqueidentifier NOT NULL,
+        [EquipeId] uniqueidentifier NOT NULL,
+        [ColaboradorId] uniqueidentifier NOT NULL,
+        [Desde] date NOT NULL,
+        [Ate] date NULL,
+        CONSTRAINT [PK_EquipeMembros] PRIMARY KEY ([Id]),
+        CONSTRAINT [FK_EquipeMembros_Colaboradores_ColaboradorId] FOREIGN KEY ([ColaboradorId]) REFERENCES [qh].[Colaboradores] ([Id]) ON DELETE NO ACTION,
+        CONSTRAINT [FK_EquipeMembros_Equipes_EquipeId] FOREIGN KEY ([EquipeId]) REFERENCES [qh].[Equipes] ([Id]) ON DELETE NO ACTION
+    );
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE TABLE [qh].[FluxosEstabelecimento] (
+        [Id] uniqueidentifier NOT NULL,
+        [OrigemId] uniqueidentifier NOT NULL,
+        [DestinoId] uniqueidentifier NOT NULL,
+        [Tipo] nvarchar(40) NOT NULL,
+        [Base] nvarchar(80) NOT NULL,
+        [Situacao] nvarchar(30) NOT NULL,
+        [Descricao] nvarchar(max) NULL,
+        [EmpresaId] uniqueidentifier NOT NULL,
+        [CriadoEm] datetimeoffset NOT NULL,
+        [CriadoPor] nvarchar(150) NOT NULL,
+        [AlteradoEm] datetimeoffset NULL,
+        [AlteradoPor] nvarchar(150) NULL,
+        [Excluido] bit NOT NULL,
+        [ExcluidoEm] datetimeoffset NULL,
+        [ExcluidoPor] nvarchar(150) NULL,
+        [RowVersion] rowversion NOT NULL,
+        CONSTRAINT [PK_FluxosEstabelecimento] PRIMARY KEY ([Id]),
+        CONSTRAINT [FK_FluxosEstabelecimento_Estabelecimentos_DestinoId] FOREIGN KEY ([DestinoId]) REFERENCES [qh].[Estabelecimentos] ([Id]) ON DELETE NO ACTION,
+        CONSTRAINT [FK_FluxosEstabelecimento_Estabelecimentos_OrigemId] FOREIGN KEY ([OrigemId]) REFERENCES [qh].[Estabelecimentos] ([Id]) ON DELETE NO ACTION
+    );
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE TABLE [qh].[TransferenciaItens] (
+        [Id] uniqueidentifier NOT NULL,
+        [TransferenciaId] uniqueidentifier NOT NULL,
+        [ProdutoId] uniqueidentifier NULL,
+        [RecebimentoItemId] uniqueidentifier NULL,
+        [Descricao] nvarchar(max) NOT NULL,
+        [Unidade] nvarchar(400) NULL,
+        [Quantidade] decimal(18,4) NOT NULL,
+        [QuantidadeRecebida] decimal(18,4) NULL,
+        [CustoUnitario] decimal(18,4) NOT NULL,
+        [Lote] nvarchar(60) NULL,
+        [LocalId] uniqueidentifier NULL,
+        CONSTRAINT [PK_TransferenciaItens] PRIMARY KEY ([Id]),
+        CONSTRAINT [FK_TransferenciaItens_Transferencias_TransferenciaId] FOREIGN KEY ([TransferenciaId]) REFERENCES [qh].[Transferencias] ([Id]) ON DELETE NO ACTION
+    );
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    EXEC(N'CREATE UNIQUE INDEX [IX_Spes_QuadraId] ON [qh].[Spes] ([QuadraId]) WHERE [Excluido] = 0 AND [QuadraId] IS NOT NULL');
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE INDEX [IX_Requisicoes_EstabelecimentoFaturamentoId] ON [qh].[Requisicoes] ([EstabelecimentoFaturamentoId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE INDEX [IX_RequisicaoItens_ComposicaoId] ON [qh].[RequisicaoItens] ([ComposicaoId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE INDEX [IX_Recebimentos_EstabelecimentoId] ON [qh].[Recebimentos] ([EstabelecimentoId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE INDEX [IX_Quadras_ImplantacaoId] ON [qh].[Quadras] ([ImplantacaoId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE INDEX [IX_Pedidos_EstabelecimentoFaturamentoId] ON [qh].[Pedidos] ([EstabelecimentoFaturamentoId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE INDEX [IX_MateriaisControlados_CategoriaProdutoId] ON [qh].[MateriaisControlados] ([CategoriaProdutoId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE INDEX [IX_Locais_AmbienteModeloId] ON [qh].[Locais] ([AmbienteModeloId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE INDEX [IX_Contratos_EstabelecimentoFaturamentoId] ON [qh].[Contratos] ([EstabelecimentoFaturamentoId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE INDEX [IX_ContratoItens_ComposicaoId] ON [qh].[ContratoItens] ([ComposicaoId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE INDEX [IX_CentrosCusto_PaiId] ON [qh].[CentrosCusto] ([PaiId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE INDEX [IX_Apropriacoes_ColaboradorId] ON [qh].[Apropriacoes] ([ColaboradorId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE INDEX [IX_Apropriacoes_ComposicaoId] ON [qh].[Apropriacoes] ([ComposicaoId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE INDEX [IX_Apropriacoes_EmpresaId] ON [qh].[Apropriacoes] ([EmpresaId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE INDEX [IX_Apropriacoes_EmpresaId_ObraId] ON [qh].[Apropriacoes] ([EmpresaId], [ObraId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE INDEX [IX_Apropriacoes_EquipeId] ON [qh].[Apropriacoes] ([EquipeId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE INDEX [IX_Apropriacoes_LocalId] ON [qh].[Apropriacoes] ([LocalId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE INDEX [IX_Apropriacoes_ObraId_Data] ON [qh].[Apropriacoes] ([ObraId], [Data]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE INDEX [IX_ComposicaoItens_ComposicaoId] ON [qh].[ComposicaoItens] ([ComposicaoId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE INDEX [IX_ComposicaoItens_FuncaoObraId] ON [qh].[ComposicaoItens] ([FuncaoObraId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE INDEX [IX_ComposicaoItens_ProdutoId] ON [qh].[ComposicaoItens] ([ProdutoId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE INDEX [IX_Composicoes_EmpresaId] ON [qh].[Composicoes] ([EmpresaId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    EXEC(N'CREATE UNIQUE INDEX [IX_Composicoes_EmpresaId_Codigo] ON [qh].[Composicoes] ([EmpresaId], [Codigo]) WHERE [Excluido] = 0');
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE INDEX [IX_Composicoes_ServicoControladoId] ON [qh].[Composicoes] ([ServicoControladoId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE INDEX [IX_ContratoItemLocais_ContratoItemId] ON [qh].[ContratoItemLocais] ([ContratoItemId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE INDEX [IX_ContratoItemLocais_LocalId] ON [qh].[ContratoItemLocais] ([LocalId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE INDEX [IX_CustosMaoObra_ColaboradorId] ON [qh].[CustosMaoObra] ([ColaboradorId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE INDEX [IX_CustosMaoObra_EmpresaId] ON [qh].[CustosMaoObra] ([EmpresaId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE INDEX [IX_CustosMaoObra_EmpresaId_ObraId] ON [qh].[CustosMaoObra] ([EmpresaId], [ObraId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE INDEX [IX_CustosMaoObra_EquipeId] ON [qh].[CustosMaoObra] ([EquipeId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE INDEX [IX_CustosMaoObra_FuncaoObraId] ON [qh].[CustosMaoObra] ([FuncaoObraId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE INDEX [IX_CustosMaoObra_ObraId_Competencia] ON [qh].[CustosMaoObra] ([ObraId], [Competencia]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE INDEX [IX_EquipeMembros_ColaboradorId] ON [qh].[EquipeMembros] ([ColaboradorId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE INDEX [IX_EquipeMembros_EquipeId] ON [qh].[EquipeMembros] ([EquipeId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE INDEX [IX_Equipes_EmpresaId] ON [qh].[Equipes] ([EmpresaId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE INDEX [IX_Equipes_EmpresaId_ObraId] ON [qh].[Equipes] ([EmpresaId], [ObraId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    EXEC(N'CREATE UNIQUE INDEX [IX_Equipes_ObraId_Codigo] ON [qh].[Equipes] ([ObraId], [Codigo]) WHERE [Excluido] = 0');
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE INDEX [IX_Estabelecimentos_EmpresaId] ON [qh].[Estabelecimentos] ([EmpresaId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    EXEC(N'CREATE UNIQUE INDEX [IX_Estabelecimentos_EmpresaId_Cnpj] ON [qh].[Estabelecimentos] ([EmpresaId], [Cnpj]) WHERE [Excluido] = 0');
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    EXEC(N'CREATE UNIQUE INDEX [IX_Estabelecimentos_EmpresaId_Codigo] ON [qh].[Estabelecimentos] ([EmpresaId], [Codigo]) WHERE [Excluido] = 0');
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE INDEX [IX_Estabelecimentos_SpeId] ON [qh].[Estabelecimentos] ([SpeId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE INDEX [IX_FluxosEstabelecimento_DestinoId] ON [qh].[FluxosEstabelecimento] ([DestinoId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE INDEX [IX_FluxosEstabelecimento_EmpresaId] ON [qh].[FluxosEstabelecimento] ([EmpresaId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE INDEX [IX_FluxosEstabelecimento_OrigemId] ON [qh].[FluxosEstabelecimento] ([OrigemId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE UNIQUE INDEX [IX_FornecedorExigencias_FornecedorId_TipoDocumentoExigidoId] ON [qh].[FornecedorExigencias] ([FornecedorId], [TipoDocumentoExigidoId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE INDEX [IX_FornecedorExigencias_TipoDocumentoExigidoId] ON [qh].[FornecedorExigencias] ([TipoDocumentoExigidoId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE INDEX [IX_FornecedorGrupos_CategoriaProdutoId] ON [qh].[FornecedorGrupos] ([CategoriaProdutoId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE UNIQUE INDEX [IX_FornecedorGrupos_FornecedorId_CategoriaProdutoId] ON [qh].[FornecedorGrupos] ([FornecedorId], [CategoriaProdutoId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE UNIQUE INDEX [IX_FornecedorServicos_FornecedorId_ServicoControladoId] ON [qh].[FornecedorServicos] ([FornecedorId], [ServicoControladoId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE INDEX [IX_FornecedorServicos_ServicoControladoId] ON [qh].[FornecedorServicos] ([ServicoControladoId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE INDEX [IX_RequisicaoItemLocais_LocalId] ON [qh].[RequisicaoItemLocais] ([LocalId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE INDEX [IX_RequisicaoItemLocais_RequisicaoItemId] ON [qh].[RequisicaoItemLocais] ([RequisicaoItemId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE INDEX [IX_ServicoAplicacoes_ComposicaoId] ON [qh].[ServicoAplicacoes] ([ComposicaoId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE INDEX [IX_ServicoAplicacoes_EmpresaId] ON [qh].[ServicoAplicacoes] ([EmpresaId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    EXEC(N'CREATE UNIQUE INDEX [IX_ServicoAplicacoes_TipologiaId_ComposicaoId_Alvo_AmbienteModeloId] ON [qh].[ServicoAplicacoes] ([TipologiaId], [ComposicaoId], [Alvo], [AmbienteModeloId]) WHERE [Excluido] = 0');
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    EXEC(N'CREATE UNIQUE INDEX [IX_ServicosLocais_ComposicaoId_LocalId] ON [qh].[ServicosLocais] ([ComposicaoId], [LocalId]) WHERE [Excluido] = 0');
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE INDEX [IX_ServicosLocais_EmpresaId] ON [qh].[ServicosLocais] ([EmpresaId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE INDEX [IX_ServicosLocais_EmpresaId_ObraId] ON [qh].[ServicosLocais] ([EmpresaId], [ObraId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE INDEX [IX_ServicosLocais_LocalId] ON [qh].[ServicosLocais] ([LocalId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE INDEX [IX_ServicosLocais_ObraId_LocalId] ON [qh].[ServicosLocais] ([ObraId], [LocalId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE INDEX [IX_TipologiaAmbientes_TipologiaId] ON [qh].[TipologiaAmbientes] ([TipologiaId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE INDEX [IX_TipologiaMix_ApartamentoTipologiaId] ON [qh].[TipologiaMix] ([ApartamentoTipologiaId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE INDEX [IX_TipologiaMix_TipologiaId] ON [qh].[TipologiaMix] ([TipologiaId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE INDEX [IX_TransferenciaItens_TransferenciaId] ON [qh].[TransferenciaItens] ([TransferenciaId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE INDEX [IX_Transferencias_EmpresaId] ON [qh].[Transferencias] ([EmpresaId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    EXEC(N'CREATE UNIQUE INDEX [IX_Transferencias_EmpresaId_Numero] ON [qh].[Transferencias] ([EmpresaId], [Numero]) WHERE [Excluido] = 0');
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE INDEX [IX_Transferencias_EmpresaId_ObraId] ON [qh].[Transferencias] ([EmpresaId], [ObraId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE INDEX [IX_Transferencias_ObraId] ON [qh].[Transferencias] ([ObraId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE INDEX [IX_Transferencias_RecebimentoId] ON [qh].[Transferencias] ([RecebimentoId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    CREATE INDEX [IX_Transferencias_SpeId] ON [qh].[Transferencias] ([SpeId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    ALTER TABLE [qh].[CentrosCusto] ADD CONSTRAINT [FK_CentrosCusto_CentrosCusto_PaiId] FOREIGN KEY ([PaiId]) REFERENCES [qh].[CentrosCusto] ([Id]) ON DELETE NO ACTION;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    ALTER TABLE [qh].[ContratoItens] ADD CONSTRAINT [FK_ContratoItens_Composicoes_ComposicaoId] FOREIGN KEY ([ComposicaoId]) REFERENCES [qh].[Composicoes] ([Id]) ON DELETE NO ACTION;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    ALTER TABLE [qh].[Contratos] ADD CONSTRAINT [FK_Contratos_Estabelecimentos_EstabelecimentoFaturamentoId] FOREIGN KEY ([EstabelecimentoFaturamentoId]) REFERENCES [qh].[Estabelecimentos] ([Id]) ON DELETE NO ACTION;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    ALTER TABLE [qh].[MateriaisControlados] ADD CONSTRAINT [FK_MateriaisControlados_CategoriasProduto_CategoriaProdutoId] FOREIGN KEY ([CategoriaProdutoId]) REFERENCES [qh].[CategoriasProduto] ([Id]) ON DELETE NO ACTION;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    ALTER TABLE [qh].[Pedidos] ADD CONSTRAINT [FK_Pedidos_Estabelecimentos_EstabelecimentoFaturamentoId] FOREIGN KEY ([EstabelecimentoFaturamentoId]) REFERENCES [qh].[Estabelecimentos] ([Id]) ON DELETE NO ACTION;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    ALTER TABLE [qh].[Quadras] ADD CONSTRAINT [FK_Quadras_Tipologias_ImplantacaoId] FOREIGN KEY ([ImplantacaoId]) REFERENCES [qh].[Tipologias] ([Id]) ON DELETE NO ACTION;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    ALTER TABLE [qh].[Recebimentos] ADD CONSTRAINT [FK_Recebimentos_Estabelecimentos_EstabelecimentoId] FOREIGN KEY ([EstabelecimentoId]) REFERENCES [qh].[Estabelecimentos] ([Id]) ON DELETE NO ACTION;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    ALTER TABLE [qh].[RequisicaoItens] ADD CONSTRAINT [FK_RequisicaoItens_Composicoes_ComposicaoId] FOREIGN KEY ([ComposicaoId]) REFERENCES [qh].[Composicoes] ([Id]) ON DELETE NO ACTION;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    ALTER TABLE [qh].[Requisicoes] ADD CONSTRAINT [FK_Requisicoes_Estabelecimentos_EstabelecimentoFaturamentoId] FOREIGN KEY ([EstabelecimentoFaturamentoId]) REFERENCES [qh].[Estabelecimentos] ([Id]) ON DELETE NO ACTION;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    UPDATE qh.Locais SET Tipo = N'Condomínio' WHERE Tipo = N'Quadra';
+    UPDATE qh.Locais SET Tipo = N'Torre' WHERE Tipo IN (N'Prédio', N'Predio', N'Bloco');
+    UPDATE qh.Locais SET Tipo = N'Apartamento' WHERE Tipo = N'Unidade';
+    UPDATE qh.Locais SET Tipo = N'Cômodo' WHERE Tipo = N'Ambiente';
+    UPDATE qh.ModelosInspecao SET NivelLocal = N'Torre' WHERE NivelLocal IN (N'Prédio', N'Predio', N'Bloco');
+    UPDATE qh.ModelosInspecao SET NivelLocal = N'Apartamento' WHERE NivelLocal = N'Unidade';
+    UPDATE qh.ModelosInspecao SET NivelLocal = N'Cômodo' WHERE NivelLocal = N'Ambiente';
+    UPDATE qh.Quadras SET Tipo = N'Condomínio' WHERE Tipo = N'Quadra';
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    EXEC(N'UPDATE qh.TiposDocumento SET Frequencia = CASE WHEN PorEntrega = 1 THEN N''PorEntrega'' WHEN ValidadePadraoDias > 0 THEN N''Validade'' ELSE N''NoCadastro'' END');
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261004120634_CondominioOrcamentoFornecedores'
+)
+BEGIN
+    INSERT INTO [qh].[__Migracoes] ([MigrationId], [ProductVersion])
+    VALUES (N'20261004120634_CondominioOrcamentoFornecedores', N'10.0.12');
+END;
+
+COMMIT;
+GO
+

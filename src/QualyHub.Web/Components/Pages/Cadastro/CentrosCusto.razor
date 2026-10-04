@@ -1,5 +1,6 @@
 @page "/cadastros/centros-custo"
 @inherits PaginaBase
+@inject EstabelecimentosServico Est
 
 <Pagina Titulo="Centros de custo" Grade="_g" AoNovo="Novo" AoAtualizar="Carregar">
     <ChildContent>
@@ -7,7 +8,9 @@
             <Grade T="CentroCusto" @ref="_g" Itens="_ccs" AoClicar="c => { _c = c; ErrosForm = null; _aberto = true; }" NomeExportacao="centros-custo" CriadoPor="c => c.CriadoPor">
                 <Colunas>
                     <Coluna T="CentroCusto" Titulo="Código / etapa" Valor="c => c.Codigo" Largura="120px" />
-                    <Coluna T="CentroCusto" Titulo="Centro de custo" Valor="c => c.Nome" />
+                    <Coluna T="CentroCusto" Titulo="Centro de custo" Valor="c => Caminho(c)" />
+                    <Coluna T="CentroCusto" Titulo="Estabelecimentos" Valor="c => Estabs(c)" />
+                    <Coluna T="CentroCusto" Titulo="Código ERP" Valor="c => c.CodigoErp" Visivel="false" />
                     <Coluna T="CentroCusto" Titulo="Obra" Valor='c => c.ObraId == null ? "(corporativo)" : _obras.FirstOrDefault(o => o.Id == c.ObraId)?.Texto' />
                     <Coluna T="CentroCusto" Titulo="Orçamento" Valor="c => c.Orcamento" Formato="C2" Alinhar="num" />
                     <Coluna T="CentroCusto" Titulo="Comprometido" Valor="c => _comprometido.GetValueOrDefault(c.Id)" Formato="C2" Alinhar="num" />
@@ -15,7 +18,7 @@
                     <Coluna T="CentroCusto" Titulo="Ativo" Valor="c => c.Ativo" />
                 </Colunas>
             </Grade>
-            <div class="alerta info"><Icone Nome="info" /> Plano único do grupo. Centros corporativos (Administração, Comercial, Fábricas…) ficam sem obra; os de obra/etapa ficam ligados à obra. A árvore por níveis e os estabelecimentos permitidos entram na próxima etapa.</div>
+            <div class="alerta info"><Icone Nome="info" /> Plano único do grupo. Centros corporativos (Administração, Comercial, Fábricas…) ficam sem obra; os de obra/etapa ficam ligados à obra. Use o "centro de custo pai" para montar a árvore (ex.: 3 Produção industrial › 3.1 Pré-moldados) e marque em quais estabelecimentos (CNPJs) ele pode ser usado.</div>
         </div>
     </ChildContent>
     <Faixa><b>Centros de custo</b><span>Requisição, pedido e contrato ficam amarrados ao centro de custo</span><span>Orçado × comprometido é opcional</span></Faixa>
@@ -29,9 +32,14 @@
             <div class="form">
                 <Campo Rotulo="Código / etapa" Obrigatorio Classe="s4"><input id="cc-cod" @bind="_c.Codigo" /></Campo>
                 <Campo Rotulo="Descrição" Obrigatorio Classe="s8"><input id="cc-nome" @bind="_c.Nome" /></Campo>
+                <Campo Rotulo="Centro de custo pai" Classe="s6"><select id="cc-pai" @bind="_c.PaiId"><option value="">(raiz)</option>@foreach (var x in (_ccs ?? []).Where(x => x.Id != _c.Id).OrderBy(x => x.Codigo)) { <option value="@x.Id">@x.Codigo – @x.Nome</option> }</select></Campo>
+                <Campo Rotulo="Código no ERP" Classe="s6"><input @bind="_c.CodigoErp" /></Campo>
                 <Campo Rotulo="Obra" Classe="s6"><select @bind="_c.ObraId"><option value="">(corporativo)</option>@foreach (var o in _obras) { <option value="@o.Id">@o.Texto</option> }</select></Campo>
                 <Campo Rotulo="Orçamento (opcional)" Classe="s3"><input type="number" step="0.01" @bind="_c.Orcamento" /></Campo>
                 <Campo Rotulo="Situação" Classe="s3"><label class="check-linha"><input type="checkbox" @bind="_c.Ativo" /> Ativo</label></Campo>
+                <Campo Rotulo="Pode ser usado em (vazio = todos os estabelecimentos)" Classe="s12">
+                    <div class="checks" style="flex-wrap:wrap">@foreach (var e in _estabs) { <label style="min-width:240px"><input type="checkbox" checked="@((_c.EstabelecimentosPermitidos ?? "").Contains(e.Id.ToString()))" @onchange="ev => MarcarEst(e.Id, (bool)ev.Value!)" /> @e.Texto</label> }</div>
+                </Campo>
             </div>
         }
     </ChildContent>
@@ -46,7 +54,26 @@
     private CentroCusto? _c;
     private bool _aberto;
 
-    protected override async Task OnInitializedAsync() { _obras = await Cat.ObrasAsync(); await Carregar(); }
+    private List<Opcao> _estabs = [];
+    protected override async Task OnInitializedAsync() { _obras = await Cat.ObrasAsync(); _estabs = await Cat.EstabelecimentosAsync(); await Carregar(); }
+
+    private string Caminho(CentroCusto c)
+    {
+        var partes = new List<string> { c.Nome };
+        var p = c.PaiId; var n = 0;
+        while (p is { } id && n++ < 10 && _ccs?.FirstOrDefault(x => x.Id == id) is { } pai) { partes.Insert(0, pai.Nome); p = pai.PaiId; }
+        return string.Join(" › ", partes);
+    }
+
+    private string? Estabs(CentroCusto c) => string.IsNullOrWhiteSpace(c.EstabelecimentosPermitidos) ? "todos"
+        : string.Join(", ", c.EstabelecimentosPermitidos.Split(',').Select(id => _estabs.FirstOrDefault(e => e.Id.ToString() == id)?.Texto.Split(" – ")[0]).Where(x => x != null));
+
+    private void MarcarEst(Guid id, bool on)
+    {
+        var l = (_c!.EstabelecimentosPermitidos ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries).ToList();
+        if (on) l.Add(id.ToString()); else l.Remove(id.ToString());
+        _c.EstabelecimentosPermitidos = l.Count == 0 ? null : string.Join(',', l.Distinct());
+    }
 
     private async Task Carregar()
     {
@@ -63,17 +90,7 @@
 
     private async Task Salvar()
     {
-        var ok = await Executar(async () =>
-        {
-            var e = new List<string>();
-            if (string.IsNullOrWhiteSpace(_c!.Codigo)) e.Add("Informe o código.");
-            if (string.IsNullOrWhiteSpace(_c.Nome)) e.Add("Informe o nome.");
-            ValidacaoException.Se(e);
-            await using var db = Fabrica.Criar();
-            if (await db.CentrosCusto.AnyAsync(x => x.Id != _c.Id && x.Codigo == _c.Codigo && x.ObraId == _c.ObraId)) throw new RegraDeNegocioException("Já existe centro de custo com este código.");
-            await Grafo.SalvarAsync(db, _c);
-            await db.SaveChangesAsync();
-        }, "Centro de custo salvo.");
+        var ok = await Executar(() => Est.SalvarCentroCustoAsync(_c!), "Centro de custo salvo.");
         if (ok) { _aberto = false; Cat.Invalidar(); await Carregar(); }
     }
 }

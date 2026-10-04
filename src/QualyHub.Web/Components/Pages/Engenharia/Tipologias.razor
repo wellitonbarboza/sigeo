@@ -1,0 +1,259 @@
+@page "/engenharia/tipologias"
+@inherits PaginaBase
+@inject EngenhariaServico Eng
+@inject OrcamentoServico Orc
+
+<Pagina Titulo="Tipologias" Grade="_grade" AoNovo="Novo" AoAtualizar="Carregar">
+    <ChildContent>
+        <div class="pagina">
+            <div class="barra-filtro">
+                <label>Obra <select id="tip-obra" value="@_obraId" @onchange="async e => { _obraId = Guid.TryParse(e.Value?.ToString(), out var g) ? g : null; await Carregar(); }"><option value="">Selecione…</option>@foreach (var o in _obras) { <option value="@o.Id">@o.Texto</option> }</select></label>
+                <div class="filtros-rapidos">@foreach (var t in Enum.GetValues<TipoTipologia>()) { <label><input type="radio" name="ttip" checked="@(_tipo == t)" @onchange="() => _tipo = t" /> @De(t)</label> }</div>
+                <a class="btn sec" href="engenharia/obras"><Icone Nome="predio" Tam="14" /> Estrutura e gerador</a>
+            </div>
+            @if (_obraId is null) { <div class="alerta info"><Icone Nome="info" /> Escolha a obra.</div> }
+            else
+            {
+                <Grade T="Tipologia" @ref="_grade" Itens="_lista.Where(t => t.Tipo == _tipo)" AoClicar="Editar" NomeExportacao="tipologias">
+                    <Colunas>
+                        <Coluna T="Tipologia" Titulo="Código" Valor="t => t.Codigo" Largura="110px" />
+                        <Coluna T="Tipologia" Titulo="Nome" Valor="t => t.Nome" />
+                        <Coluna T="Tipologia" Titulo="Área privativa (m²)" Valor="t => t.Tipo == TipoTipologia.Apartamento ? t.AreaPrivativa : (decimal?)null" Formato="N2" Alinhar="num" />
+                        <Coluna T="Tipologia" Titulo="Pavimentos" Valor="t => t.Tipo == TipoTipologia.Torre ? t.Pavimentos : (int?)null" Alinhar="num" />
+                        <Coluna T="Tipologia" Titulo="Ambientes" Valor="t => t.Ambientes.Count" Alinhar="num" />
+                        <Coluna T="Tipologia" Titulo="Serviços marcados" Valor="t => _aplic.Count(a => a.TipologiaId == t.Id)" Alinhar="num" />
+                        <Coluna T="Tipologia" Titulo="Locais gerados" Valor="t => _usos.GetValueOrDefault(t.Id)" Alinhar="num" />
+                    </Colunas>
+                </Grade>
+                <div class="alerta info"><Icone Nome="info" />
+                    <div><b>Apartamento</b>: cômodos com medidas (piso, perímetro, pé-direito, vãos). <b>Torre</b>: pavimentos, mix de apartamentos por faixa de pavimentos e áreas comuns do pavimento/torre. <b>Implantação</b>: áreas comuns do condomínio.
+                    Na aba <b>Serviços</b> de cada tipologia, marque em que cômodo/nível cada serviço entra — o orçamento explode isso para todos os locais.</div></div>
+            }
+        </div>
+    </ChildContent>
+    <Faixa><b>Tipologias</b><span>Apartamento, torre e implantação do condomínio</span><span>Base do gerador de locais, do orçamento e das FVS</span></Faixa>
+</Pagina>
+
+<Modal @bind-Aberto="_aberto" Titulo="@(_t is null ? "" : $"Tipologia de {De(_t.Tipo).ToLower()} {_t.Codigo}")" Tamanho="grande">
+    <ChildContent>
+        @if (_t is not null)
+        {
+            <Erros Lista="ErrosForm" />
+            @if (_t.CriadoEm != default) { <Abas Itens="_abasEd" @bind-Ativa="_abaEd" /> }
+            @if (_abaEd == "dados" || _t.CriadoEm == default)
+            {
+                <div class="form">
+                    <Campo Rotulo="Código" Obrigatorio Classe="s2"><input id="tip-cod" @bind="_t.Codigo" placeholder="@(_t.Tipo == TipoTipologia.Torre ? "T-2Q-8" : "2Q-56")" /></Campo>
+                    <Campo Rotulo="Nome" Obrigatorio Classe="s6"><input id="tip-nome" @bind="_t.Nome" /></Campo>
+                    <Campo Rotulo="Pé-direito padrão (m)" Classe="s2"><input id="tip-pd" type="number" step="0.01" @bind="_t.PeDireitoPadrao" /></Campo>
+                    <Campo Rotulo="" Classe="s2"><label><input type="checkbox" @bind="_t.Ativa" /> Ativa</label></Campo>
+                    @if (_t.Tipo == TipoTipologia.Apartamento)
+                    {
+                        <Campo Rotulo="Dormitórios" Classe="s2"><input id="tip-dorm" type="number" @bind="_t.Dormitorios" /></Campo>
+                        <Campo Rotulo="Suítes" Classe="s2"><input id="tip-suites" type="number" @bind="_t.Suites" /></Campo>
+                        <Campo Rotulo="Área privativa (m²)" Obrigatorio Classe="s3"><input id="tip-area" type="number" step="0.01" @bind="_t.AreaPrivativa" /></Campo>
+                        <Campo Rotulo="Área equivalente (m²)" Classe="s2"><input type="number" step="0.01" @bind="_t.AreaEquivalente" /></Campo>
+                        <Campo Rotulo="Soma dos cômodos" Classe="s3"><div style="display:flex;gap:6px;align-items:center"><b>@_t.SomaAreaComodos.ToString("N2", Br) m²</b><button class="btn sec pq" @onclick="() => _t.AreaPrivativa = _t.SomaAreaComodos">usar</button></div></Campo>
+                    }
+                    @if (_t.Tipo == TipoTipologia.Torre)
+                    {
+                        <Campo Rotulo="Pavimentos" Obrigatorio Classe="s2"><input id="tip-pavs" type="number" min="1" max="60" @bind="_t.Pavimentos" /></Campo>
+                        <Campo Rotulo="" Classe="s4"><label><input type="checkbox" @bind="_t.PrimeiroTerreo" /> 1º pavimento se chama "Térreo"</label></Campo>
+                    }
+                    <Campo Rotulo="Observações" Classe="s12"><input @bind="_t.Observacoes" /></Campo>
+                </div>
+
+                @if (_t.Tipo == TipoTipologia.Torre)
+                {
+                    <div class="secao"><Icone Nome="tabela" /> Mix de apartamentos por pavimento <span class="acao"><button class="btn sec pq" id="mix-add" @onclick="AddMix"><Icone Nome="mais" Tam="14" /> Faixa</button></span></div>
+                    <table class="itens" id="mix">
+                        <thead><tr><th>Pav. de</th><th>até</th><th>Tipologia do apartamento</th><th class="num">Aptos por pavimento</th><th></th></tr></thead>
+                        <tbody>
+                            @foreach (var m in _t.Mix.OrderBy(m => m.Ordem))
+                            {
+                                <tr><td style="width:90px"><input type="number" min="1" @bind="m.PavimentoDe" /></td><td style="width:90px"><input type="number" min="1" @bind="m.PavimentoAte" /></td>
+                                    <td><select @bind="m.ApartamentoTipologiaId"><option value="@Guid.Empty">—</option>@foreach (var a in _lista.Where(x => x.Tipo == TipoTipologia.Apartamento)) { <option value="@a.Id">@a.Codigo – @a.Nome (@a.AreaPrivativa.ToString("N2", Br) m²)</option> }</select></td>
+                                    <td style="width:120px"><input type="number" min="1" @bind="m.Quantidade" /></td>
+                                    <td><button class="icone-btn" @onclick="() => _t.Mix.Remove(m)"><Icone Nome="lixeira" Tam="16" /></button></td></tr>
+                            }
+                            @if (_t.Mix.Count == 0) { <tr><td colspan="5" class="mudo">Ex.: pav. 1 a 8 · 2Q-56 · 8 aptos por pavimento.</td></tr> }
+                        </tbody>
+                    </table>
+                    <p class="mudo">Total: @Enumerable.Range(1, Math.Max(0, _t.Pavimentos)).Sum(p => _t.Mix.Where(m => p >= m.PavimentoDe && p <= m.PavimentoAte).Sum(m => m.Quantidade)) apartamentos por torre.</p>
+                }
+
+                <div class="secao"><Icone Nome="regua" /> @(_t.Tipo switch { TipoTipologia.Apartamento => "Cômodos", TipoTipologia.Torre => "Áreas comuns do pavimento e da torre", _ => "Áreas comuns do condomínio" })
+                    <span class="acao"><button class="btn sec pq" id="amb-add" @onclick="AddAmbiente"><Icone Nome="mais" Tam="14" /> Ambiente</button></span></div>
+                <table class="itens" id="ambientes">
+                    <thead><tr><th>Nome</th><th>Sigla</th><th>Categoria</th>@if (_t.Tipo == TipoTipologia.Torre) { <th>Onde</th><th>Pav. de–até</th> }<th class="num">Piso (m²)</th><th class="num">Perímetro (m)</th><th class="num">Pé-dir. (m)</th><th class="num">Vãos (m²)</th><th class="num">Parede (m²)</th><th></th></tr></thead>
+                    <tbody>
+                        @foreach (var a in _t.Ambientes.OrderBy(a => a.Ordem))
+                        {
+                            <tr><td><input @bind="a.Nome" style="min-width:140px" /></td><td style="width:80px"><input @bind="a.Sigla" maxlength="8" style="text-transform:uppercase" placeholder="auto" /></td>
+                                <td><input @bind="a.Categoria" list="tipos-comodo" style="min-width:120px" /></td>
+                                @if (_t.Tipo == TipoTipologia.Torre)
+                                {
+                                    <td><select @bind="a.Escopo"><option value="@EscopoAmbiente.AreaComumPavimento">Pavimento</option><option value="@EscopoAmbiente.AreaComumTorre">Torre</option></select></td>
+                                    <td style="white-space:nowrap">@if (a.Escopo == EscopoAmbiente.AreaComumPavimento) { <input type="number" style="width:52px" @bind="a.PavimentoDe" /><span> – </span><input type="number" style="width:52px" @bind="a.PavimentoAte" /> }</td>
+                                }
+                                <td style="width:90px"><input type="number" step="0.01" @bind="a.AreaPiso" /></td>
+                                <td style="width:90px"><input type="number" step="0.01" @bind="a.Perimetro" /></td>
+                                <td style="width:80px"><input type="number" step="0.01" @bind="a.PeDireito" placeholder="@_t.PeDireitoPadrao?.ToString("0.00")" /></td>
+                                <td style="width:80px"><input type="number" step="0.01" @bind="a.AreaVaos" /></td>
+                                <td class="num">@a.AreaParede(_t.PeDireitoPadrao).ToString("N2", Br)</td>
+                                <td style="white-space:nowrap"><button class="icone-btn" title="Subir" @onclick="() => Mover(a, -1)">↑</button><button class="icone-btn" title="Remover" @onclick="() => _t.Ambientes.Remove(a)"><Icone Nome="lixeira" Tam="16" /></button></td></tr>
+                        }
+                        @if (_t.Ambientes.Count == 0) { <tr><td colspan="11" class="mudo">@(_t.Tipo == TipoTipologia.Apartamento ? "Inclua os cômodos (sala, cozinha, dormitórios, BWC…) com as medidas do projeto." : "Inclua as áreas comuns (hall, escada, fachada, guarita, lazer…).")</td></tr> }
+                    </tbody>
+                </table>
+                <datalist id="tipos-comodo">@foreach (var c in _comodos) { <option>@c</option> }</datalist>
+                <p class="mudo">Parede = perímetro × pé-direito − vãos. Sigla em branco é gerada (SAL, DOR1, BWC…). Depois de gerar locais, altere aqui e use "Sincronizar com as tipologias".</p>
+            }
+            else if (_abaEd == "serv")
+            {
+                <div class="barra-filtro">
+                    <label>Grupo <select @bind="_fGrupo"><option value="">Todos</option>@foreach (var g in _grupos) { <option>@g</option> }</select></label>
+                    <label>Buscar <input @bind="_fTexto" @bind:event="oninput" placeholder="serviço…" /></label>
+                    <label class="check-linha"><input type="checkbox" @bind="_soMarcados" /> só marcados</label>
+                    <a class="btn sec pq" href="engenharia/composicoes" target="_blank">Serviços e composições ↗</a>
+                </div>
+                <div style="overflow:auto;max-height:60vh">
+                    <table class="itens matriz-serv" id="matriz-serv">
+                        <thead><tr><th style="min-width:240px">Serviço</th><th>Un.</th>@foreach (var c in Colunas()) { <th title="@c.Titulo" class="num">@c.Rotulo</th> }</tr></thead>
+                        <tbody>
+                            @foreach (var s in ServicosFiltrados())
+                            {
+                                <tr><td>@s.Codigo – @s.Descricao<br /><span class="mudo">@De(s.Regra)</span></td><td>@s.Unidade</td>
+                                    @foreach (var c in Colunas())
+                                    {
+                                        var marcado = Marcado(s.Id, c.Alvo, c.AmbienteId);
+                                        <td class="num"><input type="checkbox" checked="@marcado" disabled="@Ocupado" @onchange="e => Marcar(s.Id, c.Alvo, c.AmbienteId, (bool)e.Value!)" /></td>
+                                    }
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                <p class="mudo">Marcação gravada na hora. Depois, em Engenharia › Orçamento, use "Gerar / atualizar orçamento".</p>
+            }
+        }
+    </ChildContent>
+    <Rodape>
+        @if (_t is not null && _abaEd == "dados")
+        {
+            @if (_t.CriadoEm != default) { <div class="esq"><button class="btn sec" @onclick="Copiar"><Icone Nome="mais" Tam="14" /> Copiar como nova</button></div> }
+            <button class="btn prim" id="tip-salvar" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="16" /> Salvar</button>
+        }
+    </Rodape>
+</Modal>
+
+@code {
+    private sealed record Col(string Rotulo, string Titulo, AlvoServico Alvo, Guid? AmbienteId);
+    private Grade<Tipologia>? _grade;
+    private List<Opcao> _obras = [];
+    private Guid? _obraId;
+    private TipoTipologia _tipo = TipoTipologia.Apartamento;
+    private List<Tipologia> _lista = [];
+    private List<ServicoAplicacao> _aplic = [];
+    private Dictionary<Guid, int> _usos = [];
+    private List<Composicao> _comps = [];
+    private List<string> _comodos = [], _grupos = [];
+    private Tipologia? _t;
+    private bool _aberto, _soMarcados;
+    private string _abaEd = "dados";
+    private string? _fGrupo, _fTexto;
+    private static readonly List<(string, string)> _abasEd = [("dados", "Dados e ambientes"), ("serv", "Serviços")];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _obras = await Cat.ObrasAsync();
+        _comodos = await Cat.ListaAsync(TipoLista.TipoComodo);
+        _grupos = await Cat.ListaAsync(TipoLista.GrupoServico);
+        if (_obras.Count == 1) _obraId = _obras[0].Id;
+        await Carregar();
+    }
+
+    private async Task Carregar()
+    {
+        if (_obraId is not { } o) { _lista = []; return; }
+        await using var db = Fabrica.Criar();
+        _lista = await db.Tipologias.AsNoTracking().Include(t => t.Ambientes).Include(t => t.Mix).Where(t => t.ObraId == o).OrderBy(t => t.Codigo).ToListAsync();
+        _aplic = await db.ServicoAplicacoes.AsNoTracking().Where(a => a.ObraId == o).ToListAsync();
+        _usos = await db.Locais.AsNoTracking().Where(l => l.ObraId == o && l.TipologiaId != null).GroupBy(l => l.TipologiaId!.Value).Select(g => new { g.Key, N = g.Count() }).ToDictionaryAsync(x => x.Key, x => x.N);
+        _comps = await db.Composicoes.AsNoTracking().Where(c => c.Ativa).OrderBy(c => c.Grupo).ThenBy(c => c.Codigo).ToListAsync();
+    }
+
+    private void Novo()
+    {
+        if (_obraId is not { } o) return;
+        _t = new Tipologia { ObraId = o, Tipo = _tipo, PeDireitoPadrao = 2.90m, Pavimentos = _tipo == TipoTipologia.Torre ? 4 : 0 };
+        _abaEd = "dados"; ErrosForm = null; _aberto = true;
+    }
+
+    private async Task Editar(Tipologia t)
+    {
+        await using var db = Fabrica.Criar();
+        _t = await db.Tipologias.AsNoTracking().Include(x => x.Ambientes).Include(x => x.Mix).FirstAsync(x => x.Id == t.Id);
+        _abaEd = "dados"; ErrosForm = null; _aberto = true;
+    }
+
+    private void AddAmbiente()
+    {
+        var escopo = _t!.Tipo switch { TipoTipologia.Apartamento => EscopoAmbiente.Comodo, TipoTipologia.Torre => EscopoAmbiente.AreaComumPavimento, _ => EscopoAmbiente.AreaComumCondominio };
+        _t.Ambientes.Add(new TipologiaAmbiente { TipologiaId = _t.Id, Escopo = escopo, Ordem = (_t.Ambientes.Count == 0 ? 0 : _t.Ambientes.Max(a => a.Ordem)) + 1 });
+    }
+
+    private void AddMix() => _t!.Mix.Add(new TipologiaMix { TipologiaId = _t.Id, PavimentoDe = 1, PavimentoAte = Math.Max(1, _t.Pavimentos), Quantidade = 1, Ordem = _t.Mix.Count + 1,
+        ApartamentoTipologiaId = _lista.FirstOrDefault(x => x.Tipo == TipoTipologia.Apartamento)?.Id ?? Guid.Empty });
+
+    private void Mover(TipologiaAmbiente a, int d)
+    {
+        var ord = _t!.Ambientes.OrderBy(x => x.Ordem).ToList();
+        var i = ord.IndexOf(a);
+        if (i + d < 0 || i + d >= ord.Count) return;
+        (ord[i].Ordem, ord[i + d].Ordem) = (ord[i + d].Ordem, ord[i].Ordem);
+    }
+
+    private async Task Salvar()
+    {
+        if (await Executar(() => Eng.SalvarTipologiaAsync(_t!), "Tipologia salva."))
+        {
+            await Carregar();
+            await Editar(_t!);
+        }
+    }
+
+    private async Task Copiar()
+    {
+        Guid id = default;
+        if (await Executar(async () => id = await Eng.CopiarTipologiaAsync(_t!.Id, _t.Codigo + "-B"), "Tipologia copiada (código com -B) — ajuste o código e as diferenças."))
+        { await Carregar(); await Editar(_lista.First(x => x.Id == id)); }
+    }
+
+    private IEnumerable<Col> Colunas()
+    {
+        var t = _t!;
+        foreach (var a in t.Ambientes.OrderBy(a => a.Ordem)) yield return new Col(a.Sigla ?? a.Nome, a.Nome, AlvoServico.Ambiente, a.Id);
+        if (t.Tipo == TipoTipologia.Apartamento) yield return new Col("APTO", "Apartamento inteiro", AlvoServico.Apartamento, null);
+        if (t.Tipo == TipoTipologia.Torre) { yield return new Col("PAV", "Cada pavimento", AlvoServico.Pavimento, null); yield return new Col("TORRE", "Torre", AlvoServico.Torre, null); }
+        if (t.Tipo == TipoTipologia.Implantacao) yield return new Col("COND", "Condomínio", AlvoServico.Condominio, null);
+    }
+
+    private IEnumerable<Composicao> ServicosFiltrados()
+    {
+        var termo = Rotulos.SemAcento(_fTexto);
+        return _comps.Where(c => (string.IsNullOrEmpty(_fGrupo) || c.Grupo == _fGrupo) && (termo.Length == 0 || Rotulos.SemAcento(c.Codigo + " " + c.Descricao).Contains(termo))
+                                && (!_soMarcados || _aplic.Any(a => a.TipologiaId == _t!.Id && a.ComposicaoId == c.Id)));
+    }
+
+    private bool Marcado(Guid comp, AlvoServico alvo, Guid? amb) => _aplic.Any(a => a.TipologiaId == _t!.Id && a.ComposicaoId == comp && a.Alvo == alvo && a.AmbienteModeloId == amb);
+
+    private async Task Marcar(Guid comp, AlvoServico alvo, Guid? amb, bool on)
+    {
+        if (await Executar(() => Orc.MarcarAplicacaoAsync(_t!.Id, comp, alvo, amb, on)))
+        {
+            await using var db = Fabrica.Criar();
+            _aplic = await db.ServicoAplicacoes.AsNoTracking().Where(a => a.ObraId == _obraId).ToListAsync();
+        }
+    }
+}

@@ -1,0 +1,64 @@
+@* Escolha de locais na árvore (condomínio › torre › pavimento › apartamento › cômodo/área comum). Marcar um nível inclui tudo abaixo dele. *@
+<div class="seletor-locais">
+    @foreach (var (l, n) in Linhas())
+    {
+        var tem = _filhos[l.Id].Any();
+        <div class="sl-linha" style="padding-left:@(n * 18)px">
+            @if (tem) { <button type="button" class="sl-abre" @onclick="() => Alternar(l.Id)">@(_abertos.Contains(l.Id) ? "▾" : "▸")</button> } else { <span class="sl-abre"></span> }
+            <label><input type="checkbox" checked="@Selecionados.Contains(l.Id)" disabled="@(Coberto(l))" @onchange="e => Marcar(l.Id, (bool)e.Value!)" /> <b>@l.Codigo</b> @l.Nome <span class="mudo">@l.Tipo</span></label>
+        </div>
+    }
+    @if (Locais.Count == 0) { <div class="mudo">Sem locais gerados para esta obra.</div> }
+</div>
+
+@code {
+    [Parameter] public IReadOnlyList<Local> Locais { get; set; } = [];
+    [Parameter] public HashSet<Guid> Selecionados { get; set; } = [];
+    [Parameter] public EventCallback SelecionadosChanged { get; set; }
+    /// <summary>Nível mais baixo exibido (ex.: Apartamento esconde cômodos).</summary>
+    [Parameter] public string? AteNivel { get; set; } = "Apartamento";
+
+    private ILookup<Guid?, Local> _filhos = Array.Empty<Local>().ToLookup(l => l.LocalPaiId);
+    private Dictionary<Guid, Local> _porId = [];
+    private readonly HashSet<Guid> _abertos = [];
+    private static readonly string[] Ordem = ["Condomínio", "Torre", "Pavimento", "Apartamento", "Cômodo"];
+
+    protected override void OnParametersSet()
+    {
+        var limite = AteNivel is null ? 99 : Array.IndexOf(Ordem, AteNivel);
+        var visiveis = Locais.Where(l => { var i = Array.IndexOf(Ordem, l.Tipo); return i < 0 ? limite >= 3 : i <= limite; }).ToList();
+        _filhos = visiveis.ToLookup(l => l.LocalPaiId);
+        _porId = Locais.ToDictionary(l => l.Id);
+        foreach (var c in visiveis.Where(l => l.Tipo == "Condomínio")) _abertos.Add(c.Id);
+    }
+
+    private IEnumerable<(Local, int)> Linhas()
+    {
+        IEnumerable<(Local, int)> Desce(Guid? pai, int n)
+        {
+            foreach (var l in _filhos[pai].OrderBy(l => l.Tipo == "Área comum" ? 0 : 1).ThenBy(l => l.Ordem).ThenBy(l => l.Codigo))
+            {
+                yield return (l, n);
+                if (_abertos.Contains(l.Id)) foreach (var f in Desce(l.Id, n + 1)) yield return f;
+            }
+        }
+        var ids = _filhos.SelectMany(g => g).Select(l => l.Id).ToHashSet();
+        var raizes = _filhos.SelectMany(g => g).Where(l => l.LocalPaiId is null || !ids.Contains(l.LocalPaiId.Value)).Select(l => l.LocalPaiId).Distinct();
+        return raizes.SelectMany(r => Desce(r, 0));
+    }
+
+    private bool Coberto(Local l)
+    {
+        var p = l.LocalPaiId;
+        while (p is { } id && _porId.TryGetValue(id, out var x)) { if (Selecionados.Contains(id)) return true; p = x.LocalPaiId; }
+        return false;
+    }
+
+    private void Alternar(Guid id) { if (!_abertos.Remove(id)) _abertos.Add(id); }
+
+    private async Task Marcar(Guid id, bool on)
+    {
+        if (on) Selecionados.Add(id); else Selecionados.Remove(id);
+        await SelecionadosChanged.InvokeAsync();
+    }
+}

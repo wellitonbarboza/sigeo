@@ -193,8 +193,28 @@ public enum AcaoLinhaImportacao { Inserir = 1, Atualizar = 2, SemAlteracao = 3, 
 public enum TipoLista
 {
     Atividade = 1, CategoriaServico = 2, CriterioQualificacao = 3, ProcessoArea = 4, TipoDocumentoSgq = 5,
-    EmissorExterno = 6, CondicaoPagamento = 7, Funcao = 8, TipoTarefa = 9, TipoAgrupamento = 10
+    EmissorExterno = 6, CondicaoPagamento = 7, Funcao = 8, TipoTarefa = 9, TipoAgrupamento = 10,
+    TipoComodo = 11, GrupoServico = 12, CategoriaDocumento = 13
 }
 
 public enum PrioridadeTarefa { Baixa, Normal, Alta, Urgente }
 public enum StatusTarefa { Aberta, EmAndamento, Concluida, Cancelada }
+
+// ───────── Engenharia: estrutura do condomínio, serviços e orçamento ─────────
+/// <summary>Tipologia de apartamento (cômodos), de torre (pavimentos, mix e áreas comuns) ou implantação do condomínio (áreas comuns).</summary>
+public enum TipoTipologia { Apartamento = 1, Torre = 2, Implantacao = 3 }
+/// <summary>Onde o ambiente-modelo é criado: cômodo do apto, área comum do pavimento, da torre ou do condomínio.</summary>
+public enum EscopoAmbiente { Comodo = 1, AreaComumPavimento = 2, AreaComumTorre = 3, AreaComumCondominio = 4 }
+/// <summary>Como a quantidade do serviço sai da geometria do local.</summary>
+public enum RegraQuantidade { AreaPiso = 1, AreaParede = 2, Perimetro = 3, AreaTeto = 4, Unidade = 5, Fixa = 6 }
+/// <summary>Em que nível o serviço é aplicado dentro da tipologia.</summary>
+public enum AlvoServico { Ambiente = 1, Apartamento = 2, Pavimento = 3, Torre = 4, Condominio = 5 }
+public enum TipoInsumo { Material = 1, MaoObraPropria = 2, MaoObraEmpreitada = 3, Equipamento = 4, ServicoTerceiro = 5 }
+
+// ───────── Fornecedores: matriz de documentos ─────────
+public enum FrequenciaDocumento { NoCadastro = 1, Validade = 2, Mensal = 3, PorContrato = 4, PorMedicao = 5, PorEntrega = 6, Anual = 7 }
+
+// ───────── Estabelecimentos e logística ─────────
+public enum TipoEstabelecimento { Matriz = 1, Filial = 2, Spe = 3, Outro = 4 }
+public enum TipoFluxo { Transferencia = 1, Venda = 2, Rateio = 3, TaxaAdministracao = 4, Remessa = 5 }
+public enum StatusTransferencia { Rascunho = 1, Enviada = 2, Recebida = 3, Cancelada = 4 }

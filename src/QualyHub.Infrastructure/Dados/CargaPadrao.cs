@@ -45,7 +45,25 @@ public static class CargaPadrao
 
     public static readonly string[] CondicoesPagamento = ["À vista", "28 dias", "30/60 dias", "30/60/90 dias", "Contra medição"];
 
-    public static readonly string[] TiposAgrupamento = ["Quadra", "Condomínio", "Loteamento", "Gleba", "Torre única"];
+    public static readonly string[] TiposAgrupamento = ["Condomínio", "Quadra", "Loteamento", "Gleba", "Torre única"];
+
+    /// <summary>Lista padrão de cômodos e áreas comuns (categoria do ambiente da tipologia).</summary>
+    public static readonly string[] TiposComodo =
+    [
+        "Sala de estar", "Sala de jantar", "Cozinha", "Área de serviço", "Dormitório", "Suíte", "BWC", "Lavabo", "Circulação", "Sacada", "Varanda / terraço",
+        "Hall / circulação comum", "Escada", "Elevador", "Shaft", "Barrilete / reservatório", "Cobertura / telhado", "Fachada", "Guarita / portaria",
+        "Salão de festas", "Área de lazer", "Piscina", "Estacionamento", "Vias e calçadas", "Muro / gradil", "Redes externas", "Lixeira", "Central de gás"
+    ];
+
+    /// <summary>Etapas da EAP para agrupar os serviços do orçamento.</summary>
+    public static readonly string[] GruposServico =
+    [
+        "Serviços preliminares", "Infraestrutura / fundações", "Estrutura / pré-moldados", "Vedações", "Instalações elétricas", "Instalações hidrossanitárias",
+        "Impermeabilização", "Revestimentos de piso", "Revestimentos de parede", "Forros", "Esquadrias", "Pintura", "Louças e metais", "Cobertura",
+        "Áreas comuns e urbanização", "Kit de entrega (móveis e eletros)", "Limpeza e entrega"
+    ];
+
+    public static readonly string[] CategoriasDocumento = ["Empresa", "Fiscal", "Trabalhista / previdenciário", "SST", "RH (funcionários)", "Técnico", "Ambiental"];
 
     public static readonly string[] TiposTarefa =
         ["Compras", "Contratos", "Qualidade", "Segurança do trabalho", "Documentos do SGQ", "Obra", "Financeiro", "Outros"];
@@ -72,6 +90,38 @@ public static class CargaPadrao
         ("Certificado ISO 9001", false, false, 365, TipoFornecimento.Nenhum),
         ("MTR / CDF (resíduos)", false, true, null, TipoFornecimento.Nenhum),
         ("Documentos de empresa terceirizada (RH / segurança)", true, false, 30, TipoFornecimento.ServicoObra),
+    ];
+
+    /// <summary>
+    /// Matriz-modelo de documentos de empresa prestadora de serviço (legislação trabalhista, previdenciária e NRs — VALIDAR com RH/SST).
+    /// Mensais vencem no dia 20 (competência anterior); documentos de funcionários só entram quando o pré-cadastro inclui funcionários.
+    /// </summary>
+    public static readonly (string Nome, string Categoria, FrequenciaDocumento Freq, int? Validade, TipoFornecimento Para, bool Funcionario, bool Bloqueia, bool Sensivel, string Fonte)[] DocumentosPrestador =
+    [
+        ("Cartão CNPJ", "Empresa", FrequenciaDocumento.NoCadastro, null, TipoFornecimento.Nenhum, false, false, false, "Receita Federal"),
+        ("Contrato social e alterações", "Empresa", FrequenciaDocumento.NoCadastro, null, TipoFornecimento.ServicoObra, false, false, false, "Junta Comercial"),
+        ("Documentos dos sócios (RG/CPF)", "Empresa", FrequenciaDocumento.NoCadastro, null, TipoFornecimento.ServicoObra, false, false, true, "Cadastro"),
+        ("Alvará de funcionamento", "Empresa", FrequenciaDocumento.Validade, 365, TipoFornecimento.ServicoObra, false, false, false, "Prefeitura"),
+        ("CND federal (Receita/PGFN)", "Fiscal", FrequenciaDocumento.Validade, 180, TipoFornecimento.ServicoObra, false, true, false, "Receita Federal"),
+        ("CND estadual", "Fiscal", FrequenciaDocumento.Validade, 90, TipoFornecimento.ServicoObra, false, true, false, "SEFAZ"),
+        ("CND municipal", "Fiscal", FrequenciaDocumento.Validade, 90, TipoFornecimento.ServicoObra, false, true, false, "Prefeitura"),
+        ("CRF – regularidade do FGTS", "Trabalhista / previdenciário", FrequenciaDocumento.Validade, 30, TipoFornecimento.ServicoObra, false, true, false, "Caixa"),
+        ("CNDT – débitos trabalhistas", "Trabalhista / previdenciário", FrequenciaDocumento.Validade, 180, TipoFornecimento.ServicoObra, false, true, false, "TST"),
+        ("Apólice de seguro de vida em grupo", "Trabalhista / previdenciário", FrequenciaDocumento.Validade, 365, TipoFornecimento.ServicoObra, false, true, false, "Convenção coletiva"),
+        ("Fatura do seguro de vida (mês anterior)", "Trabalhista / previdenciário", FrequenciaDocumento.Mensal, null, TipoFornecimento.ServicoObra, false, true, false, "Convenção coletiva"),
+        ("eSocial / DCTFWeb (mês anterior)", "Trabalhista / previdenciário", FrequenciaDocumento.Mensal, null, TipoFornecimento.ServicoObra, false, true, false, "eSocial / Receita"),
+        ("Guia e comprovante INSS (mês anterior)", "Trabalhista / previdenciário", FrequenciaDocumento.Mensal, null, TipoFornecimento.ServicoObra, false, true, false, "Receita Federal"),
+        ("Guia e comprovante FGTS Digital (mês anterior)", "Trabalhista / previdenciário", FrequenciaDocumento.Mensal, null, TipoFornecimento.ServicoObra, false, true, false, "MTE / Caixa"),
+        ("Folha de pagamento e recibos (mês anterior)", "Trabalhista / previdenciário", FrequenciaDocumento.Mensal, null, TipoFornecimento.ServicoObra, true, true, true, "CLT"),
+        ("PGR – Programa de Gerenciamento de Riscos", "SST", FrequenciaDocumento.Validade, 730, TipoFornecimento.ServicoObra, false, true, false, "NR-01 / NR-18"),
+        ("PCMSO", "SST", FrequenciaDocumento.Validade, 365, TipoFornecimento.ServicoObra, false, true, false, "NR-07"),
+        ("ART / RRT do serviço", "Técnico", FrequenciaDocumento.PorContrato, null, TipoFornecimento.ServicoObra | TipoFornecimento.ServicoEspecializadoEngenharia, false, false, false, "CREA / CAU"),
+        ("Ficha de registro do funcionário", "RH (funcionários)", FrequenciaDocumento.NoCadastro, null, TipoFornecimento.ServicoObra, true, true, true, "CLT art. 41"),
+        ("CTPS digital / contrato de trabalho", "RH (funcionários)", FrequenciaDocumento.NoCadastro, null, TipoFornecimento.ServicoObra, true, true, true, "CLT"),
+        ("ASO do funcionário", "RH (funcionários)", FrequenciaDocumento.Validade, 365, TipoFornecimento.ServicoObra, true, true, true, "NR-07"),
+        ("Certificados de treinamento NR do funcionário", "RH (funcionários)", FrequenciaDocumento.Validade, 730, TipoFornecimento.ServicoObra, true, true, false, "NR-18 / NR-35 / NR-10"),
+        ("Ficha de entrega de EPI", "RH (funcionários)", FrequenciaDocumento.Validade, 30, TipoFornecimento.ServicoObra, true, true, false, "NR-06"),
+        ("Ordem de serviço de SST", "RH (funcionários)", FrequenciaDocumento.NoCadastro, null, TipoFornecimento.ServicoObra, true, true, false, "NR-01"),
     ];
 
     /// <summary>Lista-modelo de materiais controlados (editável — ajuste ao recorte da sua empresa).</summary>
@@ -146,13 +196,26 @@ public static class CargaPadrao
         Lista(TipoLista.Funcao, Funcoes);
         Lista(TipoLista.TipoTarefa, TiposTarefa);
         Lista(TipoLista.TipoAgrupamento, TiposAgrupamento);
+        Lista(TipoLista.TipoComodo, TiposComodo);
+        Lista(TipoLista.GrupoServico, GruposServico);
+        Lista(TipoLista.CategoriaDocumento, CategoriasDocumento);
 
         var tipos = await db.TiposDocumento.IgnoreQueryFilters().Where(t => t.EmpresaId == empresaId).Select(t => t.Nome).ToListAsync(ct);
         foreach (var t in TiposDocumentoFornecedor.Where(t => !tipos.Contains(t.Nome)))
             db.TiposDocumento.Add(new TipoDocumentoExigido
             {
                 EmpresaId = empresaId, AplicaA = AplicaA.Fornecedor, Nome = t.Nome, BloqueiaQuandoVencido = t.Bloqueia, PorEntrega = t.PorEntrega,
-                ValidadePadraoDias = t.ValidadeDias, ExigidoPara = t.Para, Obrigatorio = t.Para == TipoFornecimento.Nenhum && t.Bloqueia, DiasAlertaAntesVencimento = 30
+                ValidadePadraoDias = t.ValidadeDias, ExigidoPara = t.Para, Obrigatorio = t.Para == TipoFornecimento.Nenhum && t.Bloqueia, DiasAlertaAntesVencimento = 30,
+                Frequencia = t.PorEntrega ? FrequenciaDocumento.PorEntrega : t.ValidadeDias is > 0 ? FrequenciaDocumento.Validade : FrequenciaDocumento.NoCadastro
+            });
+        var ordemDoc = 100;
+        foreach (var t in DocumentosPrestador.Where(t => !tipos.Contains(t.Nome)))
+            db.TiposDocumento.Add(new TipoDocumentoExigido
+            {
+                EmpresaId = empresaId, AplicaA = AplicaA.Fornecedor, Nome = t.Nome, Categoria = t.Categoria, Frequencia = t.Freq, ValidadePadraoDias = t.Validade,
+                DiaLimite = t.Freq == FrequenciaDocumento.Mensal ? 20 : null, ExigidoPara = t.Para, DeFuncionario = t.Funcionario, Obrigatorio = true,
+                BloqueiaQuandoVencido = t.Bloqueia, PorEntrega = t.Freq == FrequenciaDocumento.PorEntrega, DiasAlertaAntesVencimento = 30, Fonte = t.Fonte, Ordem = ++ordemDoc,
+                Momento = t.Freq == FrequenciaDocumento.PorContrato ? MomentoDocumento.PorContrato : MomentoDocumento.Cadastro, ContemDadoSensivel = t.Sensivel
             });
 
         var mats = await db.MateriaisControlados.IgnoreQueryFilters().Where(m => m.EmpresaId == empresaId).Select(m => m.Codigo).ToListAsync(ct);

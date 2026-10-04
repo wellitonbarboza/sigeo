@@ -12,6 +12,7 @@ public class Contrato : EntidadeDaObra, IHistoricoTemporal
     public Guid? CentroCustoId { get; set; }
     /// <summary>SPE contratante (CNPJ do contrato e das NFs de medição).</summary>
     public Guid? SpeId { get; set; }
+    public Guid? EstabelecimentoFaturamentoId { get; set; }
     public Guid FornecedorId { get; set; }
     public Fornecedor Fornecedor { get; set; } = null!;
     public Guid? RequisicaoId { get; set; }
@@ -90,6 +91,17 @@ public class ContratoItem : Entidade
     public decimal Quantidade { get; set; }
     public decimal PrecoUnitario { get; set; }
     public decimal Total => Math.Round(Quantidade * PrecoUnitario, 2);
+    /// <summary>Serviço do orçamento contratado.</summary>
+    public Guid? ComposicaoId { get; set; }
+    /// <summary>Quantidade contratada por local (medição por local).</summary>
+    public ICollection<ContratoItemLocal> Locais { get; set; } = [];
+}
+
+public class ContratoItemLocal : Entidade
+{
+    public Guid ContratoItemId { get; set; }
+    public Guid LocalId { get; set; }
+    public decimal Quantidade { get; set; }
 }
 
 /// <summary>ITS vinculadas ao contrato (enviadas ao prestador junto com o contrato).</summary>

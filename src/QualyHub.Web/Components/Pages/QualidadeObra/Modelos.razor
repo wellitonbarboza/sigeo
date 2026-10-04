@@ -141,7 +141,7 @@
     private bool Sst => TipoRota == "sst";
     private TipoModelo Tipo => Fvm ? TipoModelo.FVM : Sst ? TipoModelo.SST : TipoModelo.FVS;
     private static readonly string[] Momentos = ["Antes do serviço (liberação de frente)", "Durante", "Após (final)", "Antes da concretagem"];
-    private static readonly string[] Niveis = ["Torre", "Pavimento", "Unidade", "Ambiente", "Elemento"];
+    private static readonly string[] Niveis = ["Condomínio", "Torre", "Pavimento", "Apartamento", "Cômodo", "Área comum", "Elemento"];
     private Grade<ModeloInspecao>? _grade;
     private List<ModeloInspecao>? _itens;
     private ModeloInspecao? _m;

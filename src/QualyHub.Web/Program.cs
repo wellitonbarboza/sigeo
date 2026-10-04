@@ -48,6 +48,13 @@ if (app.Environment.IsDevelopment() || builder.Configuration.GetValue<bool>("Ban
 {
     await using var db = app.Services.GetRequiredService<FabricaSistema>().Criar(Guid.Empty, "Migracao");
     await db.Database.MigrateAsync();
+    // Carga padrão é idempotente: empresas já existentes recebem as listas e cadastros novos de cada versão.
+    var fs = app.Services.GetRequiredService<FabricaSistema>();
+    foreach (var id in await db.Empresas.AsNoTracking().Select(e => e.Id).ToListAsync())
+    {
+        await using var dbe = fs.Criar(id, "CargaPadrao");
+        await QualyHub.Infrastructure.Dados.CargaPadrao.AplicarAsync(dbe, id);
+    }
 }
 
 if (!app.Environment.IsDevelopment())

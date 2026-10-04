@@ -1,0 +1,134 @@
+@page "/cadastros/estabelecimentos"
+@inherits PaginaBase
+@inject EstabelecimentosServico Est
+
+<Pagina Titulo="Estabelecimentos (CNPJs)" AoNovo="Novo" AoAtualizar="Carregar">
+    <ChildContent>
+        <div class="pagina">
+            <Abas Itens="_abas" @bind-Ativa="_aba" />
+            <Erros Lista="ErrosForm" />
+            @if (_aba == "est")
+            {
+                <table class="itens" id="estabelecimentos">
+                    <thead><tr><th>Código</th><th>Tipo</th><th>Razão social</th><th>CNPJ</th><th>Raiz</th><th>Atividade</th><th>Papéis</th><th></th></tr></thead>
+                    <tbody>
+                        @foreach (var e in _lista.OrderBy(e => e.Tipo).ThenBy(e => e.Codigo))
+                        {
+                            <tr><td><b>@e.Codigo</b></td><td>@De(e.Tipo)</td><td>@e.NomeExibicao<br /><span class="mudo">@e.RazaoSocial</span></td><td>@e.Cnpj</td><td>@e.Raiz</td><td>@e.Atividade</td>
+                                <td>@if (e.FaturaMateriais) { <Selo Texto="fatura materiais" Tom="info" /> } @if (e.AlmoxarifadoCentral) { <Selo Texto="almoxarifado central" Tom="info" /> } @if (!e.Ativo) { <Selo Texto="inativo" Tom="aviso" /> }</td>
+                                <td><button class="btn sec pq" @onclick="() => Editar(e)">Editar</button></td></tr>
+                        }
+                        @if (_lista.Count == 0) { <tr><td colspan="8" class="mudo">Cadastre a matriz e as filiais (construtora, pré-moldados, móveis). As SPEs entram sozinhas pelo cadastro dos condomínios.</td></tr> }
+                    </tbody>
+                </table>
+                <div class="alerta info"><Icone Nome="info" /> Mesma raiz de CNPJ = mesma pessoa jurídica (entre elas é transferência). Marque quem fatura os materiais (padrão do "Faturar para" nas requisições) e o almoxarifado central (recebe com FVM e transfere para as obras).</div>
+            }
+            else if (_aba == "flu")
+            {
+                <div style="margin:6px 0"><button class="btn sec" id="flu-novo" @onclick="NovoFluxo"><Icone Nome="mais" Tam="14" /> Fluxo</button></div>
+                <table class="itens" id="fluxos">
+                    <thead><tr><th>Origem</th><th></th><th>Destino</th><th>Tipo</th><th>Base do valor</th><th>Situação</th><th>Descrição</th><th></th></tr></thead>
+                    <tbody>
+                        @foreach (var f in _fluxos)
+                        {
+                            <tr><td>@Nome(f.OrigemId)</td><td>→</td><td>@Nome(f.DestinoId)</td><td>@De(f.Tipo)</td><td>@f.Base</td><td><Selo Texto="@f.Situacao" Tom="@(f.Situacao == "Vigente" ? "ok" : "aviso")" /></td><td>@f.Descricao</td>
+                                <td><button class="btn sec pq" @onclick="() => { _f = f; ErrosForm = null; _abertoF = true; }">Editar</button></td></tr>
+                        }
+                        @if (_fluxos.Count == 0) { <tr><td colspan="8" class="mudo">Ex.: Fábrica de pré-moldados → SPE · venda/remessa a custo padrão · a definir com a contabilidade.</td></tr> }
+                    </tbody>
+                </table>
+            }
+            else
+            {
+                <div class="eco-mapa" id="eco-mapa">
+                    @foreach (var raiz in _lista.Where(e => e.Tipo != TipoEstabelecimento.Spe).GroupBy(e => e.Raiz))
+                    {
+                        <div class="eco-grupo"><div class="eco-titulo">Raiz @raiz.Key</div>
+                            @foreach (var e in raiz.OrderBy(e => e.Tipo)) { <div class="eco-no @(e.Tipo == TipoEstabelecimento.Matriz ? "matriz" : "")"><b>@e.NomeExibicao</b><span>@De(e.Tipo) · @e.Cnpj</span>@if (e.FaturaMateriais) { <small>fatura materiais</small> }@if (e.AlmoxarifadoCentral) { <small>almoxarifado central</small> }</div> }
+                        </div>
+                    }
+                    <div class="eco-grupo"><div class="eco-titulo">SPEs (condomínios)</div>
+                        @foreach (var e in _lista.Where(e => e.Tipo == TipoEstabelecimento.Spe).OrderBy(e => e.Codigo)) { <div class="eco-no spe"><b>@e.NomeExibicao</b><span>@e.Cnpj</span></div> }
+                    </div>
+                </div>
+                <div class="secao"><Icone Nome="enviar" /> Fluxos</div>
+                <ul>@foreach (var f in _fluxos) { <li><b>@Nome(f.OrigemId)</b> → <b>@Nome(f.DestinoId)</b>: @De(f.Tipo).ToLower(), @f.Base.ToLower() <span class="mudo">(@f.Situacao)</span></li> }</ul>
+            }
+        </div>
+    </ChildContent>
+    <Faixa><b>Estabelecimentos</b><span>Quem fatura (CNPJ) × centro de custo × obra/local</span><span>Mapa do ecossistema gerado dos cadastros</span></Faixa>
+</Pagina>
+
+<Modal @bind-Aberto="_aberto" Titulo="Estabelecimento" Tamanho="media">
+    <ChildContent>
+        @if (_e is not null)
+        {
+            <Erros Lista="ErrosForm" />
+            @if (_e.Tipo == TipoEstabelecimento.Spe) { <div class="alerta info"><Icone Nome="info" /> SPE: dados mantidos pelo cadastro do condomínio (Engenharia › Obras). Aqui só os papéis.</div> }
+            <div class="form">
+                <Campo Rotulo="Código" Obrigatorio Classe="s3"><input id="est-cod" @bind="_e.Codigo" placeholder="FAB-PM" /></Campo>
+                <Campo Rotulo="Tipo" Obrigatorio Classe="s3"><select id="est-tipo" @bind="_e.Tipo" disabled="@(_e.Tipo == TipoEstabelecimento.Spe)">@foreach (var t in Enum.GetValues<TipoEstabelecimento>().Where(t => t != TipoEstabelecimento.Spe || _e.Tipo == TipoEstabelecimento.Spe)) { <option value="@t">@De(t)</option> }</select></Campo>
+                <Campo Rotulo="CNPJ" Obrigatorio Classe="s6"><input id="est-cnpj" @bind="_e.Cnpj" disabled="@(_e.Tipo == TipoEstabelecimento.Spe)" /></Campo>
+                <Campo Rotulo="Razão social" Obrigatorio Classe="s8"><input id="est-razao" @bind="_e.RazaoSocial" disabled="@(_e.Tipo == TipoEstabelecimento.Spe)" /></Campo>
+                <Campo Rotulo="Nome curto" Classe="s4"><input id="est-nome" @bind="_e.NomeFantasia" /></Campo>
+                <Campo Rotulo="Atividade" Classe="s6"><input @bind="_e.Atividade" placeholder="Construtora · Fábrica de pré-moldados · Móveis" /></Campo>
+                <Campo Rotulo="Inscrição estadual" Classe="s6"><input @bind="_e.InscricaoEstadual" /></Campo>
+                <Campo Rotulo="Endereço" Classe="s12"><input @bind="_e.Endereco" /></Campo>
+                <Campo Rotulo="Endereço de entrega (almoxarifado)" Classe="s12"><input @bind="_e.EnderecoEntrega" /></Campo>
+                <Campo Rotulo="Código no ERP" Classe="s4"><input @bind="_e.CodigoErp" /></Campo>
+                <Campo Rotulo="" Classe="s8"><div class="checks"><label><input type="checkbox" id="est-fatura" @bind="_e.FaturaMateriais" /> Fatura os materiais (padrão)</label><label><input type="checkbox" @bind="_e.AlmoxarifadoCentral" /> Almoxarifado central</label><label><input type="checkbox" @bind="_e.Ativo" /> Ativo</label></div></Campo>
+            </div>
+        }
+    </ChildContent>
+    <Rodape><button class="btn prim" id="est-salvar" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="16" /> Salvar</button></Rodape>
+</Modal>
+
+<Modal @bind-Aberto="_abertoF" Titulo="Fluxo entre CNPJs" Tamanho="media">
+    <ChildContent>
+        @if (_f is not null)
+        {
+            <Erros Lista="ErrosForm" />
+            <div class="form">
+                <Campo Rotulo="Origem" Obrigatorio Classe="s6"><select @bind="_f.OrigemId"><option value="@Guid.Empty">—</option>@foreach (var e in _lista) { <option value="@e.Id">@e.Codigo – @e.NomeExibicao</option> }</select></Campo>
+                <Campo Rotulo="Destino" Obrigatorio Classe="s6"><select @bind="_f.DestinoId"><option value="@Guid.Empty">—</option>@foreach (var e in _lista) { <option value="@e.Id">@e.Codigo – @e.NomeExibicao</option> }</select></Campo>
+                <Campo Rotulo="Tipo" Classe="s4"><select @bind="_f.Tipo">@foreach (var t in Enum.GetValues<TipoFluxo>()) { <option value="@t">@De(t)</option> }</select></Campo>
+                <Campo Rotulo="Base do valor" Classe="s4"><input @bind="_f.Base" list="bases" /><datalist id="bases"><option>Custo padrão</option><option>Custo real</option><option>% sobre o custo</option><option>Fração ideal</option><option>Taxa fixa mensal</option></datalist></Campo>
+                <Campo Rotulo="Situação" Classe="s4"><select @bind="_f.Situacao"><option>A definir</option><option>Vigente</option><option>Suspenso</option></select></Campo>
+                <Campo Rotulo="Descrição / forma fiscal" Classe="s12"><textarea rows="2" @bind="_f.Descricao"></textarea></Campo>
+            </div>
+        }
+    </ChildContent>
+    <Rodape>
+        @if (_f?.CriadoEm != default) { <div class="esq"><button class="btn sec" @onclick="ExcluirFluxo"><Icone Nome="lixeira" Tam="14" /> Excluir</button></div> }
+        <button class="btn prim" disabled="@Ocupado" @onclick="SalvarFluxo"><Icone Nome="check" Tam="16" /> Salvar</button>
+    </Rodape>
+</Modal>
+
+@code {
+    private List<Estabelecimento> _lista = [];
+    private List<FluxoEstabelecimento> _fluxos = [];
+    private Estabelecimento? _e;
+    private FluxoEstabelecimento? _f;
+    private bool _aberto, _abertoF;
+    private string _aba = "est";
+    private static readonly List<(string, string)> _abas = [("est", "Estabelecimentos"), ("flu", "Fluxos entre CNPJs"), ("mapa", "Mapa do ecossistema")];
+
+    protected override Task OnInitializedAsync() => Carregar();
+
+    private async Task Carregar()
+    {
+        await using var db = Fabrica.Criar();
+        _lista = await db.Estabelecimentos.AsNoTracking().ToListAsync();
+        _fluxos = await db.FluxosEstabelecimento.AsNoTracking().ToListAsync();
+    }
+
+    private string Nome(Guid id) => _lista.FirstOrDefault(e => e.Id == id)?.NomeExibicao ?? "?";
+
+    private void Novo() { if (_aba == "flu") { NovoFluxo(); return; } _e = new Estabelecimento { Tipo = _lista.Any(e => e.Tipo == TipoEstabelecimento.Matriz) ? TipoEstabelecimento.Filial : TipoEstabelecimento.Matriz }; ErrosForm = null; _aberto = true; }
+    private void Editar(Estabelecimento e) { _e = e; ErrosForm = null; _aberto = true; }
+    private void NovoFluxo() { _f = new FluxoEstabelecimento(); ErrosForm = null; _abertoF = true; }
+
+    private async Task Salvar() { if (await Executar(() => Est.SalvarAsync(_e!), "Estabelecimento salvo.")) { _aberto = false; await Carregar(); } }
+    private async Task SalvarFluxo() { if (await Executar(() => Est.SalvarFluxoAsync(_f!), "Fluxo salvo.")) { _abertoF = false; await Carregar(); } }
+    private async Task ExcluirFluxo() { if (await Executar(() => Est.ExcluirFluxoAsync(_f!.Id), "Fluxo excluído.")) { _abertoF = false; await Carregar(); } }
+}

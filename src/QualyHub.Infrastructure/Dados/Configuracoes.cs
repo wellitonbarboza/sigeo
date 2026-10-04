@@ -46,6 +46,12 @@ internal sealed class LocalCfg : IEntityTypeConfiguration<Local>
         b.HasOne<QualyHub.Domain.Engenharia.Spe>().WithMany().HasForeignKey(x => x.SpeId);
         b.HasOne<QualyHub.Domain.Engenharia.Tipologia>().WithMany().HasForeignKey(x => x.TipologiaId);
         b.HasIndex(x => new { x.ObraId, x.SpeId, x.Tipo });
+        b.Property(x => x.Categoria).HasMaxLength(60);
+        b.Property(x => x.AreaPiso).HasPrecision(18, 4);
+        b.Property(x => x.Perimetro).HasPrecision(18, 4);
+        b.Property(x => x.PeDireito).HasPrecision(18, 4);
+        b.Property(x => x.AreaParede).HasPrecision(18, 4);
+        b.HasIndex(x => x.AmbienteModeloId);
     }
 }
 
@@ -59,6 +65,7 @@ internal sealed class SpeCfg : IEntityTypeConfiguration<QualyHub.Domain.Engenhar
         b.HasIndex(x => new { x.EmpresaId, x.Cnpj }).IsUnique().HasFilter("[Excluido] = 0");
         b.HasIndex(x => new { x.ObraId, x.Codigo }).IsUnique().HasFilter("[Excluido] = 0");
         b.HasOne<QualyHub.Domain.Engenharia.Quadra>().WithMany().HasForeignKey(x => x.QuadraId).OnDelete(DeleteBehavior.Restrict);
+        b.HasIndex(x => x.QuadraId).IsUnique().HasFilter("[Excluido] = 0 AND [QuadraId] IS NOT NULL");
     }
 }
 
@@ -73,6 +80,7 @@ internal sealed class QuadraCfg : IEntityTypeConfiguration<QualyHub.Domain.Engen
         b.Property(x => x.AreaTerreno).HasPrecision(18, 2);
         b.HasIndex(x => new { x.ObraId, x.Codigo }).IsUnique().HasFilter("[Excluido] = 0");
         b.HasOne<Local>().WithMany().HasForeignKey(x => x.LocalId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne<QualyHub.Domain.Engenharia.Tipologia>().WithMany().HasForeignKey(x => x.ImplantacaoId).OnDelete(DeleteBehavior.Restrict);
     }
 }
 
@@ -82,6 +90,10 @@ internal sealed class TipologiaCfg : IEntityTypeConfiguration<QualyHub.Domain.En
     {
         b.Property(x => x.Codigo).HasMaxLength(20);
         b.HasIndex(x => new { x.ObraId, x.Codigo }).IsUnique().HasFilter("[Excluido] = 0");
+        b.Property(x => x.PeDireitoPadrao).HasPrecision(18, 4);
+        b.HasMany(x => x.Ambientes).WithOne().HasForeignKey(a => a.TipologiaId);
+        b.HasMany(x => x.Mix).WithOne().HasForeignKey(m => m.TipologiaId);
+        b.Ignore(x => x.SomaAreaComodos);
     }
 }
 

@@ -42,6 +42,7 @@
                 <Campo Rotulo="Fornecedor" Obrigatorio Classe="s12"><select @bind="_d.FornecedorId" disabled="@(_d.CriadoEm != default)"><option value="@Guid.Empty">Selecione…</option>@foreach (var f in _fornecedores) { <option value="@f.Id">@f.Texto</option> }</select></Campo>
                 <Campo Rotulo="Tipo de documento" Obrigatorio Classe="s8"><select @bind="_d.TipoDocumentoExigidoId" disabled="@(_d.CriadoEm != default)"><option value="@Guid.Empty">Selecione…</option>@foreach (var t in _tipos) { <option value="@t.Id">@t.Texto</option> }</select></Campo>
                 <Campo Rotulo="Número" Classe="s4"><input @bind="_d.Numero" /></Campo>
+                <Campo Rotulo="Competência (documento mensal)" Classe="s4"><input type="month" value="@_d.Competencia?.ToString("yyyy-MM")" @onchange="DefinirCompetencia" /></Campo>
                 <Campo Rotulo="Emissão" Classe="s4"><input type="date" @bind="_d.DataEmissao" /></Campo>
                 <Campo Rotulo="Validade" Classe="s4"><input type="date" @bind="_d.DataValidade" /></Campo>
                 <Campo Rotulo="Bloqueia quando vencido" Classe="s4"><label><input type="checkbox" @bind="_d.Bloqueia" /> Sim</label></Campo>
@@ -134,4 +135,6 @@
         if (await Executar(() => Portal.ValidarDocumentoAsync(_d!.Id, aprovado, _motivo), aprovado ? "Documento validado." : "Documento recusado."))
         { _aberto = false; await Carregar(); }
     }
+
+    private void DefinirCompetencia(ChangeEventArgs e) => _d!.Competencia = DateOnly.TryParseExact(e.Value + "-01", "yyyy-MM-dd", out var c) ? c : null;
 }

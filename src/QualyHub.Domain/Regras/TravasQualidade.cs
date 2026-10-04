@@ -101,30 +101,81 @@ public static class TravasQualidade
     }
 
     /// <summary>
-    /// Medição: contrato ativo, acumulado ≤ contratado, FVS aprovada para cada item de serviço controlado
-    /// (no mesmo local, quando informado), avaliação preenchida e documentos do prestador em dia.
+    /// Medição: contrato ativo, acumulado ≤ contratado (no total e por local), FVS liberada para cada item de serviço controlado
+    /// (no local medido — ou num nível acima — e em cada local do orçamento abaixo dele), avaliação preenchida,
+    /// documentos do prestador em dia e documentos mensais da competência entregues até o dia limite.
     /// </summary>
-    public static ResultadoTrava VerificarMedicao(Medicao m, IEnumerable<Fvs> fvsDaObra, DateOnly hoje)
+    /// <param name="locais">Árvore de locais da obra (para aceitar FVS aberta num nível acima e exigir os locais abaixo).</param>
+    /// <param name="locaisExigidos">Para cada item medido, os locais do orçamento (células) abaixo do local medido que precisam de FVS.</param>
+    /// <param name="tiposDocumento">Matriz de documentos (para cobrar os mensais).</param>
+    public static ResultadoTrava VerificarMedicao(Medicao m, IEnumerable<Fvs> fvsDaObra, DateOnly hoje, IReadOnlyDictionary<Guid, Local>? locais = null,
+        Func<MedicaoItem, IReadOnlyCollection<Guid>>? locaisExigidos = null, IEnumerable<TipoDocumentoExigido>? tiposDocumento = null)
     {
         var b = new List<string>();
         if (m.Contrato.Status != StatusContrato.Ativo) b.Add("Contrato não está ativo.");
         var fvs = fvsDaObra.Where(f => f.Liberada).ToList();
+        bool Liberado(Guid servico, Guid local)
+        {
+            Guid? x = local;
+            while (x is { } id)
+            {
+                if (fvs.Any(f => f.ServicoControladoId == servico && f.LocalId == id)) return true;
+                x = locais is not null && locais.TryGetValue(id, out var l) ? l.LocalPaiId : null;
+            }
+            return false;
+        }
         foreach (var i in m.Itens)
         {
             var ci = i.ContratoItem;
-            if (i.QtdAcumulada > ci.Quantidade)
+            var cl = i.LocalId is { } lid ? ci.Locais.FirstOrDefault(x => x.LocalId == lid) : null;
+            if (cl is not null && i.QtdAcumulada > cl.Quantidade + 0.0001m)
+                b.Add($"Item {ci.Item}: acumulado no local maior que o contratado para ele ({cl.Quantidade}) — exige aditivo.");
+            else if (cl is null && i.QtdAcumulada > ci.Quantidade)
                 b.Add($"Item {ci.Item}: acumulado ({i.QtdAcumulada}) maior que o contratado ({ci.Quantidade}) — exige aditivo.");
             if (ci.ServicoControlado is { ExigeFvsParaMedicao: true } sc && i.QtdPeriodo > 0)
             {
-                var ok = i.FvsId is { } fid ? fvs.Any(f => f.Id == fid)
-                       : fvs.Any(f => f.ServicoControladoId == sc.Id && (i.LocalId is null || f.LocalId == i.LocalId));
-                if (!ok) b.Add($"Item {ci.Item} ({sc.Codigo} – {sc.Nome}): sem FVS liberada{(i.LocalId is null ? "" : " neste local")}.");
+                bool ok;
+                if (i.FvsId is { } fid) ok = fvs.Any(f => f.Id == fid);
+                else if (i.LocalId is null) ok = fvs.Any(f => f.ServicoControladoId == sc.Id);
+                else
+                {
+                    var exigidos = locaisExigidos?.Invoke(i) ?? [];
+                    ok = exigidos.Count == 0 ? Liberado(sc.Id, i.LocalId.Value) || DescendenteLiberado(sc.Id, i.LocalId.Value)
+                                             : exigidos.All(l => Liberado(sc.Id, l));
+                }
+                if (!ok) b.Add($"Item {ci.Item} ({sc.Codigo} – {sc.Nome}): sem FVS liberada{(i.LocalId is null ? "" : " em todos os locais medidos")}.");
             }
+        }
+        bool DescendenteLiberado(Guid servico, Guid local) =>
+            locais is not null && fvs.Any(f => f.ServicoControladoId == servico && EhDescendente(f.LocalId, local));
+        bool EhDescendente(Guid filho, Guid pai)
+        {
+            Guid? x = filho;
+            while (x is { } id && locais!.TryGetValue(id, out var l)) { if (l.LocalPaiId == pai) return true; x = l.LocalPaiId; }
+            return false;
         }
         if (m.NotaFinal is null) b.Add("Preencha a avaliação do prestador (notas obrigatórias).");
         if (m.Faixa == FaixaNota.ReuniaoPlanoCompleto && m.DataReuniao is null) b.Add("Nota abaixo do mínimo: registre a reunião com o fornecedor.");
         b.AddRange(DocumentosBloqueantes(m.Contrato.Fornecedor, hoje));
-        return new ResultadoTrava(b);
+        if (tiposDocumento is not null) b.AddRange(DocumentosMensaisPendentes(m.Contrato.Fornecedor, tiposDocumento, hoje));
+        return new ResultadoTrava(b.Distinct().ToList());
+    }
+
+    /// <summary>
+    /// Documentos mensais (eSocial/DCTFWeb, guias INSS/FGTS, folha, seguro de vida…): a competência anterior precisa estar
+    /// entregue (e não recusada) a partir do dia limite (padrão: dia 20). Vale para os documentos exigidos deste fornecedor.
+    /// </summary>
+    public static IEnumerable<string> DocumentosMensaisPendentes(Fornecedor f, IEnumerable<TipoDocumentoExigido> tipos, DateOnly hoje)
+    {
+        var exigidos = f.Exigencias.Count > 0 ? f.Exigencias.Where(x => x.Obrigatorio).Select(x => x.TipoDocumentoExigidoId).ToHashSet() : null;
+        foreach (var t in tipos.Where(t => t.Frequencia == FrequenciaDocumento.Mensal && t.Ativo && t.BloqueiaQuandoVencido))
+        {
+            var aplica = exigidos is not null ? exigidos.Contains(t.Id) : MatrizExigencias.Aplica(t, f.TipoFornecimento, f.IncluirDocsFuncionarios) && t.Obrigatorio;
+            var comp = MatrizExigencias.CompetenciaExigida(t, hoje);
+            if (!aplica || comp is null) continue;
+            var ok = f.Documentos.Any(d => !d.Excluido && d.TipoDocumentoExigidoId == t.Id && d.Competencia == comp && d.ArquivoBlob is not null && d.Status != StatusDocumento.Reprovado);
+            if (!ok) yield return $"Documento mensal '{t.Nome}' da competência {comp:MM/yyyy} não entregue (limite: dia {t.DiaLimite ?? 20}).";
+        }
     }
 
     /// <summary>

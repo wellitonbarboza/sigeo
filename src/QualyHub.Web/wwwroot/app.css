@@ -426,3 +426,42 @@ ul.notas li { border-left: 3px solid var(--primaria); background: var(--superfic
 .usuario-box .conta-links a { color: var(--sidebar-sutil); display: inline-flex; gap: 4px; align-items: center; }
 .usuario-box .conta-links a:hover { color: var(--sidebar-texto); }
 .senha-gerada { font: 700 20px/1.2 ui-monospace, 'Cascadia Mono', Consolas, monospace; letter-spacing: .08em; padding: 10px 14px; background: var(--superficie); border: 1px dashed var(--borda-forte); border-radius: 8px; user-select: all; }
+
+/* ───── Engenharia: estrutura, orçamento, mapa da torre ───── */
+.grade-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 900px) { .grade-2 { grid-template-columns: 1fr; } }
+.seletor-locais { max-height: 340px; overflow: auto; border: 1px solid var(--borda); border-radius: 8px; padding: 6px 8px; background: var(--superficie); }
+.sl-linha { display: flex; align-items: center; gap: 4px; padding: 2px 0; font-size: 13px; }
+.sl-linha label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.sl-abre { width: 18px; border: 0; background: none; cursor: pointer; color: var(--texto-2); padding: 0; }
+.busca-prod { position: relative; }
+.busca-lista { position: absolute; z-index: 30; left: 0; right: 0; top: 100%; margin: 2px 0 0; padding: 4px 0; list-style: none; background: var(--superficie); border: 1px solid var(--borda); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.12); max-height: 280px; overflow: auto; }
+.busca-lista li { padding: 6px 10px; font-size: 13px; cursor: pointer; }
+.busca-lista li:hover { background: var(--neutro-suave); }
+.matriz-serv th { position: sticky; top: 0; background: var(--superficie); z-index: 2; font-size: 11px; }
+.matriz-serv td:first-child { position: sticky; left: 0; background: var(--superficie); }
+.predio { display: inline-flex; flex-direction: column; gap: 4px; padding: 12px; background: var(--superficie); border: 1px solid var(--borda); border-radius: 10px; min-width: 100%; overflow-x: auto; }
+.predio-pav { display: flex; gap: 4px; align-items: stretch; }
+.predio-rotulo { width: 96px; flex: none; font-size: 11.5px; font-weight: 700; color: var(--texto-2); display: flex; align-items: center; }
+.predio-apto { flex: 1 1 0; min-width: 120px; border: 1px solid var(--borda); border-radius: 6px; padding: 5px 6px; cursor: pointer; background: var(--fundo, #f6f7f9); }
+.predio-apto:hover { outline: 2px solid var(--primaria); }
+.predio-apto b { font-size: 12px; display: block; margin-bottom: 3px; }
+.predio-apto.comum { background: transparent; border-style: dashed; min-width: 110px; flex: 0 0 auto; }
+.predio-base { text-align: center; font-weight: 700; padding-top: 6px; border-top: 4px solid var(--texto-2); color: var(--texto-2); font-size: 12px; }
+.predio-comuns { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+.predio-comum { border: 1px dashed var(--borda); border-radius: 6px; padding: 5px 8px; cursor: pointer; font-size: 12px; }
+.chips { display: flex; flex-wrap: wrap; gap: 2px; }
+.chip { font-size: 10px; font-weight: 700; padding: 1px 4px; border-radius: 4px; line-height: 1.4; letter-spacing: .02em; }
+.st-ok { background: #16a34a; color: #fff; }
+.st-and { background: #fde68a; color: #713f12; }
+.st-erro { background: #ef4444; color: #fff; }
+.st-pend { background: var(--neutro-suave, #e5e7eb); color: var(--texto-2); }
+.legenda i.st-ok, .legenda i.st-and, .legenda i.st-erro, .legenda i.st-pend { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 4px; vertical-align: middle; }
+.eco-mapa { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start; margin: 8px 0 16px; }
+.eco-grupo { border: 1px solid var(--borda); border-radius: 10px; padding: 10px; min-width: 260px; background: var(--superficie); }
+.eco-titulo { font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--texto-2); margin-bottom: 6px; }
+.eco-no { border-left: 4px solid var(--primaria); padding: 6px 8px; margin-bottom: 6px; background: var(--fundo, #f6f7f9); border-radius: 4px; display: flex; flex-direction: column; font-size: 12.5px; }
+.eco-no.matriz { border-left-color: #0f766e; }
+.eco-no.spe { border-left-color: #b45309; }
+.eco-no small { color: var(--primaria); font-weight: 600; }
+.lista-exig .sl-linha { flex-wrap: wrap; }

@@ -42,7 +42,7 @@ public class QualidadeObraTests
         var m = ModeloPreLaje(Guid.NewGuid());
         Assert.Throws<RegraDeNegocioException>(() => Fvs.Abrir(m, Pavimento(), Guid.NewGuid(), Guid.NewGuid(), "Inspetor", Agora, "FVS-0001"));
         m.Publicar(null);
-        var unidade = new Local { Tipo = "Unidade", Nome = "Apto 31", Codigo = "T2-31" };
+        var unidade = new Local { Tipo = "Apartamento", Nome = "Apto 31", Codigo = "T2-31" };
         Assert.Throws<RegraDeNegocioException>(() => Fvs.Abrir(m, unidade, Guid.NewGuid(), Guid.NewGuid(), "Inspetor", Agora, "FVS-0001"));
     }
 

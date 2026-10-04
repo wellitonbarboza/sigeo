@@ -4,6 +4,7 @@
 @inject PortalServico Portal
 @inject NavigationManager Nav
 @inject QualyHub.Infrastructure.Importacao.ImportadorFornecedoresExpertData ImpExpert
+@inject FornecedoresServico Forn
 
 <Pagina Titulo="Fornecedores" Grade="_grade" AoNovo="Novo" AoAtualizar="Carregar">
     <ChildContent>
@@ -15,6 +16,8 @@
                 <Kpi Rotulo="Sem e-mail" Valor="@_itens?.Count(f => string.IsNullOrWhiteSpace(f.Emails))" Sub="bloqueia envio de pedido" Tom="aviso" />
             </div>
             <div class="barra-acoes">
+                <button class="btn prim pq" id="pre-cadastro" @onclick="NovoPre"><Icone Nome="enviar" Tam="14" /> Pré-cadastro + link para o fornecedor</button>
+                <a class="btn sec pq" href="fornecedores/exigencias"><Icone Nome="tabela" Tam="14" /> Matriz de documentos</a>
                 <label class="btn sec pq" style="cursor:pointer" title="Planilha 'Export' do cadastro de fornecedores do ExpertData (.xlsx)"><Icone Nome="upload" Tam="14" /> Importar planilha (ExpertData)<InputFile OnChange="Prever" accept=".xlsx" style="display:none" /></label>
             </div>
             <Grade T="Fornecedor" @ref="_grade" Itens="_itens" AoClicar="Editar" NomeExportacao="fornecedores" CriadoPor="f => f.CriadoPor">
@@ -28,6 +31,7 @@
                     <Coluna T="Fornecedor" Titulo="Status de qualificação" Valor="f => f.StatusQualificacao"><Modelo><Selo Texto="@De(context.StatusQualificacao)" Tom="@Tom(context.StatusQualificacao)" /></Modelo></Coluna>
                     <Coluna T="Fornecedor" Titulo="Nota média" Valor="f => f.NotaMedia" Alinhar="num" />
                     <Coluna T="Fornecedor" Titulo="Ativo" Valor="f => f.Ativo" />
+                    <Coluna T="Fornecedor" Titulo="Pré-cadastro" Valor="f => f.PreCadastro" />
                     <Coluna T="Fornecedor" Titulo="Telefones" Valor="f => f.Telefones" Visivel="false" />
                     <Coluna T="Fornecedor" Titulo="E-mails" Valor="f => f.Emails" Visivel="false" />
                     <Coluna T="Fornecedor" Titulo="Porte" Valor="f => f.Porte" Visivel="false" />
@@ -51,6 +55,59 @@
         @if (_f is not null)
         {
             <Erros Lista="ErrosForm" />
+            @if (_f.PreCadastro) { <div class="alerta aviso"><Icone Nome="info" /> Pré-cadastro: o fornecedor completa os dados e envia os documentos pelo link. Desmarque "pré-cadastro" depois de conferir.</div> }
+            <Abas Itens="_abasF" @bind-Ativa="_abaF" />
+            @if (_abaF == "grupos")
+            {
+                <div class="secao"><Icone Nome="caixa" /> Grupos do catálogo que atende <span class="acao"><button class="btn sec pq" @onclick="() => _f.Grupos.Add(new FornecedorGrupo { FornecedorId = _f.Id })"><Icone Nome="mais" Tam="14" /> Grupo</button></span></div>
+                <table class="itens" id="forn-grupos"><thead><tr><th>Grupo</th><th>Subgrupos (vazio = todos)</th><th></th></tr></thead>
+                    <tbody>@foreach (var g in _f.Grupos)
+                    {
+                        <tr><td><select @bind="g.CategoriaProdutoId"><option value="@Guid.Empty">—</option>@foreach (var x in _cats.Where(c => c.PaiId == null)) { <option value="@x.Id">@x.Nome</option> }</select></td>
+                            <td>@foreach (var sg in _cats.Where(c => c.PaiId == g.CategoriaProdutoId)) { <label class="check-linha" style="margin-right:10px"><input type="checkbox" checked="@((g.Subgrupos ?? "").Contains(sg.Id.ToString()))" @onchange="e => MarcarSub(g, sg.Id, (bool)e.Value!)" /> @sg.Nome</label> }
+                                @if (g.Todos) { <span class="mudo">todos os subgrupos</span> }</td>
+                            <td><button class="icone-btn" @onclick="() => _f.Grupos.Remove(g)"><Icone Nome="lixeira" Tam="16" /></button></td></tr>
+                    }
+                    @if (_f.Grupos.Count == 0) { <tr><td colspan="3" class="mudo">Ligue o fornecedor aos grupos do catálogo — ele aparece como sugerido nas cotações desses materiais.</td></tr> }</tbody></table>
+                <div class="secao"><Icone Nome="escudo-check" /> Serviços que executa (ITS)</div>
+                <div class="checks" style="flex-wrap:wrap">@foreach (var sv in _servicosIts) { <label style="min-width:260px"><input type="checkbox" checked="@_f.Servicos.Any(x => x.ServicoControladoId == sv.Id)" @onchange="e => MarcarIts(sv.Id, (bool)e.Value!)" /> @sv.Texto</label> }</div>
+            }
+            else if (_abaF == "docs")
+            {
+                <div class="form">
+                    <Campo Rotulo="" Classe="s6"><label><input type="checkbox" @bind="_f.IncluirDocsFuncionarios" /> Exigir documentos dos funcionários (presta serviço na obra)</label></Campo>
+                    <Campo Rotulo="" Classe="s6"><button class="btn sec pq" @onclick="AplicarMatriz"><Icone Nome="atualizar" Tam="14" /> Aplicar a matriz pelo tipo de fornecimento</button></Campo>
+                </div>
+                <ListaExigencias Tipos="_tiposDoc" Fornecedor="_f" />
+                <p class="mudo">Sem nenhum marcado, vale a matriz pelo tipo de fornecimento. Mensais: competência anterior até o dia limite (padrão 20) — sem eles a medição trava.</p>
+            }
+            else if (_abaF == "painel")
+            {
+                @if (_painel is null) { <div class="mudo">Salve o fornecedor para ver o painel.</div> }
+                else
+                {
+                    <div class="kpis">
+                        <Kpi Rotulo="Documentos válidos" Valor="@_painel.DocsValidos" Tom="ok" Sub="@($"{_painel.DocsEmValidacao} em validação")" />
+                        <Kpi Rotulo="Pendentes / vencidos" Valor="@($"{_painel.DocsPendentes} / {_painel.DocsVencidos}")" Tom="@(_painel.DocsPendentes + _painel.DocsVencidos > 0 ? "erro" : "ok")" />
+                        <Kpi Rotulo="FVM aprovadas (6 meses)" Valor="@(_painel.FvmAprovadasPerc is { } p ? $"{p:0}%" : "—")" Sub="@($"{_painel.Fvm} recebimentos")" Tom="info" />
+                        <Kpi Rotulo="Nota média medições" Valor="@(_painel.NotaMedia?.ToString("0.0") ?? "—")" Tom="info" />
+                    </div>
+                    <div class="kpis">
+                        <Kpi Rotulo="Qualificação vigente até" Valor="@(_painel.QualificacaoValidaAte?.ToString("dd/MM/yyyy") ?? (_painel.Qualificacoes > 0 ? "sem validade" : "—"))" />
+                        <Kpi Rotulo="Pedidos" Valor="@_painel.Pedidos" Sub="@_painel.ValorPedidos.ToString("C0", Br)" />
+                        <Kpi Rotulo="Contratos" Valor="@_painel.Contratos" Sub="@_painel.ValorContratos.ToString("C0", Br)" />
+                        <Kpi Rotulo="Planos de ação abertos" Valor="@_painel.PlanosAbertos" Tom="@(_painel.PlanosAbertos > 0 ? "aviso" : "ok")" />
+                    </div>
+                    @if (_painel.MensaisPendentes.Count + _painel.Bloqueios.Count > 0)
+                    {
+                        <div class="alerta erro"><Icone Nome="x-circulo" /><div><b>Pendências que travam compra/medição</b><ul>@foreach (var b in _painel.Bloqueios.Concat(_painel.MensaisPendentes)) { <li>@b</li> }</ul></div></div>
+                    }
+                    else { <div class="alerta ok"><Icone Nome="check" /> Sem pendências que travem compra ou medição.</div> }
+                    <div style="display:flex;gap:8px"><a class="btn sec" href="fornecedores/documentos?f=@_f.Id">Documentos</a><a class="btn sec" href="fornecedores/qualificacao?f=@_f.Id">Qualificação</a><a class="btn sec" href="fornecedores/avaliacao">Avaliação</a></div>
+                }
+            }
+            else
+            {
             <div class="form">
                 <Campo Rotulo="CPF / CNPJ" Obrigatorio Classe="s3"><input @bind="_f.CpfCnpj" placeholder="00.000.000/0000-00" /></Campo>
                 <Campo Rotulo="Razão social / nome" Obrigatorio Classe="s6"><input @bind="_f.RazaoSocial" /></Campo>
@@ -85,7 +142,7 @@
                 </Campo>
                 <Campo Rotulo="Status de qualificação" Classe="s4" Ajuda="Calculado pela última qualificação"><input readonly value="@De(_f.StatusQualificacao)" /></Campo>
                 <Campo Rotulo="Nota média (6 meses)" Classe="s4"><input readonly value="@Num(_f.NotaMedia)" /></Campo>
-                <Campo Rotulo="Ativo" Classe="s4"><div class="checks"><label><input type="checkbox" @bind="_f.Ativo" /> Ativo</label></div></Campo>
+                <Campo Rotulo="Ativo" Classe="s4"><div class="checks"><label><input type="checkbox" @bind="_f.Ativo" /> Ativo</label><label><input type="checkbox" @bind="_f.PreCadastro" /> Pré-cadastro</label></div></Campo>
             </div>
             <div class="secao"><Icone Nome="pessoa" /> Contatos <span class="acao"><button class="btn sec pq" @onclick="() => _f.Contatos.Add(new FornecedorContato { FornecedorId = _f.Id, Principal = _f.Contatos.Count == 0 })"><Icone Nome="mais" Tam="14" /> Contato</button></span></div>
             @if (_f.Contatos.Count == 0) { <div class="mudo" style="padding:4px 2px 8px">Nenhum contato. Cadastre ao menos o comercial (recebe pedidos e cotações).</div> }
@@ -103,6 +160,7 @@
             {
                 <p class="mudo" style="margin-top:8px">Origem: <b>@_f.OrigemSistema</b>@(_f.OrigemCriadoPor is null ? "" : $" · criado por {_f.OrigemCriadoPor}")@(_f.OrigemCriadoEm is { } oc ? $" em {oc:dd/MM/yyyy HH:mm}" : "")@(_f.OrigemAlteradoPor is null ? "" : $" · alterado por {_f.OrigemAlteradoPor}")@(_f.OrigemAlteradoEm is { } oa ? $" em {oa:dd/MM/yyyy HH:mm}" : "")</p>
             }
+            }
             @if (_link is not null)
             {
                 <div class="alerta info"><Icone Nome="cadeado" /> <div>Link do portal (@_link.Value.Codigo, válido por 15 dias): <b>@_link.Value.Url</b><br /><span class="mudo">Envie ao fornecedor. Ele envia os documentos sem login; você valida em Docs. do Fornecedor.</span></div></div>
@@ -113,6 +171,38 @@
         @if (!_novo) { <div class="esq"><button class="btn sec" @onclick="GerarLink"><Icone Nome="enviar" Tam="16" /> Link do portal</button></div> }
         <button class="btn prim" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="16" /> Salvar</button>
     </Rodape>
+</Modal>
+
+<Modal @bind-Aberto="_abertoPre" Titulo="Pré-cadastro de fornecedor" Tamanho="grande">
+    <ChildContent>
+        @if (_f is not null)
+        {
+            <Erros Lista="ErrosForm" />
+            <div class="form">
+                <Campo Rotulo="CNPJ" Obrigatorio Classe="s3"><input id="pre-cnpj" @bind="_f.CpfCnpj" placeholder="00.000.000/0000-00" /></Campo>
+                <Campo Rotulo="Razão social" Obrigatorio Classe="s6"><input id="pre-razao" @bind="_f.RazaoSocial" /></Campo>
+                <Campo Rotulo="E-mail (recebe o link)" Obrigatorio Classe="s3"><input id="pre-email" type="email" @bind="_f.Emails" /></Campo>
+                <Campo Rotulo="Fornece" Obrigatorio Classe="s12">
+                    <div class="checks">
+                        <label><input type="checkbox" id="pre-mat" checked="@_f.TipoFornecimento.HasFlag(TipoFornecimento.Material)" @onchange="e => MarcarPre(TipoFornecimento.Material, (bool)e.Value!)" /> Material</label>
+                        <label><input type="checkbox" id="pre-serv" checked="@_f.TipoFornecimento.HasFlag(TipoFornecimento.ServicoObra)" @onchange="e => MarcarPre(TipoFornecimento.ServicoObra, (bool)e.Value!)" /> Serviço de obra</label>
+                        @foreach (var t in new[] { TipoFornecimento.ServicoEspecializadoEngenharia, TipoFornecimento.Laboratorio, TipoFornecimento.Consultoria, TipoFornecimento.Locacao })
+                        {
+                            <label><input type="checkbox" checked="@_f.TipoFornecimento.HasFlag(t)" @onchange="e => MarcarPre(t, (bool)e.Value!)" /> @De(t)</label>
+                        }
+                        <label style="margin-left:18px"><input type="checkbox" id="pre-func" checked="@_f.IncluirDocsFuncionarios" @onchange="async e => { _f.IncluirDocsFuncionarios = (bool)e.Value!; await AplicarMatriz(); }" /> Incluir documentos dos funcionários</label>
+                    </div>
+                </Campo>
+            </div>
+            <div class="secao"><Icone Nome="arquivo" /> Documentos que serão pedidos (da matriz — ajuste à vontade)</div>
+            <ListaExigencias Tipos="_tiposDoc" Fornecedor="_f" />
+            @if (_link is not null)
+            {
+                <div class="alerta ok"><Icone Nome="cadeado" /> <div>Link do portal (@_link.Value.Codigo, válido por 15 dias): <b id="pre-link">@_link.Value.Url</b><br /><span class="mudo">Envie ao fornecedor: ele completa os dados cadastrais e envia os documentos sem login.</span></div></div>
+            }
+        }
+    </ChildContent>
+    <Rodape>@if (_link is null) { <button class="btn prim" id="pre-salvar" disabled="@Ocupado" @onclick="SalvarPre"><Icone Nome="enviar" Tam="16" /> Salvar e gerar link</button> }</Rodape>
 </Modal>
 
 <Modal @bind-Aberto="_abertoImp" Titulo="Importar fornecedores — planilha ExpertData" Tamanho="grande">
@@ -185,36 +275,77 @@
         _itens = await db.Fornecedores.AsNoTracking().OrderBy(f => f.RazaoSocial).ToListAsync();
     }
 
-    private void Novo() { _f = new Fornecedor(); _novo = true; _link = null; ErrosForm = null; _aberto = true; }
-    private async Task Editar(Fornecedor f)
+    private bool _abertoPre;
+    private string _abaF = "dados";
+    private static readonly List<(string, string)> _abasF = [("dados", "Dados e contatos"), ("grupos", "Grupos e serviços (ITS)"), ("docs", "Documentos exigidos"), ("painel", "Painel")];
+    private List<CategoriaProduto> _cats = [];
+    private List<Opcao> _servicosIts = [];
+    private List<TipoDocumentoExigido> _tiposDoc = [];
+    private PainelFornecedor? _painel;
+
+    private async Task CarregarApoio()
     {
         await using var db = Fabrica.Criar();
-        _f = await db.Fornecedores.AsNoTracking().Include(x => x.Contatos).FirstAsync(x => x.Id == f.Id);
+        _cats = await db.CategoriasProduto.AsNoTracking().Where(c => c.Ativo).OrderBy(c => c.Nome).ToListAsync();
+        _servicosIts = await Cat.ServicosAsync();
+        _tiposDoc = await db.TiposDocumento.AsNoTracking().Where(t => t.Ativo && t.AplicaA == AplicaA.Fornecedor).OrderBy(t => t.Categoria).ThenBy(t => t.Ordem).ThenBy(t => t.Nome).ToListAsync();
+    }
+
+    private async Task Novo() { await CarregarApoio(); _f = new Fornecedor(); _novo = true; _link = null; _painel = null; _abaF = "dados"; ErrosForm = null; _aberto = true; }
+    private async Task NovoPre()
+    {
+        await CarregarApoio();
+        _f = new Fornecedor { PreCadastro = true, TipoFornecimento = TipoFornecimento.Material };
+        await AplicarMatriz();
+        _link = null; ErrosForm = null; _abertoPre = true;
+    }
+    private async Task Editar(Fornecedor f)
+    {
+        await CarregarApoio();
+        await using var db = Fabrica.Criar();
+        _f = await db.Fornecedores.AsNoTracking().Include(x => x.Contatos).Include(x => x.Grupos).Include(x => x.Servicos).Include(x => x.Exigencias).AsSplitQuery().FirstAsync(x => x.Id == f.Id);
+        _painel = await Forn.PainelAsync(f.Id);
         _novo = false; _link = null; ErrosForm = null; _aberto = true;
+    }
+
+    private void MarcarPre(TipoFornecimento t, bool on) { _f!.TipoFornecimento = on ? _f.TipoFornecimento | t : _f.TipoFornecimento & ~t; _ = AplicarMatriz(); }
+
+    private async Task AplicarMatriz()
+    {
+        var m = await Forn.MatrizAsync(_f!.TipoFornecimento, _f.IncluirDocsFuncionarios);
+        _f.Exigencias = m.Select(t => new FornecedorExigencia { FornecedorId = _f.Id, TipoDocumentoExigidoId = t.Id, Obrigatorio = t.Obrigatorio }).ToList();
+        StateHasChanged();
+    }
+
+    private void MarcarSub(FornecedorGrupo g, Guid sub, bool on)
+    {
+        var l = (g.Subgrupos ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries).ToList();
+        if (on) l.Add(sub.ToString()); else l.Remove(sub.ToString());
+        g.Subgrupos = l.Count == 0 ? null : string.Join(',', l.Distinct());
+    }
+
+    private void MarcarIts(Guid id, bool on)
+    {
+        if (on && _f!.Servicos.All(x => x.ServicoControladoId != id)) _f.Servicos.Add(new FornecedorServico { FornecedorId = _f.Id, ServicoControladoId = id });
+        else if (!on) foreach (var x in _f!.Servicos.Where(x => x.ServicoControladoId == id).ToList()) _f.Servicos.Remove(x);
+    }
+
+    private async Task SalvarPre()
+    {
+        await Executar(async () =>
+        {
+            await Forn.SalvarAsync(_f!);
+            var (token, codigo) = await Portal.GerarLinkAsync(_f!.Id, 15);
+            _link = (codigo, Nav.ToAbsoluteUri($"portal/{token}").ToString());
+        }, "Pré-cadastro salvo e link gerado.");
+        await Carregar();
     }
     private void Marcar(TipoFornecimento t, bool on) => _f!.TipoFornecimento = on ? _f.TipoFornecimento | t : _f.TipoFornecimento & ~t;
 
     private async Task Salvar()
     {
-        var ok = await Executar(async () =>
-        {
-            var e = new List<string>();
-            var doc = new string(_f!.CpfCnpj.Where(char.IsDigit).ToArray());
-            if (doc.Length == 14 && !QualyHub.Infrastructure.Importacao.Conversor.CnpjValido(doc)) e.Add("CNPJ inválido.");
-            if (doc.Length == 11 && !QualyHub.Infrastructure.Importacao.Conversor.CpfValido(doc)) e.Add("CPF inválido.");
-            if (doc.Length is not (0 or 11 or 14)) e.Add("CPF/CNPJ incompleto.");
-            if (string.IsNullOrWhiteSpace(_f.RazaoSocial)) e.Add("Informe a razão social.");
-            if (_f.TipoFornecimento == TipoFornecimento.Nenhum) e.Add("Informe o tipo de fornecimento.");
-            if (string.IsNullOrWhiteSpace(_f.Emails)) e.Add("Informe ao menos um e-mail.");
-            if (_f.Contatos.Any(c => string.IsNullOrWhiteSpace(c.Nome))) e.Add("Contato sem nome.");
-            if (_f.CapitalSocial is < 0) e.Add("Capital social negativo.");
-            ValidacaoException.Se(e);
-            if (!_f.Ativo && _f.StatusQualificacao != StatusQualificacao.Desqualificado) { }
-            await using var db = Fabrica.Criar();
-            foreach (var c in _f.Contatos) c.FornecedorId = _f.Id;
-            await Grafo.SalvarAsync(db, _f, nameof(Fornecedor.Contatos));
-            await db.SaveChangesAsync();
-        }, "Fornecedor salvo.");
+        _f!.Grupos = _f.Grupos.Where(g => g.CategoriaProdutoId != Guid.Empty).ToList();
+        var ok = await Executar(() => Forn.SalvarAsync(_f), "Fornecedor salvo.");
         if (ok) { _aberto = false; await Carregar(); }
     }
 

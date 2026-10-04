@@ -1,0 +1,31 @@
+@* Documentos exigidos do fornecedor (seleção a partir da matriz), agrupados por categoria. *@
+<div class="lista-exig" id="lista-exig">
+    @foreach (var g in Tipos.Where(Visivel).GroupBy(t => t.Categoria ?? "Outros").OrderBy(g => g.Key))
+    {
+        <div class="secao" style="margin-top:6px">@g.Key</div>
+        @foreach (var t in g)
+        {
+            var x = Fornecedor.Exigencias.FirstOrDefault(e => e.TipoDocumentoExigidoId == t.Id);
+            <div class="sl-linha">
+                <label><input type="checkbox" checked="@(x is not null)" @onchange="e => Marcar(t, (bool)e.Value!)" /> @t.Nome</label>
+                <span class="mudo"> · @Rotulos.De(t.Frequencia)@(t.Frequencia == FrequenciaDocumento.Mensal ? $" (até dia {t.DiaLimite ?? 20})" : t.ValidadePadraoDias is { } v ? $" ({v} dias)" : "")@(t.DeFuncionario ? " · funcionários" : "")</span>
+                @if (x is not null) { <label class="check-linha" style="margin-left:10px"><input type="checkbox" @bind="x.Obrigatorio" /> obrigatório</label> }
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Parameter] public IReadOnlyList<TipoDocumentoExigido> Tipos { get; set; } = [];
+    [Parameter] public Fornecedor Fornecedor { get; set; } = null!;
+
+    private bool Visivel(TipoDocumentoExigido t) =>
+        Fornecedor.Exigencias.Any(e => e.TipoDocumentoExigidoId == t.Id) || (!t.DeFuncionario || Fornecedor.IncluirDocsFuncionarios);
+
+    private void Marcar(TipoDocumentoExigido t, bool on)
+    {
+        if (on && Fornecedor.Exigencias.All(e => e.TipoDocumentoExigidoId != t.Id))
+            Fornecedor.Exigencias.Add(new FornecedorExigencia { FornecedorId = Fornecedor.Id, TipoDocumentoExigidoId = t.Id, Obrigatorio = true });
+        else if (!on) foreach (var e in Fornecedor.Exigencias.Where(e => e.TipoDocumentoExigidoId == t.Id).ToList()) Fornecedor.Exigencias.Remove(e);
+    }
+}

@@ -1,0 +1,180 @@
+@page "/obra/mapa-torre"
+@inherits PaginaBase
+@inject NavigationManager Nav
+
+<Pagina Titulo="Mapa da torre (FVS)" AoAtualizar="Carregar">
+    <ChildContent>
+        <div class="pagina">
+            <div class="barra-filtro">
+                <label>Obra <select id="mt-obra" value="@_obraId" @onchange="async e => { _obraId = Guid.TryParse(e.Value?.ToString(), out var g) ? g : null; _torreId = null; await CarregarObra(); }"><option value="">Selecione…</option>@foreach (var o in _obras) { <option value="@o.Id">@o.Texto</option> }</select></label>
+                <label>Torre <select id="mt-torre" value="@_torreId" @onchange="async e => { _torreId = Guid.TryParse(e.Value?.ToString(), out var g) ? g : null; await Carregar(); }"><option value="">Selecione…</option>@foreach (var t in _torres) { <option value="@t.Id">@t.Codigo – @t.Nome</option> }</select></label>
+                <label>Serviço <select @bind="_fIts"><option value="">Todos</option>@foreach (var s in _its.Values.OrderBy(s => s.Codigo)) { <option value="@s.Id">@Sigla(s) – @s.Nome</option> }</select></label>
+            </div>
+            @if (_torreId is null) { <div class="alerta info"><Icone Nome="info" /> Escolha a obra e a torre. O mapa mostra, por apartamento, as siglas das FVS dos serviços que entram nele (pelo orçamento das tipologias), coloridas pela situação.</div> }
+            else
+            {
+                <div class="kpis">
+                    <Kpi Rotulo="Inspeções previstas" Valor="@_totalPrev.ToString("N0", Br)" Sub="serviço controlado × local" />
+                    <Kpi Rotulo="Aprovadas / liberadas" Valor="@_totalOk.ToString("N0", Br)" Sub="@(_totalPrev == 0 ? "" : $"{100m * _totalOk / _totalPrev:0}%")" Tom="ok" />
+                    <Kpi Rotulo="Reprovadas" Valor="@_totalErro.ToString("N0", Br)" Tom="erro" />
+                    <Kpi Rotulo="Em inspeção" Valor="@_totalAnd.ToString("N0", Br)" Tom="aviso" />
+                </div>
+                @if (_comunsTorre.Count > 0 || _comunsCond.Count > 0)
+                {
+                    <div class="predio-comuns">
+                        @foreach (var c in _comunsCond.Concat(_comunsTorre)) { <div class="predio-comum" @onclick="() => Abrir(c)"><b>@c.Nome</b>@Chips(c)</div> }
+                    </div>
+                }
+                <div class="predio" id="mapa-torre">
+                    @foreach (var p in _pavs)
+                    {
+                        <div class="predio-pav">
+                            <div class="predio-rotulo">@p.Nome</div>
+                            @foreach (var a in Aptos(p)) { <div class="predio-apto" id="apto-@a.Codigo" @onclick="() => Abrir(a)"><b>@a.Nome.Replace("Apto ", "")</b>@Chips(a)</div> }
+                            @foreach (var c in _filhos[p.Id].Where(x => x.Tipo == GeradorEmpreendimento.TipoAreaComum)) { <div class="predio-apto comum" @onclick="() => Abrir(c)"><b>@c.Nome</b>@Chips(c)</div> }
+                        </div>
+                    }
+                    <div class="predio-base">@_torre?.Nome</div>
+                </div>
+                <div class="legenda"><span><i class="st-ok"></i>Aprovada / liberada</span><span><i class="st-and"></i>Em inspeção / parcial</span><span><i class="st-erro"></i>Reprovada</span><span><i class="st-pend"></i>Não iniciada</span></div>
+            }
+        </div>
+    </ChildContent>
+    <Faixa><b>Mapa da torre</b><span>Pavimentos × apartamentos com as FVS dos serviços de cada um</span><span>Clique no apartamento para ver cômodo × serviço e abrir a FVS</span></Faixa>
+</Pagina>
+
+<Modal @bind-Aberto="_aberto" Titulo="@(_sel is null ? "" : $"{_sel.Codigo} – {_sel.Nome}")" Tamanho="grande">
+    <ChildContent>
+        @if (_sel is not null)
+        {
+            var locais = new[] { _sel }.Concat(_filhos[_sel.Id].OrderBy(x => x.Ordem)).ToList();
+            var its = ItsDe(_sel).ToList();
+            <table class="itens" id="mapa-detalhe">
+                <thead><tr><th>Local</th>@foreach (var s in its) { <th class="num" title="@s.Nome">@Sigla(s)</th> }</tr></thead>
+                <tbody>
+                    @foreach (var l in locais)
+                    {
+                        <tr><td>@l.Nome <span class="mudo">@l.Codigo</span></td>
+                            @foreach (var s in its)
+                            {
+                                if (!_celulas.Contains((s.Id, l.Id))) { <td></td> continue; }
+                                var (st, f) = Situacao(s.Id, l.Id);
+                                <td class="num"><span class="chip @Classe(st)" style="cursor:pointer" title="@(f is null ? "Abrir nova FVS" : $"{f.Numero} · {De(f.Status)}")" @onclick="() => AbrirFvs(l.Id, s.Id, f)">@Sigla(s)</span></td>
+                            }
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            <p class="mudo">Só aparecem as células orçadas (serviço × local). FVS aberta no apartamento vale para os cômodos dele.</p>
+        }
+    </ChildContent>
+</Modal>
+
+@code {
+    private List<Opcao> _obras = [];
+    private Guid? _obraId, _torreId, _fIts;
+    private List<Local> _torres = [], _pavs = [], _comunsTorre = [], _comunsCond = [];
+    private Local? _torre, _sel;
+    private Dictionary<Guid, Local> _porId = [];
+    private ILookup<Guid?, Local> _filhos = Array.Empty<Local>().ToLookup(l => l.LocalPaiId);
+    private HashSet<(Guid Its, Guid Local)> _celulas = [];
+    private Dictionary<Guid, ServicoControlado> _its = [];
+    private List<Fvs> _fvs = [];
+    private bool _aberto;
+    private int _totalPrev, _totalOk, _totalErro, _totalAnd;
+
+    private enum St { Pend, And, Ok, Erro }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _obras = await Cat.ObrasAsync();
+        if (_obras.Count == 1) _obraId = _obras[0].Id;
+        await CarregarObra();
+    }
+
+    private async Task CarregarObra()
+    {
+        if (_obraId is not { } o) { _torres = []; return; }
+        await using var db = Fabrica.Criar();
+        _torres = await db.Locais.AsNoTracking().Where(l => l.ObraId == o && l.Tipo == GeradorEmpreendimento.TipoTorre).OrderBy(l => l.Codigo).ToListAsync();
+        if (_torreId is null && _torres.Count > 0) _torreId = _torres[0].Id;
+        await Carregar();
+    }
+
+    private async Task Carregar()
+    {
+        if (_obraId is not { } o || _torreId is not { } t) return;
+        await using var db = Fabrica.Criar();
+        var locais = await db.Locais.AsNoTracking().Where(l => l.ObraId == o).ToListAsync();
+        _porId = locais.ToDictionary(l => l.Id);
+        _filhos = locais.ToLookup(l => l.LocalPaiId);
+        _torre = _porId[t];
+        var sub = MotorOrcamento.Subarvore(t, _filhos);
+        _pavs = locais.Where(l => l.LocalPaiId == t && l.Tipo == GeradorEmpreendimento.TipoPavimento).OrderByDescending(l => l.Ordem).ToList();
+        _comunsTorre = locais.Where(l => l.LocalPaiId == t && l.Tipo == GeradorEmpreendimento.TipoAreaComum).OrderBy(l => l.Ordem).ToList();
+        _comunsCond = locais.Where(l => l.LocalPaiId == _torre.LocalPaiId && l.Tipo == GeradorEmpreendimento.TipoAreaComum).OrderBy(l => l.Ordem).ToList();
+        foreach (var c in _comunsCond) sub.Add(c.Id);
+        var comps = await db.Composicoes.AsNoTracking().Where(c => c.ServicoControladoId != null).ToDictionaryAsync(c => c.Id, c => c.ServicoControladoId!.Value);
+        var cels = await db.ServicosLocais.AsNoTracking().Where(s => s.ObraId == o).Select(s => new { s.ComposicaoId, s.LocalId }).ToListAsync();
+        _celulas = cels.Where(c => sub.Contains(c.LocalId) && comps.ContainsKey(c.ComposicaoId)).Select(c => (comps[c.ComposicaoId], c.LocalId)).ToHashSet();
+        var ids = _celulas.Select(c => c.Its).Distinct().ToList();
+        _its = await db.ServicosControlados.AsNoTracking().Where(s => ids.Contains(s.Id)).ToDictionaryAsync(s => s.Id);
+        _fvs = await db.Fvss.AsNoTracking().Where(f => f.ObraId == o && f.Status != StatusFvs.Cancelada).OrderByDescending(f => f.DataInspecao).ToListAsync();
+        var sts = _celulas.Select(c => Situacao(c.Its, c.Local).St).ToList();
+        _totalPrev = sts.Count; _totalOk = sts.Count(s => s == St.Ok); _totalErro = sts.Count(s => s == St.Erro); _totalAnd = sts.Count(s => s == St.And);
+    }
+
+    private IEnumerable<Local> Aptos(Local pav) => _filhos[pav.Id].Where(x => x.Tipo == GeradorEmpreendimento.TipoApartamento).OrderBy(x => x.Ordem);
+
+    private static string Sigla(ServicoControlado s) => !string.IsNullOrWhiteSpace(s.Sigla) ? s.Sigla! : s.Codigo.Replace("ITS", "").Trim();
+
+    /// <summary>FVS do serviço no próprio local ou num nível acima (a mais recente).</summary>
+    private (St St, Fvs? Fvs) Situacao(Guid its, Guid local)
+    {
+        Guid? x = local;
+        while (x is { } id)
+        {
+            var f = _fvs.FirstOrDefault(f => f.ServicoControladoId == its && f.LocalId == id);
+            if (f is not null)
+                return (f.Status switch { StatusFvs.Aprovada or StatusFvs.Liberada => St.Ok, StatusFvs.Reprovada => St.Erro, _ => St.And }, f);
+            x = _porId.TryGetValue(id, out var l) ? l.LocalPaiId : null;
+        }
+        return (St.Pend, null);
+    }
+
+    private IEnumerable<ServicoControlado> ItsDe(Local raiz)
+    {
+        var sub = MotorOrcamento.Subarvore(raiz.Id, _filhos);
+        return _celulas.Where(c => sub.Contains(c.Local) && (_fIts is null || c.Its == _fIts)).Select(c => c.Its).Distinct().Where(_its.ContainsKey).Select(i => _its[i]).OrderBy(s => s.Codigo);
+    }
+
+    /// <summary>Situação do serviço no conjunto (apartamento + cômodos): reprovada se alguma; aprovada se todas; parcial se alguma andou.</summary>
+    private St Agregado(Guid its, Local raiz)
+    {
+        var sub = MotorOrcamento.Subarvore(raiz.Id, _filhos);
+        var st = _celulas.Where(c => c.Its == its && sub.Contains(c.Local)).Select(c => Situacao(its, c.Local).St).ToList();
+        if (st.Count == 0) return St.Pend;
+        if (st.Contains(St.Erro)) return St.Erro;
+        if (st.All(s => s == St.Ok)) return St.Ok;
+        return st.Any(s => s is St.Ok or St.And) ? St.And : St.Pend;
+    }
+
+    private static string Classe(St s) => s switch { St.Ok => "st-ok", St.Erro => "st-erro", St.And => "st-and", _ => "st-pend" };
+
+    private void Abrir(Local l) { _sel = l; _aberto = true; }
+
+    private void AbrirFvs(Guid local, Guid its, Fvs? f) =>
+        Nav.NavigateTo(f is null ? $"obra/fvs?local={local}&servico={its}" : $"obra/fvs?id={f.Id}");
+
+    private RenderFragment Chips(Local l) => __b =>
+    {
+        var i = 0;
+        __b.OpenElement(i++, "div"); __b.AddAttribute(i++, "class", "chips");
+        foreach (var s in ItsDe(l))
+        {
+            __b.OpenElement(i++, "span"); __b.AddAttribute(i++, "class", "chip " + Classe(Agregado(s.Id, l))); __b.AddAttribute(i++, "title", s.Nome);
+            __b.AddContent(i++, Sigla(s)); __b.CloseElement();
+        }
+        __b.CloseElement();
+    };
+}

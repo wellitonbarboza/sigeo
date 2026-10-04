@@ -1,0 +1,104 @@
+@page "/fornecedores/exigencias"
+@inherits PaginaBase
+@inject FornecedoresServico Forn
+
+<Pagina Titulo="Matriz de documentos de fornecedores" Grade="_grade" AoNovo="Novo" AoAtualizar="Carregar">
+    <ChildContent>
+        <div class="pagina">
+            <div class="filtros-rapidos">
+                @foreach (var f in new[] { "Todos", "Material", "Serviço", "Mensais", "Funcionários" }) { <label><input type="radio" name="fmat" checked="@(_filtro == f)" @onchange="() => _filtro = f" /> @f</label> }
+            </div>
+            <Grade T="TipoDocumentoExigido" @ref="_grade" Itens="Filtrados()" AoClicar="Editar" NomeExportacao="matriz-documentos">
+                <Colunas>
+                    <Coluna T="TipoDocumentoExigido" Titulo="Categoria" Valor="t => t.Categoria" />
+                    <Coluna T="TipoDocumentoExigido" Titulo="Documento" Valor="t => t.Nome" />
+                    <Coluna T="TipoDocumentoExigido" Titulo="Exigido de" Valor="t => ExigidoDe(t)" />
+                    <Coluna T="TipoDocumentoExigido" Titulo="Frequência" Valor="t => De(t.Frequencia)" />
+                    <Coluna T="TipoDocumentoExigido" Titulo="Validade (dias)" Valor="t => t.ValidadePadraoDias" Alinhar="num" />
+                    <Coluna T="TipoDocumentoExigido" Titulo="Dia limite (mensal)" Valor="t => t.Frequencia == FrequenciaDocumento.Mensal ? t.DiaLimite ?? 20 : (int?)null" Alinhar="num" />
+                    <Coluna T="TipoDocumentoExigido" Titulo="Funcionários" Valor="t => t.DeFuncionario" />
+                    <Coluna T="TipoDocumentoExigido" Titulo="Obrigatório" Valor="t => t.Obrigatorio" />
+                    <Coluna T="TipoDocumentoExigido" Titulo="Trava" Valor="t => t.BloqueiaQuandoVencido" />
+                    <Coluna T="TipoDocumentoExigido" Titulo="Ativo" Valor="t => t.Ativo" />
+                </Colunas>
+            </Grade>
+            <div class="alerta info"><Icone Nome="info" /> A matriz define, por tipo de fornecimento (material × serviço) e com/sem funcionários, quais documentos o pré-cadastro já marca. Mensais: competência anterior entregue até o dia limite (padrão 20) — sem eles a medição do mês trava.</div>
+        </div>
+    </ChildContent>
+    <Faixa><b>Matriz de documentos</b><span>Tipo de fornecedor × documento × frequência × validade</span><span>Base do pré-cadastro, do portal e das travas</span></Faixa>
+</Pagina>
+
+<Modal @bind-Aberto="_aberto" Titulo="Documento da matriz" Tamanho="media">
+    <ChildContent>
+        @if (_t is not null)
+        {
+            <Erros Lista="ErrosForm" />
+            <div class="form">
+                <Campo Rotulo="Documento" Obrigatorio Classe="s8"><input id="mat-nome" @bind="_t.Nome" /></Campo>
+                <Campo Rotulo="Categoria" Classe="s4"><select @bind="_t.Categoria"><option value="">—</option>@foreach (var c in _categorias) { <option>@c</option> }</select></Campo>
+                <Campo Rotulo="Exigido de" Classe="s12">
+                    <div class="checks">
+                        <label><input type="checkbox" checked="@(_t.ExigidoPara == TipoFornecimento.Nenhum)" @onchange="e => { if ((bool)e.Value!) _t.ExigidoPara = TipoFornecimento.Nenhum; }" /> Todos</label>
+                        @foreach (var tf in Enum.GetValues<TipoFornecimento>().Where(x => x != TipoFornecimento.Nenhum))
+                        {
+                            <label><input type="checkbox" checked="@_t.ExigidoPara.HasFlag(tf)" @onchange="e => _t.ExigidoPara = (bool)e.Value! ? _t.ExigidoPara | tf : _t.ExigidoPara & ~tf" /> @De(tf)</label>
+                        }
+                    </div>
+                </Campo>
+                <Campo Rotulo="Frequência" Obrigatorio Classe="s4"><select id="mat-freq" @bind="_t.Frequencia">@foreach (var f in Enum.GetValues<FrequenciaDocumento>()) { <option value="@f">@De(f)</option> }</select></Campo>
+                <Campo Rotulo="Validade padrão (dias)" Classe="s4"><input type="number" @bind="_t.ValidadePadraoDias" disabled="@(_t.Frequencia == FrequenciaDocumento.Mensal)" /></Campo>
+                <Campo Rotulo="Dia limite (mensal)" Classe="s4"><input id="mat-dia" type="number" min="1" max="28" @bind="_t.DiaLimite" disabled="@(_t.Frequencia != FrequenciaDocumento.Mensal)" placeholder="20" /></Campo>
+                <Campo Rotulo="Alerta antes do vencimento (dias)" Classe="s4"><input type="number" @bind="_t.DiasAlertaAntesVencimento" /></Campo>
+                <Campo Rotulo="Ordem" Classe="s2"><input type="number" @bind="_t.Ordem" /></Campo>
+                <Campo Rotulo="Fonte / base legal" Classe="s6"><input @bind="_t.Fonte" /></Campo>
+                <Campo Rotulo="" Classe="s12">
+                    <div class="checks">
+                        <label><input type="checkbox" @bind="_t.Obrigatorio" /> Obrigatório</label>
+                        <label><input type="checkbox" @bind="_t.BloqueiaQuandoVencido" /> Vencido/pendente trava compra e medição</label>
+                        <label><input type="checkbox" @bind="_t.DeFuncionario" /> Documento de funcionário</label>
+                        <label><input type="checkbox" @bind="_t.ContemDadoSensivel" /> Dado sensível (LGPD)</label>
+                        <label><input type="checkbox" @bind="_t.Ativo" /> Ativo</label>
+                    </div>
+                </Campo>
+                <Campo Rotulo="Descrição / orientação ao fornecedor" Classe="s12"><textarea rows="2" @bind="_t.Descricao"></textarea></Campo>
+            </div>
+        }
+    </ChildContent>
+    <Rodape><button class="btn prim" id="mat-salvar" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="16" /> Salvar</button></Rodape>
+</Modal>
+
+@code {
+    private Grade<TipoDocumentoExigido>? _grade;
+    private List<TipoDocumentoExigido> _tipos = [];
+    private List<string> _categorias = [];
+    private TipoDocumentoExigido? _t;
+    private bool _aberto;
+    private string _filtro = "Todos";
+
+    protected override async Task OnInitializedAsync() { _categorias = await Cat.ListaAsync(TipoLista.CategoriaDocumento); await Carregar(); }
+
+    private async Task Carregar()
+    {
+        await using var db = Fabrica.Criar();
+        _tipos = await db.TiposDocumento.AsNoTracking().Where(t => t.AplicaA == AplicaA.Fornecedor).OrderBy(t => t.Categoria).ThenBy(t => t.Ordem).ThenBy(t => t.Nome).ToListAsync();
+    }
+
+    private IEnumerable<TipoDocumentoExigido> Filtrados() => _filtro switch
+    {
+        "Material" => _tipos.Where(t => t.ExigidoPara == TipoFornecimento.Nenhum || t.ExigidoPara.HasFlag(TipoFornecimento.Material)),
+        "Serviço" => _tipos.Where(t => t.ExigidoPara == TipoFornecimento.Nenhum || (t.ExigidoPara & ~TipoFornecimento.Material) != 0),
+        "Mensais" => _tipos.Where(t => t.Frequencia == FrequenciaDocumento.Mensal),
+        "Funcionários" => _tipos.Where(t => t.DeFuncionario),
+        _ => _tipos
+    };
+
+    private static string ExigidoDe(TipoDocumentoExigido t) => t.ExigidoPara == TipoFornecimento.Nenhum ? "Todos" : De(t.ExigidoPara);
+
+    private void Novo() { _t = new TipoDocumentoExigido { AplicaA = AplicaA.Fornecedor, Frequencia = FrequenciaDocumento.Validade }; ErrosForm = null; _aberto = true; }
+    private void Editar(TipoDocumentoExigido t) { _t = t; ErrosForm = null; _aberto = true; }
+
+    private async Task Salvar()
+    {
+        if (await Executar(() => Forn.SalvarTipoDocumentoAsync(_t!), "Documento salvo na matriz.")) { _aberto = false; await Carregar(); }
+    }
+}

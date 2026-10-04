@@ -39,12 +39,15 @@ public class Obra : EntidadeAuditavel, IOrigemErp
     public ICollection<Local> Locais { get; set; } = [];
 }
 
-/// <summary>Hierarquia física da obra: Torre > Pavimento > Unidade/Ambiente. Usada nas FVS e na medição.</summary>
+/// <summary>
+/// Hierarquia física da obra: Condomínio (SPE) › Torre › Pavimento › Apartamento › Cômodo, com áreas comuns
+/// no pavimento, na torre e no condomínio. Gerada pelas tipologias; usada no orçamento, nas FVS, na requisição e na medição.
+/// </summary>
 public class Local : EntidadeDaObra
 {
     public Guid? LocalPaiId { get; set; }
     public Local? LocalPai { get; set; }
-    public string Tipo { get; set; } = "Pavimento"; // Torre, Bloco, Pavimento, Unidade, Área comum
+    public string Tipo { get; set; } = "Pavimento"; // Condomínio, Torre, Pavimento, Apartamento, Cômodo, Área comum
     public string Nome { get; set; } = string.Empty;
     public string Codigo { get; set; } = string.Empty;
     public int Ordem { get; set; }
@@ -56,9 +59,60 @@ public class Local : EntidadeDaObra
     /// <summary>Unidade: tipologia e área privativa (cópia na geração, pode ser ajustada).</summary>
     public Guid? TipologiaId { get; set; }
     public decimal? AreaPrivativa { get; set; }
-    /// <summary>Fração ideal da unidade no prédio (0–1). Oficial = memorial de incorporação.</summary>
+    /// <summary>Fração ideal do apartamento no condomínio (0–1). Oficial = memorial de incorporação.</summary>
     public decimal? FracaoIdeal { get; set; }
+    /// <summary>Cômodo/área comum: categoria da lista padrão (Sala, Dormitório, BWC…).</summary>
+    public string? Categoria { get; set; }
+    /// <summary>Ambiente-modelo da tipologia que gerou o local (as medidas são copiadas e podem ser sincronizadas).</summary>
+    public Guid? AmbienteModeloId { get; set; }
+    public decimal? AreaPiso { get; set; }
+    public decimal? Perimetro { get; set; }
+    public decimal? PeDireito { get; set; }
+    /// <summary>Área de parede líquida (perímetro × pé-direito − vãos).</summary>
+    public decimal? AreaParede { get; set; }
     public ICollection<Local> Filhos { get; set; } = [];
+}
+
+/// <summary>
+/// Estabelecimento (CNPJ): matriz, filiais (construtora, pré-moldados, móveis) e SPEs. Eixo "quem fatura" de todo lançamento.
+/// Quem fatura os materiais (padrão) e o almoxarifado central são marcados aqui.
+/// </summary>
+public class Estabelecimento : EntidadeAuditavel, IOrigemErp
+{
+    public string Codigo { get; set; } = string.Empty;
+    public TipoEstabelecimento Tipo { get; set; } = TipoEstabelecimento.Filial;
+    public string RazaoSocial { get; set; } = string.Empty;
+    public string? NomeFantasia { get; set; }
+    public string Cnpj { get; set; } = string.Empty;
+    /// <summary>Raiz do CNPJ (8 dígitos): mesma raiz = mesma pessoa jurídica (transferência, não venda).</summary>
+    public string Raiz { get; set; } = string.Empty;
+    public string? InscricaoEstadual { get; set; }
+    public string? Endereco { get; set; }
+    public string? Atividade { get; set; }
+    /// <summary>SPE correspondente (quando Tipo = SPE).</summary>
+    public Guid? SpeId { get; set; }
+    /// <summary>Padrão do "Faturar para" nas compras de material (ex.: fábrica de pré-moldados).</summary>
+    public bool FaturaMateriais { get; set; }
+    /// <summary>Recebe as compras no almoxarifado central (FVM) e transfere para as obras/SPEs.</summary>
+    public bool AlmoxarifadoCentral { get; set; }
+    public string? EnderecoEntrega { get; set; }
+    public bool Ativo { get; set; } = true;
+    public string? CodigoErp { get; set; }
+    public Guid? UltimaImportacaoId { get; set; }
+
+    public string NomeExibicao => string.IsNullOrWhiteSpace(NomeFantasia) ? RazaoSocial : NomeFantasia!;
+}
+
+/// <summary>Fluxo entre CNPJs (ex.: Fábrica → SPE, venda a custo padrão). Base para o mapa do ecossistema e para a contabilidade.</summary>
+public class FluxoEstabelecimento : EntidadeAuditavel
+{
+    public Guid OrigemId { get; set; }
+    public Guid DestinoId { get; set; }
+    public TipoFluxo Tipo { get; set; } = TipoFluxo.Transferencia;
+    /// <summary>Base do valor: custo padrão, custo real, % sobre custo, taxa fixa…</summary>
+    public string Base { get; set; } = "Custo padrão";
+    public string Situacao { get; set; } = "A definir";
+    public string? Descricao { get; set; }
 }
 
 /// <summary>Centro de custo (administração, estoque, obra/etapa). Pode apontar para uma obra.</summary>
@@ -66,12 +120,17 @@ public class CentroCusto : EntidadeAuditavel
 {
     public string Codigo { get; set; } = string.Empty;
     public string Nome { get; set; } = string.Empty;
+    /// <summary>Centro de custo pai (plano único em árvore com níveis livres).</summary>
+    public Guid? PaiId { get; set; }
+    /// <summary>Estabelecimentos onde pode ser usado (ids separados por vírgula; vazio = todos).</summary>
+    public string? EstabelecimentosPermitidos { get; set; }
+    public string? CodigoErp { get; set; }
     public Guid? ObraId { get; set; }
     public decimal? Orcamento { get; set; }
     public bool Ativo { get; set; } = true;
 }
 
-/// <summary>Usuário vinculado à identidade do Microsoft Entra ID (ObjectId).</summary>
+/// <summary>Usuário do sistema (login e senha próprios do QualyHub).</summary>
 public class Usuario : EntidadeAuditavel
 {
     /// <summary>Login de acesso (minúsculo, único no sistema). A senha fica em <see cref="CredencialUsuario"/>.</summary>

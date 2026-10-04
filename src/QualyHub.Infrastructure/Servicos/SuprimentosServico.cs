@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using QualyHub.Domain.Aprovacoes;
 using QualyHub.Domain.Cadastros;
 using QualyHub.Domain.Common;
+using QualyHub.Domain.Engenharia;
 using QualyHub.Domain.Estrutura;
 using QualyHub.Domain.Regras;
 using QualyHub.Domain.Suprimentos;
@@ -30,19 +31,43 @@ public sealed class SuprimentosServico(FabricaDb fabrica, AprovacaoServico aprov
         if (r.Status is not (StatusRequisicao.Rascunho or StatusRequisicao.DevolvidaAjuste))
             throw new RegraDeNegocioException("Requisição já enviada: não pode ser alterada.");
         r.RecalcularPrazo();
+        if (r.EstabelecimentoFaturamentoId is null && r.Tipo == TipoRequisicao.Material)
+            r.EstabelecimentoFaturamentoId = await EstabelecimentosServico.PadraoFaturamentoAsync(db, ct);
+        // SPE beneficiária sai dos locais escolhidos (todos do mesmo condomínio).
+        var locIds = r.Itens.SelectMany(i => i.Locais).Select(l => l.LocalId).Distinct().ToList();
+        if (locIds.Count > 0)
+        {
+            var spes = await db.Locais.Where(l => locIds.Contains(l.Id)).Select(l => l.SpeId).Distinct().ToListAsync(ct);
+            if (spes.Count(x => x != null) > 1) throw new RegraDeNegocioException("Os itens têm locais de SPEs (condomínios) diferentes: faça uma requisição por SPE.");
+            if (spes.FirstOrDefault(x => x != null) is { } sp) r.SpeId = sp;
+        }
+        // Netos (quebra por local) não são cobertos pelo Grafo: grava à parte.
+        var locais = r.Itens.ToDictionary(i => i.Id, i => i.Locais.Select(l => new RequisicaoItemLocal { RequisicaoItemId = i.Id, LocalId = l.LocalId, ComposicaoId = l.ComposicaoId, Quantidade = l.Quantidade }).ToList());
+        foreach (var i in r.Itens) i.Locais = [];
         await Grafo.SalvarAsync(db, r, nameof(Requisicao.Itens));
+        var ids = locais.Keys.ToList();
+        db.RequisicaoItemLocais.RemoveRange(await db.RequisicaoItemLocais.Where(x => ids.Contains(x.RequisicaoItemId)).ToListAsync(ct));
+        db.RequisicaoItemLocais.AddRange(locais.Values.SelectMany(x => x));
         await db.SaveChangesAsync(ct);
+        foreach (var i in r.Itens) i.Locais = locais[i.Id];
         return r.Id;
     }
 
     public async Task EnviarRequisicaoAsync(Guid id, CancellationToken ct = default)
     {
         await using var db = fabrica.Criar();
-        var r = await db.Requisicoes.Include(x => x.Itens).FirstAsync(x => x.Id == id, ct);
+        var r = await db.Requisicoes.Include(x => x.Itens).ThenInclude(i => i.Locais).FirstAsync(x => x.Id == id, ct);
         var temEscopo = await db.Anexos.AnyAsync(a => a.Entidade == nameof(Requisicao) && a.EntidadeId == id && a.Categoria == "Escopo", ct);
+        // Serviço vindo do orçamento: a planilha serviço × local é o escopo (projetos/ITS seguem como anexo opcional).
+        if (r.Tipo == TipoRequisicao.Servico && r.Itens.Any(i => i.Locais.Count > 0)) temEscopo = true;
         var erros = r.ValidarEnvio(temEscopo).ToList();
         if (r.SpeId is null && await db.Spes.AnyAsync(s => s.ObraId == r.ObraId && s.Ativa, ct))
-            erros.Add("Informe a SPE a faturar (a NF precisa sair no CNPJ da SPE).");
+            erros.Add("Informe a SPE beneficiária (destino do custo) — ou puxe os itens do orçamento pelos locais.");
+        if (r.EstabelecimentoFaturamentoId is null && await db.Estabelecimentos.AnyAsync(e => e.Ativo, ct))
+            erros.Add("Informe o \"Faturar para\" (CNPJ que compra).");
+        foreach (var i in r.Itens.Where(i => i.Status != StatusItemRequisicao.Cancelado && i.Locais.Count > 0 && i.Quantidade > i.Locais.Sum(l => l.Quantidade) + 0.001m))
+            if (string.IsNullOrWhiteSpace(r.JustificativaAcimaOrcado))
+                erros.Add($"{i.Descricao}: quantidade acima do saldo orçado para os locais ({i.Locais.Sum(l => l.Quantidade):0.###}) — justifique.");
         if (r.SpeId is { } sid && !await db.Spes.AnyAsync(s => s.Id == sid && s.ObraId == r.ObraId && s.Ativa, ct))
             erros.Add("A SPE informada não pertence a esta obra ou está inativa.");
         ValidacaoException.Se(erros);
@@ -149,7 +174,8 @@ public sealed class SuprimentosServico(FabricaDb fabrica, AprovacaoServico aprov
         var p = new Pedido
         {
             ObraId = c.ObraId, Numero = await Numerador.ProximoAsync(db, "Pedido", ct), CotacaoId = c.Id, RequisicaoId = c.RequisicaoId,
-            SpeId = c.RequisicaoId is { } rq ? await db.Requisicoes.Where(x => x.Id == rq).Select(x => x.SpeId).FirstOrDefaultAsync(ct) : null,
+            SpeId = c.Requisicao?.SpeId, EstabelecimentoFaturamentoId = c.Requisicao?.EstabelecimentoFaturamentoId,
+            EntregaAlmoxarifadoCentral = c.Requisicao?.Tipo == TipoRequisicao.Material && await db.Estabelecimentos.AnyAsync(e => e.AlmoxarifadoCentral && e.Ativo, ct),
             FornecedorId = c.FornecedorVencedorId!.Value, Frete = c.Frete, EnderecoEntrega = c.EnderecoEntrega,
             Entrega = itens.Select(i => i.Entrega).Max() ?? Hoje.AddDays(7), SemOrcamento = c.SemOrcamento,
             CondicaoPagamento = c.Fornecedores.FirstOrDefault(f => f.FornecedorId == c.FornecedorVencedorId)?.CondicaoPagamento
@@ -174,14 +200,14 @@ public sealed class SuprimentosServico(FabricaDb fabrica, AprovacaoServico aprov
     public async Task<Guid> GerarContratoAsync(Guid cotacaoId, CancellationToken ct = default)
     {
         await using var db = fabrica.Criar();
-        var c = await db.Cotacoes.Include(x => x.Itens).ThenInclude(i => i.RequisicaoItem).Include(x => x.Requisicao).FirstAsync(x => x.Id == cotacaoId, ct);
+        var c = await db.Cotacoes.Include(x => x.Itens).ThenInclude(i => i.RequisicaoItem!).ThenInclude(ri => ri.Locais).Include(x => x.Requisicao).FirstAsync(x => x.Id == cotacaoId, ct);
         if (c.Status != StatusCotacao.Aprovado) throw new RegraDeNegocioException("Cotação ainda não aprovada.");
         var p = await ParametrosServico.CarregarAsync(db, ct);
         var n = await Numerador.ProximoAsync(db, $"Contrato-{Hoje.Year}", ct);
         var k = new Contrato
         {
             ObraId = c.ObraId, Numero = $"CT-{Hoje.Year}-{n:000}", FornecedorId = c.FornecedorVencedorId!.Value, RequisicaoId = c.RequisicaoId, CotacaoId = c.Id,
-            SpeId = c.RequisicaoId is { } rq ? await db.Requisicoes.Where(x => x.Id == rq).Select(x => x.SpeId).FirstOrDefaultAsync(ct) : null,
+            SpeId = c.Requisicao?.SpeId, EstabelecimentoFaturamentoId = c.Requisicao?.EstabelecimentoFaturamentoId,
             Categoria = c.Requisicao?.CategoriaServico ?? "Serviço de obra", Objeto = c.Nome, RetencaoPerc = p[Parametros.RetencaoPadraoPerc],
             VigenciaInicio = Hoje, VigenciaFim = Hoje.AddMonths(6)
         };
@@ -189,11 +215,18 @@ public sealed class SuprimentosServico(FabricaDb fabrica, AprovacaoServico aprov
         foreach (var i in c.Itens.Where(i => i.FornecedorId == c.FornecedorVencedorId))
         {
             seq++;
-            k.Itens.Add(new ContratoItem
+            var ki = new ContratoItem
             {
                 Item = $"1.{seq}", Descricao = i.Descricao, ServicoControladoId = i.RequisicaoItem?.ServicoControladoId, Unidade = i.Unidade,
-                Quantidade = i.Quantidade, PrecoUnitario = i.ValorUnitarioFinal
-            });
+                Quantidade = i.Quantidade, PrecoUnitario = i.ValorUnitarioFinal, ComposicaoId = i.RequisicaoItem?.ComposicaoId
+            };
+            // Quantidade por local: proporcional à quebra da requisição (soma = quantidade contratada).
+            var ls = i.RequisicaoItem?.Locais.ToList() ?? [];
+            var totalLs = ls.Sum(l => l.Quantidade);
+            foreach (var l in ls)
+                ki.Locais.Add(new ContratoItemLocal { ContratoItemId = ki.Id, LocalId = l.LocalId, Quantidade = totalLs == 0 ? 0 : Math.Round(i.Quantidade * l.Quantidade / totalLs, 4) });
+            if (ki.Locais.Count > 0) ki.Locais.Last().Quantidade += i.Quantidade - ki.Locais.Sum(l => l.Quantidade);
+            k.Itens.Add(ki);
         }
         foreach (var sid in k.Itens.Where(i => i.ServicoControladoId is not null).Select(i => i.ServicoControladoId!.Value).Distinct())
             k.ServicosVinculados.Add(new ContratoServico { ServicoControladoId = sid });
@@ -287,6 +320,11 @@ public sealed class SuprimentosServico(FabricaDb fabrica, AprovacaoServico aprov
             var ped = await db.Pedidos.Include(p => p.Itens).FirstAsync(p => p.Id == pid, ct);
             r.FornecedorId = ped.FornecedorId;
             r.ObraId = ped.ObraId;
+            if (ped.EntregaAlmoxarifadoCentral)
+            {
+                r.AlmoxarifadoCentral = true;
+                r.EstabelecimentoId ??= await db.Estabelecimentos.Where(e => e.AlmoxarifadoCentral).Select(e => (Guid?)e.Id).FirstOrDefaultAsync(ct);
+            }
         }
         r.AplicarChecklist();
         ValidacaoException.Se(r.Validar());
@@ -349,18 +387,78 @@ public sealed class SuprimentosServico(FabricaDb fabrica, AprovacaoServico aprov
         return r.Id;
     }
 
+    // ───────── Transferência: almoxarifado central → obra/SPE ─────────
+
+    /// <summary>Monta a transferência a partir do recebimento central (itens aceitos, custo do pedido, SPE do pedido).</summary>
+    public async Task<Guid> GerarTransferenciaAsync(Guid recebimentoId, CancellationToken ct = default)
+    {
+        await using var db = fabrica.Criar();
+        var r = await db.Recebimentos.Include(x => x.Itens).Include(x => x.Pedido!).ThenInclude(p => p.Itens).FirstAsync(x => x.Id == recebimentoId, ct);
+        if (r.Destino == DestinoRecebimento.Devolvido) throw new RegraDeNegocioException("Material devolvido não é transferido.");
+        if (r.FvmAprovada is null) throw new RegraDeNegocioException("Registre a FVM antes de transferir.");
+        if (await db.Transferencias.AnyAsync(t => t.RecebimentoId == r.Id && t.Status != StatusTransferencia.Cancelada, ct)) throw new RegraDeNegocioException("Este recebimento já tem transferência.");
+        var t = new TransferenciaMaterial
+        {
+            ObraId = r.ObraId, RecebimentoId = r.Id, PedidoId = r.PedidoId, SpeId = r.Pedido?.SpeId, OrigemEstabelecimentoId = r.EstabelecimentoId ?? r.Pedido?.EstabelecimentoFaturamentoId,
+            Data = Hoje, Numero = await Numerador.ProximoAsync(db, "Transferencia", ct)
+        };
+        foreach (var i in r.Itens.Where(i => i.QtdRecebida > 0))
+        {
+            var pi = r.Pedido?.Itens.FirstOrDefault(x => x.Id == i.PedidoItemId);
+            t.Itens.Add(new TransferenciaItem
+            {
+                TransferenciaId = t.Id, RecebimentoItemId = i.Id, ProdutoId = pi?.ProdutoId, Descricao = i.Descricao, Unidade = i.Unidade, Quantidade = i.QtdRecebida,
+                CustoUnitario = pi?.ValorUnitario ?? 0, Lote = i.Lote
+            });
+        }
+        db.Transferencias.Add(t);
+        await db.SaveChangesAsync(ct);
+        return t.Id;
+    }
+
+    public async Task SalvarTransferenciaAsync(TransferenciaMaterial t, CancellationToken ct = default)
+    {
+        await using var db = fabrica.Criar();
+        if (t.Numero == 0) t.Numero = await Numerador.ProximoAsync(db, "Transferencia", ct);
+        if (t.Status != StatusTransferencia.Rascunho) throw new RegraDeNegocioException("Transferência já enviada.");
+        foreach (var i in t.Itens) i.TransferenciaId = t.Id;
+        ValidacaoException.Se(t.Validar());
+        await Grafo.SalvarAsync(db, t, nameof(TransferenciaMaterial.Itens));
+        await db.SaveChangesAsync(ct);
+    }
+
+    public async Task EnviarTransferenciaAsync(Guid id, CancellationToken ct = default)
+    {
+        await using var db = fabrica.Criar();
+        var t = await db.Transferencias.Include(x => x.Itens).FirstAsync(x => x.Id == id, ct);
+        t.Enviar();
+        await db.SaveChangesAsync(ct);
+    }
+
+    public async Task ConferirTransferenciaAsync(Guid id, IReadOnlyDictionary<Guid, decimal> recebidas, string? observacao, CancellationToken ct = default)
+    {
+        await using var db = fabrica.Criar();
+        var t = await db.Transferencias.Include(x => x.Itens).FirstAsync(x => x.Id == id, ct);
+        if (!string.IsNullOrWhiteSpace(observacao)) t.Observacao = observacao;
+        t.Conferir(usuario.Nome, relogio.GetUtcNow(), recebidas);
+        await db.SaveChangesAsync(ct);
+    }
+
     // ───────── T14–T16 Medição ─────────
 
     public async Task<Guid> NovaMedicaoAsync(Guid contratoId, DateOnly inicio, DateOnly fim, CancellationToken ct = default)
     {
         await using var db = fabrica.Criar();
-        var k = await db.Contratos.Include(x => x.Itens).FirstAsync(x => x.Id == contratoId, ct);
+        var k = await db.Contratos.Include(x => x.Itens).ThenInclude(i => i.Locais).FirstAsync(x => x.Id == contratoId, ct);
         if (k.Status != StatusContrato.Ativo) throw new RegraDeNegocioException("Contrato não está ativo.");
         if (await db.Medicoes.AnyAsync(m => m.ContratoId == contratoId && m.Status == StatusMedicao.EmElaboracao, ct))
             throw new RegraDeNegocioException("Já existe medição em elaboração para este contrato.");
         var numero = (await db.Medicoes.Where(m => m.ContratoId == contratoId).MaxAsync(m => (int?)m.NumeroMedicao, ct) ?? 0) + 1;
         var m = new Medicao { ContratoId = k.Id, ObraId = k.ObraId, NumeroMedicao = numero, PeriodoInicio = inicio, PeriodoFim = fim };
-        foreach (var i in k.Itens) m.Itens.Add(new MedicaoItem { ContratoItemId = i.Id });
+        // Item contratado por local → uma linha por local (medição por célula serviço × local).
+        foreach (var i in k.Itens)
+            if (i.Locais.Count == 0) m.Itens.Add(new MedicaoItem { ContratoItemId = i.Id });
+            else foreach (var l in i.Locais) m.Itens.Add(new MedicaoItem { ContratoItemId = i.Id, LocalId = l.LocalId });
         db.Medicoes.Add(m);
         await db.SaveChangesAsync(ct);
         return m.Id;
@@ -393,7 +491,18 @@ public sealed class SuprimentosServico(FabricaDb fabrica, AprovacaoServico aprov
         await using var db = fabrica.Criar();
         var m = await CarregarMedicaoAsync(db, id, ct);
         var fvs = await db.Fvss.AsNoTracking().Where(f => f.ObraId == m.ObraId && f.Status == StatusFvs.Liberada).ToListAsync(ct);
-        var trava = TravasQualidade.VerificarMedicao(m, fvs, Hoje);
+        var locais = await db.Locais.AsNoTracking().Where(l => l.ObraId == m.ObraId).ToDictionaryAsync(l => l.Id, ct);
+        var filhos = locais.Values.ToLookup(l => l.LocalPaiId);
+        var compIds = m.Contrato.Itens.Where(i => i.ComposicaoId != null).Select(i => i.ComposicaoId!.Value).Distinct().ToList();
+        var cels = await db.ServicosLocais.AsNoTracking().Where(s => s.ObraId == m.ObraId && compIds.Contains(s.ComposicaoId)).Select(s => new { s.ComposicaoId, s.LocalId }).ToListAsync(ct);
+        IReadOnlyCollection<Guid> Exigidos(MedicaoItem i)
+        {
+            if (i.LocalId is not { } lid || i.ContratoItem.ComposicaoId is not { } cid) return [];
+            var sub = MotorOrcamento.Subarvore(lid, filhos);
+            return cels.Where(c => c.ComposicaoId == cid && sub.Contains(c.LocalId)).Select(c => c.LocalId).ToList();
+        }
+        var tipos = await db.TiposDocumento.AsNoTracking().Where(t => t.AplicaA == AplicaA.Fornecedor).ToListAsync(ct);
+        var trava = TravasQualidade.VerificarMedicao(m, fvs, Hoje, locais, Exigidos, tipos);
         m.Bloqueios = trava.Resumo;
         if (!trava.Liberado) { await db.SaveChangesAsync(ct); ValidacaoException.Se(trava.Bloqueios); }
         if (m.PlanoAcaoId is null && RegrasAvaliacao.PlanoPorMedicao(m, m.Contrato.FornecedorId, Hoje, await NumeroPlanoAsync(db, ct)) is { } plano)
@@ -410,7 +519,9 @@ public sealed class SuprimentosServico(FabricaDb fabrica, AprovacaoServico aprov
         await db.Medicoes
             .Include(x => x.Itens).ThenInclude(i => i.ContratoItem).ThenInclude(ci => ci.ServicoControlado)
             .Include(x => x.Contrato).ThenInclude(k => k.Itens).ThenInclude(i => i.ServicoControlado)
+            .Include(x => x.Contrato).ThenInclude(k => k.Itens).ThenInclude(i => i.Locais)
             .Include(x => x.Contrato).ThenInclude(k => k.Fornecedor).ThenInclude(f => f.Documentos).ThenInclude(d => d.TipoDocumento)
+            .Include(x => x.Contrato).ThenInclude(k => k.Fornecedor).ThenInclude(f => f.Exigencias)
             .FirstAsync(x => x.Id == id, ct);
 
     // ───────── T18 Pagamento ─────────

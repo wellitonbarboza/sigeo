@@ -1,0 +1,44 @@
+@* Busca de produto por código, nome, grupo ou subgrupo (sem carregar milhares de opções num select). A categoria vem do produto. *@
+<div class="busca-prod">
+    <input placeholder="@(Selecionado is null ? "Buscar produto (código, nome ou grupo)…" : Selecionado.Texto)" value="@_texto" disabled="@Desabilitado"
+           @oninput="Digitar" @onfocus="() => _aberto = true" @onblur="Fechar" />
+    @if (_aberto && Resultado.Count > 0)
+    {
+        <ul class="busca-lista">
+            @foreach (var p in Resultado)
+            {
+                <li @onmousedown="() => Escolher(p)" @onmousedown:preventDefault>
+                    <b>@p.Codigo</b> @p.Nome <span class="mudo">· @p.Unidade · @p.Grupo › @p.SubGrupo</span>@if (p.Controlado) { <span class="selo info" style="margin-left:4px">controlado</span> }
+                </li>
+            }
+        </ul>
+    }
+    @if (Selecionado is not null) { <span class="ajuda">Categoria: @Selecionado.Grupo › @Selecionado.SubGrupo@(Selecionado.Controlado ? " · material controlado" : "")</span> }
+</div>
+
+@code {
+    [Parameter] public IReadOnlyList<ProdutoBusca> Produtos { get; set; } = [];
+    [Parameter] public Guid? Valor { get; set; }
+    [Parameter] public EventCallback<ProdutoBusca> AoEscolher { get; set; }
+    /// <summary>Restringe a um grupo do catálogo (ex.: categoria escolhida na requisição).</summary>
+    [Parameter] public string? Grupo { get; set; }
+    [Parameter] public bool Desabilitado { get; set; }
+
+    private string _texto = "";
+    private bool _aberto;
+    private ProdutoBusca? Selecionado => Valor is { } v ? Produtos.FirstOrDefault(p => p.Id == v) : null;
+
+    private List<ProdutoBusca> Resultado
+    {
+        get
+        {
+            var termos = Rotulos.SemAcento(_texto).Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (termos.Length == 0 && string.IsNullOrEmpty(Grupo)) return [];
+            return Produtos.Where(p => (string.IsNullOrEmpty(Grupo) || p.Grupo == Grupo) && termos.All(t => p.Busca.Contains(t))).Take(15).ToList();
+        }
+    }
+
+    private void Digitar(ChangeEventArgs e) { _texto = e.Value?.ToString() ?? ""; _aberto = true; }
+    private async Task Escolher(ProdutoBusca p) { _texto = ""; _aberto = false; await AoEscolher.InvokeAsync(p); }
+    private async Task Fechar() { await Task.Delay(150); _aberto = false; }
+}

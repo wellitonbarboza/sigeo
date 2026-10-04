@@ -80,6 +80,7 @@ public sealed class CodigosProdutoServico(FabricaDb fabrica)
     /// <summary>Define o código ao salvar: novo → gera; reclassificado → recodifica se provisório ou ainda não usado.</summary>
     public static async Task AplicarAoSalvarAsync(QualyHubDbContext db, Produto p, Cache cache, CancellationToken ct = default)
     {
+        await VincularControladoAsync(db, p, cache, ct);
         var anterior = p.CriadoEm == default ? null : await db.Produtos.AsNoTracking().Where(x => x.Id == p.Id).Select(x => new { x.Codigo, x.Grupo, x.SubGrupo }).FirstOrDefaultAsync(ct);
         if (anterior is null) { if (string.IsNullOrWhiteSpace(p.Codigo) || !CodigoProduto.EhPadrao(p.Codigo)) p.Codigo = await GerarAsync(db, p, cache, ct); return; }
         p.Codigo = anterior.Codigo; // código não é editado à mão
@@ -90,6 +91,21 @@ public sealed class CodigosProdutoServico(FabricaDb fabrica)
         if (usado && !provisorioClassificado) return; // congelado após o 1º uso
         var novo = await GerarAsync(db, p, cache, ct);
         if (novo != p.Codigo) { p.CodigoAnterior = p.Codigo; p.Codigo = novo; }
+    }
+
+    /// <summary>
+    /// Material controlado pelo grupo (1 grupo do catálogo = 1 material da Tabela de Especificação): produto no grupo ligado vira controlado;
+    /// produto que saiu do grupo perde o vínculo automático.
+    /// </summary>
+    public static async Task VincularControladoAsync(QualyHubDbContext db, Produto p, Cache cache, CancellationToken ct = default)
+    {
+        var ligados = await db.MateriaisControlados.Where(m => m.CategoriaProdutoId != null && m.Ativo).Select(m => new { m.Id, m.CategoriaProdutoId }).ToListAsync(ct);
+        if (ligados.Count == 0) return;
+        var todas = await CategoriasAsync(db, cache, ct);
+        var g = string.IsNullOrWhiteSpace(p.Grupo) ? null : todas.FirstOrDefault(c => c.PaiId == null && !c.Excluido && MesmoNome(c.Nome, p.Grupo));
+        var mat = g is null ? null : ligados.FirstOrDefault(m => m.CategoriaProdutoId == g.Id);
+        if (mat is not null) p.MaterialControladoId = mat.Id;
+        else if (p.MaterialControladoId is { } atual && ligados.Any(m => m.Id == atual)) p.MaterialControladoId = null;
     }
 
     /// <summary>Padroniza os códigos existentes (prévia ou aplicação). Usados e já padronizados na categoria certa ficam como estão.</summary>

@@ -13,6 +13,9 @@ public class Recebimento : EntidadeDaObra, IHistoricoTemporal
     public Pedido? Pedido { get; set; }
     public Guid? ContratoId { get; set; }
     public Guid FornecedorId { get; set; }
+    /// <summary>Recebido no almoxarifado central (depois transferido para a obra/SPE).</summary>
+    public bool AlmoxarifadoCentral { get; set; }
+    public Guid? EstabelecimentoId { get; set; }
     public string? ChaveNFe { get; set; }
     public string? NumeroNotaFiscal { get; set; }
     public DateTimeOffset DataRecebimento { get; set; }

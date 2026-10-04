@@ -53,9 +53,12 @@ public class Medicao : EntidadeDaObra, IHistoricoTemporal
             var ci = Contrato.Itens.FirstOrDefault(c => c.Id == i.ContratoItemId)
                      ?? throw new Aprovacoes.RegraDeNegocioException("Item da medição não pertence ao contrato.");
             i.ContratoItem = ci;
-            i.QtdAnterior = prev.Where(p => p.ContratoItemId == i.ContratoItemId).Sum(p => p.QtdPeriodo);
+            // Item contratado por local: acumulado e % são do local (cada linha da medição é um serviço × local).
+            var cl = i.LocalId is { } lid ? ci.Locais.FirstOrDefault(x => x.LocalId == lid) : null;
+            i.QtdAnterior = prev.Where(p => p.ContratoItemId == i.ContratoItemId && (cl is null || p.LocalId == i.LocalId)).Sum(p => p.QtdPeriodo);
             i.QtdAcumulada = i.QtdAnterior + i.QtdPeriodo;
-            i.PercExecutado = ci.Quantidade == 0 ? 0 : Math.Round(100m * i.QtdAcumulada / ci.Quantidade, 1);
+            var baseQtd = cl?.Quantidade ?? ci.Quantidade;
+            i.PercExecutado = baseQtd == 0 ? 0 : Math.Round(100m * i.QtdAcumulada / baseQtd, 1);
             i.ValorPeriodo = Math.Round(i.QtdPeriodo * ci.PrecoUnitario, 2);
         }
         ValorPeriodo = Itens.Sum(i => i.ValorPeriodo);

@@ -36,6 +36,11 @@ public static class DependencyInjection
         services.AddScoped<Servicos.ColaboracaoServico>();
         services.AddScoped<Servicos.CodigosProdutoServico>();
         services.AddScoped<Servicos.EngenhariaServico>();
+        services.AddScoped<Servicos.OrcamentoServico>();
+        services.AddScoped<Servicos.MaoObraServico>();
+        services.AddScoped<Servicos.EstabelecimentosServico>();
+        services.AddScoped<Servicos.FornecedoresServico>();
+        services.AddScoped<Importacao.ImportadorEspecificacao>();
         services.AddScoped<Servicos.ContaServico>();
         services.AddScoped<Importacao.ImportadorFornecedoresExpertData>();
         services.AddScoped<Importacao.ImportadorProdutosExpertData>();

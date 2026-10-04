@@ -181,6 +181,20 @@ public static partial class Rotulos
         [EntidadeAprovavel.Requisicao] = "Requisição",
         [EntidadeAprovavel.Cotacao] = "Cotação",
         [EntidadeAprovavel.Medicao] = "Medição",
+        [TipoTipologia.Apartamento] = "Apartamento", [TipoTipologia.Torre] = "Torre", [TipoTipologia.Implantacao] = "Implantação (áreas comuns do condomínio)",
+        [EscopoAmbiente.Comodo] = "Cômodo", [EscopoAmbiente.AreaComumPavimento] = "Área comum do pavimento", [EscopoAmbiente.AreaComumTorre] = "Área comum da torre",
+        [EscopoAmbiente.AreaComumCondominio] = "Área comum do condomínio",
+        [RegraQuantidade.AreaPiso] = "Área de piso (m²)", [RegraQuantidade.AreaParede] = "Área de parede (m²)", [RegraQuantidade.Perimetro] = "Perímetro (m)",
+        [RegraQuantidade.AreaTeto] = "Área de teto (m²)", [RegraQuantidade.Unidade] = "1 por local (un)", [RegraQuantidade.Fixa] = "Quantidade fixa por local",
+        [AlvoServico.Ambiente] = "Ambiente / cômodo", [AlvoServico.Apartamento] = "Apartamento", [AlvoServico.Pavimento] = "Cada pavimento", [AlvoServico.Torre] = "Torre",
+        [AlvoServico.Condominio] = "Condomínio",
+        [TipoInsumo.Material] = "Material", [TipoInsumo.MaoObraPropria] = "Mão de obra própria (h)", [TipoInsumo.MaoObraEmpreitada] = "Mão de obra empreitada",
+        [TipoInsumo.Equipamento] = "Equipamento", [TipoInsumo.ServicoTerceiro] = "Serviço de terceiro",
+        [FrequenciaDocumento.NoCadastro] = "No cadastro", [FrequenciaDocumento.Validade] = "Por validade", [FrequenciaDocumento.Mensal] = "Mensal",
+        [FrequenciaDocumento.PorContrato] = "Por contrato / obra", [FrequenciaDocumento.PorMedicao] = "Por medição", [FrequenciaDocumento.PorEntrega] = "Por entrega", [FrequenciaDocumento.Anual] = "Anual",
+        [TipoEstabelecimento.Matriz] = "Matriz", [TipoEstabelecimento.Filial] = "Filial", [TipoEstabelecimento.Spe] = "SPE", [TipoEstabelecimento.Outro] = "Outro",
+        [TipoFluxo.Transferencia] = "Transferência", [TipoFluxo.Venda] = "Venda", [TipoFluxo.Rateio] = "Rateio", [TipoFluxo.TaxaAdministracao] = "Taxa de administração", [TipoFluxo.Remessa] = "Remessa",
+        [StatusTransferencia.Rascunho] = "Rascunho", [StatusTransferencia.Enviada] = "Enviada", [StatusTransferencia.Recebida] = "Recebida na obra", [StatusTransferencia.Cancelada] = "Cancelada",
     };
 
     public static string De(Enum e)
@@ -229,6 +243,7 @@ public static partial class Rotulos
         StatusPedido.AguardandoAprovacaoDiretor or StatusPedido.EntregueParcial => "aviso",
         StatusPedido.Cancelado => "erro",
         StatusContrato.Ativo => "ok",
+        StatusTransferencia.Recebida => "ok", StatusTransferencia.Enviada => "aviso", StatusTransferencia.Cancelada => "erro",
         StatusContrato.AguardandoAprovacaoDiretoria or StatusContrato.AguardandoAssinaturas or StatusContrato.Suspenso => "aviso",
         StatusContrato.Rescindido => "erro",
         StatusMedicao.Aprovada or StatusMedicao.Paga or StatusMedicao.NfRecebida => "ok",
@@ -341,6 +356,9 @@ public static partial class Rotulos
     };
 
     public static string Moeda(decimal? v) => v is null ? "—" : v.Value.ToString("C2", Br);
+    public static string SemAcento(string? s) => new string((s ?? "").Normalize(System.Text.NormalizationForm.FormD)
+        .Where(c => CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark).ToArray()).ToUpperInvariant();
+
     public static string Num(decimal? v, int casas = 2) => v is null ? "—" : v.Value.ToString($"N{casas}", Br);
     public static string Data(DateOnly? d) => d is null ? "—" : d.Value.ToString("dd/MM/yyyy", Br);
     public static string DataCurta(DateOnly? d) => d is null ? "—" : d.Value.ToString("dd/MM/yy", Br);

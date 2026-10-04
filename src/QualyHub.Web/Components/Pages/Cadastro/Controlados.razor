@@ -1,9 +1,15 @@
 @page "/cadastros/controlados"
 @inherits PaginaBase
+@inject QualyHub.Infrastructure.Importacao.ImportadorEspecificacao Imp
 
 <Pagina Titulo="Materiais e serviços controlados" Grade="GradeAtual" AoNovo="Novo" AoAtualizar="Carregar">
     <ChildContent>
         <div class="pagina">
+            <div class="barra-acoes">
+                <label class="btn sec pq" style="cursor:pointer" title="Planilha estruturada da DT.SUP.01.01 (abas 1 Materiais, 2 Documentos, 3 Ensaios, 4 Cadastro de documentos)"><Icone Nome="upload" Tam="14" /> Importar Tabela de Especificação (xlsx)<InputFile OnChange="ImportarTabela" accept=".xlsx" style="display:none" /></label>
+                <label class="btn sec pq" style="cursor:pointer" title="Mapa do catálogo (aba Produtos com grupo novo e a coluna SUA DECISÃO)"><Icone Nome="upload" Tam="14" /> Aplicar mapa do catálogo (xlsx)<InputFile OnChange="PreverMapa" accept=".xlsx" style="display:none" /></label>
+                <button class="btn sec pq" disabled="@Ocupado" @onclick="Vincular" title="Reaplica: produto no grupo ligado vira controlado"><Icone Nome="atualizar" Tam="14" /> Vincular produtos pelo grupo</button>
+            </div>
             <Abas Itens="_abas" @bind-Ativa="_aba" />
             @if (_aba == "mat")
             {
@@ -12,7 +18,9 @@
                         <Coluna T="MaterialControlado" Titulo="Código" Valor="m => m.Codigo" Largura="90px" />
                         <Coluna T="MaterialControlado" Titulo="Material" Valor="m => m.Nome" />
                         <Coluna T="MaterialControlado" Titulo="UN" Valor="m => m.Unidade" />
-                        <Coluna T="MaterialControlado" Titulo="Grupo" Valor="m => m.GrupoCatalogo" />
+                        <Coluna T="MaterialControlado" Titulo="Grupo ligado (catálogo)" Valor="m => _grupos.FirstOrDefault(g => g.Id == m.CategoriaProdutoId)?.Texto" />
+                        <Coluna T="MaterialControlado" Titulo="Produtos" Valor="m => _qtdProd.GetValueOrDefault(m.Id)" Alinhar="num" />
+                        <Coluna T="MaterialControlado" Titulo="Grupo sugerido" Valor="m => m.GrupoCatalogo" Visivel="false" />
                         <Coluna T="MaterialControlado" Titulo="Sub-grupos vinculados" Valor="m => m.SubGrupos" />
                         <Coluna T="MaterialControlado" Titulo="Documentos exigidos" Valor="m => m.DocumentosExigidos" />
                         <Coluna T="MaterialControlado" Titulo="PSQ" Valor="m => m.ConstaPsq" />
@@ -32,6 +40,7 @@
                 <Grade T="ServicoControlado" @ref="_gSrv" Itens="_srvs" AoClicar="s => { _s = s; ErrosForm = null; _abertoSrv = true; }" NomeExportacao="servicos-controlados">
                     <Colunas>
                         <Coluna T="ServicoControlado" Titulo="Código (ITS)" Valor="s => s.Codigo" Largura="110px" />
+                        <Coluna T="ServicoControlado" Titulo="Sigla (mapa)" Valor="s => s.Sigla" Largura="80px" />
                         <Coluna T="ServicoControlado" Titulo="Serviço" Valor="s => s.Nome" />
                         <Coluna T="ServicoControlado" Titulo="Documento ITS" Valor="s => s.DocumentoItsId == null ? null : _docs.FirstOrDefault(d => d.Id == s.DocumentoItsId)?.Texto" />
                         <Coluna T="ServicoControlado" Titulo="Modelo FVS" Valor="s => _fvs.GetValueOrDefault(s.Id)" />
@@ -55,11 +64,12 @@
                 <Campo Rotulo="Código" Obrigatorio Classe="s3"><input @bind="_m.Codigo" /></Campo>
                 <Campo Rotulo="Nome" Obrigatorio Classe="s6"><input @bind="_m.Nome" /></Campo>
                 <Campo Rotulo="UN" Classe="s3"><input @bind="_m.Unidade" /></Campo>
-                <Campo Rotulo="Grupo do catálogo" Classe="s12"><input @bind="_m.GrupoCatalogo" /></Campo>
+                <Campo Rotulo="Grupo do catálogo ligado (1 grupo = 1 material)" Classe="s6" Ajuda="Produtos desse grupo viram controlados automaticamente"><select @bind="_m.CategoriaProdutoId"><option value="">—</option>@foreach (var g in _grupos) { <option value="@g.Id">@g.Texto</option> }</select></Campo>
+                <Campo Rotulo="Grupo sugerido (texto da tabela)" Classe="s6"><input @bind="_m.GrupoCatalogo" /></Campo>
                 <Campo Rotulo="Especificação técnica modelo" Classe="s12"><textarea @bind="_m.EspecificacaoModelo"></textarea></Campo>
                 <Campo Rotulo="Sub-grupos do produto vinculados (separe por ;)" Classe="s12"><input @bind="_m.SubGrupos" placeholder="Aço › Barras e perfis; Vergalhão" /></Campo>
-                <Campo Rotulo="Documentos exigidos na entrega (matriz T10A)" Classe="s6"><input @bind="_m.DocumentosExigidos" /></Campo>
-                <Campo Rotulo="Ensaios" Classe="s4"><input @bind="_m.Ensaios" /></Campo>
+                <Campo Rotulo="Documentos exigidos (qualificação e entrega)" Classe="s12"><textarea rows="3" @bind="_m.DocumentosExigidos"></textarea></Campo>
+                <Campo Rotulo="Ensaios (finalidade · norma: ensaios)" Classe="s10"><textarea rows="3" @bind="_m.Ensaios"></textarea></Campo>
                 <Campo Rotulo="Consta no PSQ" Classe="s2"><select @bind="_m.ConstaPsq"><option>Sim</option><option>Não</option><option>Verificar</option></select></Campo>
                 <Campo Rotulo="Modelo de FVM" Classe="s12"><input readonly value="@(_fvm.GetValueOrDefault(_m.Id) ?? "sem modelo vigente — cadastre em Qualidade da Obra › Modelos de FVM")" /></Campo>
                 <Campo Rotulo="Regras" Classe="s12">
@@ -77,6 +87,23 @@
     <Rodape><button class="btn prim" disabled="@Ocupado" @onclick="SalvarMat"><Icone Nome="check" Tam="16" /> Salvar</button></Rodape>
 </Modal>
 
+<Modal @bind-Aberto="_abertoMapa" Titulo="Aplicar mapa do catálogo" Tamanho="grande">
+    <ChildContent>
+        @if (_previaMapa is not null)
+        {
+            <div class="kpis">
+                <Kpi Rotulo="Linhas lidas" Valor="@_previaMapa.Lidos" />
+                <Kpi Rotulo="Produtos que mudam de grupo" Valor="@_previaMapa.Movidos" Tom="info" />
+                <Kpi Rotulo="Ligados a material controlado" Valor="@_previaMapa.Controlados" Tom="ok" />
+                <Kpi Rotulo="Não encontrados no cadastro" Valor="@_previaMapa.NaoEncontrados" Tom="@(_previaMapa.NaoEncontrados > 0 ? "aviso" : "ok")" />
+            </div>
+            <div class="alerta info"><Icone Nome="info" /> A coluna "SUA DECISÃO" prevalece sobre a sugestão. Grupos novos são criados com sigla sugerida; produtos já usados (requisição/pedido) mantêm o código — os demais são recodificados na categoria nova (código anterior fica guardado).</div>
+            <ul class="mudo">@foreach (var a in _previaMapa.Amostra) { <li>@a</li> }</ul>
+        }
+    </ChildContent>
+    <Rodape>@if (_previaMapa is { Movidos: > 0 } || _previaMapa is { Controlados: > 0 }) { <button class="btn prim" disabled="@Ocupado" @onclick="AplicarMapa"><Icone Nome="check" Tam="16" /> Aplicar no catálogo</button> }</Rodape>
+</Modal>
+
 <Modal @bind-Aberto="_abertoSrv" Titulo="Serviço controlado" Tamanho="media">
     <ChildContent>
         @if (_s is not null)
@@ -84,7 +111,8 @@
             <Erros Lista="ErrosForm" />
             <div class="form">
                 <Campo Rotulo="Código (ITS)" Obrigatorio Classe="s4"><input @bind="_s.Codigo" /></Campo>
-                <Campo Rotulo="Nome" Obrigatorio Classe="s8"><input @bind="_s.Nome" /></Campo>
+                <Campo Rotulo="Nome" Obrigatorio Classe="s6"><input @bind="_s.Nome" /></Campo>
+                <Campo Rotulo="Sigla (mapa da torre)" Classe="s2"><input @bind="_s.Sigla" maxlength="8" style="text-transform:uppercase" placeholder="ALV" /></Campo>
                 <Campo Rotulo="Documento ITS (revisão vigente vai no contrato e na GRD)" Classe="s12"><select @bind="_s.DocumentoItsId"><option value="">—</option>@foreach (var d in _docs) { <option value="@d.Id">@d.Texto</option> }</select></Campo>
                 <Campo Rotulo="Regras" Classe="s12">
                     <div class="checks">
@@ -104,7 +132,7 @@
     private Dictionary<Guid, string> _fvm = [], _fvs = [];
     private List<Opcao> _docs = [];
     private List<Produto> _semVinculo = [];
-    private string SitMat(MaterialControlado m) => string.IsNullOrWhiteSpace(m.SubGrupos) ? "Sem vínculo" : string.IsNullOrWhiteSpace(m.EspecificacaoModelo) ? "Sem especificação" : !_fvm.ContainsKey(m.Id) ? "Sem modelo FVM" : "Completo";
+    private string SitMat(MaterialControlado m) => m.CategoriaProdutoId is null && string.IsNullOrWhiteSpace(m.SubGrupos) ? "Sem vínculo" : string.IsNullOrWhiteSpace(m.EspecificacaoModelo) ? "Sem especificação" : !_fvm.ContainsKey(m.Id) ? "Sem modelo FVM" : "Completo";
     private Grade<MaterialControlado>? _gMat;
     private Grade<ServicoControlado>? _gSrv;
     private List<MaterialControlado>? _mats;
@@ -115,7 +143,48 @@
     private string _aba = "mat";
     private static readonly List<(string, string)> _abas = [("mat", "Materiais controlados"), ("srv", "Serviços controlados (ITS)"), ("gen", "Produtos sem vínculo")];
 
-    protected override Task OnInitializedAsync() => Carregar();
+    private List<Opcao> _grupos = [];
+    private Dictionary<Guid, int> _qtdProd = [];
+    private bool _abertoMapa;
+    private byte[]? _mapa;
+    private QualyHub.Infrastructure.Importacao.ResultadoMapa? _previaMapa;
+
+    protected override async Task OnInitializedAsync() { _grupos = await Cat.GruposProdutoAsync(); await Carregar(); }
+
+    private static async Task<byte[]> Ler(InputFileChangeEventArgs e)
+    {
+        if (e.File.Size > 20 * 1024 * 1024) throw new RegraDeNegocioException("Planilha acima de 20 MB.");
+        using var ms = new MemoryStream();
+        await e.File.OpenReadStream(20 * 1024 * 1024).CopyToAsync(ms);
+        return ms.ToArray();
+    }
+
+    private async Task ImportarTabela(InputFileChangeEventArgs e)
+    {
+        QualyHub.Infrastructure.Importacao.ResultadoEspecificacao? r = null;
+        if (await Executar(async () => r = await Imp.ImportarEspecificacaoAsync(new MemoryStream(await Ler(e)))))
+        { Notif.Sucesso($"Tabela importada: {r!.Materiais} materiais ({r.MateriaisNovos} novos), {r.TiposDocumento} tipos de documento novos, {r.Ensaios} ensaios, {r.GruposLigados} grupos ligados."); _grupos = await Cat.GruposProdutoAsync(); await Carregar(); }
+    }
+
+    private async Task PreverMapa(InputFileChangeEventArgs e)
+    {
+        if (await Executar(async () => { _mapa = await Ler(e); _previaMapa = await Imp.AplicarMapaAsync(new MemoryStream(_mapa), false); })) _abertoMapa = true;
+    }
+
+    private async Task AplicarMapa()
+    {
+        if (await Executar(async () => _previaMapa = await Imp.AplicarMapaAsync(new MemoryStream(_mapa!), true)))
+        {
+            Notif.Sucesso($"Catálogo ajustado: {_previaMapa!.Movidos} produtos movidos, {_previaMapa.Controlados} ligados a material controlado, {_previaMapa.Codigos?.Recodificados ?? 0} recodificados.");
+            _abertoMapa = false; _grupos = await Cat.GruposProdutoAsync(); await Carregar();
+        }
+    }
+
+    private async Task Vincular()
+    {
+        int n = 0;
+        if (await Executar(async () => n = await Imp.VincularPorGrupoAsync())) { Notif.Sucesso($"{n} produto(s) atualizados pelo grupo."); await Carregar(); }
+    }
 
     private async Task Carregar()
     {
@@ -127,6 +196,7 @@
         _fvs = modelos.Where(m => m.ServicoControladoId != null && m.Tipo == TipoModelo.FVS).GroupBy(m => m.ServicoControladoId!.Value).ToDictionary(g => g.Key, g => $"{g.First().Codigo} {g.First().Rotulo}");
         _semVinculo = await db.Produtos.AsNoTracking().Where(p => p.Ativo && p.MaterialControladoId == null).OrderBy(p => p.Nome).Take(500).ToListAsync();
         _docs = await Cat.DocumentosSgqAsync();
+        _qtdProd = await db.Produtos.AsNoTracking().Where(p => p.MaterialControladoId != null).GroupBy(p => p.MaterialControladoId!.Value).Select(g => new { g.Key, N = g.Count() }).ToDictionaryAsync(x => x.Key, x => x.N);
     }
 
     private void Novo()
@@ -149,9 +219,11 @@
         {
             ValidacaoException.Se(Basico(_m!.Codigo, _m.Nome));
             await using var db = Fabrica.Criar();
+            if (_m.CategoriaProdutoId is { } g && await db.MateriaisControlados.AnyAsync(x => x.Id != _m.Id && x.CategoriaProdutoId == g))
+                throw new RegraDeNegocioException("Este grupo do catálogo já está ligado a outro material (1 grupo = 1 material).");
             await Grafo.SalvarAsync(db, _m); await db.SaveChangesAsync();
         }, "Material salvo.");
-        if (ok) { _abertoMat = false; await Carregar(); }
+        if (ok) { _abertoMat = false; await Imp.VincularPorGrupoAsync(); await Carregar(); }
     }
 
     private async Task SalvarSrv()

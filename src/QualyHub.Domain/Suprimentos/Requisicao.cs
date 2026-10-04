@@ -15,8 +15,12 @@ public class Requisicao : EntidadeDaObra, IHistoricoTemporal
     public string? EnderecoEntrega { get; set; }
     public Guid? CentroCustoId { get; set; }
     public CentroCusto? CentroCusto { get; set; }
-    /// <summary>SPE que será faturada (CNPJ da NF). Obrigatória quando a obra tem SPEs cadastradas.</summary>
+    /// <summary>SPE beneficiária (destino do custo). Sai automaticamente dos locais escolhidos; obrigatória quando a obra tem SPEs.</summary>
     public Guid? SpeId { get; set; }
+    /// <summary>"Faturar para": estabelecimento que compra (padrão: quem fatura materiais — fábrica de pré-moldados).</summary>
+    public Guid? EstabelecimentoFaturamentoId { get; set; }
+    /// <summary>Justificativa quando a quantidade passa do orçado para os locais.</summary>
+    public string? JustificativaAcimaOrcado { get; set; }
     public TipoRequisicao Tipo { get; set; } = TipoRequisicao.Material;
     /// <summary>Lista CategoriaServico — obrigatória quando TIPO = Serviço.</summary>
     public string? CategoriaServico { get; set; }
@@ -103,6 +107,10 @@ public class RequisicaoItem : Entidade
     public DateOnly? DataNecessidade { get; set; }
     public StatusItemRequisicao Status { get; set; } = StatusItemRequisicao.Aberto;
     public string? Observacao { get; set; }
+    /// <summary>Serviço do orçamento de origem (serviço contratado ou material puxado da composição).</summary>
+    public Guid? ComposicaoId { get; set; }
+    /// <summary>Quebra por local (serviço × local × quantidade) quando o item vem do orçamento.</summary>
+    public ICollection<RequisicaoItemLocal> Locais { get; set; } = [];
 
     /// <summary>Herda do produto: unidade, lead time e marcação de material controlado (com modelo de especificação e documentos exigidos).</summary>
     public void HerdarDoProduto(Produto p)
@@ -121,4 +129,13 @@ public class RequisicaoItem : Entidade
             DocumentosExigidos ??= mc.DocumentosExigidos;
         }
     }
+}
+
+/// <summary>Quantidade do item da requisição em cada local (vem da matriz serviço × local).</summary>
+public class RequisicaoItemLocal : Entidade
+{
+    public Guid RequisicaoItemId { get; set; }
+    public Guid LocalId { get; set; }
+    public Guid? ComposicaoId { get; set; }
+    public decimal Quantidade { get; set; }
 }

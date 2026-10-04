@@ -16,6 +16,9 @@ internal sealed class CentroCustoCfg : IEntityTypeConfiguration<CentroCusto>
     {
         b.HasIndex(x => new { x.EmpresaId, x.Codigo }).IsUnique().HasFilter("[Excluido] = 0");
         b.HasOne<Obra>().WithMany().HasForeignKey(x => x.ObraId);
+        b.HasOne<CentroCusto>().WithMany().HasForeignKey(x => x.PaiId);
+        b.Property(x => x.EstabelecimentosPermitidos).HasMaxLength(2000);
+        b.Property(x => x.CodigoErp).HasMaxLength(60);
     }
 }
 
@@ -70,6 +73,9 @@ internal sealed class FornecedorCfg : IEntityTypeConfiguration<Fornecedor>
         b.Ignore(x => x.NomeExibicao);
         b.HasMany(x => x.Documentos).WithOne(x => x.Fornecedor).HasForeignKey(x => x.FornecedorId);
         b.HasMany(x => x.Qualificacoes).WithOne(x => x.Fornecedor).HasForeignKey(x => x.FornecedorId);
+        b.HasMany(x => x.Grupos).WithOne().HasForeignKey(x => x.FornecedorId);
+        b.HasMany(x => x.Servicos).WithOne().HasForeignKey(x => x.FornecedorId);
+        b.HasMany(x => x.Exigencias).WithOne().HasForeignKey(x => x.FornecedorId);
     }
 }
 
@@ -110,6 +116,7 @@ internal sealed class ServicoCfg : IEntityTypeConfiguration<ServicoControlado>
     {
         b.HasIndex(x => new { x.EmpresaId, x.Codigo }).IsUnique().HasFilter("[Excluido] = 0");
         b.HasOne<Documento>().WithMany().HasForeignKey(x => x.DocumentoItsId);
+        b.Property(x => x.Sigla).HasMaxLength(8);
     }
 }
 
@@ -118,6 +125,7 @@ internal sealed class MaterialCfg : IEntityTypeConfiguration<MaterialControlado>
     public void Configure(EntityTypeBuilder<MaterialControlado> b)
     {
         b.HasIndex(x => new { x.EmpresaId, x.Codigo }).IsUnique().HasFilter("[Excluido] = 0");
+        b.HasOne<CategoriaProduto>().WithMany().HasForeignKey(x => x.CategoriaProdutoId);
     }
 }
 
@@ -158,6 +166,7 @@ internal sealed class RequisicaoCfg : IEntityTypeConfiguration<Requisicao>
         b.Property(x => x.ChaveNFe).HasMaxLength(44);
         b.Ignore(x => x.ValorEstimado);
         b.HasMany(x => x.Itens).WithOne(x => x.Requisicao).HasForeignKey(x => x.RequisicaoId);
+        b.HasOne<Estabelecimento>().WithMany().HasForeignKey(x => x.EstabelecimentoFaturamentoId);
     }
 }
 
@@ -169,6 +178,8 @@ internal sealed class RequisicaoItemCfg : IEntityTypeConfiguration<RequisicaoIte
         b.HasOne(x => x.ServicoControlado).WithMany().HasForeignKey(x => x.ServicoControladoId);
         b.HasOne(x => x.MaterialControladoRef).WithMany().HasForeignKey(x => x.MaterialControladoId);
         b.Property(x => x.Quantidade).HasPrecision(18, 3);
+        b.HasMany(x => x.Locais).WithOne().HasForeignKey(l => l.RequisicaoItemId);
+        b.HasOne<Domain.Engenharia.Composicao>().WithMany().HasForeignKey(x => x.ComposicaoId);
     }
 }
 
@@ -220,6 +231,7 @@ internal sealed class PedidoCfg : IEntityTypeConfiguration<Pedido>
         b.Property(x => x.ChaveNFe).HasMaxLength(44);
         b.Ignore(x => x.Valor);
         b.HasMany(x => x.Itens).WithOne(x => x.Pedido).HasForeignKey(x => x.PedidoId);
+        b.HasOne<Estabelecimento>().WithMany().HasForeignKey(x => x.EstabelecimentoFaturamentoId);
     }
 }
 
@@ -250,6 +262,7 @@ internal sealed class ContratoCfg : IEntityTypeConfiguration<Contrato>
         b.Ignore(x => x.ValorTotal);
         b.HasMany(x => x.Itens).WithOne(x => x.Contrato).HasForeignKey(x => x.ContratoId);
         b.HasMany(x => x.ServicosVinculados).WithOne().HasForeignKey(x => x.ContratoId);
+        b.HasOne<Estabelecimento>().WithMany().HasForeignKey(x => x.EstabelecimentoFaturamentoId);
     }
 }
 
@@ -260,6 +273,8 @@ internal sealed class ContratoItemCfg : IEntityTypeConfiguration<ContratoItem>
         b.HasOne(x => x.ServicoControlado).WithMany().HasForeignKey(x => x.ServicoControladoId);
         b.Property(x => x.Quantidade).HasPrecision(18, 3);
         b.Ignore(x => x.Total);
+        b.HasMany(x => x.Locais).WithOne().HasForeignKey(l => l.ContratoItemId);
+        b.HasOne<Domain.Engenharia.Composicao>().WithMany().HasForeignKey(x => x.ComposicaoId);
     }
 }
 
@@ -285,6 +300,7 @@ internal sealed class RecebimentoCfg : IEntityTypeConfiguration<Recebimento>
         b.Ignore(x => x.FvmAprovada); b.Ignore(x => x.NotaEntrega); b.Ignore(x => x.TemDivergencia);
         b.HasIndex(x => new { x.FornecedorId, x.DataRecebimento });
         b.HasMany(x => x.Itens).WithOne(x => x.Recebimento).HasForeignKey(x => x.RecebimentoId);
+        b.HasOne<Estabelecimento>().WithMany().HasForeignKey(x => x.EstabelecimentoId);
     }
 }
 

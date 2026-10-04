@@ -130,7 +130,12 @@ public class Pedido : EntidadeDaObra, IOrigemErp, IHistoricoTemporal
     public Guid FornecedorId { get; set; }
     public Fornecedor Fornecedor { get; set; } = null!;
     /// <summary>SPE faturada (CNPJ que deve constar na NF).</summary>
+    /// <summary>SPE de destino (beneficiária) — impressa no pedido e pedida na observação da NF.</summary>
     public Guid? SpeId { get; set; }
+    /// <summary>Faturar para (CNPJ comprador).</summary>
+    public Guid? EstabelecimentoFaturamentoId { get; set; }
+    /// <summary>Entrega no almoxarifado central (FVM lá e depois transferência para a obra/SPE).</summary>
+    public bool EntregaAlmoxarifadoCentral { get; set; }
     public string? CondicaoPagamento { get; set; }
     public TipoFrete Frete { get; set; } = TipoFrete.CIF;
     public string? Transportadora { get; set; }

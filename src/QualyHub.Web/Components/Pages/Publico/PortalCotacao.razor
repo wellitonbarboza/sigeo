@@ -15,7 +15,8 @@
         <header class="portal-topo">
             <div><small>Proposta de cotação · @_s.EmpresaNome</small><h1>@_s.FornecedorNome</h1>
                 <span class="mudo">Cotação nº @_s.CotacaoNumero — @_s.CotacaoNome · frete @_s.Frete@(string.IsNullOrWhiteSpace(_s.EnderecoEntrega) ? "" : $" · entrega em {_s.EnderecoEntrega}")</span>
-                @if (_s.FaturarPara is not null) { <div id="faturar-para"><b>Faturar para:</b> @_s.FaturarPara</div> }</div>
+                @if (_s.FaturarPara is not null) { <div id="faturar-para"><b>Faturar para:</b> @_s.FaturarPara</div> }
+                @if (_s.Destino is not null) { <div id="destino"><b>Destino / identificar na NF:</b> @_s.Destino</div> }</div>
         </header>
         @if (_msg is not null) { <div class="alerta @(_ok ? "ok" : "erro")">@_msg</div> }
         @if (_erros is { Count: > 0 }) { <div class="alerta erro"><ul style="margin:0">@foreach (var e in _erros) { <li>@e</li> }</ul></div> }
@@ -33,7 +34,11 @@
                 @foreach (var l in _linhas)
                 {
                     <tr>
-                        <td>@l.Descricao</td><td>@l.Unidade</td><td class="num">@Rotulos.Num(l.Quantidade, 3)</td>
+                        <td>@l.Descricao
+                            @if (_s.Locais.TryGetValue(l.Id, out var ls) && ls.Count > 0)
+                            {
+                                <details><summary class="mudo">@ls.Count local(is)</summary><ul style="margin:2px 0 0 14px;font-size:12px">@foreach (var x in ls) { <li>@x.Local: @Rotulos.Num(x.Quantidade, 3)</li> }</ul></details>
+                            }</td><td>@l.Unidade</td><td class="num">@Rotulos.Num(l.Quantidade, 3)</td>
                         <td style="width:150px"><input type="number" step="0.01" min="0" @bind="l.Valor" disabled="@(!_s.Aberta)" /></td>
                         <td style="width:150px"><input type="date" @bind="l.Entrega" disabled="@(!_s.Aberta)" /></td>
                         <td class="num">@Rotulos.Moeda(Math.Round(l.Valor * l.Quantidade, 2))</td>

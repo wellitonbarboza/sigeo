@@ -50,15 +50,16 @@
     private readonly HashSet<string> _abertos = [];
     private static readonly Grupo[] _grupos =
     [
-        new("cad", "Cadastro", "cadastro", [("fornecedores", "predio", "Fornecedores"), ("fornecedores/qualificacao", "selo", "Qualificação Fornec."), ("fornecedores/documentos", "arquivo", "Docs. do Fornecedor"),
-            ("cadastros/controlados", "escudo-check", "Materiais/Serv. Control."), ("cadastros/centros-custo", "tabela", "Centros de Custo"), ("cadastros/produtos", "caixa", "Produtos"), ("cadastros/categorias", "lista", "Categorias de Produto")]),
-        new("eng", "Engenharia", "regua", [("engenharia/obras", "predio", "Obras e Empreendimentos")]),
+        new("cad", "Cadastro", "cadastro", [("fornecedores", "predio", "Fornecedores"), ("fornecedores/qualificacao", "selo", "Qualificação Fornec."), ("fornecedores/documentos", "arquivo", "Docs. do Fornecedor"), ("fornecedores/exigencias", "tabela", "Matriz de Documentos"),
+            ("cadastros/controlados", "escudo-check", "Materiais/Serv. Control."), ("cadastros/estabelecimentos", "predio", "Estabelecimentos (CNPJs)"), ("cadastros/centros-custo", "tabela", "Centros de Custo"), ("cadastros/produtos", "caixa", "Produtos"), ("cadastros/categorias", "lista", "Categorias de Produto")]),
+        new("eng", "Engenharia", "regua", [("engenharia/obras", "predio", "Obras e Empreendimentos"), ("engenharia/tipologias", "cubo", "Tipologias"),
+            ("engenharia/composicoes", "lista", "Serviços e Composições"), ("engenharia/orcamento", "calculadora", "Orçamento por Local"), ("engenharia/mao-de-obra", "pessoa", "Mão de Obra Própria")]),
         new("sup", "Suprimentos", "carrinho", [("requisicoes", "prancheta", "Requisição"), ("cotacoes", "calculadora", "Orçamentos"), ("pedidos", "sacola", "Pedidos"), ("contratos", "contrato", "Contratos"),
-            ("recebimentos", "caixa", "Recebimento / FVM"), ("medicoes", "regua", "Medições"), ("pagamentos", "dinheiro", "Liberação Pagamento")]),
+            ("recebimentos", "caixa", "Recebimento / FVM"), ("transferencias", "enviar", "Transferências p/ Obra"), ("medicoes", "regua", "Medições"), ("pagamentos", "dinheiro", "Liberação Pagamento")]),
         new("sgq", "Qualidade", "medalha", [("sgq/documentos", "pasta", "Documentos SGQ"), ("sgq/copias", "impressora", "Cópias Controladas"), ("sgq/lista-mestra", "lista", "Lista Mestra"),
             ("sgq/externos", "livro", "Documentos Externos"), ("fornecedores/avaliacao", "grafico", "Avaliação Fornec."), ("fornecedores/planos", "alvo", "Planos de Ação"),
             ("sgq/grd", "enviar", "GRD"), ("sgq/leituras", "livro", "Leituras / Ciência"), ("sgq/registros", "arquivo-morto", "Registros (Retenção)")]),
-        new("qob", "Qualidade da Obra", "escudo-check", [("obra/mapa", "tabela", "Mapa de Inspeções"), ("obra/fvs", "prancheta", "FVS – Inspeções"), ("obra/modelos/fvs", "lista", "Modelos de FVS"),
+        new("qob", "Qualidade da Obra", "escudo-check", [("obra/mapa-torre", "predio", "Mapa da Torre (FVS)"), ("obra/mapa", "tabela", "Mapa de Inspeções"), ("obra/fvs", "prancheta", "FVS – Inspeções"), ("obra/modelos/fvs", "lista", "Modelos de FVS"),
             ("obra/modelos/fvm", "caixa", "Modelos de FVM"), ("obra/rnc", "x-circulo", "Não Conformidades"), ("obra/acoes", "ferramenta", "Ações Corretivas"),
             ("obra/equipamentos", "regua", "Equip. de Medição"), ("obra/auditorias", "lupa", "Auditorias Internas")]),
         new("sst", "Segurança e Pessoas", "pessoa", [("sst/colaboradores", "pessoa", "Colaboradores"), ("sst/exigencias", "tabela", "Exigências por Função"), ("sst/documentos", "arquivo", "Docs. do Colaborador"),

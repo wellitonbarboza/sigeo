@@ -6,6 +6,13 @@ namespace QualyHub.Web.Servicos;
 
 public sealed record Opcao(Guid Id, string Texto, string? Extra = null);
 
+/// <summary>Produto para a busca (requisição, composição): categoria automática pelo grupo.</summary>
+public sealed record ProdutoBusca(Guid Id, string Codigo, string Nome, string Unidade, string? Grupo, string? SubGrupo, bool Controlado, decimal? Preco)
+{
+    public string Texto => $"{Codigo} – {Nome} ({Unidade})";
+    public string Busca { get; } = Rotulos.SemAcento($"{Codigo} {Nome} {Grupo} {SubGrupo}");
+}
+
 /// <summary>Listas para os combos das telas (cache curto por circuito).</summary>
 public sealed class Catalogos(FabricaDb fabrica)
 {
@@ -120,6 +127,36 @@ public sealed class Catalogos(FabricaDb fabrica)
     {
         await using var db = fabrica.Criar();
         return await db.Documentos.AsNoTracking().OrderBy(d => d.Codigo).Select(d => new Opcao(d.Id, d.Codigo + " – " + d.Titulo)).ToListAsync();
+    });
+
+    public Task<List<ProdutoBusca>> ProdutosBuscaAsync() => Cache("prodbusca", async () =>
+    {
+        await using var db = fabrica.Criar();
+        return await db.Produtos.AsNoTracking().Where(o => o.Ativo).OrderBy(o => o.Nome)
+            .Select(o => new ProdutoBusca(o.Id, o.Codigo, o.Nome, o.Unidade, o.Grupo, o.SubGrupo, o.MaterialControladoId != null, o.PrecoReferencia)).ToListAsync();
+    });
+
+    /// <summary>Estabelecimentos ativos; Extra = tipo.</summary>
+    public Task<List<Opcao>> EstabelecimentosAsync() => Cache("estab", async () =>
+    {
+        await using var db = fabrica.Criar();
+        return (await db.Estabelecimentos.AsNoTracking().Where(e => e.Ativo).OrderBy(e => e.Tipo).ThenBy(e => e.Codigo).ToListAsync())
+            .Select(e => new Opcao(e.Id, $"{e.Codigo} – {e.NomeExibicao} ({e.Cnpj})", e.Tipo.ToString())).ToList();
+    });
+
+    /// <summary>Serviços do orçamento (composições ativas); Extra = unidade.</summary>
+    public Task<List<Opcao>> ComposicoesAsync() => Cache("comp", async () =>
+    {
+        await using var db = fabrica.Criar();
+        return await db.Composicoes.AsNoTracking().Where(c => c.Ativa).OrderBy(c => c.Grupo).ThenBy(c => c.Codigo)
+            .Select(c => new Opcao(c.Id, c.Codigo + " – " + c.Descricao, c.Unidade)).ToListAsync();
+    });
+
+    /// <summary>Grupos (nível 1) do catálogo de produtos.</summary>
+    public Task<List<Opcao>> GruposProdutoAsync() => Cache("grupos", async () =>
+    {
+        await using var db = fabrica.Criar();
+        return await db.CategoriasProduto.AsNoTracking().Where(c => c.PaiId == null && c.Ativo).OrderBy(c => c.Nome).Select(c => new Opcao(c.Id, c.Nome, c.Sigla)).ToListAsync();
     });
 
     public Task<List<Opcao>> TiposDocFornecedorAsync() => Cache("tipodoc", async () =>

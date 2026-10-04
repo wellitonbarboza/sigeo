@@ -30,6 +30,15 @@ public class TipoDocumentoExigido : EntidadeAuditavel
     /// <summary>LGPD: documento com dado sensível (ex.: ASO). Arquivo vai para container restrito.</summary>
     public bool ContemDadoSensivel { get; set; }
     public bool Ativo { get; set; } = true;
+    /// <summary>Frequência: no cadastro, por validade, mensal (competência + dia limite), por contrato, por medição, por entrega, anual.</summary>
+    public FrequenciaDocumento Frequencia { get; set; } = FrequenciaDocumento.Validade;
+    /// <summary>Mensal: dia limite para entregar a competência anterior (padrão 20).</summary>
+    public int? DiaLimite { get; set; }
+    /// <summary>Categoria (lista): Empresa, Fiscal, Trabalhista, SST, RH, Técnico…</summary>
+    public string? Categoria { get; set; }
+    /// <summary>Documento dos funcionários do fornecedor (ASO, ficha de registro, treinamentos…): entra quando o pré-cadastro inclui funcionários.</summary>
+    public bool DeFuncionario { get; set; }
+    public int Ordem { get; set; }
 }
 
 /// <summary>T08 · Fornecedor (dados da Receita + tipo de fornecimento + status de qualificação).</summary>
@@ -88,9 +97,20 @@ public class Fornecedor : EntidadeAuditavel, IOrigemErp, IHistoricoTemporal
     public string? CodigoErp { get; set; }
     public Guid? UltimaImportacaoId { get; set; }
 
+    /// <summary>Pré-cadastro: criado pela empresa com o mínimo; o fornecedor completa pelo link do portal.</summary>
+    public bool PreCadastro { get; set; }
+    /// <summary>Exigir documentos dos funcionários (prestador que coloca pessoas na obra).</summary>
+    public bool IncluirDocsFuncionarios { get; set; }
+
     public ICollection<FornecedorDocumento> Documentos { get; set; } = [];
     public ICollection<FornecedorQualificacao> Qualificacoes { get; set; } = [];
     public ICollection<FornecedorContato> Contatos { get; set; } = [];
+    /// <summary>Grupos do catálogo que o fornecedor atende (subgrupos opcionais para separar fornecedores).</summary>
+    public ICollection<FornecedorGrupo> Grupos { get; set; } = [];
+    /// <summary>Serviços (ITS) que o fornecedor executa.</summary>
+    public ICollection<FornecedorServico> Servicos { get; set; } = [];
+    /// <summary>Documentos exigidos deste fornecedor (escolhidos no pré-cadastro a partir da matriz).</summary>
+    public ICollection<FornecedorExigencia> Exigencias { get; set; } = [];
 
     public string NomeExibicao => string.IsNullOrWhiteSpace(NomeFantasia) ? RazaoSocial : NomeFantasia!;
 
@@ -188,6 +208,8 @@ public class FornecedorDocumento : EntidadeAuditavel, IHistoricoTemporal
     public Fornecedor Fornecedor { get; set; } = null!;
     public Guid TipoDocumentoExigidoId { get; set; }
     public TipoDocumentoExigido TipoDocumento { get; set; } = null!;
+    /// <summary>Documento mensal: 1º dia do mês de competência.</summary>
+    public DateOnly? Competencia { get; set; }
     public string? Numero { get; set; }
     public DateOnly? DataEmissao { get; set; }
     public DateOnly? DataValidade { get; set; }
@@ -209,6 +231,47 @@ public class FornecedorDocumento : EntidadeAuditavel, IHistoricoTemporal
 }
 
 /// <summary>Link seguro do portal do fornecedor (tela 24): envio de documentos sem login, com prazo e registro de IP.</summary>
+/// <summary>Grupo do catálogo atendido pelo fornecedor. Subgrupos vazios = todos.</summary>
+public class FornecedorGrupo : Entidade
+{
+    public Guid FornecedorId { get; set; }
+    public Guid CategoriaProdutoId { get; set; }
+    /// <summary>Ids dos subgrupos atendidos, separados por vírgula (vazio = todos).</summary>
+    public string? Subgrupos { get; set; }
+    public bool Todos => string.IsNullOrWhiteSpace(Subgrupos);
+}
+
+/// <summary>Serviço controlado (ITS) executado pelo fornecedor.</summary>
+public class FornecedorServico : Entidade
+{
+    public Guid FornecedorId { get; set; }
+    public Guid ServicoControladoId { get; set; }
+}
+
+/// <summary>Documento exigido deste fornecedor (da matriz de exigências, ajustável no pré-cadastro).</summary>
+public class FornecedorExigencia : Entidade
+{
+    public Guid FornecedorId { get; set; }
+    public Guid TipoDocumentoExigidoId { get; set; }
+    public bool Obrigatorio { get; set; } = true;
+}
+
+/// <summary>Matriz de exigências: quais documentos pedir para cada tipo de fornecedor (material × serviço, com ou sem funcionários).</summary>
+public static class MatrizExigencias
+{
+    public static bool Aplica(TipoDocumentoExigido t, TipoFornecimento tipo, bool incluirFuncionarios) =>
+        t.Ativo && t.AplicaA == AplicaA.Fornecedor && (t.ExigidoPara == TipoFornecimento.Nenhum || (t.ExigidoPara & tipo) != 0) && (!t.DeFuncionario || incluirFuncionarios);
+
+    /// <summary>Competência que deve estar entregue hoje: a do mês anterior, a partir do dia limite (padrão 20).</summary>
+    public static DateOnly? CompetenciaExigida(TipoDocumentoExigido t, DateOnly hoje)
+    {
+        if (t.Frequencia != FrequenciaDocumento.Mensal) return null;
+        var limite = Math.Clamp(t.DiaLimite ?? 20, 1, 28);
+        var mesAnterior = new DateOnly(hoje.Year, hoje.Month, 1).AddMonths(-1);
+        return hoje.Day > limite ? mesAnterior : mesAnterior.AddMonths(-1);
+    }
+}
+
 public class LinkPortalFornecedor : EntidadeAuditavel
 {
     public Guid FornecedorId { get; set; }
@@ -239,6 +302,8 @@ public class ServicoControlado : EntidadeAuditavel, IOrigemErp
     /// <summary>Ex.: ITS 03.02</summary>
     public string Codigo { get; set; } = string.Empty;
     public string Nome { get; set; } = string.Empty;
+    /// <summary>Sigla curta exibida no mapa da torre (ex.: ALV, CTP, PIN).</summary>
+    public string? Sigla { get; set; }
     /// <summary>Documento do SGQ (ITS) que descreve o serviço — enviado ao prestador junto com o contrato.</summary>
     public Guid? DocumentoItsId { get; set; }
     public bool ExigeFvsParaMedicao { get; set; } = true;
@@ -257,6 +322,8 @@ public class MaterialControlado : EntidadeAuditavel, IOrigemErp
     public string? Unidade { get; set; }
     /// <summary>Grupo > Sub-grupo do catálogo de produtos que herda a marcação de controlado.</summary>
     public string? GrupoCatalogo { get; set; }
+    /// <summary>Grupo do catálogo ligado (1 grupo = 1 material): produtos do grupo viram controlados automaticamente.</summary>
+    public Guid? CategoriaProdutoId { get; set; }
     /// <summary>Modelo de especificação técnica (tabela de especificação e ensaio de materiais).</summary>
     public string? EspecificacaoModelo { get; set; }
     /// <summary>Documentos que o fornecedor deve apresentar (LAO, certificado do lote, laudo, FISPQ…) — sai impresso no pedido.</summary>

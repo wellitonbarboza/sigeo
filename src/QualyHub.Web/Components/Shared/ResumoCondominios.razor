@@ -1,0 +1,18 @@
+<table class="itens" id="resumo-cond">
+    <thead><tr><th>Condomínio</th><th>SPE · CNPJ</th><th class="num">Torres</th><th class="num">Pav.</th><th class="num">Aptos</th><th class="num">Cômodos</th><th class="num">Áreas comuns</th><th>Mix</th><th class="num">Área priv. (m²)</th><th class="num">Fração ideal</th></tr></thead>
+    <tbody>
+        @foreach (var r in Linhas)
+        {
+            var ok = r.Apartamentos == 0 || Math.Abs(r.FracaoSoma - 1) <= 0.000001m;
+            <tr><td><b>@r.Condominio</b></td><td>@(r.Spe is null ? "—" : $"{r.Spe} · {r.Cnpj}")</td><td class="num">@r.Torres</td><td class="num">@r.Pavimentos</td><td class="num">@r.Apartamentos</td>
+                <td class="num">@r.Comodos</td><td class="num">@r.AreasComuns</td><td>@string.Join(" · ", r.PorTipologia.Select(p => $"{p.Tipologia}: {p.Unidades}"))</td>
+                <td class="num">@r.AreaPrivativa.ToString("N2", Rotulos.Br)</td>
+                <td class="num"><Selo Texto="@((r.FracaoSoma * 100).ToString("N4", Rotulos.Br) + " %")" Tom="@(ok ? "ok" : "erro")" /></td></tr>
+        }
+        @if (Linhas.Count == 0) { <tr><td colspan="10" class="mudo">Cadastre os condomínios (SPEs).</td></tr> }
+    </tbody>
+</table>
+
+@code {
+    [Parameter] public IReadOnlyList<LinhaResumoCondominio> Linhas { get; set; } = [];
+}

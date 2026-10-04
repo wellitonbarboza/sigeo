@@ -24,7 +24,13 @@ public sealed class FabricaSistema(string connectionString)
 }
 
 /// <summary>Documento pedido ao fornecedor no portal (tela 24).</summary>
-public sealed record DocumentoSolicitado(Guid TipoId, string Nome, bool PorEntrega, bool Obrigatorio, StatusDocumento Situacao, DateOnly? Validade, string? Detalhe);
+public sealed record DocumentoSolicitado(Guid TipoId, string Nome, bool PorEntrega, bool Obrigatorio, StatusDocumento Situacao, DateOnly? Validade, string? Detalhe)
+{
+    public FrequenciaDocumento Frequencia { get; init; } = FrequenciaDocumento.Validade;
+    /// <summary>Mensal: competência esperada (mês anterior).</summary>
+    public DateOnly? Competencia { get; init; }
+    public string? Categoria { get; init; }
+}
 
 public sealed record SessaoPortal(Guid EmpresaId, string EmpresaNome, Fornecedor Fornecedor, LinkPortalFornecedor Link, IReadOnlyList<DocumentoSolicitado> Documentos, string? Alerta)
 {
@@ -34,7 +40,32 @@ public sealed record SessaoPortal(Guid EmpresaId, string EmpresaNome, Fornecedor
 
 /// <summary>Proposta de cotação preenchida pelo fornecedor no portal (link da cotação, sem login).</summary>
 public sealed record PropostaPortal(string EmpresaNome, string FornecedorNome, int CotacaoNumero, string CotacaoNome, string? EnderecoEntrega,
-    TipoFrete Frete, bool Aberta, CotacaoFornecedor Convite, IReadOnlyList<CotacaoItem> Itens, string? FaturarPara = null);
+    TipoFrete Frete, bool Aberta, CotacaoFornecedor Convite, IReadOnlyList<CotacaoItem> Itens, string? FaturarPara = null, string? Destino = null)
+{
+    /// <summary>Quebra por local de cada item (serviço contratado por local): item → (local, quantidade).</summary>
+    public IReadOnlyDictionary<Guid, IReadOnlyList<(string Local, decimal Quantidade)>> Locais { get; init; } = new Dictionary<Guid, IReadOnlyList<(string, decimal)>>();
+}
+
+/// <summary>Dados cadastrais que o fornecedor completa pelo portal (pré-cadastro).</summary>
+public sealed class DadosPortal
+{
+    public string? NomeFantasia { get; set; }
+    public string? InscricaoEstadual { get; set; }
+    public string? InscricaoMunicipal { get; set; }
+    public string? Cep { get; set; }
+    public string? Endereco { get; set; }
+    public string? Numero { get; set; }
+    public string? Complemento { get; set; }
+    public string? Bairro { get; set; }
+    public string? Cidade { get; set; }
+    public string? Uf { get; set; }
+    public string? Telefones { get; set; }
+    public string? Emails { get; set; }
+    public string? Site { get; set; }
+    public string? ContatoNome { get; set; }
+    public string? ContatoEmail { get; set; }
+    public string? ContatoTelefone { get; set; }
+}
 
 public sealed record ItemPropostaPortal(Guid ItemId, decimal ValorUnitario, DateOnly? Entrega);
 
@@ -80,21 +111,27 @@ public sealed class PortalServico(FabricaSistema sistema, FabricaDb fabrica, IAr
         link.UltimoAcessoIp = ip;
         await db.SaveChangesAsync(ct);
 
-        var f = await db.Fornecedores.AsNoTracking().Include(x => x.Documentos).ThenInclude(d => d.TipoDocumento).FirstAsync(x => x.Id == link.FornecedorId, ct);
-        var tipos = await db.TiposDocumento.AsNoTracking().Where(t => t.AplicaA == AplicaA.Fornecedor && t.Ativo).ToListAsync(ct);
+        var f = await db.Fornecedores.AsNoTracking().Include(x => x.Documentos).ThenInclude(d => d.TipoDocumento).Include(x => x.Exigencias).Include(x => x.Contatos)
+                        .FirstAsync(x => x.Id == link.FornecedorId, ct);
+        var tipos = await db.TiposDocumento.AsNoTracking().Where(t => t.AplicaA == AplicaA.Fornecedor && t.Ativo).OrderBy(t => t.Ordem).ThenBy(t => t.Nome).ToListAsync(ct);
         var empresa = await db.Empresas.AsNoTracking().Where(e => e.Id == empresaId).Select(e => e.NomeFantasia != "" ? e.NomeFantasia : e.RazaoSocial).FirstAsync(ct);
         var hoje = DateOnly.FromDateTime(relogio.GetLocalNow().Date);
 
-        var docs = tipos.Where(t => t.ExigidoPara == TipoFornecimento.Nenhum || (t.ExigidoPara & f.TipoFornecimento) != 0)
+        // Documentos pedidos: os escolhidos no pré-cadastro (exigências do fornecedor) ou, sem escolha, a matriz pelo tipo de fornecimento.
+        var exigF = f.Exigencias.ToDictionary(x => x.TipoDocumentoExigidoId, x => x.Obrigatorio);
+        var docs = tipos.Where(t => exigF.Count > 0 ? exigF.ContainsKey(t.Id) : MatrizExigencias.Aplica(t, f.TipoFornecimento, f.IncluirDocsFuncionarios))
             .Select(t =>
             {
-                var d = f.Documentos.Where(x => x.TipoDocumentoExigidoId == t.Id && !x.Excluido).OrderByDescending(x => x.CriadoEm).FirstOrDefault();
+                var obrig = exigF.Count > 0 ? exigF[t.Id] : t.Obrigatorio;
+                var comp = t.Frequencia == FrequenciaDocumento.Mensal ? new DateOnly(hoje.Year, hoje.Month, 1).AddMonths(-1) : (DateOnly?)null;
+                var d = f.Documentos.Where(x => x.TipoDocumentoExigidoId == t.Id && !x.Excluido && (comp == null || x.Competencia == comp)).OrderByDescending(x => x.CriadoEm).FirstOrDefault();
                 var sit = t.PorEntrega ? StatusDocumento.Valido : d is null ? StatusDocumento.PendenteEnvio : StatusDocumentoCalculo.Calcular(d, hoje);
                 var det = t.PorEntrega ? "Enviar junto com a NF" : d?.Status == StatusDocumento.Reprovado ? $"Recusado: {d.MotivoRecusa}"
                         : d?.Status == StatusDocumento.EmValidacao ? $"Enviado {d.CriadoEm.ToLocalTime():dd/MM HH:mm}"
-                        : d?.DataValidade is { } v ? $"Validade {v:dd/MM/yyyy}" : t.Obrigatorio ? "Obrigatório" : "Opcional";
-                return new DocumentoSolicitado(t.Id, t.Nome, t.PorEntrega, t.Obrigatorio, sit, d?.DataValidade, det);
-            }).OrderBy(d => d.Situacao == StatusDocumento.Valido).ThenBy(d => d.Nome).ToList();
+                        : comp is { } c ? $"Mensal — competência {c:MM/yyyy}, até o dia {t.DiaLimite ?? 20}"
+                        : d?.DataValidade is { } v ? $"Validade {v:dd/MM/yyyy}" : obrig ? "Obrigatório" : "Opcional";
+                return new DocumentoSolicitado(t.Id, t.Nome, t.PorEntrega, obrig, sit, d?.DataValidade, det) { Frequencia = t.Frequencia, Competencia = comp, Categoria = t.Categoria };
+            }).OrderBy(d => d.Situacao == StatusDocumento.Valido).ThenBy(d => d.Categoria).ThenBy(d => d.Nome).ToList();
 
         var vence = docs.Where(d => d.Validade is { } v && v >= hoje && v <= hoje.AddDays(30)).OrderBy(d => d.Validade).FirstOrDefault();
         var alerta = vence is null ? null : $"Seu documento '{vence.Nome}' vence em {vence.Validade:dd/MM/yyyy}. Sem documento válido, novos pedidos ficam bloqueados.";
@@ -110,7 +147,7 @@ public sealed class PortalServico(FabricaSistema sistema, FabricaDb fabrica, IAr
     }
 
     public async Task ReceberAsync(string token, Guid tipoId, string? numero, DateOnly? emissao, DateOnly? validade, string responsavel,
-        Stream arquivo, string nomeArquivo, string? contentType, CancellationToken ct = default)
+        Stream arquivo, string nomeArquivo, string? contentType, CancellationToken ct = default, DateOnly? competencia = null)
     {
         var sessao = await AbrirAsync(token, null, ct) ?? throw new RegraDeNegocioException("Link inválido ou expirado.");
         var ext = Path.GetExtension(nomeArquivo).ToLowerInvariant();
@@ -123,8 +160,30 @@ public sealed class PortalServico(FabricaSistema sistema, FabricaDb fabrica, IAr
             EmpresaId = sessao.EmpresaId, FornecedorId = sessao.Fornecedor.Id, TipoDocumentoExigidoId = tipoId, Numero = numero, DataEmissao = emissao,
             DataValidade = validade, ArquivoBlob = salvo.Blob, ArquivoNomeOriginal = nomeArquivo, ArquivoHashSha256 = salvo.Hash,
             Status = StatusDocumento.EmValidacao, EnviadoPeloPortal = true, ResponsavelEnvio = responsavel,
+            Competencia = competencia is { } cp ? new DateOnly(cp.Year, cp.Month, 1) : sessao.Documentos.FirstOrDefault(d => d.TipoId == tipoId)?.Competencia,
             Bloqueia = await db.TiposDocumento.Where(t => t.Id == tipoId).Select(t => t.BloqueiaQuandoVencido).FirstAsync(ct)
         });
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>Pré-cadastro: o fornecedor completa os dados cadastrais pelo link (conferidos depois por Suprimentos).</summary>
+    public async Task AtualizarDadosAsync(string token, DadosPortal d, CancellationToken ct = default)
+    {
+        var sessao = await AbrirAsync(token, null, ct) ?? throw new RegraDeNegocioException("Link inválido ou expirado.");
+        var e = new List<string>();
+        if (string.IsNullOrWhiteSpace(d.Endereco) || string.IsNullOrWhiteSpace(d.Cidade) || string.IsNullOrWhiteSpace(d.Uf)) e.Add("Informe endereço, cidade e UF.");
+        if (string.IsNullOrWhiteSpace(d.Emails) || !d.Emails.Contains('@')) e.Add("Informe ao menos um e-mail.");
+        if (string.IsNullOrWhiteSpace(d.ContatoNome)) e.Add("Informe o nome do contato.");
+        ValidacaoException.Se(e);
+        await using var db = sistema.Criar(sessao.EmpresaId, "Portal");
+        var f = await db.Fornecedores.Include(x => x.Contatos).FirstAsync(x => x.Id == sessao.Fornecedor.Id, ct);
+        static string? T(string? v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim();
+        f.NomeFantasia = T(d.NomeFantasia) ?? f.NomeFantasia; f.InscricaoEstadual = T(d.InscricaoEstadual); f.InscricaoMunicipal = T(d.InscricaoMunicipal);
+        f.Cep = T(d.Cep); f.Endereco = T(d.Endereco); f.Numero = T(d.Numero); f.Complemento = T(d.Complemento); f.Bairro = T(d.Bairro);
+        f.Cidade = T(d.Cidade); f.Uf = T(d.Uf)?.ToUpperInvariant(); f.Telefones = T(d.Telefones); f.Emails = T(d.Emails); f.Site = T(d.Site);
+        var c = f.Contatos.FirstOrDefault(x => x.Principal);
+        if (c is null) { c = new FornecedorContato { FornecedorId = f.Id, Principal = true }; db.FornecedorContatos.Add(c); }
+        c.Nome = d.ContatoNome!.Trim(); c.Email = T(d.ContatoEmail); c.Telefone = T(d.ContatoTelefone);
         await db.SaveChangesAsync(ct);
     }
 
@@ -161,7 +220,7 @@ public sealed class PortalServico(FabricaSistema sistema, FabricaDb fabrica, IAr
         var alvo = existente ?? d;
         if (existente is not null)
         {
-            existente.Numero = d.Numero; existente.DataEmissao = d.DataEmissao; existente.DataValidade = d.DataValidade;
+            existente.Numero = d.Numero; existente.DataEmissao = d.DataEmissao; existente.DataValidade = d.DataValidade; existente.Competencia = d.Competencia;
             existente.Bloqueia = d.Bloqueia; existente.Observacao = d.Observacao; existente.Conferencia = d.Conferencia;
         }
         if (arquivo is not null && nomeArquivo is not null)
@@ -210,11 +269,19 @@ public sealed class PortalServico(FabricaSistema sistema, FabricaDb fabrica, IAr
         var forn = await db.Fornecedores.IgnoreQueryFilters().AsNoTracking().Where(f => f.Id == conv.FornecedorId).Select(f => f.RazaoSocial).FirstAsync(ct);
         var emp = await db.Empresas.AsNoTracking().Where(e => e.Id == loc.EmpresaId).Select(e => e.NomeFantasia != "" ? e.NomeFantasia : e.RazaoSocial).FirstAsync(ct);
         var itens = c.Itens.Where(i => i.FornecedorId == conv.FornecedorId).OrderBy(i => i.Descricao).ToList();
-        var spe = c.RequisicaoId is { } rq
-            ? await (from r in db.Requisicoes.IgnoreQueryFilters().AsNoTracking() join s in db.Spes.IgnoreQueryFilters().AsNoTracking() on r.SpeId equals s.Id
-                     where r.Id == rq select s.RazaoSocial + " — CNPJ " + s.Cnpj).FirstOrDefaultAsync(ct)
+        var req = c.RequisicaoId is { } rq ? await db.Requisicoes.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(r => r.Id == rq, ct) : null;
+        var fat = req?.EstabelecimentoFaturamentoId is { } est
+            ? await db.Estabelecimentos.IgnoreQueryFilters().AsNoTracking().Where(x => x.Id == est).Select(x => x.RazaoSocial + " — CNPJ " + x.Cnpj).FirstOrDefaultAsync(ct)
+            : req?.SpeId is { } sp ? await db.Spes.IgnoreQueryFilters().AsNoTracking().Where(s => s.Id == sp).Select(s => s.RazaoSocial + " — CNPJ " + s.Cnpj).FirstOrDefaultAsync(ct) : null;
+        var destino = req?.SpeId is { } sp2 && req.EstabelecimentoFaturamentoId is not null
+            ? await db.Spes.IgnoreQueryFilters().AsNoTracking().Where(s => s.Id == sp2).Select(s => "SPE " + (s.NomeFantasia ?? s.RazaoSocial)).FirstOrDefaultAsync(ct) + $" · requisição nº {req.Numero}"
             : null;
-        return new PropostaPortal(emp, forn, c.Numero, c.Nome, c.EnderecoEntrega, c.Frete, CotacaoAberta(c) && conv.Status != StatusConvite.Declinou, conv, itens, spe);
+        var reqItens = itens.Where(i => i.RequisicaoItemId != null).Select(i => i.RequisicaoItemId!.Value).ToList();
+        var locs = await (from rl in db.RequisicaoItemLocais.AsNoTracking() join l in db.Locais.IgnoreQueryFilters().AsNoTracking() on rl.LocalId equals l.Id
+                          where reqItens.Contains(rl.RequisicaoItemId) select new { rl.RequisicaoItemId, l.Codigo, l.Nome, rl.Quantidade }).ToListAsync(ct);
+        var porItem = itens.Where(i => i.RequisicaoItemId != null).ToDictionary(i => i.Id,
+            i => (IReadOnlyList<(string, decimal)>)locs.Where(x => x.RequisicaoItemId == i.RequisicaoItemId).OrderBy(x => x.Codigo).Select(x => ($"{x.Codigo} – {x.Nome}", x.Quantidade)).ToList());
+        return new PropostaPortal(emp, forn, c.Numero, c.Nome, c.EnderecoEntrega, c.Frete, CotacaoAberta(c) && conv.Status != StatusConvite.Declinou, conv, itens, fat, destino) { Locais = porItem };
     }
 
     public async Task EnviarPropostaAsync(Guid token, IReadOnlyList<ItemPropostaPortal> itens, decimal? frete, string? condicao, DateOnly? validade,

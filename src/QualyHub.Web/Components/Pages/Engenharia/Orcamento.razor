@@ -1,0 +1,257 @@
+@page "/engenharia/orcamento"
+@inherits PaginaBase
+@inject OrcamentoServico Orc
+@inject SuprimentosServico Sup
+@inject NavigationManager Nav
+
+<Pagina Titulo="Orçamento por local" AoAtualizar="Carregar">
+    <ChildContent>
+        <div class="pagina">
+            <div class="barra-filtro">
+                <label>Obra <select id="orc-obra" value="@_obraId" @onchange="async e => { _obraId = Guid.TryParse(e.Value?.ToString(), out var g) ? g : null; await Carregar(); }"><option value="">Selecione…</option>@foreach (var o in _obras) { <option value="@o.Id">@o.Texto</option> }</select></label>
+                @if (_obraId is not null)
+                {
+                    <button class="btn prim" id="orc-gerar" disabled="@Ocupado" @onclick="Gerar"><Icone Nome="atualizar" Tam="14" /> Gerar / atualizar orçamento</button>
+                    <a class="btn sec" href="engenharia/tipologias"><Icone Nome="lista" Tam="14" /> Serviços por tipologia</a>
+                    <a class="btn sec" href="engenharia/composicoes"><Icone Nome="calculadora" Tam="14" /> Composições</a>
+                }
+            </div>
+            @if (_obraId is null) { <div class="alerta info"><Icone Nome="info" /> Escolha a obra.</div> }
+            else
+            {
+                <div class="kpis">
+                    <Kpi Rotulo="Custo orçado" Valor="@_cels.Sum(c => c.Custo).ToString("C0", Br)" />
+                    <Kpi Rotulo="Células serviço × local" Valor="@_cels.Count.ToString("N0", Br)" Sub="@($"{_cels.Count(c => c.Travado)} travadas (editadas)")" />
+                    <Kpi Rotulo="Área privativa" Valor="@($"{_areaPriv:N0} m²")" Tom="info" />
+                    <Kpi Rotulo="R$/m² privativo" Valor="@(_areaPriv == 0 ? "—" : (_cels.Sum(c => c.Custo) / _areaPriv).ToString("N2", Br))" Tom="info" />
+                </div>
+                <Abas Itens="_abas" @bind-Ativa="_aba" />
+                @if (_aba == "serv")
+                {
+                    <table class="itens" id="orc-servicos">
+                        <thead><tr><th>Grupo</th><th>Serviço</th><th>Un.</th><th class="num">Quantidade</th><th class="num">Custo unit.</th><th class="num">Custo</th><th class="num">% </th><th class="num">Locais</th></tr></thead>
+                        <tbody>
+                            @foreach (var g in PorServico())
+                            {
+                                <tr><td>@g.Grupo</td><td>@g.Servico</td><td>@g.Un</td><td class="num">@g.Qtd.ToString("N2", Br)</td><td class="num">@g.Unit.ToString("N2", Br)</td><td class="num">@g.Custo.ToString("N2", Br)</td>
+                                    <td class="num">@(Total == 0 ? "" : (100 * g.Custo / Total).ToString("N1", Br))</td><td class="num">@g.N</td></tr>
+                            }
+                            @if (_cels.Count == 0) { <tr><td colspan="8" class="mudo">Sem orçamento. Marque os serviços nas tipologias e clique em "Gerar / atualizar orçamento".</td></tr> }
+                        </tbody>
+                    </table>
+                }
+                else if (_aba == "spe")
+                {
+                    <table class="itens" id="orc-spe">
+                        <thead><tr><th>Condomínio / torre</th><th class="num">Custo</th><th class="num">Apartamentos</th><th class="num">Área priv. (m²)</th><th class="num">R$/m²</th></tr></thead>
+                        <tbody>
+                            @foreach (var c in _locais.Where(l => l.Tipo == GeradorEmpreendimento.TipoCondominio).OrderBy(l => l.Codigo))
+                            {
+                                var (custo, ap, area) = Soma(c.Id);
+                                <tr style="font-weight:600"><td>@c.Codigo – @c.Nome</td><td class="num">@custo.ToString("N2", Br)</td><td class="num">@ap</td><td class="num">@area.ToString("N2", Br)</td><td class="num">@(area == 0 ? "" : (custo / area).ToString("N2", Br))</td></tr>
+                                @foreach (var t in _locais.Where(l => l.LocalPaiId == c.Id && l.Tipo == GeradorEmpreendimento.TipoTorre).OrderBy(l => l.Codigo))
+                                {
+                                    var (ct, at, ar) = Soma(t.Id);
+                                    <tr><td style="padding-left:24px">@t.Codigo – @t.Nome</td><td class="num">@ct.ToString("N2", Br)</td><td class="num">@at</td><td class="num">@ar.ToString("N2", Br)</td><td class="num">@(ar == 0 ? "" : (ct / ar).ToString("N2", Br))</td></tr>
+                                }
+                                var comum = _cels.Where(x => x.LocalId == c.Id || _locais.Any(l => l.Id == x.LocalId && l.LocalPaiId == c.Id && l.Tipo == GeradorEmpreendimento.TipoAreaComum)).Sum(x => x.Custo);
+                                <tr><td style="padding-left:24px" class="mudo">Áreas comuns do condomínio (rateio pela fração ideal)</td><td class="num">@comum.ToString("N2", Br)</td><td></td><td></td><td></td></tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+                else if (_aba == "apto")
+                {
+                    <div class="barra-filtro"><label>Torre <select @bind="_fTorre"><option value="">Selecione…</option>@foreach (var t in _locais.Where(l => l.Tipo == GeradorEmpreendimento.TipoTorre).OrderBy(l => l.Codigo)) { <option value="@t.Id">@t.Codigo – @t.Nome</option> }</select></label></div>
+                    @if (_fTorre is { } ft)
+                    {
+                        <table class="itens" id="orc-aptos">
+                            <thead><tr><th>Apartamento</th><th>Tipologia</th><th class="num">Área priv.</th><th class="num">Custo direto</th><th class="num">R$/m²</th><th class="num">Serviços</th></tr></thead>
+                            <tbody>
+                                @foreach (var a in _locais.Where(l => l.Tipo == GeradorEmpreendimento.TipoApartamento && Sub(ft).Contains(l.Id)).OrderBy(l => l.Codigo))
+                                {
+                                    var sub = Sub(a.Id);
+                                    var cs = _cels.Where(c => sub.Contains(c.LocalId)).ToList();
+                                    <tr><td>@a.Codigo</td><td>@_tips.GetValueOrDefault(a.TipologiaId ?? Guid.Empty)</td><td class="num">@a.AreaPrivativa?.ToString("N2", Br)</td><td class="num">@cs.Sum(c => c.Custo).ToString("N2", Br)</td>
+                                        <td class="num">@(a.AreaPrivativa is > 0 ? (cs.Sum(c => c.Custo) / a.AreaPrivativa.Value).ToString("N2", Br) : "")</td><td class="num">@cs.Select(c => c.ComposicaoId).Distinct().Count()</td></tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                }
+                else if (_aba == "cel")
+                {
+                    <div class="barra-filtro">
+                        <label>Local (código começa com) <input @bind="_fCodigo" placeholder="QA-T01-P02" /></label>
+                        <label>Serviço <select @bind="_fComp"><option value="">Todos</option>@foreach (var c in _comps.Values.OrderBy(c => c.Codigo)) { <option value="@c.Id">@c.Codigo – @c.Descricao</option> }</select></label>
+                    </div>
+                    <table class="itens" id="orc-celulas">
+                        <thead><tr><th>Local</th><th>Serviço</th><th class="num">Quantidade</th><th class="num">Custo unit.</th><th class="num">Custo</th><th>Origem</th><th></th></tr></thead>
+                        <tbody>
+                            @foreach (var c in Celulas().Take(500))
+                            {
+                                var l = _porId.GetValueOrDefault(c.LocalId);
+                                <tr><td>@l?.Codigo <span class="mudo">@l?.Nome</span></td><td>@_comps.GetValueOrDefault(c.ComposicaoId)?.Descricao</td>
+                                    <td class="num"><input type="number" step="0.01" style="width:100px;text-align:right" value="@c.Quantidade.ToString(System.Globalization.CultureInfo.InvariantCulture)" @onchange="e => Editar(c, e.Value?.ToString())" /></td>
+                                    <td class="num">@c.CustoUnitario.ToString("N2", Br)</td><td class="num">@c.Custo.ToString("N2", Br)</td>
+                                    <td>@if (c.Travado) { <Selo Texto="manual (travada)" Tom="aviso" /> } else { <span class="mudo">@c.Origem</span> }</td>
+                                    <td>@if (c.Travado) { <button class="btn sec pq" @onclick="() => Destravar(c)">Destravar</button> }</td></tr>
+                            }
+                        </tbody>
+                    </table>
+                    <p class="mudo">Editar a quantidade trava a célula (o gerador não altera). Mostrando até 500 células — filtre pelo código do local.</p>
+                }
+                else
+                {
+                    <div class="grade-2">
+                        <div>
+                            <div class="secao"><Icone Nome="lista" /> 1. Serviços a contratar</div>
+                            <div class="barra-filtro"><label>Grupo <select @bind="_fGrupo"><option value="">Todos</option>@foreach (var g in _comps.Values.Select(c => c.Grupo).Distinct().OrderBy(g => g)) { <option>@g</option> }</select></label></div>
+                            <div class="seletor-locais">
+                                @foreach (var c in _comps.Values.Where(c => _cels.Any(x => x.ComposicaoId == c.Id) && (string.IsNullOrEmpty(_fGrupo) || c.Grupo == _fGrupo)).OrderBy(c => c.Codigo))
+                                {
+                                    <div class="sl-linha"><label><input type="checkbox" checked="@_selComp.Contains(c.Id)" @onchange="e => { if ((bool)e.Value!) _selComp.Add(c.Id); else _selComp.Remove(c.Id); _demanda = null; }" /> <b>@c.Codigo</b> @c.Descricao <span class="mudo">@c.Unidade</span></label></div>
+                                }
+                            </div>
+                        </div>
+                        <div>
+                            <div class="secao"><Icone Nome="predio" /> 2. Locais (torres, pavimentos, apartamentos)</div>
+                            <SeletorLocais Locais="_locais" Selecionados="_selLoc" SelecionadosChanged="() => _demanda = null" />
+                        </div>
+                    </div>
+                    <div style="display:flex;gap:8px;margin:10px 0">
+                        <button class="btn sec" id="ct-previa" disabled="@(Ocupado || _selComp.Count == 0 || _selLoc.Count == 0)" @onclick="Previa"><Icone Nome="lupa" Tam="14" /> Ver quantidades</button>
+                        @if (_demanda is { Count: > 0 }) { <button class="btn prim" id="ct-req" disabled="@Ocupado" @onclick="CriarRequisicao"><Icone Nome="prancheta" Tam="14" /> Criar requisição de serviço</button> }
+                    </div>
+                    @if (_demanda is not null)
+                    {
+                        <table class="itens" id="ct-demanda">
+                            <thead><tr><th>Serviço</th><th>Un.</th><th class="num">Orçado nos locais</th><th class="num">Já requisitado</th><th class="num">Saldo a contratar</th><th class="num">Ref. empreitada (R$/un)</th><th class="num">Locais</th></tr></thead>
+                            <tbody>
+                                @foreach (var d in _demanda)
+                                {
+                                    <tr><td>@d.Descricao</td><td>@d.Unidade</td><td class="num">@d.Orcado.ToString("N2", Br)</td><td class="num">@d.Requisitado.ToString("N2", Br)</td><td class="num"><b>@d.Saldo.ToString("N2", Br)</b></td>
+                                        <td class="num">@d.ValorReferencia.ToString("N2", Br)</td><td class="num">@d.Locais.Count</td></tr>
+                                }
+                            </tbody>
+                        </table>
+                        <p class="mudo">A requisição sai com o serviço × local × quantidade (a cotação e o contrato levam essa planilha). A SPE vem dos locais.</p>
+                    }
+                }
+            }
+        </div>
+    </ChildContent>
+    <Faixa><b>Orçamento</b><span>Serviços das tipologias × locais gerados = matriz serviço × local</span><span>Custo por SPE, torre, apartamento e m² · contratação por local</span></Faixa>
+</Pagina>
+
+@code {
+    private sealed record LinhaServico(string? Grupo, string Servico, string Un, decimal Qtd, decimal Unit, decimal Custo, int N);
+    private List<Opcao> _obras = [];
+    private Guid? _obraId, _fTorre, _fComp;
+    private string? _fCodigo, _fGrupo;
+    private string _aba = "serv";
+    private List<ServicoLocal> _cels = [];
+    private List<Local> _locais = [];
+    private Dictionary<Guid, Local> _porId = [];
+    private ILookup<Guid?, Local> _filhos = Array.Empty<Local>().ToLookup(l => l.LocalPaiId);
+    private Dictionary<Guid, Composicao> _comps = [];
+    private Dictionary<Guid, string> _tips = [];
+    private decimal _areaPriv;
+    private readonly HashSet<Guid> _selComp = [];
+    private HashSet<Guid> _selLoc = [];
+    private List<LinhaDemanda>? _demanda;
+    private readonly Dictionary<Guid, HashSet<Guid>> _subCache = [];
+    private static readonly List<(string, string)> _abas = [("serv", "Por serviço"), ("spe", "Por condomínio e torre"), ("apto", "Por apartamento"), ("cel", "Células"), ("ctr", "Contratar serviços")];
+    private decimal Total => _cels.Sum(c => c.Custo);
+
+    protected override async Task OnInitializedAsync()
+    {
+        _obras = await Cat.ObrasAsync();
+        if (_obras.Count == 1) _obraId = _obras[0].Id;
+        await Carregar();
+    }
+
+    private async Task Carregar()
+    {
+        _subCache.Clear(); _demanda = null;
+        if (_obraId is not { } o) return;
+        await using var db = Fabrica.Criar();
+        _cels = await db.ServicosLocais.AsNoTracking().Where(s => s.ObraId == o).ToListAsync();
+        _locais = await db.Locais.AsNoTracking().Where(l => l.ObraId == o).ToListAsync();
+        _porId = _locais.ToDictionary(l => l.Id);
+        _filhos = _locais.ToLookup(l => l.LocalPaiId);
+        _comps = await db.Composicoes.AsNoTracking().Include(c => c.Itens).ToDictionaryAsync(c => c.Id);
+        _tips = await db.Tipologias.AsNoTracking().Where(t => t.ObraId == o).ToDictionaryAsync(t => t.Id, t => t.Codigo);
+        _areaPriv = _locais.Where(l => l.Tipo == GeradorEmpreendimento.TipoApartamento).Sum(l => l.AreaPrivativa ?? 0);
+    }
+
+    private HashSet<Guid> Sub(Guid id) => _subCache.TryGetValue(id, out var s) ? s : _subCache[id] = MotorOrcamento.Subarvore(id, _filhos);
+
+    private (decimal Custo, int Aptos, decimal Area) Soma(Guid raiz)
+    {
+        var sub = Sub(raiz);
+        var aps = _locais.Where(l => l.Tipo == GeradorEmpreendimento.TipoApartamento && sub.Contains(l.Id)).ToList();
+        return (_cels.Where(c => sub.Contains(c.LocalId)).Sum(c => c.Custo), aps.Count, aps.Sum(a => a.AreaPrivativa ?? 0));
+    }
+
+    private IEnumerable<LinhaServico> PorServico() =>
+        _cels.GroupBy(c => c.ComposicaoId).Select(g =>
+        {
+            var c = _comps.GetValueOrDefault(g.Key);
+            var q = g.Sum(x => x.Quantidade);
+            return new LinhaServico(c?.Grupo, c is null ? "?" : $"{c.Codigo} – {c.Descricao}", c?.Unidade ?? "", q, q == 0 ? 0 : g.Sum(x => x.Custo) / q, g.Sum(x => x.Custo), g.Count());
+        }).OrderBy(x => x.Grupo).ThenBy(x => x.Servico);
+
+    private IEnumerable<ServicoLocal> Celulas() =>
+        _cels.Where(c => (_fComp is null || c.ComposicaoId == _fComp) && (string.IsNullOrWhiteSpace(_fCodigo) || (_porId.GetValueOrDefault(c.LocalId)?.Codigo ?? "").StartsWith(_fCodigo.Trim(), StringComparison.OrdinalIgnoreCase)))
+             .OrderBy(c => _porId.GetValueOrDefault(c.LocalId)?.Codigo);
+
+    private async Task Gerar()
+    {
+        ResultadoOrcamento? r = null;
+        if (await Executar(async () => r = await Orc.GerarAsync(_obraId!.Value)))
+        {
+            Notif.Sucesso($"Orçamento atualizado: {r!.Criadas} células novas, {r.Atualizadas} atualizadas, {r.Removidas} removidas, {r.Travadas} travadas mantidas. Total {r.Total:C0}.");
+            await Carregar();
+        }
+    }
+
+    private async Task Editar(ServicoLocal c, string? v)
+    {
+        if (!decimal.TryParse(v, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var q)) return;
+        if (await Executar(() => Orc.EditarCelulaAsync(c.Id, q, true), "Célula alterada e travada.")) await Carregar();
+    }
+
+    private async Task Destravar(ServicoLocal c)
+    {
+        if (await Executar(() => Orc.EditarCelulaAsync(c.Id, c.Quantidade, false), "Destravada — o próximo 'Gerar' recalcula pela tipologia.")) await Carregar();
+    }
+
+    private async Task Previa()
+    {
+        await Executar(async () => _demanda = await Orc.DemandaAsync(_obraId!.Value, _selComp, _selLoc, TipoRequisicao.Servico));
+    }
+
+    private async Task CriarRequisicao()
+    {
+        Guid id = default;
+        var ok = await Executar(async () =>
+        {
+            var spe = await Orc.SpeDosLocaisAsync(_obraId!.Value, _selLoc);
+            var grupo = _comps.GetValueOrDefault(_selComp.First())?.Grupo;
+            var atividades = await Cat.ListaAsync(TipoLista.Atividade);
+            var r = new Requisicao
+            {
+                ObraId = _obraId!.Value, Tipo = TipoRequisicao.Servico, SpeId = spe, CategoriaServico = "Serviço de obra", DataEntrega = Hoje.AddDays(15),
+                Atividade = atividades.FirstOrDefault(a => grupo != null && Rotulos.SemAcento(a).Contains(Rotulos.SemAcento(grupo).Split(' ')[0][..Math.Min(6, Rotulos.SemAcento(grupo).Split(' ')[0].Length)])) ?? atividades.FirstOrDefault() ?? "Serviços",
+                Observacao = "Gerada pelo orçamento por local (serviço × local × quantidade)."
+            };
+            await using (var db = Fabrica.Criar())
+                r.EnderecoEntrega = await db.Obras.Where(o => o.Id == r.ObraId).Select(o => o.EnderecoEntrega).FirstOrDefaultAsync();
+            foreach (var i in OrcamentoServico.Itens(r.Id, _demanda!, new Dictionary<Guid, Produto>())) r.Itens.Add(i);
+            if (r.Itens.Count == 0) throw new RegraDeNegocioException("Não há saldo a contratar para os serviços e locais escolhidos.");
+            id = await Sup.SalvarRequisicaoAsync(r);
+        }, "Requisição de serviço criada — revise e envie para aprovação.");
+        if (ok) Nav.NavigateTo($"requisicoes?id={id}");
+    }
+}

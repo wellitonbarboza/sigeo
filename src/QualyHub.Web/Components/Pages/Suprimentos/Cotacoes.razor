@@ -79,7 +79,8 @@
                             var primeiro = g.First();
                             var menor = g.Where(i => i.ValorTotal > 0).Select(i => i.ValorTotal).DefaultIfEmpty(0).Min();
                             <tr>
-                                <td>@primeiro.Descricao @if (primeiro.MaterialControlado) { <Selo Texto="controlado" Tom="info" /> }</td>
+                                <td>@primeiro.Descricao @if (primeiro.MaterialControlado) { <Selo Texto="controlado" Tom="info" /> }
+                                    @if (primeiro.RequisicaoItemId is { } rid && _locaisItem.TryGetValue(rid, out var ls)) { <div class="mudo" style="font-size:12px">@string.Join(" · ", ls.Take(6))@(ls.Count > 6 ? $" +{ls.Count - 6}" : "")</div> }</td>
                                 <td>@primeiro.Unidade</td><td class="num">@Num(primeiro.Quantidade, 3)</td>
                                 <td class="num mudo">@(primeiro.PrecoUltimo is { } pu ? Moeda(pu) : "—")</td>
                                 <td class="num mudo">@(primeiro.PrecoReferencia is { } pr ? Moeda(pr) : "—")</td>
@@ -182,12 +183,18 @@
                 c.PropostasRecebidas, c.PropostasExigidas, c.ValorEstimado, c.FornecedorVencedor != null ? c.FornecedorVencedor.RazaoSocial : null, c.Status, c.CriadoPor, c.CriadoEm)).ToListAsync();
     }
 
+    private Dictionary<Guid, List<string>> _locaisItem = [];
+
     private async Task Abrir(Guid id)
     {
         await using var db = Fabrica.Criar();
         _c = await db.Cotacoes.AsNoTracking().Include(c => c.Fornecedores).Include(c => c.Itens).FirstAsync(c => c.Id == id);
         var ids = _c.Fornecedores.Select(f => f.FornecedorId).ToList();
         _nomes = await db.Fornecedores.AsNoTracking().Where(f => ids.Contains(f.Id)).ToDictionaryAsync(f => f.Id, f => f.NomeFantasia ?? f.RazaoSocial);
+        var rids = _c.Itens.Where(i => i.RequisicaoItemId != null).Select(i => i.RequisicaoItemId!.Value).Distinct().ToList();
+        _locaisItem = (await (from rl in db.RequisicaoItemLocais.AsNoTracking() join l in db.Locais.AsNoTracking() on rl.LocalId equals l.Id
+                              where rids.Contains(rl.RequisicaoItemId) select new { rl.RequisicaoItemId, l.Codigo, rl.Quantidade }).ToListAsync())
+            .GroupBy(x => x.RequisicaoItemId).ToDictionary(g => g.Key, g => g.OrderBy(x => x.Codigo).Select(x => $"{x.Codigo}: {x.Quantidade:0.###}").ToList());
         _c.Recalcular(_p!);
         await SuprimentosServico.PrecosReferenciaAsync(db, _c);
         ErrosForm = null; _versao++; _aberto = true;

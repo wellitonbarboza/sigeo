@@ -41,7 +41,9 @@
                 <div class="alerta erro"><Icone Nome="x-circulo" /> <div><b>Travas de qualidade</b><ul>@foreach (var b in _trava.Bloqueios) { <li>@b</li> }</ul></div></div>
             }
             <div class="form">
-                @if (_p.SpeId is { } spe) { <Campo Rotulo="Faturar para (SPE)" Classe="s12"><input id="ped-spe" readonly value="@(_spes.FirstOrDefault(s => s.Id == spe)?.Texto ?? "—")" /></Campo> }
+                @if (_p.EstabelecimentoFaturamentoId is { } fat) { <Campo Rotulo="Faturar para (CNPJ comprador)" Classe="s6"><input id="ped-fat" readonly value="@(_estabs.FirstOrDefault(x => x.Id == fat)?.Texto ?? "—")" /></Campo> }
+                @if (_p.SpeId is { } spe) { <Campo Rotulo="@(_p.EstabelecimentoFaturamentoId is null ? "Faturar para (SPE)" : "Destino: SPE (informar na observação da NF)")" Classe="s6"><input id="ped-spe" readonly value="@($"{_spes.FirstOrDefault(s => s.Id == spe)?.Texto ?? "—"}{(_p.RequisicaoId is null ? "" : " · requisição")}")" /></Campo> }
+                @if (_p.EntregaAlmoxarifadoCentral) { <div class="campo s12"><div class="alerta info"><Icone Nome="caixa" /> Entrega no almoxarifado central: FVM no recebimento e transferência para a obra/SPE.</div></div> }
                 <Campo Rotulo="Fornecedor" Classe="s6"><input readonly value="@_fornecedor?.RazaoSocial" /></Campo>
                 <Campo Rotulo="Qualificação" Classe="s2"><div style="padding-top:6px">@if (_fornecedor is not null) { var st = _fornecedor.CalcularStatus(Hoje); <Selo Texto="@De(st)" Tom="@Tom(st)" /> }</div></Campo>
                 <Campo Rotulo="E-mails do fornecedor" Classe="s4"><input readonly value="@_fornecedor?.Emails" /></Campo>
@@ -82,6 +84,7 @@
 </Modal>
 
 @code {
+    private List<Opcao> _estabs = [];
     private sealed record Linha(Guid Id, int Numero, string Obra, string Fornecedor, DateOnly Entrega, decimal Valor, bool SemOrcamento, StatusPedido Status, string? Bloqueios, string CriadoPor, DateTimeOffset CriadoEm);
     private Grade<Linha>? _grade;
     private List<Linha>? _itens;
@@ -95,7 +98,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        _spes = await Cat.SpesAsync();
+        _spes = await Cat.SpesAsync(); _estabs = await Cat.EstabelecimentosAsync();
         await Carregar();
         if (Nav.Uri.Contains("?id=") && Guid.TryParse(Nav.Uri.Split("?id=")[1], out var id)) await Abrir(id);
     }
