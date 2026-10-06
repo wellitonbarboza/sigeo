@@ -89,7 +89,7 @@ public sealed class MedicoesServico(IFabricaDb fabrica, AprovacaoServico aprovac
             db.PlanosAcao.Add(plano);
             m.PlanoAcaoId = plano.Id;
         }
-        await aprovacoes.EnviarAsync(db, EntidadeAprovavel.Medicao, m.Id, m.ObraId, $"Medição {m.NumeroMedicao:00} – {m.Contrato.Numero}", m.ValorPeriodo, ct);
+        await aprovacoes.EnviarAsync(db, EntidadeAprovavel.Medicao, m.Id, m.ObraId, $"Medição {m.NumeroMedicao:00} – {m.Contrato.Numero}", m.ValorPeriodo, ct, m.Contrato.SpeId);
         m.Status = StatusMedicao.AguardandoAprovacao;
         await db.SaveChangesAsync(ct);
     }

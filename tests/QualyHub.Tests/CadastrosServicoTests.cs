@@ -71,6 +71,7 @@ public class CadastrosServicoTests
         var o = new Obra { Codigo = "OB1", Nome = "Obra Exemplo", EnderecoEntrega = "Rua Fictícia, 100", EngenheiroId = Guid.NewGuid(), Uf = " pr " };
         Assert.Empty(EngenhariaServico.PrepararObra(o));
         Assert.Equal("PR", o.Uf);
-        Assert.Equal(4, EngenhariaServico.PrepararObra(new Obra()).Count);
+        Assert.DoesNotContain(EngenhariaServico.PrepararObra(new Obra()), e => e.Contains("engenheiro", StringComparison.OrdinalIgnoreCase)); // engenheiro fica na SPE
+        Assert.Equal(3, EngenhariaServico.PrepararObra(new Obra()).Count);
     }
 }

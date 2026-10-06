@@ -4275,6 +4275,9 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                         .HasMaxLength(400)
                         .HasColumnType("nvarchar(400)");
 
+                    b.Property<Guid?>("EngenheiroId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<bool>("Excluido")
                         .HasColumnType("bit");
 

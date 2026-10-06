@@ -34,7 +34,7 @@
                             <Campo Rotulo="UF" Classe="s2"><input @bind="_o.Uf" maxlength="2" class="maiusc" /></Campo>
                             <Campo Rotulo="Código no ERP" Classe="s3"><input @bind="_o.CodigoErp" /></Campo>
                             <Campo Rotulo="PQO (Plano da Qualidade)" Classe="s3"><select @bind="_o.PqoDocumentoId"><option value="">—</option>@foreach (var d in _docs) { <option value="@d.Id">@d.Texto</option> }</select></Campo>
-                            <Campo Rotulo="Engenheiro responsável (1º nível)" Obrigatorio Classe="s4"><select id="obra-eng" @bind="_o.EngenheiroId"><option value="">—</option>@foreach (var u in _usuarios) { <option value="@u.Id">@u.Texto</option> }</select></Campo>
+                            <Campo Rotulo="Engenheiro (só obras sem SPE)" Classe="s4" Ajuda="O 1º nível de aprovação usa o engenheiro da SPE"><select id="obra-eng" @bind="_o.EngenheiroId"><option value="">—</option>@foreach (var u in _usuarios) { <option value="@u.Id">@u.Texto</option> }</select></Campo>
                             <Campo Rotulo="Administrativo de obra" Classe="s4"><select @bind="_o.AdministrativoId"><option value="">—</option>@foreach (var u in _usuarios) { <option value="@u.Id">@u.Texto</option> }</select></Campo>
                             <Campo Rotulo="Almoxarife" Classe="s4"><select @bind="_o.AlmoxarifeId"><option value="">—</option>@foreach (var u in _usuarios) { <option value="@u.Id">@u.Texto</option> }</select></Campo>
                             <Campo Rotulo="Observações" Classe="s12"><textarea rows="2" @bind="_o.Observacoes"></textarea></Campo>
@@ -75,17 +75,17 @@
 
                     <div class="secao"><Icone Nome="contrato" /> Todas as SPEs da obra</div>
                     <table class="itens" id="spes">
-                        <thead><tr><th>Sigla</th><th>Condomínio</th><th>Razão social</th><th>Nome curto</th><th>CNPJ</th><th>Afetação / RET</th><th>Ativa</th><th></th></tr></thead>
+                        <thead><tr><th>Sigla</th><th>Condomínio</th><th>Razão social</th><th>Nome curto</th><th>CNPJ</th><th>Engenheiro responsável</th><th>Afetação / RET</th><th>Ativa</th><th></th></tr></thead>
                         <tbody>
                             @foreach (var sp in _spes)
                             {
                                 <tr @key="sp.Id"><td><b>@sp.Codigo</b></td>
                                     <td>@if (sp.QuadraId is { } qid && _quadras.FirstOrDefault(x => x.Id == qid) is { } qq) { @($"{qq.Codigo} – {qq.Nome}") } else { <Selo Texto="sem condomínio (legado)" Tom="aviso" /> }</td>
-                                    <td>@sp.RazaoSocial</td><td>@sp.NomeFantasia</td><td>@sp.Cnpj</td><td>@sp.PatrimonioAfetacao</td>
+                                    <td>@sp.RazaoSocial</td><td>@sp.NomeFantasia</td><td>@sp.Cnpj</td><td>@if (sp.EngenheiroId is { } eid) { @(_usuarios.FirstOrDefault(u => u.Id == eid)?.Texto) } else { <Selo Texto="sem engenheiro" Tom="aviso" /> }</td><td>@sp.PatrimonioAfetacao</td>
                                     <td>@if (sp.Ativa) { <Selo Texto="Ativa" Tom="ok" /> } else { <Selo Texto="Inativa" Tom="aviso" /> }</td>
                                     <td><button class="btn sec pq" @onclick="() => EditarSpe(sp)">Editar</button></td></tr>
                             }
-                            @if (_spes.Count == 0) { <tr><td colspan="8" class="mudo">Nenhuma SPE. Ela é criada junto com o condomínio.</td></tr> }
+                            @if (_spes.Count == 0) { <tr><td colspan="9" class="mudo">Nenhuma SPE. Ela é criada junto com o condomínio.</td></tr> }
                         </tbody>
                     </table>
                 }
@@ -179,7 +179,7 @@
         @if (_q is not null && _s is not null)
         {
             <Erros Lista="ErrosForm" />
-            <FormCondominio Quadra="_q" Spe="_s" TiposAgrupamento="_tiposAgrup" Tipologias="_tips" />
+            <FormCondominio Quadra="_q" Spe="_s" TiposAgrupamento="_tiposAgrup" Tipologias="_tips" Usuarios="_usuarios" />
         }
     </ChildContent>
     <Rodape><button class="btn prim" id="cond-salvar" disabled="@Ocupado" @onclick="SalvarCond"><Icone Nome="check" Tam="16" /> Salvar</button></Rodape>
@@ -214,7 +214,7 @@
         @if (_sp is not null)
         {
             <Erros Lista="ErrosForm" />
-            <FormSpe Spe="_sp" Quadras="_quadras" />
+            <FormSpe Spe="_sp" Quadras="_quadras" Usuarios="_usuarios" />
         }
     </ChildContent>
     <Rodape><button class="btn prim" id="spe2-salvar" disabled="@Ocupado" @onclick="SalvarSpe"><Icone Nome="check" Tam="16" /> Salvar</button></Rodape>

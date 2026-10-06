@@ -25,6 +25,8 @@ public class Spe : EntidadeAuditavel, IHistoricoTemporal, IPertenceObra
     public string? EmailFiscal { get; set; }
     /// <summary>Patrimônio de afetação / RET: Sim, Não ou Indefinido (a confirmar com a contabilidade).</summary>
     public string PatrimonioAfetacao { get; set; } = "Indefinido";
+    /// <summary>Engenheiro responsável pela SPE: aprovador de 1º nível (alçada "engenheiro responsável") dos documentos da SPE.</summary>
+    public Guid? EngenheiroId { get; set; }
     public bool Ativa { get; set; } = true;
 
     public string NomeExibicao => string.IsNullOrWhiteSpace(NomeFantasia) ? RazaoSocial : NomeFantasia!;

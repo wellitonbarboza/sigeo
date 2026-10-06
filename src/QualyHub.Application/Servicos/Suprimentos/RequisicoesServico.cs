@@ -75,9 +75,41 @@ public sealed class RequisicoesServico(IFabricaDb fabrica, AprovacaoServico apro
         if (r.SpeId is { } sid && !await db.Spes.AnyAsync(s => s.Id == sid && s.ObraId == r.ObraId && s.Ativa, ct))
             erros.Add("A SPE informada não pertence a esta obra ou está inativa.");
         ValidacaoException.Se(erros);
-        await aprovacoes.EnviarAsync(db, EntidadeAprovavel.Requisicao, r.Id, r.ObraId, $"Requisição {r.Numero} – {r.Atividade}", r.ValorEstimado, ct);
+        await aprovacoes.EnviarAsync(db, EntidadeAprovavel.Requisicao, r.Id, r.ObraId, $"Requisição {r.Numero} – {r.Atividade}", r.ValorEstimado, ct, r.SpeId);
         r.Status = StatusRequisicao.AguardandoEngenheiro;
         r.MotivoReprovacao = null;
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// O solicitante tira a requisição da aprovação e volta a editá-la — só enquanto a 1ª aprovação não foi dada.
+    /// </summary>
+    public async Task VoltarParaEdicaoAsync(Guid id, CancellationToken ct = default)
+    {
+        await using var db = fabrica.Criar();
+        var r = await db.Requisicoes.FirstAsync(x => x.Id == id, ct);
+        if (r.Status != StatusRequisicao.AguardandoEngenheiro)
+            throw new RegraDeNegocioException("Só dá para voltar para edição enquanto a requisição aguarda a primeira aprovação.");
+        var s = await db.SolicitacoesAprovacao.Include(x => x.Etapas)
+            .FirstOrDefaultAsync(x => x.Entidade == EntidadeAprovavel.Requisicao && x.EntidadeId == id && x.Status == StatusAprovacao.EmAprovacao, ct)
+            ?? throw new RegraDeNegocioException("Aprovação em andamento não encontrada.");
+        s.RetirarPeloSolicitante(usuario.UsuarioId ?? Guid.Empty, relogio.GetUtcNow());
+        r.Status = StatusRequisicao.Rascunho;
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>Exclui (logicamente) a requisição em edição — pelo solicitante ou administrador.</summary>
+    public async Task ExcluirRequisicaoAsync(Guid id, bool administrador, CancellationToken ct = default)
+    {
+        await using var db = fabrica.Criar();
+        var r = await db.Requisicoes.FirstAsync(x => x.Id == id, ct);
+        if (r.Status is not (StatusRequisicao.Rascunho or StatusRequisicao.DevolvidaAjuste))
+            throw new RegraDeNegocioException("Só é possível excluir requisição em edição. Se estiver em aprovação, volte para edição antes.");
+        if (!administrador && r.SolicitanteUsuarioId != usuario.UsuarioId)
+            throw new RegraDeNegocioException("Só quem solicitou pode excluir a requisição.");
+        if (await db.Cotacoes.AnyAsync(c => c.RequisicaoId == id, ct))
+            throw new RegraDeNegocioException("A requisição já tem cotação: não pode ser excluída.");
+        db.Requisicoes.Remove(r); // exclusão lógica (interceptor de auditoria)
         await db.SaveChangesAsync(ct);
     }
 }

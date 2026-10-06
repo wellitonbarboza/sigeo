@@ -20,15 +20,19 @@ public sealed class AprovacaoServico(IUsuarioAtual usuario, TimeProvider relogio
     }
 
     public async Task<SolicitacaoAprovacao> EnviarAsync(IQualyHubDb db, EntidadeAprovavel entidade, Guid entidadeId, Guid? obraId,
-        string titulo, decimal valor, CancellationToken ct = default)
+        string titulo, decimal valor, CancellationToken ct = default, Guid? speId = null)
     {
         var aberta = await db.SolicitacoesAprovacao.AnyAsync(s => s.Entidade == entidade && s.EntidadeId == entidadeId && s.Status == StatusAprovacao.EmAprovacao, ct);
         if (aberta) throw new RegraDeNegocioException("Já existe uma aprovação em andamento para este registro.");
         var alcadas = await db.Alcadas.AsNoTracking().Where(a => a.Entidade == entidade).ToListAsync(ct);
-        // "Engenheiro responsável da obra" (T21/T24): resolve o aprovador pelo cadastro da obra no momento do envio.
-        if (obraId is { } oid && alcadas.Any(a => a.EngenheiroDaObra))
+        // "Engenheiro responsável" (T21/T24): o da SPE do documento; obra sem SPE usa o engenheiro da obra. Resolvido no envio.
+        if (alcadas.Any(a => a.EngenheiroDaObra))
         {
-            var eng = await db.Obras.AsNoTracking().Where(o => o.Id == oid).Select(o => o.EngenheiroId).FirstOrDefaultAsync(ct);
+            Guid? eng = null;
+            if (speId is { } sid) eng = await db.Spes.AsNoTracking().Where(s => s.Id == sid).Select(s => s.EngenheiroId).FirstOrDefaultAsync(ct);
+            if (eng is null && speId is not null)
+                throw new RegraDeNegocioException("Cadastre o engenheiro responsável da SPE (Engenharia › Obras e Empreendimentos › SPE) antes de enviar para aprovação.");
+            if (eng is null && obraId is { } oid) eng = await db.Obras.AsNoTracking().Where(o => o.Id == oid).Select(o => o.EngenheiroId).FirstOrDefaultAsync(ct);
             foreach (var a in alcadas.Where(a => a.EngenheiroDaObra && a.UsuarioAprovadorId is null)) a.UsuarioAprovadorId = eng;
         }
         var s = SolicitacaoAprovacao.Criar(entidade, entidadeId, usuario.EmpresaId, obraId, titulo, valor,

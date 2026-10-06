@@ -97,7 +97,8 @@ public sealed class CotacoesServico(IFabricaDb fabrica, AprovacaoServico aprovac
         var trava = TravasQualidade.VerificarCotacao(c, p, Hoje);
         ValidacaoException.Se(trava.Bloqueios);
         foreach (var f in c.Fornecedores) if (f.FornecedorId == c.FornecedorVencedorId) f.Status = StatusConvite.Vencedor;
-        await aprovacoes.EnviarAsync(db, EntidadeAprovavel.Cotacao, c.Id, c.ObraId, c.Nome, c.ValorEstimado, ct);
+        var speCotacao = c.RequisicaoId is { } rq ? await db.Requisicoes.Where(x => x.Id == rq).Select(x => x.SpeId).FirstOrDefaultAsync(ct) : null;
+        await aprovacoes.EnviarAsync(db, EntidadeAprovavel.Cotacao, c.Id, c.ObraId, c.Nome, c.ValorEstimado, ct, speCotacao);
         c.Status = StatusCotacao.AguardandoAprovacao;
         await db.SaveChangesAsync(ct);
     }

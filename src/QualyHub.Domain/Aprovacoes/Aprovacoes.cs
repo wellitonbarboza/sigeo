@@ -70,10 +70,32 @@ public class SolicitacaoAprovacao : EntidadeAuditavel, IHistoricoTemporal
     public EtapaAprovacao? Pendente => Etapas.OrderBy(e => e.Ordem).FirstOrDefault(e => e.Decisao == DecisaoAprovacao.Pendente);
 
     /// <summary>
+    /// Requisição: quem solicitou pode aprovar a própria solicitação quando a alçada da etapa é dele (direta, sem delegação)
+    /// e o valor está no limite do login. Nos demais documentos vale a segregação de funções.
+    /// </summary>
+    public bool PermiteSolicitanteAprovar => Entidade == EntidadeAprovavel.Requisicao;
+
+    /// <summary>Ninguém decidiu ainda: a solicitação está na primeira etapa, sem "de acordo".</summary>
+    public bool SemDecisoes => Etapas.All(e => e.Decisao == DecisaoAprovacao.Pendente);
+
+    /// <summary>
+    /// O solicitante retira a solicitação para voltar a editar o documento — só enquanto ninguém decidiu (1ª etapa).
+    /// A solicitação fica cancelada (histórico); um novo envio gera outra.
+    /// </summary>
+    public void RetirarPeloSolicitante(Guid usuarioId, DateTimeOffset agora)
+    {
+        if (Status != StatusAprovacao.EmAprovacao) throw new RegraDeNegocioException("Solicitação não está em aprovação.");
+        if (usuarioId != SolicitanteUsuarioId) throw new RegraDeNegocioException("Só quem enviou pode voltar o documento para edição.");
+        if (!SemDecisoes) throw new RegraDeNegocioException("A primeira aprovação já foi dada: não é mais possível voltar para edição.");
+        Status = StatusAprovacao.Cancelado;
+        ConcluidoEm = agora;
+    }
+
+    /// <summary>
     /// Registra a decisão da etapa atual e avança/encerra o fluxo. Regras aplicadas, nesta ordem:
     /// <list type="number">
     /// <item>Alçada: o ator (ou o titular que delegou a ele, com delegação vigente) precisa ser o aprovador da etapa.</item>
-    /// <item>Segregação de funções: quem solicitou não aprova, nem por delegação; a mesma pessoa não decide duas etapas.</item>
+    /// <item>Segregação de funções: quem solicitou não aprova (exceto requisição, com alçada própria); a mesma pessoa não decide duas etapas.</item>
     /// <item>Limite do login: na etapa que conclui a aprovação, o valor não pode passar do limite do titular.</item>
     /// </list>
     /// </summary>
@@ -105,8 +127,9 @@ public class SolicitacaoAprovacao : EntidadeAuditavel, IHistoricoTemporal
             viaDelegacao = d.Delegacao;
         }
 
-        // 2) Segregação de funções.
-        if (ator.UsuarioId == SolicitanteUsuarioId || titular.UsuarioId == SolicitanteUsuarioId)
+        // 2) Segregação de funções (na requisição, o solicitante que tem a alçada pode aprovar — mas não por delegação).
+        var envolveSolicitante = ator.UsuarioId == SolicitanteUsuarioId || titular.UsuarioId == SolicitanteUsuarioId;
+        if (envolveSolicitante && (!PermiteSolicitanteAprovar || viaDelegacao is not null))
             throw new RegraDeNegocioException("Segregação de funções: quem solicitou não pode aprovar a própria solicitação.");
         var jaDecidiu = Etapas.Where(e => e.Decisao != DecisaoAprovacao.Pendente)
                               .SelectMany(e => new[] { e.DecididoPorUsuarioId, e.EmNomeDeUsuarioId })

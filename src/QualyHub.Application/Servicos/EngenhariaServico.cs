@@ -24,7 +24,6 @@ public sealed class EngenhariaServico(IFabricaDb fabrica)
         if (string.IsNullOrWhiteSpace(o.Codigo)) e.Add("Informe o código.");
         if (string.IsNullOrWhiteSpace(o.Nome)) e.Add("Informe o nome.");
         if (string.IsNullOrWhiteSpace(o.EnderecoEntrega)) e.Add("Informe o endereço de entrega padrão.");
-        if (o.EngenheiroId is null) e.Add("Informe o engenheiro responsável (aprovador de 1º nível).");
         o.Uf = o.Uf?.Trim().ToUpperInvariant();
         return e;
     }

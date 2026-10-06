@@ -7798,3 +7798,32 @@ END;
 COMMIT;
 GO
 
+BEGIN TRANSACTION;
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261006114857_SpeEngenheiro'
+)
+BEGIN
+    ALTER TABLE [qh].[Spes] ADD [EngenheiroId] uniqueidentifier NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261006114857_SpeEngenheiro'
+)
+BEGIN
+    EXEC(N'UPDATE s SET s.EngenheiroId = o.EngenheiroId FROM qh.Spes s JOIN qh.Obras o ON o.Id = s.ObraId WHERE s.EngenheiroId IS NULL AND o.EngenheiroId IS NOT NULL;');
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261006114857_SpeEngenheiro'
+)
+BEGIN
+    INSERT INTO [qh].[__Migracoes] ([MigrationId], [ProductVersion])
+    VALUES (N'20261006114857_SpeEngenheiro', N'10.0.12');
+END;
+
+COMMIT;
+GO
+

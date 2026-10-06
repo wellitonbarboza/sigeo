@@ -9,6 +9,7 @@
     <Campo Rotulo="Inscrição estadual" Classe="s4"><input @bind="Spe.InscricaoEstadual" /></Campo>
     <Campo Rotulo="Endereço de faturamento" Classe="s8"><input @bind="Spe.EnderecoFaturamento" /></Campo>
     <Campo Rotulo="E-mail para NF" Classe="s4"><input type="email" @bind="Spe.EmailFiscal" /></Campo>
+<Campo Rotulo="Engenheiro responsável da SPE (1º nível de aprovação)" Classe="s6"><select id="spe2-eng" @bind="Spe.EngenheiroId"><option value="">—</option>@foreach (var u in Usuarios) { <option value="@u.Id">@u.Texto</option> }</select></Campo>
     <Campo Rotulo="Patrimônio de afetação / RET" Classe="s4"><select @bind="Spe.PatrimonioAfetacao"><option>Indefinido</option><option>Sim</option><option>Não</option></select></Campo>
     <Campo Rotulo="" Classe="s4"><label><input type="checkbox" id="spe2-ativa" @bind="Spe.Ativa" /> Ativa</label></Campo>
 </div>
@@ -16,4 +17,5 @@
 @code {
     [Parameter, EditorRequired] public Spe Spe { get; set; } = default!;
     [Parameter] public IReadOnlyList<Quadra> Quadras { get; set; } = [];
+    [Parameter] public IReadOnlyList<QualyHub.Web.Servicos.Opcao> Usuarios { get; set; } = [];
 }

@@ -26,7 +26,7 @@
             </Grade>
         </div>
     </ChildContent>
-    <Faixa><b>Requisição</b><span>Solicitação de material ou serviço</span><span>Aprovação em 2 níveis: Engenheiro da Obra → Diretor Técnico</span><span>Só vai para cotação após as duas aprovações</span></Faixa>
+    <Faixa><b>Requisição</b><span>Solicitação de material ou serviço</span><span>Aprovação em 2 níveis: Engenheiro da SPE → Diretor Técnico</span><span>Na 1ª aprovação o solicitante pode voltar para edição</span><span>Só vai para cotação após as duas aprovações</span></Faixa>
 </Pagina>
 
 <Modal @bind-Aberto="_aberto" Titulo="@(_r?.Numero > 0 ? $"Requisição {_r.Numero}" : "Nova requisição")">
@@ -148,6 +148,8 @@
         @if (_r is not null)
         {
             @if (_r.Status == StatusRequisicao.Autorizada) { <button class="btn laranja" @onclick="AbrirCotacao"><Icone Nome="calculadora" Tam="16" /> Gerar cotação</button> }
+            @if (PodeVoltar) { <button class="btn sec" id="req-voltar" disabled="@Ocupado" @onclick="VoltarEdicao"><Icone Nome="editar" Tam="16" /> Voltar para edição</button> }
+            @if (PodeExcluir) { <button class="btn perigo" id="req-excluir" disabled="@Ocupado" @onclick="Excluir"><Icone Nome="lixeira" Tam="16" /> Excluir requisição</button> }
             @if (Editavel && _r.Numero > 0) { <button class="btn ok" disabled="@Ocupado" @onclick="Enviar"><Icone Nome="enviar" Tam="16" /> Enviar p/ aprovação</button> }
             @if (Editavel) { <button class="btn prim" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="16" /> Salvar</button> }
         }
@@ -218,6 +220,10 @@
     private readonly HashSet<Guid> _convidados = [];
 
     private bool Editavel => _r is { Status: StatusRequisicao.Rascunho or StatusRequisicao.DevolvidaAjuste };
+    private bool Solicitante => _r is not null && _r.SolicitanteUsuarioId == Usuario.UsuarioId;
+    /// <summary>Solicitante pode retirar da aprovação enquanto ninguém decidiu (1ª aprovação).</summary>
+    private bool PodeVoltar => _r is { Status: StatusRequisicao.AguardandoEngenheiro } && Solicitante;
+    private bool PodeExcluir => Editavel && _r!.Numero > 0 && (Solicitante || Perfil());
 
     protected override async Task OnInitializedAsync()
     {
@@ -385,9 +391,21 @@
 
     private async Task Enviar()
     {
-        if (await Executar(async () => { await RequisicoesSrv.SalvarRequisicaoAsync(_r!, Cancelamento); await RequisicoesSrv.EnviarRequisicaoAsync(_r!.Id, Cancelamento); }, "Enviada para aprovação do Engenheiro da Obra."))
+        if (await Executar(async () => { await RequisicoesSrv.SalvarRequisicaoAsync(_r!, Cancelamento); await RequisicoesSrv.EnviarRequisicaoAsync(_r!.Id, Cancelamento); }, "Enviada para aprovação do engenheiro responsável da SPE."))
             await Recarregar();
     }
+
+    private void VoltarEdicao() =>
+        Confirmar($"Retirar a requisição {_r!.Numero} da aprovação e voltar para edição?", async () =>
+        {
+            if (await Executar(() => RequisicoesSrv.VoltarParaEdicaoAsync(_r!.Id, Cancelamento), "Requisição voltou para edição.")) await Recarregar();
+        });
+
+    private void Excluir() =>
+        Confirmar($"Excluir a requisição {_r!.Numero}? Ela sai da lista (fica no histórico de auditoria).", async () =>
+        {
+            if (await Executar(() => RequisicoesSrv.ExcluirRequisicaoAsync(_r!.Id, Perfil(), Cancelamento), "Requisição excluída.")) { _aberto = false; _r = null; await Carregar(); }
+        });
 
     private async Task AbrirCotacao()
     {

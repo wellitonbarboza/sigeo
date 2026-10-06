@@ -60,7 +60,7 @@ public sealed class ContratosServico(IFabricaDb fabrica, AprovacaoServico aprova
             .Include(x => x.Fornecedor).ThenInclude(f => f.Documentos).ThenInclude(d => d.TipoDocumento)
             .FirstAsync(x => x.Id == id, ct);
         ValidacaoException.Se(TravasQualidade.VerificarContrato(k, Hoje).Bloqueios);
-        await aprovacoes.EnviarAsync(db, EntidadeAprovavel.Contrato, k.Id, k.ObraId, $"{k.Numero} – {k.Fornecedor.NomeExibicao}", k.ValorTotal, ct);
+        await aprovacoes.EnviarAsync(db, EntidadeAprovavel.Contrato, k.Id, k.ObraId, $"{k.Numero} – {k.Fornecedor.NomeExibicao}", k.ValorTotal, ct, k.SpeId);
         k.Status = StatusContrato.AguardandoAprovacaoDiretoria;
         await db.SaveChangesAsync(ct);
     }
@@ -126,7 +126,7 @@ public sealed class ContratosServico(IFabricaDb fabrica, AprovacaoServico aprova
         await using var db = fabrica.Criar();
         var a = await db.Aditivos.Include(x => x.Itens).FirstAsync(x => x.Id == id, ct);
         var k = await db.Contratos.Include(x => x.Fornecedor).FirstAsync(x => x.Id == a.ContratoId, ct);
-        await aprovacoes.EnviarAsync(db, EntidadeAprovavel.Aditivo, a.Id, a.ObraId, $"{k.Numero} · {a.Numero} – {k.Fornecedor.NomeExibicao}", Math.Abs(a.Valor), ct);
+        await aprovacoes.EnviarAsync(db, EntidadeAprovavel.Aditivo, a.Id, a.ObraId, $"{k.Numero} · {a.Numero} – {k.Fornecedor.NomeExibicao}", Math.Abs(a.Valor), ct, k.SpeId);
         a.Status = StatusAditivo.AguardandoAprovacao;
         await db.SaveChangesAsync(ct);
     }

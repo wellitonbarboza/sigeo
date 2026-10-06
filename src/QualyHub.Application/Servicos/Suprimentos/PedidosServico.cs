@@ -27,7 +27,7 @@ public sealed class PedidosServico(IFabricaDb fabrica, AprovacaoServico aprovaco
         var trava = TravasQualidade.VerificarPedido(p, p.Fornecedor, Hoje);
         p.Bloqueios = trava.Resumo;
         if (!trava.Liberado) { await db.SaveChangesAsync(ct); ValidacaoException.Se(trava.Bloqueios); }
-        await aprovacoes.EnviarAsync(db, EntidadeAprovavel.Pedido, p.Id, p.ObraId, $"Pedido {p.Numero} – {p.Fornecedor.NomeExibicao}", p.Valor, ct);
+        await aprovacoes.EnviarAsync(db, EntidadeAprovavel.Pedido, p.Id, p.ObraId, $"Pedido {p.Numero} – {p.Fornecedor.NomeExibicao}", p.Valor, ct, p.SpeId);
         p.Status = StatusPedido.AguardandoAprovacaoDiretor;
         await db.SaveChangesAsync(ct);
     }

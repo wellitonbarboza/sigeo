@@ -101,6 +101,63 @@ public class AprovacoesTests
         Assert.Equal(StatusAprovacao.Aprovado, s.Status);
     }
 
+    // ---- requisição: solicitante que também é aprovador ----
+
+    private static SolicitacaoAprovacao Requisicao(params Alcada[] alcadas) =>
+        SolicitacaoAprovacao.Criar(EntidadeAprovavel.Requisicao, Guid.CreateVersion7(), Empresa, null, "Requisição teste", 0m,
+            Solicitante, "Eng. Solicitante", alcadas, Agora);
+
+    private static Alcada EtapaReq(int ordem, PerfilUsuario perfil, Guid? usuario = null) =>
+        new() { Entidade = EntidadeAprovavel.Requisicao, Ordem = ordem, PerfilAprovador = perfil, UsuarioAprovadorId = usuario };
+
+    [Fact]
+    public void Solicitante_na_alcada_aprova_a_propria_requisicao_mas_nao_duas_etapas()
+    {
+        var s = Requisicao(EtapaReq(1, PerfilUsuario.Engenharia, Solicitante), EtapaReq(2, PerfilUsuario.Engenharia));
+        var mesmo = new Aprovador(Solicitante, "Eng. Solicitante", PerfilUsuario.Engenharia);
+
+        s.Decidir(mesmo, DecisaoAprovacao.Aprovado, null, Agora);
+        Assert.Equal(2, s.EtapaAtual);
+        Assert.Throws<RegraDeNegocioException>(() => s.Decidir(mesmo, DecisaoAprovacao.Aprovado, null, Agora));
+    }
+
+    [Fact]
+    public void Solicitante_fora_da_alcada_nao_aprova_a_requisicao()
+    {
+        var outro = Guid.CreateVersion7();
+        var s = Requisicao(EtapaReq(1, PerfilUsuario.Engenharia, outro));
+        var mesmo = new Aprovador(Solicitante, "Eng. Solicitante", PerfilUsuario.Engenharia);
+
+        Assert.Throws<RegraDeNegocioException>(() => s.Decidir(mesmo, DecisaoAprovacao.Aprovado, null, Agora));
+        Assert.Equal(StatusAprovacao.EmAprovacao, s.Status);
+    }
+
+    [Fact]
+    public void Solicitante_da_requisicao_nao_aprova_como_substituto()
+    {
+        var dir = Usuario(PerfilUsuario.Diretoria, "Dir. Beto");
+        var s = Requisicao(EtapaReq(1, PerfilUsuario.Diretoria, dir.UsuarioId));
+        var d = DelegacaoAprovacao.Criar(Empresa, dir.UsuarioId, Solicitante, Agora.AddDays(-1), Agora.AddDays(1), "Férias");
+        var mesmo = new Aprovador(Solicitante, "Eng. Solicitante", PerfilUsuario.Engenharia);
+
+        var ex = Assert.Throws<RegraDeNegocioException>(() => s.Decidir(mesmo, DecisaoAprovacao.Aprovado, null, Agora, [new DelegacaoRecebida(d, dir)]));
+        Assert.Contains("Segregação", ex.Message);
+    }
+
+    [Fact]
+    public void Solicitante_retira_da_aprovacao_so_antes_de_qualquer_decisao()
+    {
+        var s = Requisicao(EtapaReq(1, PerfilUsuario.Engenharia), EtapaReq(2, PerfilUsuario.Diretoria));
+        Assert.Throws<RegraDeNegocioException>(() => s.RetirarPeloSolicitante(Guid.CreateVersion7(), Agora)); // outra pessoa
+
+        var t = Requisicao(EtapaReq(1, PerfilUsuario.Engenharia), EtapaReq(2, PerfilUsuario.Diretoria));
+        t.Decidir(Usuario(PerfilUsuario.Engenharia, "Eng. Ana"), DecisaoAprovacao.Aprovado, null, Agora);
+        Assert.Throws<RegraDeNegocioException>(() => t.RetirarPeloSolicitante(Solicitante, Agora)); // já passou da 1ª
+
+        s.RetirarPeloSolicitante(Solicitante, Agora);
+        Assert.Equal(StatusAprovacao.Cancelado, s.Status);
+    }
+
     // ---- (a) delegação temporária ----
 
     [Fact]
