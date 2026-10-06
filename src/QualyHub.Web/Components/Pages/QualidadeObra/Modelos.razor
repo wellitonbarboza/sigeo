@@ -1,10 +1,18 @@
 @page "/obra/modelos/{TipoRota}"
 @inherits PaginaBase
 @inject QualidadeObraServico Qob
+@inject KitModelosServico KitMod
 
 <Pagina Titulo="@(Fvm ? "Modelos de FVM" : Sst ? "Checklists de segurança" : "Modelos de FVS")" Grade="_grade" AoNovo="Novo" AoAtualizar="Carregar">
     <ChildContent>
         <div class="pagina">
+            @if (!Sst && Perfil(PerfilUsuario.Qualidade))
+            {
+                <div class="barra-filtro">
+                    <label class="btn sec arquivo" id="kit-modelos" style="cursor:@(Ocupado ? "wait" : "pointer")" title="Planilha com as abas Modelos, Itens e Ensaios (FVS e FVM juntos; atualiza por código)">
+                        <Icone Nome="upload" Tam="14" /> Importar modelos (xlsx)<InputFile OnChange="PreverKit" accept=".xlsx" disabled="@Ocupado" class="so-leitor" /></label>
+                </div>
+            }
             <Grade T="ModeloInspecao" @ref="_grade" Itens="_itens" AoClicar="Abrir" NomeExportacao="@($"modelos-{TipoRota}")" CriadoPor="m => m.CriadoPor">
                 <Colunas>
                     <Coluna T="ModeloInspecao" Titulo="Modelo" Valor="m => m.Codigo" />
@@ -70,6 +78,7 @@
                 }
                 @if (!Sst)
                 {
+                    <Campo Rotulo="@(Fvm ? "Orientações de armazenamento" : "Pré-requisitos para a execução")" Classe="s12"><textarea id="mod-orient" rows="3" @bind="_m.Orientacoes" disabled="@(!Editavel)" placeholder="@(Fvm ? "Como armazenar o material na obra" : "Um por linha: o que precisa estar pronto antes de liberar a frente")"></textarea></Campo>
                     <Campo Rotulo="Documento (ITS / especificação)" Classe="s6"><select @bind="_m.DocumentoId" disabled="@(!Editavel)"><option value="">—</option>@foreach (var x in _docs) { <option value="@x.Id">@x.Texto</option> }</select></Campo>
                 }
             </div>
@@ -139,7 +148,59 @@
     </Rodape>
 </Modal>
 
+<Modal @bind-Aberto="_abertoKit" Titulo="Importar modelos de FVS e FVM">
+    <ChildContent>
+        <Erros Lista="ErrosForm" />
+        @if (_resumoKit is { } r)
+        {
+            <table class="itens" id="kitmod-resumo"><tbody>
+                <tr><td>Modelos novos / atualizados</td><td class="num">@r.Novos / @r.Atualizados</td></tr>
+                <tr><td>Itens de verificação</td><td class="num">@r.Itens</td></tr>
+                <tr><td>Ensaios</td><td class="num">@r.Ensaios</td></tr>
+            </tbody></table>
+            @if (r.ItsCriadas.Count > 0) { <div class="alerta info"><Icone Nome="info" /> <div>ITS que serão criadas em Serviços controlados: @string.Join("; ", r.ItsCriadas)</div></div> }
+            @if (r.ItsRenomeadas.Count > 0) { <details class="mb-10"><summary>ITS que passam a ter o nome do documento da empresa (@r.ItsRenomeadas.Count)</summary><ul>@foreach (var x in r.ItsRenomeadas) { <li>@x</li> }</ul></details> }
+            @if (r.MateriaisCriados.Count > 0) { <div class="alerta info"><Icone Nome="info" /> <div>Materiais controlados que serão criados: @string.Join("; ", r.MateriaisCriados)</div></div> }
+            @if (r.Mantidos.Count > 0) { <div class="alerta aviso"><Icone Nome="alerta" /> <div>Já têm fichas preenchidas — só o cabeçalho é atualizado (itens mantidos): @string.Join(", ", r.Mantidos)</div></div> }
+            @foreach (var a in r.Avisos) { <div class="alerta aviso"><Icone Nome="alerta" /> @a</div> }
+            <p class="mudo">Os modelos marcados "Publicar" ficam vigentes; os demais entram como rascunho para revisão.</p>
+        }
+    </ChildContent>
+    <Rodape>@if (_kit is not null && _resumoKit is not null) { <button class="btn prim" id="kitmod-aplicar" disabled="@Ocupado" @onclick="AplicarKit"><Icone Nome="check" Tam="16" /> Importar</button> }</Rodape>
+</Modal>
+
 @code {
+    private bool _abertoKit;
+    private KitModelos? _kit;
+    private ResumoKitModelos? _resumoKit;
+
+    private async Task PreverKit(InputFileChangeEventArgs e)
+    {
+        if (Ocupado) return;
+        _kit = null; _resumoKit = null;
+        await Executar(async () =>
+        {
+            using var ms = new MemoryStream();
+            await e.File.OpenReadStream(10 * 1024 * 1024).CopyToAsync(ms, Cancelamento);
+            ms.Position = 0;
+            _kit = QualyHub.Infrastructure.Importacao.LeitorKitModelos.Ler(ms);
+            _resumoKit = await KitMod.AnalisarAsync(_kit, Cancelamento);
+        });
+        _abertoKit = true;
+    }
+
+    private async Task AplicarKit()
+    {
+        if (_kit is null) return;
+        if (await Executar(() => KitMod.AplicarAsync(_kit, Cancelamento), "Modelos importados."))
+        {
+            _abertoKit = false; _kit = null; _resumoKit = null;
+            Cat.Invalidar();
+            _materiais = await Cat.MateriaisAsync(); _servicos = await Cat.ServicosAsync();
+            await Carregar();
+        }
+    }
+
     [Parameter] public string TipoRota { get; set; } = "fvs";
     private bool Fvm => TipoRota == "fvm";
     private bool Sst => TipoRota == "sst";

@@ -65,7 +65,7 @@ public sealed class QualidadeObraServico(IFabricaDb fabrica, IUsuarioAtual usuar
         return m.Id;
     }
 
-    /// <summary>Publica (torna vigente); para FVM garante um único modelo vigente por material.</summary>
+    /// <summary>Publica (torna vigente); para FVM garante um único modelo vigente por material (FVS: várias fichas por ITS).</summary>
     public async Task PublicarModeloAsync(Guid id, CancellationToken ct = default)
     {
         await using var db = fabrica.Criar();
@@ -76,9 +76,7 @@ public sealed class QualidadeObraServico(IFabricaDb fabrica, IUsuarioAtual usuar
         if (m.Tipo == TipoModelo.FVM && m.MaterialControladoId is { } mat)
             foreach (var outro in await db.ModelosInspecao.Where(x => x.Id != m.Id && x.MaterialControladoId == mat && x.Situacao == SituacaoModelo.Vigente).ToListAsync(ct))
                 outro.Situacao = SituacaoModelo.Obsoleto;
-        if (m.Tipo == TipoModelo.FVS && m.ServicoControladoId is { } srv)
-            foreach (var outro in await db.ModelosInspecao.Where(x => x.Id != m.Id && x.ServicoControladoId == srv && x.Tipo == TipoModelo.FVS && x.Situacao == SituacaoModelo.Vigente).ToListAsync(ct))
-                outro.Situacao = SituacaoModelo.Obsoleto;
+        // FVS: uma ITS pode ter várias fichas vigentes (ex.: ITS 03.03 → painéis, solda e vigas); a revisão é do próprio modelo.
         await db.SaveChangesAsync(ct);
     }
 

@@ -22,6 +22,8 @@ public class ModeloInspecao : EntidadeAuditavel, IHistoricoTemporal
     public Guid? RevisaoDocumentoId { get; set; }
     public int Revisao { get; set; }
     public string? MomentoInspecao { get; set; }
+    /// <summary>FVS: pré-requisitos para a execução do serviço. FVM: orientações de armazenamento. Mostrado ao inspetor.</summary>
+    public string? Orientacoes { get; set; }
     public string? NivelLocal { get; set; }
     public bool LiberaMedicao { get; set; } = true;
     public Guid? ServicoSeguinteId { get; set; }

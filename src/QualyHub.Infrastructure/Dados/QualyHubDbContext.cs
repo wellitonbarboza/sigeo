@@ -214,7 +214,7 @@ public class QualyHubDbContext(DbContextOptions<QualyHubDbContext> options, IUsu
     }
 
     private static readonly string[] PrefixosLongos =
-        ["Observacao", "Objeto", "Especificacao", "Justificativa", "Descricao", "Comentario", "Problema", "Acao", "Requisitos",
+        ["Observacao", "Orientacoes", "Objeto", "Especificacao", "Justificativa", "Descricao", "Comentario", "Problema", "Acao", "Requisitos",
          "Ocorrencia", "Bloqueios", "Participantes", "DocumentosExigidos", "Motivo", "Detalhe", "Emails", "Relacionados",
          "DistribuicaoPadrao", "LeituraObrigatoria", "EficaciaComentario", "Protecao", "Armazenamento", "Recuperacao", "Descarte", "Assinatura",
          "Evidencia", "AnaliseCausa", "CausaRaiz", "Conteudo", "Medidas", "Paralisacao", "Riscos", "Resumo", "ModeloMensagem", "Pergunta", "Escopo",

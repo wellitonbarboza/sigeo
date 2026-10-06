@@ -6974,6 +6974,9 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                         .HasMaxLength(400)
                         .HasColumnType("nvarchar(400)");
 
+                    b.Property<string>("Orientacoes")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<DateTime>("PeriodEnd")
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("datetime2")

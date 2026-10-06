@@ -7777,3 +7777,24 @@ END;
 COMMIT;
 GO
 
+BEGIN TRANSACTION;
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261006044525_ModeloOrientacoes'
+)
+BEGIN
+    ALTER TABLE [qh].[ModelosInspecao] ADD [Orientacoes] nvarchar(max) NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261006044525_ModeloOrientacoes'
+)
+BEGIN
+    INSERT INTO [qh].[__Migracoes] ([MigrationId], [ProductVersion])
+    VALUES (N'20261006044525_ModeloOrientacoes', N'10.0.12');
+END;
+
+COMMIT;
+GO
+

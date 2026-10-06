@@ -53,6 +53,11 @@
             <Erros Lista="ErrosForm" />
             <div class="cabecalho-doc"><Selo Texto="@De(_f.Status)" Tom="@Tom(_f.Status)" /><span>Modelo <b>@_f.Modelo?.Codigo R@(_f.RevisaoModelo.ToString("00"))</b></span><span>Prestador <b>@Nome(_fornecedores, _f.FornecedorId)</b></span><span>Inspetor <b>@_f.InspetorNome</b> · @DataHora(_f.DataInspecao)</span>
                 @if (_f.LiberadoPorNome is not null) { <span>Liberada por <b>@_f.LiberadoPorNome</b> · @DataHora(_f.DataLiberacao)</span> }</div>
+            @if (!string.IsNullOrWhiteSpace(_f.Modelo?.Orientacoes))
+            {
+                <details class="mb-10" id="fvs-prereq" open="@EmInspecao"><summary><b>Pré-requisitos para a execução</b></summary>
+                    <ul class="sem-margem">@foreach (var l in _f.Modelo!.Orientacoes!.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)) { <li>@l.TrimStart('•', '-', ' ')</li> }</ul></details>
+            }
             <div class="form">
                 <Campo Rotulo="Contrato" Classe="s6"><select @bind="_f.ContratoId" disabled="@(!EmInspecao)"><option value="">—</option>@foreach (var c in _contratos.Where(c => c.Extra == _f.FornecedorId.ToString())) { <option value="@c.Id">@c.Texto</option> }</select></Campo>
                 <Campo Rotulo="Equipamento (calibração válida)" Classe="s6"><select @bind="_f.EquipamentoId" disabled="@(!EmInspecao)"><option value="">—</option>@foreach (var e in _equipamentos) { <option value="@e.Id">@e.Texto</option> }</select></Campo>
