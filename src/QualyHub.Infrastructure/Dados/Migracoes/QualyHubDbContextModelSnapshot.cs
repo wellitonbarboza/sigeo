@@ -4413,6 +4413,9 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                         .HasMaxLength(400)
                         .HasColumnType("nvarchar(400)");
 
+                    b.Property<bool>("NumeracaoPorAndar")
+                        .HasColumnType("bit");
+
                     b.Property<Guid>("ObraId")
                         .HasColumnType("uniqueidentifier");
 

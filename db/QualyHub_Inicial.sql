@@ -7756,3 +7756,24 @@ END;
 COMMIT;
 GO
 
+BEGIN TRANSACTION;
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261006040044_TipologiaNumeracaoPorAndar'
+)
+BEGIN
+    ALTER TABLE [qh].[Tipologias] ADD [NumeracaoPorAndar] bit NOT NULL DEFAULT CAST(0 AS bit);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [qh].[__Migracoes]
+    WHERE [MigrationId] = N'20261006040044_TipologiaNumeracaoPorAndar'
+)
+BEGIN
+    INSERT INTO [qh].[__Migracoes] ([MigrationId], [ProductVersion])
+    VALUES (N'20261006040044_TipologiaNumeracaoPorAndar', N'10.0.12');
+END;
+
+COMMIT;
+GO
+

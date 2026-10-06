@@ -74,6 +74,8 @@ public class Tipologia : EntidadeAuditavel, IPertenceObra
     public int Pavimentos { get; set; }
     /// <summary>Torre: o 1º pavimento se chama "Térreo".</summary>
     public bool PrimeiroTerreo { get; set; } = true;
+    /// <summary>Torre: numeração dos apartamentos pelo andar (térreo 01, 02…; 1º pavimento 101…). Desligado: pela posição do pavimento (101 no 1º da lista).</summary>
+    public bool NumeracaoPorAndar { get; set; }
     /// <summary>Pé-direito padrão dos ambientes (m) — usado quando o ambiente não informa o seu.</summary>
     public decimal? PeDireitoPadrao { get; set; }
     public string? Observacoes { get; set; }
@@ -244,7 +246,7 @@ public static class GeradorEmpreendimento
                     for (var i = 0; i < m.Quantidade; i++)
                     {
                         seq++;
-                        var numero = p * 100 + seq;
+                        var numero = NumeroApartamento(p, seq, tt.PrimeiroTerreo && tt.NumeracaoPorAndar);
                         var u = new Local
                         {
                             ObraId = obraId, Tipo = TipoApartamento, Nome = $"Apto {numero}", Codigo = $"{pav.Codigo}-{numero}", Ordem = seq, LocalPaiId = pav.Id,
@@ -258,6 +260,13 @@ public static class GeradorEmpreendimento
             }
         }
         return lista;
+    }
+
+    /// <summary>Número do apartamento: pavimento×100 + sequência (101…); por andar, o térreo fica 01, 02… e o 1º pavimento 101.</summary>
+    public static string NumeroApartamento(int pavimento, int seq, bool porAndar)
+    {
+        var andar = porAndar ? pavimento - 1 : pavimento;
+        return andar == 0 ? seq.ToString("00") : (andar * 100 + seq).ToString();
     }
 
     /// <summary>Cria o local de um ambiente-modelo dentro do pai, copiando as medidas.</summary>

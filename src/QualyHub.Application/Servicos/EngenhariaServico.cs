@@ -185,7 +185,7 @@ public sealed class EngenhariaServico(IFabricaDb fabrica)
         var n = new Tipologia
         {
             ObraId = o.ObraId, Tipo = o.Tipo, Codigo = codigo, Nome = o.Nome + " (cópia)", Dormitorios = o.Dormitorios, Suites = o.Suites, AreaPrivativa = o.AreaPrivativa,
-            AreaEquivalente = o.AreaEquivalente, Pavimentos = o.Pavimentos, PrimeiroTerreo = o.PrimeiroTerreo, PeDireitoPadrao = o.PeDireitoPadrao, Observacoes = o.Observacoes
+            AreaEquivalente = o.AreaEquivalente, Pavimentos = o.Pavimentos, PrimeiroTerreo = o.PrimeiroTerreo, NumeracaoPorAndar = o.NumeracaoPorAndar, PeDireitoPadrao = o.PeDireitoPadrao, Observacoes = o.Observacoes
         };
         foreach (var a in o.Ambientes) n.Ambientes.Add(new TipologiaAmbiente
         {

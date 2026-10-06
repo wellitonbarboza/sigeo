@@ -76,3 +76,16 @@ public class AcessoFornecedorTests
         Assert.Equal("Maria T.", Destinos.MascararNome("Maria Exemplo Teste"));
     }
 }
+
+public class NumeracaoApartamentoTests
+{
+    [Theory]
+    [InlineData(1, 1, true, "01")]
+    [InlineData(1, 8, true, "08")]
+    [InlineData(2, 1, true, "101")]
+    [InlineData(15, 8, true, "1408")]
+    [InlineData(1, 1, false, "101")]
+    [InlineData(4, 3, false, "403")]
+    public void Numero_pelo_andar_ou_pela_posicao(int pav, int seq, bool porAndar, string esperado) =>
+        Assert.Equal(esperado, QualyHub.Domain.Engenharia.GeradorEmpreendimento.NumeroApartamento(pav, seq, porAndar));
+}
