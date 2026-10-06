@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using QualyHub.Domain.Aprovacoes;
 using QualyHub.Domain.Common;
 using QualyHub.Domain.Suprimentos;
@@ -25,20 +25,65 @@ public sealed class AprovacaoServico(IUsuarioAtual usuario, TimeProvider relogio
         var aberta = await db.SolicitacoesAprovacao.AnyAsync(s => s.Entidade == entidade && s.EntidadeId == entidadeId && s.Status == StatusAprovacao.EmAprovacao, ct);
         if (aberta) throw new RegraDeNegocioException("Já existe uma aprovação em andamento para este registro.");
         var alcadas = await db.Alcadas.AsNoTracking().Where(a => a.Entidade == entidade).ToListAsync(ct);
-        // "Engenheiro responsável" (T21/T24): o da SPE do documento; obra sem SPE usa o engenheiro da obra. Resolvido no envio.
-        if (alcadas.Any(a => a.EngenheiroDaObra))
-        {
-            Guid? eng = null;
-            if (speId is { } sid) eng = await db.Spes.AsNoTracking().Where(s => s.Id == sid).Select(s => s.EngenheiroId).FirstOrDefaultAsync(ct);
-            if (eng is null && speId is not null)
-                throw new RegraDeNegocioException("Cadastre o engenheiro responsável da SPE (Engenharia › Obras e Empreendimentos › SPE) antes de enviar para aprovação.");
-            if (eng is null && obraId is { } oid) eng = await db.Obras.AsNoTracking().Where(o => o.Id == oid).Select(o => o.EngenheiroId).FirstOrDefaultAsync(ct);
-            foreach (var a in alcadas.Where(a => a.EngenheiroDaObra && a.UsuarioAprovadorId is null)) a.UsuarioAprovadorId = eng;
-        }
+        await ResolverEngenheiroAsync(db, alcadas, obraId, speId ?? await SpeDoDocumentoAsync(db, entidade, entidadeId, ct), ct);
         var s = SolicitacaoAprovacao.Criar(entidade, entidadeId, usuario.EmpresaId, obraId, titulo, valor,
             usuario.UsuarioId ?? Guid.Empty, usuario.Nome, alcadas, relogio.GetUtcNow());
         db.SolicitacoesAprovacao.Add(s);
         return s;
+    }
+
+    /// <summary>
+    /// "Engenheiro responsável" (alçada EngenheiroDaObra): o da SPE do documento; obra sem SPE usa o engenheiro da obra.
+    /// SPE sem engenheiro barra (o cadastro precisa ser completado).
+    /// </summary>
+    private static async Task ResolverEngenheiroAsync(IQualyHubDb db, List<Domain.Estrutura.Alcada> alcadas, Guid? obraId, Guid? speId, CancellationToken ct)
+    {
+        if (!alcadas.Any(a => a.EngenheiroDaObra && a.UsuarioAprovadorId is null)) return;
+        Guid? eng = null;
+        if (speId is { } sid) eng = await db.Spes.AsNoTracking().Where(s => s.Id == sid).Select(s => s.EngenheiroId).FirstOrDefaultAsync(ct);
+        if (eng is null && speId is not null)
+            throw new RegraDeNegocioException("Cadastre o engenheiro responsável da SPE (Engenharia › Obras e Empreendimentos › SPE) antes de enviar para aprovação.");
+        if (eng is null && obraId is { } oid) eng = await db.Obras.AsNoTracking().Where(o => o.Id == oid).Select(o => o.EngenheiroId).FirstOrDefaultAsync(ct);
+        foreach (var a in alcadas.Where(a => a.EngenheiroDaObra && a.UsuarioAprovadorId is null)) a.UsuarioAprovadorId = eng;
+    }
+
+    /// <summary>SPE (destino do custo) do documento em aprovação — base do engenheiro responsável.</summary>
+    public static async Task<Guid?> SpeDoDocumentoAsync(IQualyHubDb db, EntidadeAprovavel entidade, Guid id, CancellationToken ct = default) => entidade switch
+    {
+        EntidadeAprovavel.Requisicao => await db.Requisicoes.Where(x => x.Id == id).Select(x => x.SpeId).FirstOrDefaultAsync(ct),
+        EntidadeAprovavel.Cotacao => await (from c in db.Cotacoes join r in db.Requisicoes on c.RequisicaoId equals r.Id where c.Id == id select r.SpeId).FirstOrDefaultAsync(ct),
+        EntidadeAprovavel.Pedido => await db.Pedidos.Where(x => x.Id == id).Select(x => x.SpeId).FirstOrDefaultAsync(ct),
+        EntidadeAprovavel.Contrato => await db.Contratos.Where(x => x.Id == id).Select(x => x.SpeId).FirstOrDefaultAsync(ct),
+        EntidadeAprovavel.Aditivo => await (from a in db.Aditivos join k in db.Contratos on a.ContratoId equals k.Id where a.Id == id select k.SpeId).FirstOrDefaultAsync(ct),
+        EntidadeAprovavel.Medicao => await (from m in db.Medicoes join k in db.Contratos on m.ContratoId equals k.Id where m.Id == id select k.SpeId).FirstOrDefaultAsync(ct),
+        _ => null
+    };
+
+    /// <summary>
+    /// Cadastro mudou (alçada, engenheiro da SPE ou da obra): as aprovações em andamento refazem as etapas que ainda
+    /// não foram decididas, com as alçadas e o engenheiro atuais. Etapas já decididas ficam como estão (evidência).
+    /// Chame depois de gravar o cadastro (lê o banco). Retorna quantas solicitações mudaram.
+    /// </summary>
+    public static async Task<int> RecalcularPendentesAsync(IQualyHubDb db, System.Linq.Expressions.Expression<Func<SolicitacaoAprovacao, bool>> filtro, CancellationToken ct = default)
+    {
+        var abertas = await db.SolicitacoesAprovacao.Include(s => s.Etapas).Where(s => s.Status == StatusAprovacao.EmAprovacao).Where(filtro).ToListAsync(ct);
+        if (abertas.Count == 0) return 0;
+        var todas = await db.Alcadas.AsNoTracking().ToListAsync(ct);
+        var mudaram = 0;
+        foreach (var s in abertas)
+        {
+            var alcadas = todas.Where(a => a.Entidade == s.Entidade && a.SeAplica(s.Valor, s.ObraId)).OrderBy(a => a.Ordem)
+                               .Select(a => new Domain.Estrutura.Alcada { Entidade = a.Entidade, Ordem = a.Ordem, PerfilAprovador = a.PerfilAprovador, UsuarioAprovadorId = a.UsuarioAprovadorId, EngenheiroDaObra = a.EngenheiroDaObra })
+                               .ToList();
+            try { await ResolverEngenheiroAsync(db, alcadas, s.ObraId, await SpeDoDocumentoAsync(db, s.Entidade, s.EntidadeId, ct), ct); }
+            catch (RegraDeNegocioException) { continue; } // SPE ficou sem engenheiro: mantém o aprovador atual
+            var (removidas, novas) = s.TrocarEtapasPendentes(alcadas.Select(a => (a.PerfilAprovador, a.UsuarioAprovadorId)).ToList());
+            if (novas.Count == 0) continue;
+            db.EtapasAprovacao.RemoveRange(removidas);
+            db.EtapasAprovacao.AddRange(novas);
+            mudaram++;
+        }
+        return mudaram;
     }
 
     /// <summary>Monta o aprovador logado (perfil + limites) e as delegações vigentes recebidas por ele.</summary>

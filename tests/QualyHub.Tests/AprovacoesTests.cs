@@ -186,6 +186,35 @@ public class AprovacoesTests
         Assert.Equal(StatusAprovacao.Cancelado, s.Status);
     }
 
+    // ---- cadastro alterado com a aprovação em andamento ----
+
+    [Fact]
+    public void Troca_de_etapas_pendentes_mantem_as_decididas()
+    {
+        var s = Requisicao(EtapaReq(1, PerfilUsuario.Engenharia), EtapaReq(2, PerfilUsuario.Diretoria));
+        s.Decidir(Usuario(PerfilUsuario.Engenharia, "Eng. Ana"), DecisaoAprovacao.Aprovado, null, Agora);
+        var dir = Guid.CreateVersion7();
+
+        var (removidas, novas) = s.TrocarEtapasPendentes([(PerfilUsuario.Engenharia, null), (PerfilUsuario.Diretoria, dir)]);
+
+        Assert.Single(removidas);
+        var nova = Assert.Single(novas);
+        Assert.Equal(2, nova.Ordem);
+        Assert.Equal(dir, nova.UsuarioAprovadorId);
+        Assert.Equal(DecisaoAprovacao.Aprovado, s.Etapas.Single(e => e.Ordem == 1).Decisao);
+        Assert.Equal(2, s.EtapaAtual);
+    }
+
+    [Fact]
+    public void Troca_de_etapas_sem_mudanca_ou_sem_etapa_restante_nao_mexe()
+    {
+        var s = Requisicao(EtapaReq(1, PerfilUsuario.Engenharia), EtapaReq(2, PerfilUsuario.Diretoria));
+        Assert.Empty(s.TrocarEtapasPendentes([(PerfilUsuario.Engenharia, null), (PerfilUsuario.Diretoria, null)]).Novas);
+        s.Decidir(Usuario(PerfilUsuario.Engenharia, "Eng. Ana"), DecisaoAprovacao.Aprovado, null, Agora);
+        Assert.Empty(s.TrocarEtapasPendentes([(PerfilUsuario.Engenharia, null)]).Novas); // nunca aprova sozinho por falta de etapa
+        Assert.Equal(StatusAprovacao.EmAprovacao, s.Status);
+    }
+
     // ---- (a) delegação temporária ----
 
     [Fact]

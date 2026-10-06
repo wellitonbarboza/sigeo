@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using QualyHub.Domain.Aprovacoes;
 using QualyHub.Domain.Cadastros;
 using QualyHub.Domain.Common;
@@ -26,8 +26,8 @@ public sealed record SessaoPortal(Guid EmpresaId, string EmpresaNome, Fornecedor
 public sealed record PropostaPortal(string EmpresaNome, string FornecedorNome, int CotacaoNumero, string CotacaoNome, string? EnderecoEntrega,
     TipoFrete Frete, bool Aberta, CotacaoFornecedor Convite, IReadOnlyList<CotacaoItem> Itens, string? FaturarPara = null, string? Destino = null)
 {
-    /// <summary>Quebra por local de cada item (serviço contratado por local): item → (local, quantidade).</summary>
-    public IReadOnlyDictionary<Guid, IReadOnlyList<(string Local, decimal Quantidade)>> Locais { get; init; } = new Dictionary<Guid, IReadOnlyList<(string, decimal)>>();
+    /// <summary>Quebra por local de cada item da proposta (torre › pavimento › apto › cômodo): item → linhas.</summary>
+    public IReadOnlyDictionary<Guid, List<Comum.LocalQuantidade>> Locais { get; init; } = new Dictionary<Guid, List<Comum.LocalQuantidade>>();
 }
 
 /// <summary>Dados cadastrais que o fornecedor completa pelo portal (pré-cadastro).</summary>
@@ -285,10 +285,8 @@ public sealed class PortalServico(IFabricaSistema sistema, IFabricaDb fabrica, I
             ? await db.Spes.AsNoTracking().Where(s => s.Id == sp2).Select(s => "SPE " + (s.NomeFantasia ?? s.RazaoSocial)).FirstOrDefaultAsync(ct) + $" · requisição nº {req.Numero}"
             : null;
         var reqItens = itens.Where(i => i.RequisicaoItemId != null).Select(i => i.RequisicaoItemId!.Value).ToList();
-        var locs = await (from rl in db.RequisicaoItemLocais.AsNoTracking() join l in db.Locais.AsNoTracking() on rl.LocalId equals l.Id
-                          where reqItens.Contains(rl.RequisicaoItemId) select new { rl.RequisicaoItemId, l.Codigo, l.Nome, rl.Quantidade }).ToListAsync(ct);
-        var porItem = itens.Where(i => i.RequisicaoItemId != null).ToDictionary(i => i.Id,
-            i => (IReadOnlyList<(string, decimal)>)locs.Where(x => x.RequisicaoItemId == i.RequisicaoItemId).OrderBy(x => x.Codigo).Select(x => ($"{x.Codigo} – {x.Nome}", x.Quantidade)).ToList());
+        var locs = await Comum.QuadroLocais.CarregarAsync(db, reqItens, ct);
+        var porItem = itens.Where(i => i.RequisicaoItemId is { } r && locs.ContainsKey(r)).ToDictionary(i => i.Id, i => locs[i.RequisicaoItemId!.Value]);
         return new PropostaPortal(emp, forn, c.Numero, c.Nome, c.EnderecoEntrega, c.Frete, CotacaoAberta(c) && conv.Status != StatusConvite.Declinou, conv, itens, fat, destino) { Locais = porItem };
     }
 
@@ -321,7 +319,7 @@ public sealed class PortalServico(IFabricaSistema sistema, IFabricaDb fabrica, I
             ci.ValorOfertado = Math.Round(it.ValorUnitario, 4);
             ci.Entrega = it.Entrega ?? prazoEntrega;
         }
-        conv.ValorFrete = frete; conv.CondicaoPagamento = string.IsNullOrWhiteSpace(condicao) ? null : condicao.Trim();
+        conv.ValorFrete = c.Frete == TipoFrete.NaoSeAplica ? null : frete; conv.CondicaoPagamento = string.IsNullOrWhiteSpace(condicao) ? null : condicao.Trim();
         conv.ValidadeProposta = validade; conv.PrazoEntregaOfertado = prazoEntrega;
         conv.Status = StatusConvite.Respondido; conv.DataResposta = hoje;
         if (c.Status is StatusCotacao.Aberto or StatusCotacao.AguardandoPropostas) c.Status = StatusCotacao.EmAnalise;

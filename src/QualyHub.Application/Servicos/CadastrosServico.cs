@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using QualyHub.Domain.Cadastros;
 using QualyHub.Domain.Common;
 
@@ -134,6 +134,8 @@ public sealed class CadastrosServico(IFabricaDb fabrica)
         await CodigosProdutoServico.AplicarAoSalvarAsync(db, p, new CodigosProdutoServico.Cache(), ct);
         await Grafo.SalvarAsync(db, p);
         await db.SaveChangesAsync(ct);
+        // Requisições e cotações em andamento passam a mostrar o cadastro atualizado.
+        if (await SincronizacaoCadastros.ProdutoAsync(db, p.Id, ct) > 0) await db.SaveChangesAsync(ct);
     }
 
     // ───────────── Categorias ─────────────

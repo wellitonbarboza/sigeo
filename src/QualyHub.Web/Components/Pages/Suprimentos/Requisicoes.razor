@@ -409,19 +409,8 @@
 
     private async Task AbrirCotacao()
     {
-        var tipo = _r!.Tipo == TipoRequisicao.Material ? TipoFornecimento.Material : TipoFornecimento.ServicoObra | TipoFornecimento.Laboratorio | TipoFornecimento.Consultoria | TipoFornecimento.ServicoEspecializadoEngenharia | TipoFornecimento.Locacao;
         await using var db = Fabrica.CriarLeitura();
-        // Sugestão: fornecedores ligados aos grupos (e subgrupos) do catálogo dos itens ou às ITS dos serviços.
-        var prods = _r.Itens.Where(i => i.ProdutoId != null).Select(i => i.ProdutoId!.Value).ToList();
-        var cats = await db.CategoriasProduto.AsNoTracking().ToListAsync(Cancelamento);
-        var grupos = (await db.Produtos.AsNoTracking().Where(p => prods.Contains(p.Id)).Select(p => new { p.Grupo, p.SubGrupo }).ToListAsync(Cancelamento))
-            .Select(p => (G: cats.FirstOrDefault(c => c.PaiId == null && c.Nome == p.Grupo), p.SubGrupo)).Where(x => x.G is not null)
-            .Select(x => (x.G!.Id, cats.FirstOrDefault(c => c.PaiId == x.G.Id && c.Nome == x.SubGrupo)?.Id)).Distinct().ToList();
-        var its = _r.Itens.Where(i => i.ServicoControladoId != null).Select(i => i.ServicoControladoId!.Value).Distinct().ToList();
-        _sugeridos = await Forn.QueAtendemAsync(grupos, its, Cancelamento);
-        _fornecedores = (await db.Fornecedores.AsNoTracking().Where(f => f.Ativo).OrderBy(f => f.RazaoSocial).ToListAsync(Cancelamento))
-            .Where(f => (f.TipoFornecimento & tipo) != 0 || _sugeridos.Contains(f.Id)).OrderByDescending(f => _sugeridos.Contains(f.Id)).ThenBy(f => f.RazaoSocial)
-            .Select(f => new Opcao(f.Id, f.RazaoSocial, f.StatusQualificacao.ToString())).ToList();
+        (_fornecedores, _sugeridos) = await SugestaoFornecedores.ParaAsync(db, Forn, _r!.Tipo, _r.Itens, Cancelamento);
         _convidados.Clear();
         foreach (var f in _sugeridos.Where(id => _fornecedores.Any(x => x.Id == id))) _convidados.Add(f);
         _cotar = true;

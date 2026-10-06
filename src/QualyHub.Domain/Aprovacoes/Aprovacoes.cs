@@ -67,6 +67,25 @@ public class SolicitacaoAprovacao : EntidadeAuditavel, IHistoricoTemporal
         return s;
     }
 
+    /// <summary>
+    /// Cadastro mudou: refaz as etapas ainda não decididas a partir das alçadas atuais (já com o aprovador resolvido).
+    /// As decididas ficam; as N primeiras alçadas correspondem a elas. Sem mudança (ou sem etapa restante) não mexe.
+    /// </summary>
+    public (List<EtapaAprovacao> Removidas, List<EtapaAprovacao> Novas) TrocarEtapasPendentes(IReadOnlyList<(PerfilUsuario Perfil, Guid? Usuario)> alcadas)
+    {
+        if (Status != StatusAprovacao.EmAprovacao) return ([], []);
+        var decididas = Etapas.Count(e => e.Decisao != DecisaoAprovacao.Pendente);
+        var restantes = alcadas.Skip(decididas).ToList();
+        var pendentes = Etapas.Where(e => e.Decisao == DecisaoAprovacao.Pendente).OrderBy(e => e.Ordem).ToList();
+        if (restantes.Count == 0 || pendentes.Select(e => (e.PerfilAprovador, e.UsuarioAprovadorId)).SequenceEqual(restantes)) return ([], []);
+        foreach (var e in pendentes) Etapas.Remove(e);
+        var ordem = decididas + 1;
+        var novas = restantes.Select(r => new EtapaAprovacao { SolicitacaoAprovacaoId = Id, Ordem = ordem++, PerfilAprovador = r.Perfil, UsuarioAprovadorId = r.Usuario }).ToList();
+        foreach (var e in novas) Etapas.Add(e);
+        EtapaAtual = decididas + 1;
+        return (pendentes, novas);
+    }
+
     public EtapaAprovacao? Pendente => Etapas.OrderBy(e => e.Ordem).FirstOrDefault(e => e.Decisao == DecisaoAprovacao.Pendente);
 
     /// <summary>

@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Text.RegularExpressions;
 using QualyHub.Domain.Common;
 
@@ -194,6 +194,7 @@ public static partial class Rotulos
         [FrequenciaDocumento.PorContrato] = "Por contrato / obra", [FrequenciaDocumento.PorMedicao] = "Por medição", [FrequenciaDocumento.PorEntrega] = "Por entrega", [FrequenciaDocumento.Anual] = "Anual",
         [TipoEstabelecimento.Matriz] = "Matriz", [TipoEstabelecimento.Filial] = "Filial", [TipoEstabelecimento.Spe] = "SPE", [TipoEstabelecimento.Outro] = "Outro",
         [TipoFluxo.Transferencia] = "Transferência", [TipoFluxo.Venda] = "Venda", [TipoFluxo.Rateio] = "Rateio", [TipoFluxo.TaxaAdministracao] = "Taxa de administração", [TipoFluxo.Remessa] = "Remessa",
+        [TipoFrete.CIF] = "CIF", [TipoFrete.FOB] = "FOB", [TipoFrete.NaoSeAplica] = "N/A",
         [StatusTransferencia.Rascunho] = "Rascunho", [StatusTransferencia.Enviada] = "Enviada", [StatusTransferencia.Recebida] = "Recebida na obra", [StatusTransferencia.Cancelada] = "Cancelada",
     };
 

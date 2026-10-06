@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using QualyHub.Domain.Cadastros;
 using QualyHub.Domain.Common;
 using QualyHub.Domain.Documentos;
@@ -105,6 +105,8 @@ public sealed class SistemaServico(IFabricaDb fabrica, TimeProvider relogio)
         await Permissoes.ExigirAsync(db, Usuario, "alterar alçadas");
         await Grafo.SalvarAsync(db, a);
         await db.SaveChangesAsync(ct);
+        // Aprovações em andamento dessa entidade refazem as etapas ainda não decididas.
+        if (await AprovacaoServico.RecalcularPendentesAsync(db, x => x.Entidade == a.Entidade, ct) > 0) await db.SaveChangesAsync(ct);
     }
 
     public async Task SalvarDelegacaoAsync(DelegacaoAprovacao d, CancellationToken ct = default)

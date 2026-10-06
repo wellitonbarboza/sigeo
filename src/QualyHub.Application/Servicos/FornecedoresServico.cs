@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using QualyHub.Domain.Aprovacoes;
 using QualyHub.Domain.Cadastros;
 using QualyHub.Domain.Common;
@@ -40,6 +40,7 @@ public sealed class FornecedoresServico(IFabricaDb fabrica, TimeProvider relogio
         if (doc.Length > 0 && await db.Fornecedores.AnyAsync(x => x.Id != f.Id && x.CpfCnpj == f.CpfCnpj, ct)) throw new RegraDeNegocioException("Já existe fornecedor com este CPF/CNPJ.");
         await Grafo.SalvarAsync(db, f, nameof(Fornecedor.Contatos), nameof(Fornecedor.Grupos), nameof(Fornecedor.Servicos), nameof(Fornecedor.Exigencias));
         await db.SaveChangesAsync(ct);
+        if (await SincronizacaoCadastros.QualificacaoNasCotacoesAsync(db, [f.Id], Hoje, ct) > 0) await db.SaveChangesAsync(ct);
     }
 
     /// <summary>Documentos que a matriz pede para o tipo de fornecimento (com/sem funcionários) — base da seleção no pré-cadastro.</summary>

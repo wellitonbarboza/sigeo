@@ -46,7 +46,7 @@ public enum StatusRequisicao
 
 public enum StatusItemRequisicao { Aberto = 1, Orcado = 2, Pedido = 3, Recebido = 4, Cancelado = 5 }
 
-public enum TipoFrete { CIF = 1, FOB = 2 }
+public enum TipoFrete { CIF = 1, FOB = 2, NaoSeAplica = 3 }
 
 public enum StatusCotacao { Aberto = 1, AguardandoPropostas = 2, EmAnalise = 3, AguardandoAprovacao = 4, Aprovado = 5, ReprovadoVoltaCotacao = 6, PedidoGerado = 7, Cancelado = 8 }
 

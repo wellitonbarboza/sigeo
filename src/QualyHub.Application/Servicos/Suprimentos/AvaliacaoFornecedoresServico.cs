@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using QualyHub.Domain.Aprovacoes;
 using QualyHub.Domain.Cadastros;
 using QualyHub.Domain.Common;
@@ -49,6 +49,8 @@ public sealed class AvaliacaoFornecedoresServico(IFabricaDb fabrica, IUsuarioAtu
             f.NotaMedia = notas.Count == 0 ? null : Math.Round(notas.Average(), 2);
         }
         await db.SaveChangesAsync(ct);
+        // Qualificação atualizada vale para as cotações em andamento.
+        if (await SincronizacaoCadastros.QualificacaoNasCotacoesAsync(db, fids, Hoje, ct) > 0) await db.SaveChangesAsync(ct);
     }
 
     // ───────── T17 Avaliação semestral ─────────
@@ -98,6 +100,7 @@ public sealed class AvaliacaoFornecedoresServico(IFabricaDb fabrica, IUsuarioAtu
                 break;
         }
         await db.SaveChangesAsync(ct);
+        if (await SincronizacaoCadastros.QualificacaoNasCotacoesAsync(db, [f.Id], Hoje, ct) > 0) await db.SaveChangesAsync(ct);
     }
 
     public static async Task<string> NumeroPlanoAsync(IQualyHubDb db, CancellationToken ct) => $"PA-{await Numerador.ProximoAsync(db, "PlanoAcao", ct):0000}";

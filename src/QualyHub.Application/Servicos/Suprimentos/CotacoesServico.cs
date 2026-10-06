@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using QualyHub.Domain.Aprovacoes;
 using QualyHub.Domain.Cadastros;
 using QualyHub.Domain.Common;
@@ -50,12 +50,75 @@ public sealed class CotacoesServico(IFabricaDb fabrica, AprovacaoServico aprovac
     {
         await using var db = fabrica.Criar();
         var p = await ParametrosServico.CarregarAsync(db, ct);
+        if (c.Frete == TipoFrete.NaoSeAplica) foreach (var f in c.Fornecedores) f.ValorFrete = null; // frete não se aplica: nada de valor de frete nas propostas
         foreach (var f in c.Fornecedores)
             if (f.Status == StatusConvite.Convidado && c.Itens.Any(i => i.FornecedorId == f.FornecedorId && i.ValorOfertado > 0))
             { f.Status = StatusConvite.Respondido; f.DataResposta ??= Hoje; }
         c.Recalcular(p);
         await PrecosReferenciaAsync(db, c, ct);
         await Grafo.SalvarAsync(db, c, nameof(Cotacao.Fornecedores), nameof(Cotacao.Itens));
+        await db.SaveChangesAsync(ct);
+        if (await SincronizacaoCadastros.QualificacaoNasCotacoesAsync(db, c.Fornecedores.Select(f => f.FornecedorId).ToList(), Hoje, ct) > 0) await db.SaveChangesAsync(ct);
+    }
+
+    private static string Texto(Enum e) => System.Text.RegularExpressions.Regex.Replace(e.ToString(), "(?<!^)([A-Z])", " $1").ToLowerInvariant()
+        .Replace("qualificacao", "qualificação").Replace("nao ", "não ");
+
+    private static bool EmCotacao(Cotacao c) => SincronizacaoCadastros.CotacoesAbertas.Contains(c.Status);
+
+    /// <summary>
+    /// Inclui fornecedores numa cotação em andamento: cada um recebe os mesmos itens (sem preço) e a qualificação de hoje.
+    /// Depois é só convidar pela Área do Fornecedor.
+    /// </summary>
+    public async Task<int> AdicionarFornecedoresAsync(Guid cotacaoId, IReadOnlyCollection<Guid> fornecedores, CancellationToken ct = default)
+    {
+        await using var db = fabrica.Criar();
+        var c = await db.Cotacoes.Include(x => x.Fornecedores).Include(x => x.Itens).FirstAsync(x => x.Id == cotacaoId, ct);
+        if (!EmCotacao(c)) throw new RegraDeNegocioException("Só dá para incluir fornecedor enquanto a cotação está aberta (antes de enviar para aprovação).");
+        var ja = c.Fornecedores.Select(f => f.FornecedorId).ToHashSet();
+        var ids = fornecedores.Where(id => !ja.Contains(id)).Distinct().ToList();
+        if (ids.Count == 0) throw new RegraDeNegocioException("Escolha um fornecedor que ainda não está na cotação.");
+        var fs = await db.Fornecedores.Include(f => f.Qualificacoes).Where(f => ids.Contains(f.Id) && f.Ativo).ToListAsync(ct);
+        if (fs.Count == 0) throw new RegraDeNegocioException("Fornecedor inativo ou não encontrado.");
+        // Modelo dos itens: uma linha por item da cotação (o mesmo item aparece uma vez por fornecedor).
+        var modelos = c.Itens.GroupBy(i => i.RequisicaoItemId?.ToString() ?? $"{i.Descricao}|{i.Unidade}").Select(g => g.First()).ToList();
+        foreach (var f in fs)
+        {
+            var conv = new CotacaoFornecedor { CotacaoId = c.Id, FornecedorId = f.Id, QualificacaoNaData = f.CalcularStatus(Hoje) };
+            c.Fornecedores.Add(conv); db.Add(conv);
+            foreach (var m in modelos)
+            {
+                var it = new CotacaoItem
+                {
+                    CotacaoId = c.Id, FornecedorId = f.Id, RequisicaoItemId = m.RequisicaoItemId, Descricao = m.Descricao, Unidade = m.Unidade,
+                    Quantidade = m.Quantidade, Entrega = m.Entrega, MaterialControlado = m.MaterialControlado, PrecoUltimo = m.PrecoUltimo, PrecoReferencia = m.PrecoReferencia
+                };
+                c.Itens.Add(it); db.Add(it);
+            }
+            db.Notas.Add(Domain.Colaboracao.Nota.Criar(nameof(Cotacao), c.Id, $"Fornecedor incluído na cotação: {f.NomeExibicao} (qualificação: {Texto(f.CalcularStatus(Hoje))})."));
+        }
+        c.Recalcular(await ParametrosServico.CarregarAsync(db, ct));
+        await db.SaveChangesAsync(ct);
+        return fs.Count;
+    }
+
+    /// <summary>Retira um fornecedor (convite e preços dele) de uma cotação em andamento — fica registrado nas notas da cotação.</summary>
+    public async Task RemoverFornecedorAsync(Guid cotacaoId, Guid fornecedorId, CancellationToken ct = default)
+    {
+        await using var db = fabrica.Criar();
+        var c = await db.Cotacoes.Include(x => x.Fornecedores).Include(x => x.Itens).FirstAsync(x => x.Id == cotacaoId, ct);
+        if (!EmCotacao(c)) throw new RegraDeNegocioException("Só dá para retirar fornecedor enquanto a cotação está aberta (antes de enviar para aprovação).");
+        var conv = c.Fornecedores.FirstOrDefault(f => f.FornecedorId == fornecedorId) ?? throw new RegraDeNegocioException("Fornecedor não está nesta cotação.");
+        if (c.Fornecedores.Count == 1) throw new RegraDeNegocioException("A cotação precisa de ao menos um fornecedor. Inclua outro antes de retirar este.");
+        var itens = c.Itens.Where(i => i.FornecedorId == fornecedorId).ToList();
+        var nome = await db.Fornecedores.Where(f => f.Id == fornecedorId).Select(f => f.NomeFantasia ?? f.RazaoSocial).FirstAsync(ct);
+        var total = itens.Sum(i => i.ValorTotal);
+        foreach (var i in itens) { c.Itens.Remove(i); db.Remove(i); }
+        c.Fornecedores.Remove(conv); db.Remove(conv);
+        if (c.FornecedorVencedorId == fornecedorId) { c.FornecedorVencedorId = null; c.CriterioSelecao = null; }
+        db.Notas.Add(Domain.Colaboracao.Nota.Criar(nameof(Cotacao), c.Id,
+            $"Fornecedor retirado da cotação: {nome} (convite {Texto(conv.Status)}{(total > 0 ? $", proposta de {total.ToString("C2", new System.Globalization.CultureInfo("pt-BR"))}" : "")})."));
+        c.Recalcular(await ParametrosServico.CarregarAsync(db, ct));
         await db.SaveChangesAsync(ct);
     }
 
@@ -94,6 +157,7 @@ public sealed class CotacoesServico(IFabricaDb fabrica, AprovacaoServico aprovac
                         .Include(x => x.FornecedorVencedor!).ThenInclude(f => f.Documentos).ThenInclude(d => d.TipoDocumento)
                         .FirstAsync(x => x.Id == id, ct);
         var p = await ParametrosServico.CarregarAsync(db, ct);
+        await SincronizacaoCadastros.QualificacaoNasCotacoesAsync(db, c.Fornecedores.Select(f => f.FornecedorId).ToList(), Hoje, ct);
         var trava = TravasQualidade.VerificarCotacao(c, p, Hoje);
         ValidacaoException.Se(trava.Bloqueios);
         foreach (var f in c.Fornecedores) if (f.FornecedorId == c.FornecedorVencedorId) f.Status = StatusConvite.Vencedor;
@@ -117,7 +181,8 @@ public sealed class CotacoesServico(IFabricaDb fabrica, AprovacaoServico aprovac
             EntregaAlmoxarifadoCentral = c.Requisicao?.Tipo == TipoRequisicao.Material && await db.Estabelecimentos.AnyAsync(e => e.AlmoxarifadoCentral && e.Ativo, ct),
             FornecedorId = c.FornecedorVencedorId!.Value, Frete = c.Frete, EnderecoEntrega = c.EnderecoEntrega,
             Entrega = itens.Select(i => i.Entrega).Max() ?? Hoje.AddDays(7), SemOrcamento = c.SemOrcamento,
-            CondicaoPagamento = c.Fornecedores.FirstOrDefault(f => f.FornecedorId == c.FornecedorVencedorId)?.CondicaoPagamento
+            CondicaoPagamento = c.Fornecedores.FirstOrDefault(f => f.FornecedorId == c.FornecedorVencedorId)?.CondicaoPagamento,
+            ValorFrete = c.Frete == TipoFrete.NaoSeAplica ? null : c.Fornecedores.FirstOrDefault(f => f.FornecedorId == c.FornecedorVencedorId)?.ValorFrete
         };
         foreach (var i in itens)
             p.Itens.Add(new PedidoItem

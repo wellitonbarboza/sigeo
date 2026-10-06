@@ -49,7 +49,7 @@
                 <Campo Rotulo="E-mails do fornecedor" Classe="s4"><input readonly value="@_fornecedor?.Emails" /></Campo>
                 <Campo Rotulo="Entrega" Classe="s2"><input type="date" @bind="_p.Entrega" disabled /></Campo>
                 <Campo Rotulo="Condição de pagamento" Classe="s3"><input readonly value="@_p.CondicaoPagamento" /></Campo>
-                <Campo Rotulo="Frete" Classe="s1"><input readonly value="@_p.Frete" /></Campo>
+                <Campo Rotulo="Frete" Classe="s1"><input readonly value="@De(_p.Frete)" /></Campo>
                 <Campo Rotulo="Endereço de entrega" Classe="s6"><input readonly value="@_p.EnderecoEntrega" /></Campo>
             </div>
             <div class="secao"><Icone Nome="lista" /> Itens</div>

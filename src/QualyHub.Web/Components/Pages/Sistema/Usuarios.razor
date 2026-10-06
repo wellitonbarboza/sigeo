@@ -278,7 +278,7 @@
 
     private async Task SalvarAlcada()
     {
-        if (await Executar(() => Sistema.SalvarAlcadaAsync(_a!, Cancelamento), "Alçada salva — vale para novos envios.")) { _abertoA = false; await Carregar(); }
+        if (await Executar(() => Sistema.SalvarAlcadaAsync(_a!, Cancelamento), "Alçada salva — vale para novos envios e para as etapas ainda não decididas das aprovações em andamento.")) { _abertoA = false; await Carregar(); }
     }
 
     private async Task SalvarDelegacao()

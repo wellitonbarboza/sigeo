@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using QualyHub.Domain.Aprovacoes;
 using QualyHub.Domain.Common;
 using QualyHub.Domain.Engenharia;
@@ -36,6 +36,8 @@ public sealed class EngenhariaServico(IFabricaDb fabrica)
         o.Locais = []; // coleção não sincronizada aqui: vazia evita que o Grafo tente inserir locais carregados
         await Grafo.SalvarAsync(db, o);
         await db.SaveChangesAsync(ct);
+        // Engenheiro da obra (obras sem SPE) vale também para as aprovações em andamento.
+        if (await AprovacaoServico.RecalcularPendentesAsync(db, x => x.ObraId == o.Id, ct) > 0) await db.SaveChangesAsync(ct);
     }
 
     public async Task SalvarSpeAsync(Spe s, CancellationToken ct = default)
@@ -43,6 +45,8 @@ public sealed class EngenhariaServico(IFabricaDb fabrica)
         await using var db = fabrica.Criar();
         await SalvarSpeAsync(db, s, ct);
         await db.SaveChangesAsync(ct);
+        // Engenheiro da SPE vale também para as aprovações em andamento (etapas ainda não decididas).
+        if (await AprovacaoServico.RecalcularPendentesAsync(db, x => x.ObraId == s.ObraId, ct) > 0) await db.SaveChangesAsync(ct);
     }
 
     /// <summary>Condomínio + SPE numa transação só (a tela de condomínio grava os dois juntos).</summary>
@@ -56,6 +60,7 @@ public sealed class EngenhariaServico(IFabricaDb fabrica)
                 spe.ObraId = q.ObraId; spe.QuadraId = q.Id;
                 await SalvarSpeAsync(db, spe, ct);
                 await db.SaveChangesAsync(ct);
+                if (await AprovacaoServico.RecalcularPendentesAsync(db, x => x.ObraId == spe.ObraId, ct) > 0) await db.SaveChangesAsync(ct);
             }
         }, ct);
 
