@@ -145,6 +145,34 @@ public class AprovacoesTests
     }
 
     [Fact]
+    public void Substituto_do_solicitante_aprova_a_requisicao_em_nome_dele()
+    {
+        var titular = new Aprovador(Solicitante, "Eng. Solicitante", PerfilUsuario.Engenharia);
+        var sub = Usuario(PerfilUsuario.Engenharia, "Eng. Substituto");
+        var s = Requisicao(EtapaReq(1, PerfilUsuario.Engenharia, Solicitante));
+        var d = DelegacaoAprovacao.Criar(Empresa, Solicitante, sub.UsuarioId, Agora.AddDays(-1), Agora.AddDays(5), "Férias");
+
+        s.Decidir(sub, DecisaoAprovacao.Aprovado, null, Agora, [new DelegacaoRecebida(d, titular)]);
+
+        var etapa = s.Etapas.Single();
+        Assert.Equal(StatusAprovacao.Aprovado, s.Status);
+        Assert.Equal(sub.UsuarioId, etapa.DecididoPorUsuarioId);
+        Assert.Equal(Solicitante, etapa.EmNomeDeUsuarioId);
+    }
+
+    [Fact]
+    public void Substituto_do_solicitante_nao_aprova_pedido_dele()
+    {
+        var titular = new Aprovador(Solicitante, "Comprador", PerfilUsuario.Diretoria);
+        var sub = Usuario(PerfilUsuario.Diretoria, "Dir. Substituto");
+        var s = Pedido(1000m, null, Etapa(1, PerfilUsuario.Diretoria, usuario: Solicitante));
+        var d = DelegacaoAprovacao.Criar(Empresa, Solicitante, sub.UsuarioId, Agora.AddDays(-1), Agora.AddDays(5), "Férias");
+
+        var ex = Assert.Throws<RegraDeNegocioException>(() => s.Decidir(sub, DecisaoAprovacao.Aprovado, null, Agora, [new DelegacaoRecebida(d, titular)]));
+        Assert.Contains("Segregação", ex.Message);
+    }
+
+    [Fact]
     public void Solicitante_retira_da_aprovacao_so_antes_de_qualquer_decisao()
     {
         var s = Requisicao(EtapaReq(1, PerfilUsuario.Engenharia), EtapaReq(2, PerfilUsuario.Diretoria));

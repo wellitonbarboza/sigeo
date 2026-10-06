@@ -1,4 +1,4 @@
-using QualyHub.Domain.Common;
+﻿using QualyHub.Domain.Common;
 
 namespace QualyHub.Domain.Aprovacoes;
 
@@ -127,9 +127,11 @@ public class SolicitacaoAprovacao : EntidadeAuditavel, IHistoricoTemporal
             viaDelegacao = d.Delegacao;
         }
 
-        // 2) Segregação de funções (na requisição, o solicitante que tem a alçada pode aprovar — mas não por delegação).
+        // 2) Segregação de funções. Na requisição, o solicitante que tem a alçada pode aprovar a própria, e o substituto
+        //    que ele delegou pode aprovar em nome dele; o solicitante nunca aprova como substituto de outro titular.
         var envolveSolicitante = ator.UsuarioId == SolicitanteUsuarioId || titular.UsuarioId == SolicitanteUsuarioId;
-        if (envolveSolicitante && (!PermiteSolicitanteAprovar || viaDelegacao is not null))
+        if (envolveSolicitante && !PermiteSolicitanteAprovar
+            || ator.UsuarioId == SolicitanteUsuarioId && viaDelegacao is not null)
             throw new RegraDeNegocioException("Segregação de funções: quem solicitou não pode aprovar a própria solicitação.");
         var jaDecidiu = Etapas.Where(e => e.Decisao != DecisaoAprovacao.Pendente)
                               .SelectMany(e => new[] { e.DecididoPorUsuarioId, e.EmNomeDeUsuarioId })

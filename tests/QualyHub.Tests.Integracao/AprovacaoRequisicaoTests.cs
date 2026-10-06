@@ -144,4 +144,30 @@ public sealed class AprovacaoRequisicaoTests(BancoFixture f)
         await AprovacoesComo(eng).DecidirESalvarAsync(s!.Id, DecisaoAprovacao.Aprovado, null);
         Assert.Equal(StatusRequisicao.AguardandoDiretorTecnico, (await LerAsync(r.Id)).R.Status);
     }
+
+    [FatoComBanco]
+    public async Task Substituto_delegado_pelo_engenheiro_solicitante_aprova_a_requisicao()
+    {
+        var e = await Dados.MontarEmpreendimentoAsync(f);
+        var eng = await CriarUsuarioAsync("Heitor Engenheiro", PerfilUsuario.Engenharia);
+        var sub = await CriarUsuarioAsync("Iara Substituta", PerfilUsuario.Engenharia);
+        await DefinirEngenheiroSpeAsync(e.SpeId, eng.Id);
+        await using (var db = f.Fabrica.Criar())
+        {
+            var agora = f.Relogio.GetUtcNow();
+            db.DelegacoesAprovacao.Add(DelegacaoAprovacao.Criar(f.EmpresaId, eng.Id, sub.Id, agora.AddHours(-1), agora.AddDays(7), "Férias"));
+            await db.SaveChangesAsync();
+        }
+        var srv = Como(eng);
+        var r = await NovaAsync(srv, e);
+        await srv.EnviarRequisicaoAsync(r.Id);
+        var (_, s) = await LerAsync(r.Id);
+
+        await AprovacoesComo(sub).DecidirESalvarAsync(s!.Id, DecisaoAprovacao.Aprovado, null);
+        var (lido, s2) = await LerAsync(r.Id);
+        Assert.Equal(StatusRequisicao.AguardandoDiretorTecnico, lido.Status);
+        var etapa = s2!.Etapas.OrderBy(x => x.Ordem).First();
+        Assert.Equal(sub.Id, etapa.DecididoPorUsuarioId);
+        Assert.Equal(eng.Id, etapa.EmNomeDeUsuarioId);
+    }
 }
