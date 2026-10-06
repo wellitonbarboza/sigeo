@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using QualyHub.Domain.Aprovacoes;
 using QualyHub.Domain.Cadastros;
 using QualyHub.Domain.Common;
@@ -16,6 +16,45 @@ public sealed class RequisicoesServico(IFabricaDb fabrica, AprovacaoServico apro
     private DateOnly Hoje => DateOnly.FromDateTime(relogio.GetLocalNow().Date);
 
     // ───────── T01–T03 Requisição ─────────
+
+    /// <summary>
+    /// Requisição criada direto do orçamento (Engenharia › Orçamento › Contratar/comprar): mesmo caminho da tela de requisição —
+    /// itens com a quebra por local (saldo orçado), produto herdado do cadastro (controlado, especificação, prazo), SPE dos locais,
+    /// faturamento padrão, endereço da obra, número e solicitante. Fica em rascunho para revisar e enviar.
+    /// </summary>
+    public async Task<Guid> CriarDoOrcamentoAsync(Guid obraId, TipoRequisicao tipo, IReadOnlyList<LinhaDemanda> demanda, string? grupo,
+        IReadOnlyList<string> atividades, DateOnly hoje, CancellationToken ct = default)
+    {
+        var r = new Requisicao
+        {
+            ObraId = obraId, Tipo = tipo, DataEntrega = hoje.AddDays(15),
+            CategoriaServico = tipo == TipoRequisicao.Servico ? "Serviço de obra" : null,
+            Atividade = AtividadeDoGrupo(grupo, atividades),
+            Observacao = tipo == TipoRequisicao.Servico ? "Gerada pelo orçamento por local (serviço × local × quantidade)." : "Gerada pelo orçamento por local (material das composições × local)."
+        };
+        await using (var db = fabrica.CriarLeitura())
+        {
+            r.EnderecoEntrega = await db.Obras.Where(o => o.Id == obraId).Select(o => o.EnderecoEntrega).FirstOrDefaultAsync(ct);
+            var ids = demanda.Where(d => d.ProdutoId != null).Select(d => d.ProdutoId!.Value).Distinct().ToList();
+            var prods = await db.Produtos.AsNoTracking().Include(p => p.MaterialControlado).Where(p => ids.Contains(p.Id)).ToDictionaryAsync(p => p.Id, ct);
+            foreach (var i in OrcamentoServico.Itens(r.Id, demanda, prods)) r.Itens.Add(i);
+        }
+        if (r.Itens.Count == 0) throw new RegraDeNegocioException("Não há saldo a requisitar para os serviços e locais escolhidos.");
+        return await SalvarRequisicaoAsync(r, ct);
+    }
+
+    /// <summary>Atividade da lista que combina com o grupo da composição (primeira palavra); senão a primeira da lista.</summary>
+    public static string AtividadeDoGrupo(string? grupo, IReadOnlyList<string> atividades)
+    {
+        static string Sem(string s) => new string(s.Normalize(System.Text.NormalizationForm.FormD).Where(c => System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c) != System.Globalization.UnicodeCategory.NonSpacingMark).ToArray()).ToLowerInvariant();
+        if (!string.IsNullOrWhiteSpace(grupo))
+        {
+            var chave = Sem(grupo).Split(' ', StringSplitOptions.RemoveEmptyEntries)[0];
+            chave = chave[..Math.Min(6, chave.Length)];
+            if (atividades.FirstOrDefault(a => Sem(a).Contains(chave)) is { } a) return a;
+        }
+        return atividades.FirstOrDefault() ?? "Serviços";
+    }
 
     public async Task<Guid> SalvarRequisicaoAsync(Requisicao r, CancellationToken ct = default)
     {

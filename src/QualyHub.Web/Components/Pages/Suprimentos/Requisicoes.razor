@@ -5,6 +5,7 @@
 @inject OrcamentoServico Orc
 @inject FornecedoresServico Forn
 @inject NavigationManager Nav
+@using QualyHub.Application.Comum
 
 <Pagina Titulo="Requisição de compras" Grade="_grade" AoNovo="Novo" AoAtualizar="Carregar">
     <ChildContent>
@@ -98,7 +99,9 @@
                 <tbody>
                     @foreach (var i in _r.Itens)
                     {
-                        <tr @key="i">
+                        var locaisItem = i.Locais.Count > 0 ? _arvore.Situar(i.Locais.Select(l => (l.LocalId, l.Quantidade))) : null;
+                        var aberto = locaisItem is not null && _abertos.Contains(i.Id);
+                        <tr @key="i" class="@(aberto ? "com-locais" : "")">
                             <td>
                                 @if (_r.Tipo == TipoRequisicao.Material)
                                 {
@@ -109,15 +112,20 @@
                                     <select @bind="i.ServicoControladoId" disabled="@(!Editavel)"><option value="">(serviço não controlado)</option>@foreach (var s in _servicos) { <option value="@s.Id">@s.Texto</option> }</select>
                                     <input class="mt-4" placeholder="Descrição" @bind="i.Descricao" disabled="@(!Editavel)" />
                                 }
+                                @if (locaisItem is not null)
+                                {
+                                    <button type="button" class="pl-toggle" aria-expanded="@(aberto ? "true" : "false")" @onclick="() => AlternarLocais(i.Id)">@(aberto ? "▾" : "▸") <span class="pl-ico">▦</span> Locais (orçado): @QuadroLocais.Resumo(locaisItem, i.Unidade)</button>
+                                }
                             </td>
                             <td class="larg-70"><input @bind="i.Unidade" disabled="@(!Editavel)" /></td>
                             <td class="larg-110"><input type="number" step="0.001" @bind="i.Quantidade" disabled="@(!Editavel)" /></td>
                             <td>@if (i.MaterialControlado) { <Selo Texto="Sim" Tom="info" /> } else { <Selo Texto="Não" /> }</td>
                             <td><input @bind="i.EspecificacaoTecnica" disabled="@(!Editavel)" placeholder="@(i.MaterialControlado ? "obrigatória" : "—")" /></td>
                             <td><input @bind="i.DocumentosExigidos" disabled="@(!Editavel)" /></td>
-                            <td><Selo Texto="@De(i.Status)" /><QuebraPorLocal Locais="i.Locais.Select(l => (l.LocalId, l.Quantidade))" Nomes="_nomeLocal" MostrarTotal RotuloTotal="orçado" /></td>
+                            <td><Selo Texto="@De(i.Status)" /></td>
                             <td>@if (Editavel) { <button class="icone-btn" title="Remover" @onclick="() => _r.Itens.Remove(i)"><Icone Nome="lixeira" Tam="16" /></button> }</td>
                         </tr>
+                        @if (aberto) { <tr class="linha-locais" @key="(i, 1)"><td colspan="8"><PainelLocais Linhas="locaisItem!" Unidade="@i.Unidade" /></td></tr> }
                     }
                     @if (_r.Itens.Count == 0) { <tr><td colspan="8" class="mudo">Inclua os itens.</td></tr> }
                 </tbody>
@@ -140,6 +148,7 @@
             {
                 @if (_r.Tipo == TipoRequisicao.Servico) { <Anexos Entidade="Requisicao" EntidadeId="_r.Id" Categoria="Escopo" Titulo="Edital / escopo (projetos, memoriais, croquis, ITS)" SomenteLeitura="!Editavel" /> }
                 @if (_r.CriadoEm != default) { <Notas Entidade="Requisicao" EntidadeId="_r.Id" /> }
+                @if (_r.Status is StatusRequisicao.EmCotacao or StatusRequisicao.PedidoEmitido or StatusRequisicao.Concluida) { <FornecedoresCotacao RequisicaoId="_r.Id" Versao="_versao" /> }
                 <Autorizacoes Entidade="EntidadeAprovavel.Requisicao" EntidadeId="_r.Id" Versao="_versao" AoDecidir="Recarregar" />
             }
         }
@@ -214,7 +223,10 @@
     private List<Local> _locaisObraLista = [];
     private Dictionary<Guid, string> _nomeLocal = [];
     /// <summary>Locais da obra da requisição; ao trocar a lista, refaz o dicionário de nomes.</summary>
-    private List<Local> _locaisObra { get => _locaisObraLista; set { _locaisObraLista = value; _nomeLocal = value.ToDictionary(l => l.Id, l => l.Codigo); } }
+    private List<Local> _locaisObra { get => _locaisObraLista; set { _locaisObraLista = value; _nomeLocal = value.ToDictionary(l => l.Id, l => l.Codigo); _arvore = new ArvoreLocais(value); } }
+    private ArvoreLocais _arvore = ArvoreLocais.Vazia;
+    private readonly HashSet<Guid> _abertos = [];
+    private void AlternarLocais(Guid id) { if (!_abertos.Remove(id)) _abertos.Add(id); }
     private int _versaoObra;
     private List<string> _atividades = [], _categorias = [];
     private readonly HashSet<Guid> _convidados = [];

@@ -20,7 +20,7 @@ public sealed record LocalQuantidade(
 /// <summary>Monta e resume a quebra por local (sem depender da tela).</summary>
 public static class QuadroLocais
 {
-    private sealed record No(Guid Id, Guid? PaiId, string Tipo, string Nome, string Codigo, int Ordem);
+    internal sealed record No(Guid Id, Guid? PaiId, string Tipo, string Nome, string Codigo, int Ordem);
 
     /// <summary>Quebra por local de cada item de requisição: item → linhas situadas na árvore da obra.</summary>
     public static async Task<Dictionary<Guid, List<LocalQuantidade>>> CarregarAsync(IQualyHubDb db, IReadOnlyCollection<Guid> requisicaoItens, CancellationToken ct = default)
@@ -37,7 +37,7 @@ public static class QuadroLocais
                      .ToDictionary(g => g.Key, g => Montar(g.Select(x => (x.LocalId, x.Quantidade)), nos));
     }
 
-    private static List<LocalQuantidade> Montar(IEnumerable<(Guid LocalId, decimal Quantidade)> quebra, IReadOnlyDictionary<Guid, No> nos)
+    internal static List<LocalQuantidade> Montar(IEnumerable<(Guid LocalId, decimal Quantidade)> quebra, IReadOnlyDictionary<Guid, No> nos)
     {
         var r = new List<LocalQuantidade>();
         foreach (var (id, q) in quebra)
@@ -55,6 +55,11 @@ public static class QuadroLocais
         }
         return r.OrderBy(x => x.Codigo, StringComparer.OrdinalIgnoreCase).ToList();
     }
+
+    /// <summary>Caminho legível do local: "Torre 1 › 3º pavimento › Apto 302 › Sala de estar".</summary>
+    public static string Caminho(LocalQuantidade l) =>
+        string.Join(" › ", new[] { l.Torre, l.Pavimento, l.Apartamento, l.Comodo ?? (l.Apartamento is null && l.Pavimento is null && l.Torre is null ? l.Nome : null) }
+            .Where(x => !string.IsNullOrEmpty(x))) is { Length: > 0 } d ? d : l.Nome;
 
     /// <summary>Resumo de uma linha: "Torre 1 · 4 pav. · 30 aptos · 4 cômodos/apto · 2 áreas comuns · total 7.546,5".</summary>
     public static string Resumo(IReadOnlyList<LocalQuantidade> linhas, string? unidade = null)
@@ -79,4 +84,21 @@ public static class QuadroLocais
         partes.Add($"total {linhas.Sum(l => l.Quantidade).ToString("#,##0.###", br)}{(string.IsNullOrWhiteSpace(unidade) ? "" : " " + unidade)}");
         return string.Join(" · ", partes);
     }
+}
+
+/// <summary>Árvore de locais de uma obra já carregada na tela: situa a quebra por local de qualquer item sem ir ao banco.</summary>
+public sealed class ArvoreLocais
+{
+    private readonly Dictionary<Guid, QuadroLocais.No> _nos;
+
+    public ArvoreLocais(IEnumerable<Domain.Estrutura.Local> locais) =>
+        _nos = locais.GroupBy(l => l.Id).ToDictionary(g => g.Key, g => { var l = g.First(); return new QuadroLocais.No(l.Id, l.LocalPaiId, l.Tipo, l.Nome, l.Codigo, l.Ordem); });
+
+    public static readonly ArvoreLocais Vazia = new([]);
+
+    /// <summary>Nome legível de cada local ("QA-T01-P03-302-SAL – Torre 1 › 3º pavimento › Apto 302 › Sala"); ordena pelo código.</summary>
+    public Dictionary<Guid, string> Nomes() =>
+        _nos.Keys.ToDictionary(id => id, id => Situar([(id, 0m)]) is [var l] ? $"{l.Codigo} – {QuadroLocais.Caminho(l)}" : "");
+
+    public List<LocalQuantidade> Situar(IEnumerable<(Guid LocalId, decimal Quantidade)> quebra) => QuadroLocais.Montar(quebra, _nos);
 }

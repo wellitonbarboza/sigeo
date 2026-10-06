@@ -26,6 +26,8 @@ public sealed class SistemaServico(IFabricaDb fabrica, TimeProvider relogio)
         ValidacaoException.Se(ValidarParametro(p.Chave, valor));
         p.Valor = valor;
         await db.SaveChangesAsync(ct);
+        // Faixa de alçada / nº de propostas exigidas valem nas cotações em andamento.
+        if (await SincronizacaoCadastros.PropostasExigidasAsync(db, ct) > 0) await db.SaveChangesAsync(ct);
         if (!p.Chave.StartsWith(PrefixoPesoAvaliacao)) return null;
         return await db.Parametros.Where(x => x.Chave.StartsWith(PrefixoPesoAvaliacao)).SumAsync(x => x.Valor, ct);
     }
@@ -95,6 +97,8 @@ public sealed class SistemaServico(IFabricaDb fabrica, TimeProvider relogio)
         if (u.AcessoTodasObras) u.Obras.Clear();
         await Grafo.SalvarAsync(db, u, nameof(Domain.Estrutura.Usuario.Obras), nameof(Domain.Estrutura.Usuario.LimitesAprovacao));
         await db.SaveChangesAsync(ct);
+        // Perfil, desativação ou troca do usuário valem nas aprovações em andamento (aprovador nominal inativo → substituto/perfil).
+        if (await AprovacaoServico.RecalcularPendentesAsync(db, x => true, ct) > 0) await db.SaveChangesAsync(ct);
         return u.Id;
     }
 

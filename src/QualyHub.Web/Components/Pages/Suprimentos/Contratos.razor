@@ -1,5 +1,6 @@
 @page "/contratos"
 @inherits PaginaBase
+@using QualyHub.Application.Comum
 @inject ContratosServico ContratosSrv
 @inject NavigationManager Nav
 
@@ -84,9 +85,15 @@
                     <tbody>
                         @foreach (var i in _k.Itens.OrderBy(i => i.Item))
                         {
-                            <tr @key="i">
+                            var locaisItem = i.Locais.Count > 0 ? _arvore.Situar(i.Locais.Select(l => (l.LocalId, l.Quantidade))) : null;
+                            var aberto = locaisItem is not null && _abertos.Contains(i.Id);
+                            <tr @key="i" class="@(aberto ? "com-locais" : "")">
                                 <td class="larg-70"><input @bind="i.Item" disabled="@(!Editavel)" /></td>
-                                <td><input @bind="i.Descricao" disabled="@(!Editavel)" /><QuebraPorLocal Locais="i.Locais.Select(l => (l.LocalId, l.Quantidade))" Nomes="_locCod" Prefixo="por local:" Complemento="— medição por local" /></td>
+                                <td><input @bind="i.Descricao" disabled="@(!Editavel)" />
+                                    @if (locaisItem is not null)
+                                    {
+                                        <button type="button" class="pl-toggle" aria-expanded="@(aberto ? "true" : "false")" @onclick="() => AlternarLocais(i.Id)">@(aberto ? "▾" : "▸") <span class="pl-ico">▦</span> Locais (medição por local): @QuadroLocais.Resumo(locaisItem, i.Unidade)</button>
+                                    }</td>
                                 <td><select @bind="i.ServicoControladoId" disabled="@(!Editavel)"><option value="">—</option>@foreach (var s in _servicos) { <option value="@s.Id">@s.Texto</option> }</select></td>
                                 <td class="larg-70"><input @bind="i.Unidade" disabled="@(!Editavel)" /></td>
                                 <td class="larg-100"><input type="number" step="0.001" @bind="i.Quantidade" disabled="@(!Editavel)" /></td>
@@ -94,6 +101,7 @@
                                 <td class="num">@Moeda(i.Total)</td>
                                 <td>@if (Editavel) { <button class="icone-btn" @onclick="() => _k.Itens.Remove(i)"><Icone Nome="lixeira" Tam="16" /></button> }</td>
                             </tr>
+                            @if (aberto) { <tr class="linha-locais" @key="(i, 1)"><td colspan="8"><PainelLocais Linhas="locaisItem!" Unidade="@i.Unidade" /></td></tr> }
                         }
                         <tr class="total"><td colspan="6">Valor total</td><td class="num">@Moeda(_k.ValorTotal)</td><td></td></tr>
                     </tbody>
@@ -227,6 +235,9 @@
 
 @code {
     private Dictionary<Guid, string> _locCod = [];
+    private ArvoreLocais _arvore = ArvoreLocais.Vazia;
+    private readonly HashSet<Guid> _abertos = [];
+    private void AlternarLocais(Guid id) { if (!_abertos.Remove(id)) _abertos.Add(id); }
     private sealed record Linha(Guid Id, string Numero, string Obra, string Fornecedor, string Categoria, string Objeto, decimal Valor, DateOnly Fim, StatusContrato Status, string CriadoPor);
     private Grade<Linha>? _grade;
     private List<Linha>? _itens;
@@ -321,7 +332,9 @@
     {
         await using var db = Fabrica.CriarLeitura();
         _k = await db.Contratos.AsNoTracking().Include(k => k.Itens).ThenInclude(i => i.Locais).Include(k => k.ServicosVinculados).FirstAsync(k => k.Id == id, Cancelamento);
-        _locCod = await db.Locais.AsNoTracking().Where(l => l.ObraId == _k.ObraId).ToDictionaryAsync(l => l.Id, l => l.Codigo, Cancelamento);
+        var locs = await db.Locais.AsNoTracking().Where(l => l.ObraId == _k.ObraId).ToListAsync(Cancelamento);
+        _locCod = locs.ToDictionary(l => l.Id, l => l.Codigo);
+        _arvore = new ArvoreLocais(locs);
         _medicoes = await db.Medicoes.AsNoTracking().Where(m => m.ContratoId == id).OrderBy(m => m.NumeroMedicao).ToListAsync(Cancelamento);
         _aditivos = await db.Aditivos.AsNoTracking().Where(a => a.ContratoId == id).OrderBy(a => a.Numero).ToListAsync(Cancelamento);
         _limiteAditivo = (await ParametrosServico.CarregarAsync(db, Cancelamento))[Parametros.LimiteAditivoPerc];

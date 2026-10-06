@@ -203,4 +203,85 @@ public sealed class CadastrosEmAndamentoTests(BancoFixture f)
         await using var db2 = f.Fabrica.CriarLeitura();
         Assert.Equal(StatusQualificacao.Qualificado, (await db2.CotacaoFornecedores.AsNoTracking().SingleAsync(x => x.CotacaoId == cid)).QualificacaoNaData);
     }
+
+    [FatoComBanco]
+    public async Task Requisicao_pelo_orcamento_segue_o_caminho_da_tela_e_material_controlado_alterado_chega_nos_itens()
+    {
+        var e = await Dados.MontarEmpreendimentoAsync(f);
+        var (rev, cp, prod, _) = await Dados.MontarOrcamentoAsync(f, e);
+        Guid torre;
+        await using (var db = f.Fabrica.CriarLeitura()) torre = await db.Locais.Where(l => l.ObraId == e.ObraId && l.Tipo == GeradorEmpreendimento.TipoTorre).Select(l => l.Id).FirstAsync();
+        var sol = await UsuarioAsync("Mara Solicitante", PerfilUsuario.Engenharia);
+
+        // Material controlado ligado ao produto (especificação-modelo v1).
+        var mc = new MaterialControlado { Codigo = $"MC{Guid.NewGuid():N}"[..8], Nome = "Argamassa controlada", EspecificacaoModelo = "Espec v1", DocumentosExigidos = "Laudo" };
+        await using (var db = f.Fabrica.Criar())
+        {
+            db.MateriaisControlados.Add(mc);
+            (await db.Produtos.SingleAsync(p => p.Id == prod.Id)).MaterialControladoId = mc.Id;
+            await db.SaveChangesAsync();
+        }
+
+        var demanda = await f.Orcamento.DemandaAsync(e.ObraId, [rev.Id, cp.Id], [torre], TipoRequisicao.Material);
+        var id = await Req(sol).CriarDoOrcamentoAsync(e.ObraId, TipoRequisicao.Material, demanda, "Revestimentos", ["Alvenaria", "Revestimento de piso"], Hoje);
+
+        Requisicao r;
+        await using (var db = f.Fabrica.CriarLeitura())
+            r = await db.Requisicoes.AsNoTracking().Include(x => x.Itens).ThenInclude(i => i.Locais).SingleAsync(x => x.Id == id);
+        Assert.True(r.Numero > 0);
+        Assert.Equal(sol.Id, r.SolicitanteUsuarioId);
+        Assert.Equal(e.SpeId, r.SpeId);                      // SPE dos locais
+        Assert.NotNull(r.EnderecoEntrega);
+        Assert.Equal("Revestimento de piso", r.Atividade);   // atividade pelo grupo
+        var item = Assert.Single(r.Itens);
+        Assert.True(item.MaterialControlado);
+        Assert.Equal("Espec v1", item.EspecificacaoTecnica); // herdou do cadastro, como na tela
+        Assert.Equal(1820m, item.Locais.Sum(l => l.Quantidade));
+
+        // Especificação-modelo nova: o item que estava com o texto antigo recebe o novo.
+        mc.EspecificacaoModelo = "Espec v2";
+        await new CadastrosServico(f.Fabrica).SalvarMaterialControladoAsync(mc, default);
+        await using (var db = f.Fabrica.CriarLeitura())
+            Assert.Equal("Espec v2", (await db.RequisicaoItens.AsNoTracking().SingleAsync(i => i.RequisicaoId == id)).EspecificacaoTecnica);
+    }
+
+    [FatoComBanco]
+    public async Task Aprovador_nominal_desativado_passa_para_o_substituto_da_alcada()
+    {
+        var e = await Dados.MontarEmpreendimentoAsync(f);
+        var sol = await UsuarioAsync("Nina Solicitante", PerfilUsuario.Suprimentos);
+        var eng = await UsuarioAsync("Otto Engenheiro", PerfilUsuario.Engenharia);
+        var dir = await UsuarioAsync("Paula Diretora", PerfilUsuario.Diretoria);
+        var sub = await UsuarioAsync("Rui Diretor", PerfilUsuario.Diretoria);
+        await EngenheiroSpeAsync(e.SpeId, eng.Id);
+
+        Guid alcadaId;
+        await using (var db = f.Fabrica.Criar())
+        {
+            var a = await db.Alcadas.SingleAsync(x => x.Entidade == EntidadeAprovavel.Requisicao && x.Ordem == 2 && !x.Excluido);
+            alcadaId = a.Id; a.UsuarioAprovadorId = dir.Id; a.SubstitutoUsuarioId = sub.Id;
+            await db.SaveChangesAsync();
+        }
+        try
+        {
+            var (r, _) = await RequisicaoEnviadaAsync(e, sol);
+            Assert.Equal(dir.Id, (await SolicitacaoAsync(r.Id)).Etapas.Single(x => x.Ordem == 2).UsuarioAprovadorId);
+
+            await using (var db = f.Fabrica.Criar())
+            {
+                (await db.Usuarios.SingleAsync(u => u.Id == dir.Id)).Ativo = false; // saiu da empresa
+                await db.SaveChangesAsync();
+                await AprovacaoServico.RecalcularPendentesAsync(db, x => true); // o mesmo que o salvar do usuário dispara
+                await db.SaveChangesAsync();
+            }
+            Assert.Equal(sub.Id, (await SolicitacaoAsync(r.Id)).Etapas.Single(x => x.Ordem == 2).UsuarioAprovadorId);
+        }
+        finally
+        {
+            await using var db = f.Fabrica.Criar();
+            var a = await db.Alcadas.SingleAsync(x => x.Id == alcadaId);
+            a.UsuarioAprovadorId = null; a.SubstitutoUsuarioId = null;
+            await db.SaveChangesAsync();
+        }
+    }
 }

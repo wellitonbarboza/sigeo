@@ -61,6 +61,14 @@ public sealed class CotacoesServico(IFabricaDb fabrica, AprovacaoServico aprovac
         if (await SincronizacaoCadastros.QualificacaoNasCotacoesAsync(db, c.Fornecedores.Select(f => f.FornecedorId).ToList(), Hoje, ct) > 0) await db.SaveChangesAsync(ct);
     }
 
+    /// <summary>Grava a qualificação de hoje dos fornecedores da cotação (a tela chama ao abrir: o cadastro pode ter mudado).</summary>
+    public async Task AtualizarQualificacoesAsync(Guid cotacaoId, CancellationToken ct = default)
+    {
+        await using var db = fabrica.Criar();
+        var fs = await db.CotacaoFornecedores.Where(c => c.CotacaoId == cotacaoId).Select(c => c.FornecedorId).ToListAsync(ct);
+        if (await SincronizacaoCadastros.QualificacaoNasCotacoesAsync(db, fs, Hoje, ct) > 0) await db.SaveChangesAsync(ct);
+    }
+
     private static string Texto(Enum e) => System.Text.RegularExpressions.Regex.Replace(e.ToString(), "(?<!^)([A-Z])", " $1").ToLowerInvariant()
         .Replace("qualificacao", "qualificação").Replace("nao ", "não ");
 

@@ -26,6 +26,7 @@ public sealed class AprovacaoServico(IUsuarioAtual usuario, TimeProvider relogio
         if (aberta) throw new RegraDeNegocioException("Já existe uma aprovação em andamento para este registro.");
         var alcadas = await db.Alcadas.AsNoTracking().Where(a => a.Entidade == entidade).ToListAsync(ct);
         await ResolverEngenheiroAsync(db, alcadas, obraId, speId ?? await SpeDoDocumentoAsync(db, entidade, entidadeId, ct), ct);
+        await TrocarInativosAsync(db, alcadas, ct);
         var s = SolicitacaoAprovacao.Criar(entidade, entidadeId, usuario.EmpresaId, obraId, titulo, valor,
             usuario.UsuarioId ?? Guid.Empty, usuario.Nome, alcadas, relogio.GetUtcNow());
         db.SolicitacoesAprovacao.Add(s);
@@ -45,6 +46,19 @@ public sealed class AprovacaoServico(IUsuarioAtual usuario, TimeProvider relogio
             throw new RegraDeNegocioException("Cadastre o engenheiro responsável da SPE (Engenharia › Obras e Empreendimentos › SPE) antes de enviar para aprovação.");
         if (eng is null && obraId is { } oid) eng = await db.Obras.AsNoTracking().Where(o => o.Id == oid).Select(o => o.EngenheiroId).FirstOrDefaultAsync(ct);
         foreach (var a in alcadas.Where(a => a.EngenheiroDaObra && a.UsuarioAprovadorId is null)) a.UsuarioAprovadorId = eng;
+    }
+
+    /// <summary>
+    /// Aprovador nominal inativo (saiu da empresa, login desativado): a etapa vai para o substituto da alçada, se ativo;
+    /// sem substituto, volta a valer o perfil da alçada (qualquer usuário do perfil aprova).
+    /// </summary>
+    private static async Task TrocarInativosAsync(IQualyHubDb db, List<Domain.Estrutura.Alcada> alcadas, CancellationToken ct)
+    {
+        var ids = alcadas.SelectMany(a => new[] { a.UsuarioAprovadorId, a.SubstitutoUsuarioId }).Where(x => x is not null).Select(x => x!.Value).Distinct().ToList();
+        if (ids.Count == 0) return;
+        var ativos = (await db.Usuarios.AsNoTracking().Where(u => ids.Contains(u.Id) && u.Ativo).Select(u => u.Id).ToListAsync(ct)).ToHashSet();
+        foreach (var a in alcadas.Where(a => a.UsuarioAprovadorId is { } u && !ativos.Contains(u)))
+            a.UsuarioAprovadorId = a.SubstitutoUsuarioId is { } s && ativos.Contains(s) ? s : null;
     }
 
     /// <summary>SPE (destino do custo) do documento em aprovação — base do engenheiro responsável.</summary>
@@ -73,10 +87,11 @@ public sealed class AprovacaoServico(IUsuarioAtual usuario, TimeProvider relogio
         foreach (var s in abertas)
         {
             var alcadas = todas.Where(a => a.Entidade == s.Entidade && a.SeAplica(s.Valor, s.ObraId)).OrderBy(a => a.Ordem)
-                               .Select(a => new Domain.Estrutura.Alcada { Entidade = a.Entidade, Ordem = a.Ordem, PerfilAprovador = a.PerfilAprovador, UsuarioAprovadorId = a.UsuarioAprovadorId, EngenheiroDaObra = a.EngenheiroDaObra })
+                               .Select(a => new Domain.Estrutura.Alcada { Entidade = a.Entidade, Ordem = a.Ordem, PerfilAprovador = a.PerfilAprovador, UsuarioAprovadorId = a.UsuarioAprovadorId, SubstitutoUsuarioId = a.SubstitutoUsuarioId, EngenheiroDaObra = a.EngenheiroDaObra })
                                .ToList();
             try { await ResolverEngenheiroAsync(db, alcadas, s.ObraId, await SpeDoDocumentoAsync(db, s.Entidade, s.EntidadeId, ct), ct); }
             catch (RegraDeNegocioException) { continue; } // SPE ficou sem engenheiro: mantém o aprovador atual
+            await TrocarInativosAsync(db, alcadas, ct);
             var (removidas, novas) = s.TrocarEtapasPendentes(alcadas.Select(a => (a.PerfilAprovador, a.UsuarioAprovadorId)).ToList());
             if (novas.Count == 0) continue;
             db.EtapasAprovacao.RemoveRange(removidas);

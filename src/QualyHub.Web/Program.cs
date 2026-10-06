@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Components.Authorization;
+﻿using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.EntityFrameworkCore;
 using QualyHub.Domain.Common;
 using QualyHub.Domain.Estrutura;
@@ -41,6 +41,7 @@ else
 builder.Services.AddQualyHubComunicacao(builder.Configuration, builder.Environment.IsDevelopment());
 builder.Services.AddScoped<Notificacoes>();
 builder.Services.AddScoped<Catalogos>();
+builder.Services.AddSingleton<RotinaCadastros>();
 builder.Services.AddScoped<EstadoGrades>();
 // Endpoints HTTP (downloads, GRD, configuração inicial, /api) respondem erro em Problem Details (RFC 9457).
 builder.Services.AddProblemDetails();

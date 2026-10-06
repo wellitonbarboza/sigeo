@@ -135,7 +135,7 @@ public sealed class CadastrosServico(IFabricaDb fabrica)
         await Grafo.SalvarAsync(db, p);
         await db.SaveChangesAsync(ct);
         // Requisições e cotações em andamento passam a mostrar o cadastro atualizado.
-        if (await SincronizacaoCadastros.ProdutoAsync(db, p.Id, ct) > 0) await db.SaveChangesAsync(ct);
+        if (await SincronizacaoCadastros.ProdutosAsync(db, [p.Id], ct) > 0) await db.SaveChangesAsync(ct);
     }
 
     // ───────────── Categorias ─────────────
@@ -172,9 +172,14 @@ public sealed class CadastrosServico(IFabricaDb fabrica)
         {
             if (m.CategoriaProdutoId is { } g && await db.MateriaisControlados.AnyAsync(x => x.Id != m.Id && x.CategoriaProdutoId == g, ct))
                 throw new RegraDeNegocioException("Este grupo do catálogo já está ligado a outro material (1 grupo = 1 material).");
+            var antes = await db.MateriaisControlados.AsNoTracking().Where(x => x.Id == m.Id).Select(x => new { x.EspecificacaoModelo, x.DocumentosExigidos }).FirstOrDefaultAsync(ct);
             await Grafo.SalvarAsync(db, m);
             await db.SaveChangesAsync(ct);
-            await VincularAsync(db, ct);
+            var mudaram = await VincularAsync(db, ct);
+            await db.SaveChangesAsync(ct);
+            // Processos em andamento: produtos que entraram/saíram do controle e a especificação/documentos do material.
+            await SincronizacaoCadastros.ProdutosAsync(db, mudaram, ct);
+            await SincronizacaoCadastros.MaterialControladoAsync(db, m.Id, antes?.EspecificacaoModelo, antes?.DocumentosExigidos, ct);
             await db.SaveChangesAsync(ct);
         }, ct);
     }
@@ -192,21 +197,22 @@ public sealed class CadastrosServico(IFabricaDb fabrica)
     {
         await using var db = fabrica.Criar();
         await Permissoes.ExigirAsync(db, fabrica.Usuario, "vincular produtos pelo grupo", PerfilUsuario.Qualidade, PerfilUsuario.Suprimentos);
-        var n = await VincularAsync(db, ct);
+        var mudaram = await VincularAsync(db, ct);
         await db.SaveChangesAsync(ct);
-        return n;
+        if (await SincronizacaoCadastros.ProdutosAsync(db, mudaram, ct) > 0) await db.SaveChangesAsync(ct);
+        return mudaram.Count;
     }
 
-    private static async Task<int> VincularAsync(IQualyHubDb db, CancellationToken ct)
+    private static async Task<List<Guid>> VincularAsync(IQualyHubDb db, CancellationToken ct)
     {
         var cache = new CodigosProdutoServico.Cache();
-        var n = 0;
+        var mudaram = new List<Guid>();
         foreach (var p in await db.Produtos.ToListAsync(ct))
         {
             var antes = p.MaterialControladoId;
             await CodigosProdutoServico.VincularControladoAsync(db, p, cache, ct);
-            if (antes != p.MaterialControladoId) n++;
+            if (antes != p.MaterialControladoId) mudaram.Add(p.Id);
         }
-        return n;
+        return mudaram;
     }
 }

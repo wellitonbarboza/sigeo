@@ -2,6 +2,7 @@
 @inherits PaginaBase
 @inject PedidosServico PedidosSrv
 @inject NavigationManager Nav
+@using QualyHub.Application.Comum
 
 <Pagina Titulo="Pedidos de compra" Grade="_grade" AoAtualizar="Carregar">
     <ChildContent>
@@ -58,9 +59,13 @@
                 <tbody>
                     @foreach (var i in _p.Itens)
                     {
-                        <tr><td>@i.Descricao @if (i.MaterialControladoId is not null) { <Selo Texto="controlado" Tom="info" /> }</td><td>@i.Unidade</td>
+                        var locaisItem = i.RequisicaoItemId is { } rid && _locaisItem.TryGetValue(rid, out var ls) ? ls : null;
+                        var aberto = locaisItem is not null && _abertos.Contains(i.Id);
+                        <tr @key="i" class="@(aberto ? "com-locais" : "")"><td><b>@i.Descricao</b> @if (i.MaterialControladoId is not null) { <Selo Texto="controlado" Tom="info" /> }
+                                @if (locaisItem is not null) { <br /><button type="button" class="pl-toggle" aria-expanded="@(aberto ? "true" : "false")" @onclick="() => { if (!_abertos.Remove(i.Id)) _abertos.Add(i.Id); }">@(aberto ? "▾" : "▸") <span class="pl-ico">▦</span> Locais: @QuadroLocais.Resumo(locaisItem, i.Unidade)</button> }</td><td>@i.Unidade</td>
                             <td class="num">@Num(i.Quantidade, 3)</td><td class="num">@Moeda(i.ValorUnitario)</td><td class="num">@Moeda(i.ValorTotal)</td>
                             <td>@i.EspecificacaoTecnica</td><td>@i.DocumentosExigidos</td><td class="num">@Num(i.QuantidadeRecebidaAceita, 3)</td></tr>
+                        @if (aberto) { <tr class="linha-locais" @key="(i, 1)"><td colspan="8"><PainelLocais Linhas="locaisItem!" Unidade="@i.Unidade" /></td></tr> }
                     }
                     <tr class="total"><td colspan="4">Total (com frete @Moeda(_p.ValorFrete))</td><td class="num">@Moeda(_p.Valor)</td><td colspan="3"></td></tr>
                 </tbody>
@@ -111,10 +116,14 @@
         _itens = lista.Select(p => new Linha(p.Id, p.Numero, obras.GetValueOrDefault(p.ObraId, ""), p.Fornecedor.NomeExibicao, p.Entrega, p.Valor, p.SemOrcamento, p.Status, p.Bloqueios, p.CriadoPor, p.CriadoEm)).ToList();
     }
 
+    private Dictionary<Guid, List<LocalQuantidade>> _locaisItem = [];
+    private readonly HashSet<Guid> _abertos = [];
+
     private async Task Abrir(Guid id)
     {
         await using var db = Fabrica.CriarLeitura();
         _p = await db.Pedidos.AsNoTracking().Include(p => p.Itens).FirstAsync(p => p.Id == id, Cancelamento);
+        _locaisItem = await QuadroLocais.CarregarAsync(db, _p.Itens.Where(i => i.RequisicaoItemId != null).Select(i => i.RequisicaoItemId!.Value).Distinct().ToList(), Cancelamento);
         _fornecedor = await db.Fornecedores.AsNoTracking().Include(f => f.Qualificacoes).Include(f => f.Documentos).ThenInclude(d => d.TipoDocumento).FirstAsync(f => f.Id == _p.FornecedorId, Cancelamento);
         _trava = _p.Status == StatusPedido.Emitido ? TravasQualidade.VerificarPedido(_p, _fornecedor, Hoje) : null;
         ErrosForm = null; _versao++; _aberto = true;

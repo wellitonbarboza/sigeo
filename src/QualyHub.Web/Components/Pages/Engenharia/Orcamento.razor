@@ -103,11 +103,13 @@
                 }
                 else
                 {
+                    <div class="barra-filtro"><label>Requisitar <select id="ct-tipo" value="@_tipoCtr" @onchange="e => { _tipoCtr = Enum.Parse<TipoRequisicao>(e.Value!.ToString()!); _demanda = null; }"><option value="@TipoRequisicao.Servico">Serviço (contratar)</option><option value="@TipoRequisicao.Material">Material (comprar — sai das composições)</option></select></label>
+                        <span class="mudo">Mesmo caminho da tela de requisição: itens com a quebra por local, SPE dos locais, faturamento padrão.</span></div>
                     <SeletorDemanda Servicos="_servicosCtr" Locais="_locais" ServicosSelecionados="_selComp" LocaisSelecionados="_selLoc" Demanda="_demanda"
                                     AoMudarSelecao="() => _demanda = null" AoCalcular="Previa" Ocupado="Ocupado"
-                                    IdCalcular="ct-previa" IdTabela="ct-demanda" TituloServicos="1. Serviços a contratar" TituloLocais="2. Locais (torres, pavimentos, apartamentos)"
-                                    TextoCalcular="Ver quantidades" RotuloOrcado="Orçado nos locais" RotuloSaldo="Saldo a contratar" MostrarReferencia>
-                        <Acoes>@if (_demanda is { Count: > 0 }) { <button class="btn prim" id="ct-req" disabled="@Ocupado" @onclick="CriarRequisicao"><Icone Nome="prancheta" Tam="14" /> Criar requisição de serviço</button> }</Acoes>
+                                    IdCalcular="ct-previa" IdTabela="ct-demanda" TituloServicos="@(_tipoCtr == TipoRequisicao.Material ? "1. Serviços (os materiais saem das composições)" : "1. Serviços a contratar")" TituloLocais="2. Locais (torres, pavimentos, apartamentos)"
+                                    TextoCalcular="Ver quantidades" RotuloOrcado="Orçado nos locais" RotuloSaldo="@(_tipoCtr == TipoRequisicao.Material ? "Saldo a comprar" : "Saldo a contratar")" MostrarReferencia>
+                        <Acoes>@if (_demanda is { Count: > 0 }) { <button class="btn prim" id="ct-req" disabled="@Ocupado" @onclick="CriarRequisicao"><Icone Nome="prancheta" Tam="14" /> Criar requisição de @(_tipoCtr == TipoRequisicao.Material ? "material" : "serviço")</button> }</Acoes>
                         <Nota><p class="mudo">A requisição sai com o serviço × local × quantidade (a cotação e o contrato levam essa planilha). A SPE vem dos locais.</p></Nota>
                     </SeletorDemanda>
                 }
@@ -146,8 +148,9 @@
     private Dictionary<Guid, decimal> _comumCond = [];
     private Dictionary<Guid, HashSet<Guid>> _areasComunsCond = [];
     private List<SeletorDemanda.ItemServico> _servicosCtr = [];
+    private TipoRequisicao _tipoCtr = TipoRequisicao.Servico;
     private List<ServicoLocal> _celsOrdenadas = [];
-    private static readonly List<(string, string)> _abas = [("serv", "Por serviço"), ("spe", "Por condomínio e torre"), ("apto", "Por apartamento"), ("cel", "Células"), ("ctr", "Contratar serviços")];
+    private static readonly List<(string, string)> _abas = [("serv", "Por serviço"), ("spe", "Por condomínio e torre"), ("apto", "Por apartamento"), ("cel", "Células"), ("ctr", "Contratar / comprar")];
 
     // A obra inicial (?obra= ou a única permitida) vem do SeletorObra, que chama TrocarObra.
     private async Task TrocarObra(Guid? obra)
@@ -253,7 +256,7 @@
 
     private async Task Previa()
     {
-        await Executar(async () => _demanda = await Orc.DemandaAsync(_obraId!.Value, _selComp, _selLoc, TipoRequisicao.Servico, ct: Cancelamento));
+        await Executar(async () => _demanda = await Orc.DemandaAsync(_obraId!.Value, _selComp, _selLoc, _tipoCtr, ct: Cancelamento));
     }
 
     private async Task CriarRequisicao()
@@ -261,21 +264,9 @@
         Guid id = default;
         var ok = await Executar(async () =>
         {
-            var spe = await Orc.SpeDosLocaisAsync(_obraId!.Value, _selLoc, ct: Cancelamento);
             var grupo = _comps.GetValueOrDefault(_selComp.First())?.Grupo;
-            var atividades = await Cat.ListaAsync(TipoLista.Atividade);
-            var r = new Requisicao
-            {
-                ObraId = _obraId!.Value, Tipo = TipoRequisicao.Servico, SpeId = spe, CategoriaServico = "Serviço de obra", DataEntrega = Hoje.AddDays(15),
-                Atividade = atividades.FirstOrDefault(a => grupo != null && Rotulos.SemAcento(a).Contains(Rotulos.SemAcento(grupo).Split(' ')[0][..Math.Min(6, Rotulos.SemAcento(grupo).Split(' ')[0].Length)])) ?? atividades.FirstOrDefault() ?? "Serviços",
-                Observacao = "Gerada pelo orçamento por local (serviço × local × quantidade)."
-            };
-            await using (var db = Fabrica.CriarLeitura())
-                r.EnderecoEntrega = await db.Obras.Where(o => o.Id == r.ObraId).Select(o => o.EnderecoEntrega).FirstOrDefaultAsync(Cancelamento);
-            foreach (var i in OrcamentoServico.Itens(r.Id, _demanda!, new Dictionary<Guid, Produto>())) r.Itens.Add(i);
-            if (r.Itens.Count == 0) throw new RegraDeNegocioException("Não há saldo a contratar para os serviços e locais escolhidos.");
-            id = await RequisicoesSrv.SalvarRequisicaoAsync(r, ct: Cancelamento);
-        }, "Requisição de serviço criada — revise e envie para aprovação.");
+            id = await RequisicoesSrv.CriarDoOrcamentoAsync(_obraId!.Value, _tipoCtr, _demanda!, grupo, await Cat.ListaAsync(TipoLista.Atividade), Hoje, Cancelamento);
+        }, $"Requisição de {(_tipoCtr == TipoRequisicao.Material ? "material" : "serviço")} criada — revise e envie para aprovação.");
         if (ok) Nav.NavigateTo($"requisicoes?id={id}");
     }
 }

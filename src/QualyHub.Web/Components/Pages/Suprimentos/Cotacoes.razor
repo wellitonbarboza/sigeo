@@ -44,7 +44,7 @@
             <div class="secao"><Icone Nome="predio" /> Fornecedores convidados
                 @if (Editavel) { <button class="btn sec pq acao" id="cot-add-forn" disabled="@Ocupado" @onclick="AbrirAdicionar"><Icone Nome="mais" Tam="14" /> Adicionar fornecedor</button> }</div>
             <table class="itens">
-                <thead><tr><th>Fornecedor</th><th>Qualificação @(Editavel ? "(hoje)" : "na data")</th><th>Status</th><th>Resposta</th><th>Condição pagto.</th><th>Validade proposta</th><th>Frete (R$)</th><th>Total</th><th>Convite</th>@if (Editavel) { <th></th> }</tr></thead>
+                <thead><tr><th>Fornecedor</th><th>Qualificação @(EmAndamento ? "(hoje)" : "na data")</th><th>Status</th><th>Resposta</th><th>Condição pagto.</th><th>Validade proposta</th><th>Frete (R$)</th><th>Total</th><th>Convite</th>@if (Editavel) { <th></th> }</tr></thead>
                 <tbody>
                     @foreach (var f in _c.Fornecedores)
                     {
@@ -188,6 +188,7 @@
     private List<string> _condicoes = [];
 
     private bool Editavel => _c is { Status: StatusCotacao.Aberto or StatusCotacao.AguardandoPropostas or StatusCotacao.EmAnalise or StatusCotacao.ReprovadoVoltaCotacao };
+    private bool EmAndamento => _c is not null && SincronizacaoCadastros.CotacoesEmAndamento.Contains(_c.Status);
     private string Nome(Guid id) => _nomes.GetValueOrDefault(id, "?");
     private decimal Total(Guid f) => _c!.Itens.Where(i => i.FornecedorId == f).Sum(i => i.ValorTotal) + (_c.Fornecedores.First(x => x.FornecedorId == f).ValorFrete ?? 0);
     private void Recalcular() => _c!.Recalcular(_p!);
@@ -261,18 +262,14 @@
 
     private async Task Abrir(Guid id)
     {
+        // Qualificação de hoje (o cadastro do fornecedor pode ter mudado desde o convite) — grava antes de ler.
+        await CotacoesSrv.AtualizarQualificacoesAsync(id, Cancelamento);
         await using var db = Fabrica.CriarLeitura();
         _c = await db.Cotacoes.AsNoTracking().Include(c => c.Fornecedores).Include(c => c.Itens).FirstAsync(c => c.Id == id, Cancelamento);
         var ids = _c.Fornecedores.Select(f => f.FornecedorId).ToList();
         _nomes = await db.Fornecedores.AsNoTracking().Where(f => ids.Contains(f.Id)).ToDictionaryAsync(f => f.Id, f => f.NomeFantasia ?? f.RazaoSocial, Cancelamento);
         var rids = _c.Itens.Where(i => i.RequisicaoItemId != null).Select(i => i.RequisicaoItemId!.Value).Distinct().ToList();
         _locaisItem = await QuadroLocais.CarregarAsync(db, rids, Cancelamento);
-        if (Editavel)
-        {
-            // Em andamento: qualificação de hoje (o cadastro do fornecedor pode ter mudado desde o convite).
-            var fs = await db.Fornecedores.AsNoTracking().Include(f => f.Qualificacoes).Where(f => ids.Contains(f.Id)).ToDictionaryAsync(f => f.Id, Cancelamento);
-            foreach (var cf in _c.Fornecedores) if (fs.TryGetValue(cf.FornecedorId, out var fo)) cf.QualificacaoNaData = fo.CalcularStatus(Hoje);
-        }
         _c.Recalcular(_p!);
         await CotacoesServico.PrecosReferenciaAsync(db, _c, Cancelamento);
         ErrosForm = null; _versao++; _aberto = true;

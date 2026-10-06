@@ -1,0 +1,118 @@
+@* Fornecedores convidados da cotação de uma requisição (tela da requisição): situação de cada um, qualificação de hoje,
+   total da proposta e incluir/retirar enquanto a cotação está aberta. A edição de preços continua na tela da cotação. *@
+@inherits PaginaBase
+@inject CotacoesServico CotacoesSrv
+@inject FornecedoresServico Forn
+@inject NavigationManager Nav
+
+@if (_c is not null)
+{
+    <div class="secao"><Icone Nome="predio" /> Cotação nº @_c.Numero — fornecedores
+        <span class="acao">
+            @if (Aberta) { <button class="btn sec pq" id="req-cot-add" disabled="@Ocupado" @onclick="AbrirAdicionar"><Icone Nome="mais" Tam="14" /> Adicionar fornecedor</button> }
+            <a class="btn sec pq" href="cotacoes?id=@_c.Id"><Icone Nome="calculadora" Tam="14" /> Abrir cotação</a>
+        </span>
+    </div>
+    <Erros Lista="ErrosForm" />
+    <table class="itens">
+        <thead><tr><th>Fornecedor</th><th>Qualificação (hoje)</th><th>Convite</th><th>Resposta</th><th class="num">Total proposto</th>@if (Aberta) { <th></th> }</tr></thead>
+        <tbody>
+            @foreach (var f in _c.Fornecedores)
+            {
+                <tr @key="f.Id" class="@(f.FornecedorId == _c.FornecedorVencedorId ? "destaque" : "")">
+                    <td><b>@Nome(f.FornecedorId)</b>@if (f.FornecedorId == _c.FornecedorVencedorId) { <Selo Texto="vencedor" Tom="ok" /> }</td>
+                    <td><Selo Texto="@De(f.QualificacaoNaData)" Tom="@Tom(f.QualificacaoNaData)" /></td>
+                    <td><Selo Texto="@De(f.Status)" /></td>
+                    <td>@f.DataResposta?.ToString("dd/MM/yyyy")</td>
+                    <td class="num">@Moeda(_c.Itens.Where(i => i.FornecedorId == f.FornecedorId).Sum(i => i.ValorTotal) + (f.ValorFrete ?? 0))</td>
+                    @if (Aberta) { <td><button class="btn sec pq" title="Retirar o fornecedor da cotação" @onclick="() => Retirar(f)"><Icone Nome="lixeira" Tam="14" /></button></td> }
+                </tr>
+            }
+        </tbody>
+    </table>
+    @if (!Aberta) { <p class="mudo">Cotação @De(_c.Status).ToLowerInvariant(): fornecedores não podem mais ser alterados.</p> }
+}
+
+<Modal @bind-Aberto="_abertoAdd" Titulo="Adicionar fornecedor à cotação" Tamanho="media">
+    <ChildContent>
+        <p class="mudo">Os novos fornecedores recebem os mesmos itens, sem preço. Depois mande o acesso pela tela da cotação (Convidar). <b>Sugeridos</b> = atendem os grupos do catálogo (ou as ITS) dos itens.</p>
+        <input class="mb-6" placeholder="Filtrar por nome…" @bind="_filtro" @bind:event="oninput" />
+        <div class="tabela-rolavel" style="max-height:380px">
+            <table class="itens">
+                <thead><tr><th></th><th>Fornecedor</th><th>Qualificação</th></tr></thead>
+                <tbody>
+                    @foreach (var f in _lista.Where(f => string.IsNullOrWhiteSpace(_filtro) || f.Texto.Contains(_filtro, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        <tr @key="f.Id"><td class="larg-30"><input type="checkbox" checked="@_sel.Contains(f.Id)" @onchange="e => { if ((bool)e.Value!) _sel.Add(f.Id); else _sel.Remove(f.Id); }" /></td>
+                            <td>@f.Texto @if (_sugeridos.Contains(f.Id)) { <Selo Texto="sugerido" Tom="info" /> }</td><td>@if (Enum.TryParse<StatusQualificacao>(f.Extra, out var st)) { <Selo Texto="@De(st)" Tom="@Tom(st)" /> }</td></tr>
+                    }
+                    @if (_lista.Count == 0) { <tr><td colspan="3" class="mudo">Todos os fornecedores ativos desse tipo já estão na cotação.</td></tr> }
+                </tbody>
+            </table>
+        </div>
+    </ChildContent>
+    <Rodape><button class="btn prim" id="req-cot-add-ok" disabled="@(_sel.Count == 0 || Ocupado)" @onclick="Adicionar"><Icone Nome="mais" Tam="16" /> Incluir (@_sel.Count)</button></Rodape>
+</Modal>
+
+<Confirmacao Pergunta="@PerguntaConfirmacao" AoSim="ConfirmacaoSim" AoNao="ConfirmacaoNao" />
+
+@code {
+    [Parameter, EditorRequired] public Guid RequisicaoId { get; set; }
+    /// <summary>Muda quando a tela da requisição recarrega (força reler a cotação).</summary>
+    [Parameter] public int Versao { get; set; }
+
+    private Cotacao? _c;
+    private Dictionary<Guid, string> _nomes = [];
+    private int _versaoLida = -1;
+    private bool _abertoAdd;
+    private string? _filtro;
+    private List<Opcao> _lista = [];
+    private HashSet<Guid> _sugeridos = [];
+    private readonly HashSet<Guid> _sel = [];
+
+    private bool Aberta => _c is not null && SincronizacaoCadastros.CotacoesAbertas.Contains(_c.Status);
+    private string Nome(Guid id) => _nomes.GetValueOrDefault(id, "?");
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_versaoLida == Versao) return;
+        _versaoLida = Versao;
+        await Carregar();
+    }
+
+    private async Task Carregar()
+    {
+        Guid? id;
+        await using (var db0 = Fabrica.CriarLeitura())
+            id = await db0.Cotacoes.Where(c => c.RequisicaoId == RequisicaoId && c.Status != StatusCotacao.Cancelado).OrderByDescending(c => c.Numero).Select(c => (Guid?)c.Id).FirstOrDefaultAsync(Cancelamento);
+        if (id is null) { _c = null; return; }
+        await CotacoesSrv.AtualizarQualificacoesAsync(id.Value, Cancelamento);
+        await using var db = Fabrica.CriarLeitura();
+        _c = await db.Cotacoes.AsNoTracking().Include(c => c.Fornecedores).Include(c => c.Itens).FirstAsync(c => c.Id == id, Cancelamento);
+        var ids = _c.Fornecedores.Select(f => f.FornecedorId).ToList();
+        _nomes = await db.Fornecedores.AsNoTracking().Where(f => ids.Contains(f.Id)).ToDictionaryAsync(f => f.Id, f => f.NomeFantasia ?? f.RazaoSocial, Cancelamento);
+    }
+
+    private async Task AbrirAdicionar()
+    {
+        await using var db = Fabrica.CriarLeitura();
+        var itens = await db.RequisicaoItens.AsNoTracking().Where(i => i.RequisicaoId == RequisicaoId).ToListAsync(Cancelamento);
+        var (lista, sug) = await SugestaoFornecedores.ParaAsync(db, Forn, _c!.Tipo, itens, Cancelamento);
+        var ja = _c.Fornecedores.Select(f => f.FornecedorId).ToHashSet();
+        _lista = lista.Where(f => !ja.Contains(f.Id)).ToList();
+        _sugeridos = sug; _sel.Clear(); _filtro = null; _abertoAdd = true;
+    }
+
+    private async Task Adicionar()
+    {
+        var n = _sel.Count;
+        if (await Executar(() => CotacoesSrv.AdicionarFornecedoresAsync(_c!.Id, _sel, Cancelamento), $"{n} fornecedor(es) incluído(s) na cotação."))
+        { _abertoAdd = false; await Carregar(); }
+    }
+
+    private void Retirar(CotacaoFornecedor f) =>
+        Confirmar($"Retirar {Nome(f.FornecedorId)} da cotação?{(f.Status != StatusConvite.Convidado ? " A proposta dele será descartada." : "")} Fica registrado nas notas da cotação.", async () =>
+        {
+            if (await Executar(() => CotacoesSrv.RemoverFornecedorAsync(_c!.Id, f.FornecedorId, Cancelamento), "Fornecedor retirado.")) await Carregar();
+        });
+}

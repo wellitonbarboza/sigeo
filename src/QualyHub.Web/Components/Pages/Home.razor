@@ -125,7 +125,13 @@
     private static string Saudacao() => DateTime.Now.Hour < 12 ? "Bom dia" : DateTime.Now.Hour < 18 ? "Boa tarde" : "Boa noite";
     private static string Espera(DateTimeOffset d) { var h = (DateTimeOffset.UtcNow - d).TotalHours; return h < 24 ? $"{h:0} h" : $"{h / 24:0} dia(s)"; }
 
-    protected override async Task OnInitializedAsync() { _usuarios = await Cat.UsuariosAsync(); await Carregar(); }
+    [Inject] private RotinaCadastros Rotina { get; set; } = default!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Rotina.GarantirHojeAsync(Usuario.EmpresaId, Cancelamento); // qualificação que venceu hoje etc. nos processos em andamento
+        _usuarios = await Cat.UsuariosAsync(); await Carregar();
+    }
 
     private async Task Carregar()
     {
