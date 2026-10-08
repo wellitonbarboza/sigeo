@@ -68,9 +68,11 @@ builder.Services.AddQualyHubComunicacao(builder.Configuration, builder.Environme
 builder.Services.AddQualyHubIntegracoes(builder.Configuration);
 builder.Services.AddScoped<Notificacoes>();
 builder.Services.AddScoped<Catalogos>();
+builder.Services.AddScoped<QualyHub.Web.Client.Servicos.IContadorMensagens, ContadorMensagensServidor>();
 builder.Services.AddSingleton<CacheCompartilhado>();
 builder.Services.AddSingleton<RotinaCadastros>();
 builder.Services.AddHostedService<RotinaMatinal>();
+builder.Services.AddHostedService<RotinaAvisos>();
 builder.Services.AddScoped<EstadoGrades>();
 // Endpoints HTTP (downloads, GRD, configuração inicial, /api) respondem erro em Problem Details (RFC 9457).
 builder.Services.AddProblemDetails();

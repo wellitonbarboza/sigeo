@@ -129,6 +129,14 @@ public class QualyHubDbContext(DbContextOptions<QualyHubDbContext> options, IUsu
     public DbSet<Domain.Planejamento.RedePacote> RedePacotes => Set<Domain.Planejamento.RedePacote>();
     public DbSet<Domain.Planejamento.RedePacoteLocal> RedePacoteLocais => Set<Domain.Planejamento.RedePacoteLocal>();
     public DbSet<Domain.Planejamento.VinculoRede> VinculosRede => Set<Domain.Planejamento.VinculoRede>();
+    public DbSet<Domain.Planejamento.Restricao> Restricoes => Set<Domain.Planejamento.Restricao>();
+    public DbSet<Domain.Planejamento.PlanoSemanal> PlanosSemanais => Set<Domain.Planejamento.PlanoSemanal>();
+    public DbSet<Domain.Planejamento.CompromissoSemanal> CompromissosSemanais => Set<Domain.Planejamento.CompromissoSemanal>();
+    public DbSet<Domain.Colaboracao.Conversa> Conversas => Set<Domain.Colaboracao.Conversa>();
+    public DbSet<Domain.Colaboracao.ParticipanteConversa> ParticipantesConversa => Set<Domain.Colaboracao.ParticipanteConversa>();
+    public DbSet<Domain.Colaboracao.MensagemConversa> MensagensConversa => Set<Domain.Colaboracao.MensagemConversa>();
+    public DbSet<Domain.Colaboracao.LeituraMensagem> LeiturasMensagem => Set<Domain.Colaboracao.LeituraMensagem>();
+    public DbSet<Domain.Colaboracao.AvisoEmail> AvisosEmail => Set<Domain.Colaboracao.AvisoEmail>();
     public DbSet<Quadra> Quadras => Set<Quadra>();
     public DbSet<Tipologia> Tipologias => Set<Tipologia>();
     public DbSet<TipologiaAmbiente> TipologiaAmbientes => Set<TipologiaAmbiente>();

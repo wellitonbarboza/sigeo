@@ -22,6 +22,9 @@ public static class ApiTelas
 
         api.MapGet("/obras", (PaineisConsultas q, CancellationToken ct) => q.ObrasAsync(ct));
 
+        // Contador de mensagens não lidas do menu (telas que rodam no navegador).
+        api.MapGet("/mensagens/nao-lidas", (MensagensServico m, CancellationToken ct) => m.NaoLidasAsync(ct));
+
         api.MapGet("/painel", async (int? meses, Guid? obra, bool? novo, PaineisConsultas q, CacheCompartilhado cache, IUsuarioAtual u, CancellationToken ct) =>
         {
             q.ConferirObra(obra);

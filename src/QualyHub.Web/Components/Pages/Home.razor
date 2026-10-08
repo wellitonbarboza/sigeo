@@ -2,6 +2,7 @@
 @inherits PaginaBase
 @inject AprovacaoServico Aprov
 @inject SistemaServico Sistema
+@inject MensagensServico Mensagens
 @inject NavigationManager Nav
 
 <PageTitle>Minhas pendências · QualyHub</PageTitle>
@@ -15,6 +16,7 @@
                 <Kpi Rotulo="Pagamentos a liberar" Valor="@_pagamentos.Count" Sub="@Moeda(_pagamentos.Sum(p => p.Valor))" Tom="info" />
                 <Kpi Rotulo="Alertas" Valor="@_alertas.Sum(a => a.Qtd)" Sub="documentos, prazos e vencimentos" Tom="@(_alertas.Any(a => a.Tom == "erro") ? "erro" : "aviso")" />
                 <Kpi Rotulo="Minhas tarefas" Valor="@_tarefas.Count" Sub="@($"{_tarefas.Count(t => t.Atrasada(Hoje))} atrasada(s)")" Tom="@(_tarefas.Any(t => t.Atrasada(Hoje)) ? "erro" : "info")" />
+                <Kpi Rotulo="Mensagens não lidas" Valor="@_msgs.Count(m => m.NaoLidas > 0)" Sub="conversas com novidade" Tom="@(_msgs.Any(m => m.NaoLidas > 0) ? "aviso" : "ok")" />
                 <Kpi Rotulo="Minhas leituras" Valor="@_leituras.Count" Sub="@(_leituras.Count == 0 ? "em dia" : $"prazo {_leituras.Min(l => l.Prazo):dd/MM}")" />
             </div>
             <Abas Itens="Abas" @bind-Ativa="_aba" />
@@ -49,6 +51,12 @@
                 <div class="tabela-rolavel"><table class="itens"><thead><tr><th>Nº</th><th>Título</th><th>Solicitante</th><th>Prioridade</th><th>Prazo</th><th>Status</th></tr></thead>
                     <tbody>@foreach (var t in _tarefas) { <tr class="cursor-mao" @onclick='() => Nav.NavigateTo($"tarefas?id={t.Id}")'><td>@t.Numero</td><td>@t.Titulo @if (t.Leituras.Count == 0) { <Selo Texto="nova" Tom="info" /> }</td><td>@t.CriadoPor</td><td><Selo Texto="@De(t.Prioridade)" Tom="@Tom(t.Prioridade)" /></td><td class="@(t.Atrasada(Hoje) ? "texto-erro" : "")">@Data(t.Prazo)</td><td><Selo Texto="@De(t.Status)" Tom="@Tom(t.Status)" /></td></tr> }
                     @if (_tarefas.Count == 0) { <tr><td colspan="6" class="mudo">Nenhuma tarefa aberta para você.</td></tr> }</tbody></table></div>
+            }
+            else if (_aba == "mensagens")
+            {
+                <div class="tabela-rolavel"><table class="itens"><thead><tr><th>Assunto</th><th>Última</th><th>Registro</th><th>Quando</th><th></th></tr></thead>
+                    <tbody>@foreach (var m in _msgs.Where(m => m.NaoLidas > 0)) { <tr class="cursor-mao" @onclick='() => Nav.NavigateTo($"mensagens?id={m.Id}")'><td><b>@m.Assunto</b> <Selo Texto="@($"{m.NaoLidas} nova(s)")" Tom="erro" /></td><td>@m.UltimoAutor: <span class="mudo">@m.Previa</span></td><td>@m.RegistroDescricao</td><td>@DataHora(m.UltimaEm)</td><td><button class="btn pq prim">Abrir</button></td></tr> }
+                    @if (!_msgs.Any(m => m.NaoLidas > 0)) { <tr><td colspan="5" class="mudo">Nenhuma mensagem nova. <a href="mensagens">Abrir a caixa de mensagens</a></td></tr> }</tbody></table></div>
             }
             else if (_aba == "leituras")
             {
@@ -113,6 +121,7 @@
     private List<(string Texto, int Qtd, string Tom, string Link)> _alertas = [];
     private List<(string Documento, DateOnly Prazo)> _leituras = [];
     private List<QualyHub.Domain.Colaboracao.Tarefa> _tarefas = [];
+    private List<MensagensServico.ResumoConversa> _msgs = [];
     private const int LimiteMeus = 50;
     private List<SolicitacaoAprovacao> _meus = [];
     private (string Substituto, DateTimeOffset Fim)? _delegacao;
@@ -121,7 +130,7 @@
     private bool _vazio, _abertoDel;
     private string _aba = "aprovar";
     private List<(string, string)> Abas => [("aprovar", $"Aprovar ({_aprovar.Count(a => a.Entidade != EntidadeAprovavel.Pagamento)})"), ("pagar", $"Liberar pagamento ({_pagamentos.Count})"),
-        ("tarefas", $"Tarefas ({_tarefas.Count})"), ("alertas", $"Alertas ({_alertas.Sum(a => a.Qtd)})"), ("leituras", $"Leituras ({_leituras.Count})"), ("meus", "Acompanhar (meus pedidos)")];
+        ("tarefas", $"Tarefas ({_tarefas.Count})"), ("mensagens", $"Mensagens ({_msgs.Count(m => m.NaoLidas > 0)})"), ("alertas", $"Alertas ({_alertas.Sum(a => a.Qtd)})"), ("leituras", $"Leituras ({_leituras.Count})"), ("meus", "Acompanhar (meus pedidos)")];
     private static string Saudacao() => DateTime.Now.Hour < 12 ? "Bom dia" : DateTime.Now.Hour < 18 ? "Boa tarde" : "Boa noite";
     private static string Espera(DateTimeOffset d) { var h = (DateTimeOffset.UtcNow - d).TotalHours; return h < 24 ? $"{h:0} h" : $"{h / 24:0} dia(s)"; }
 
@@ -155,6 +164,7 @@
             .Select(c => ($"{c.Revisao.Documento.Codigo} {c.Revisao.Rotulo} – {c.Revisao.Documento.Titulo}", c.Prazo)).ToList();
         _tarefas = await db.Tarefas.AsNoTracking().Include(t => t.Leituras).Where(t => t.ResponsavelId == eu && (t.Status == StatusTarefa.Aberta || t.Status == StatusTarefa.EmAndamento))
                                    .OrderBy(t => t.Prazo).ToListAsync(Cancelamento);
+        if (Usuario.UsuarioId is not null) _msgs = await Mensagens.CaixaAsync(MensagensServico.Pasta.Entrada, null, 50, Cancelamento);
         var ha60 = agora.AddDays(-60);
         _meus = await db.SolicitacoesAprovacao.AsNoTracking().Include(s => s.Etapas).Where(s => s.SolicitanteUsuarioId == eu && s.EnviadoEm >= ha60).OrderByDescending(s => s.EnviadoEm).Take(LimiteMeus).ToListAsync(Cancelamento);
         var del = await db.DelegacoesAprovacao.AsNoTracking().Where(d => d.TitularUsuarioId == eu && !d.Revogada && d.Inicio <= agora && d.Fim > agora).FirstOrDefaultAsync(Cancelamento);
