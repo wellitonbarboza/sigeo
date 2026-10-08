@@ -43,6 +43,13 @@ param criarOrcamento bool = true
 @description('Início do orçamento: primeiro dia do mês corrente (yyyy-MM-01).')
 param orcamentoInicio string
 
+@description('IA: Azure OpenAI (modelo implantado como Global Standard) + Document Intelligence F0 (500 páginas/mês grátis). Acesso só por identidade gerenciada.')
+param criarIa bool = true
+param iaModelo string = 'gpt-4.1-mini'
+param iaModeloVersao string = '2025-04-14'
+@description('Capacidade em milhares de tokens por minuto (cobrança é por token usado, não pela capacidade).')
+param iaCapacidade int = 50
+
 var sufixo = uniqueString(resourceGroup().id)
 var nome = '${prefixo}-${ambiente}'
 var tags = { sistema: 'QualyHub', ambiente: ambiente, gerenciadoPor: 'bicep' }
@@ -234,14 +241,20 @@ resource web 'Microsoft.Web/sites@2023-12-01' = {
       minTlsVersion: '1.2'
       ftpsState: 'Disabled'
       healthCheckPath: '/saude'
-      appSettings: [
+      appSettings: concat([
         { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: appi.properties.ConnectionString }
         { name: 'QualyHub__KeyVaultUri', value: kv.properties.vaultUri }
         { name: 'QualyHub__BlobUri', value: st.properties.primaryEndpoints.blob }
         { name: 'ASPNETCORE_ENVIRONMENT', value: ambiente == 'prd' ? 'Production' : 'Staging' }
         { name: 'ASPNETCORE_FORWARDEDHEADERS_ENABLED', value: 'true' } // TLS termina no proxy do App Service
         { name: 'TZ', value: 'America/Sao_Paulo' }
-      ]
+      ], criarIa ? [
+        { name: 'IA__Endpoint', value: 'https://${iaNome}.openai.azure.com' }
+        { name: 'IA__Deployment', value: iaModelo }
+        { name: 'IA__DocumentosEndpoint', value: 'https://${docNome}.cognitiveservices.azure.com' }
+        { name: 'IA__LimiteMensalPorEmpresa', value: '3000' }
+        { name: 'IA__AnalisarNotasAutomatico', value: 'true' }
+      ] : [])
       connectionStrings: [
         { name: 'QualyHub', connectionString: sqlConn, type: 'SQLAzure' }
       ]
@@ -253,6 +266,8 @@ resource web 'Microsoft.Web/sites@2023-12-01' = {
 var roles = {
   blobContributor: 'ba92f5b4-2d11-453d-a403-e96b0029c9fe'
   kvSecretsUser: '4633458b-17de-408a-b874-0445c86b69e6'
+  openAiUser: '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd'      // Cognitive Services OpenAI User
+  cognitiveUser: 'a97b65f3-24c7-4388-baec-2e87135dc908'   // Cognitive Services User (Document Intelligence)
 }
 
 resource rWebBlob 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
@@ -265,6 +280,48 @@ resource rWebKv 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   scope: kv
   name: guid(kv.id, web.id, roles.kvSecretsUser)
   properties: { principalId: web.identity.principalId, principalType: 'ServicePrincipal', roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roles.kvSecretsUser) }
+}
+
+// ---------------------------- IA (Azure OpenAI + Document Intelligence) ---------------
+// Sem chave: disableLocalAuth e acesso só pela identidade do App Service. O app só chama a IA por botão ou na rotina das 6h30.
+var iaNome = 'oai-${nome}-${take(sufixo, 6)}'
+var docNome = 'doc-${nome}-${take(sufixo, 6)}'
+
+resource oai 'Microsoft.CognitiveServices/accounts@2024-10-01' = if (criarIa) {
+  name: iaNome
+  location: local
+  tags: tags
+  kind: 'OpenAI'
+  sku: { name: 'S0' }
+  properties: { customSubDomainName: iaNome, disableLocalAuth: true, publicNetworkAccess: 'Enabled' }
+}
+
+resource oaiModelo 'Microsoft.CognitiveServices/accounts/deployments@2024-10-01' = if (criarIa) {
+  parent: oai
+  name: iaModelo
+  sku: { name: 'GlobalStandard', capacity: iaCapacidade }
+  properties: { model: { format: 'OpenAI', name: iaModelo, version: iaModeloVersao } }
+}
+
+resource docInt 'Microsoft.CognitiveServices/accounts@2024-10-01' = if (criarIa) {
+  name: docNome
+  location: local
+  tags: tags
+  kind: 'FormRecognizer'
+  sku: { name: 'F0' }
+  properties: { customSubDomainName: docNome, disableLocalAuth: true, publicNetworkAccess: 'Enabled' }
+}
+
+resource rWebOai 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (criarIa) {
+  scope: oai
+  name: guid(iaNome, web.id, roles.openAiUser)
+  properties: { principalId: web.identity.principalId, principalType: 'ServicePrincipal', roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roles.openAiUser) }
+}
+
+resource rWebDoc 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (criarIa) {
+  scope: docInt
+  name: guid(docNome, web.id, roles.cognitiveUser)
+  properties: { principalId: web.identity.principalId, principalType: 'ServicePrincipal', roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roles.cognitiveUser) }
 }
 
 // ---------------------------- Alertas de operação ------------------------------------

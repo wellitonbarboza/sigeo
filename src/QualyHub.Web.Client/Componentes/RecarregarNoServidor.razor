@@ -1,0 +1,7 @@
+@inject NavigationManager Nav
+@* Rota que não é do navegador (tela do servidor) aberta por código (NavigateTo): recarrega a página e o servidor a entrega.
+   Clique em link já faz isso sozinho; NavigateTo sem forceLoad cairia em "não encontrado". *@
+<p class="mudo" style="padding:40px">Abrindo…</p>
+@code {
+    protected override void OnInitialized() => Nav.NavigateTo(Nav.Uri, forceLoad: true, replace: true);
+}

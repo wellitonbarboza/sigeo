@@ -168,7 +168,7 @@
 <Modal @bind-Aberto="_abertoOrc" Titulo="Puxar itens do orçamento por local" Tamanho="grande">
     <ChildContent>
         <Erros Lista="ErrosForm" />
-        <SeletorDemanda Servicos="_compsOrc" Locais="_locaisObra" ServicosSelecionados="_selComp" LocaisSelecionados="_selLoc" Demanda="_demanda"
+        <SeletorDemanda Servicos="_compsOrc" Locais="_locaisSel" ServicosSelecionados="_selComp" LocaisSelecionados="_selLoc" Demanda="_demanda"
                         AoMudarSelecao="() => _demanda = null" AoCalcular="PreviaOrc" Ocupado="Ocupado"
                         IdCalcular="orc-previa" IdTabela="orc-demanda" Casas="3"
                         TituloServicos="@($"1. Serviços ({(_r?.Tipo == TipoRequisicao.Material ? "os materiais saem das composições" : "serviços a contratar")})")"
@@ -210,7 +210,7 @@
     private List<Opcao> _spes = [];
     private IEnumerable<Opcao> SpesDaObra => _r is null ? [] : _spes.Where(s => s.Extra == _r.ObraId.ToString());
     private List<Opcao> _obras = [], _ccs = [], _servicos = [], _fornecedores = [], _estabs = [], _grupos = [];
-    private List<SeletorDemanda.ItemServico> _compsOrc = [];
+    private List<ServicoOrcado> _compsOrc = [];
     private List<ProdutoBusca> _produtos = [];
     private string? _grupoFiltro;
     private bool _abertoOrc;
@@ -223,7 +223,8 @@
     private List<Local> _locaisObraLista = [];
     private Dictionary<Guid, string> _nomeLocal = [];
     /// <summary>Locais da obra da requisição; ao trocar a lista, refaz o dicionário de nomes.</summary>
-    private List<Local> _locaisObra { get => _locaisObraLista; set { _locaisObraLista = value; _nomeLocal = value.ToDictionary(l => l.Id, l => l.Codigo); _arvore = new ArvoreLocais(value); } }
+    private List<Local> _locaisObra { get => _locaisObraLista; set { _locaisObraLista = value; _locaisSel = value.Select(LocalOrcamento.De).ToList(); _nomeLocal = value.ToDictionary(l => l.Id, l => l.Codigo); _arvore = new ArvoreLocais(value); } }
+    private List<LocalOrcamento> _locaisSel = [];
     private ArvoreLocais _arvore = ArvoreLocais.Vazia;
     private readonly HashSet<Guid> _abertos = [];
     private void AlternarLocais(Guid id) { if (!_abertos.Remove(id)) _abertos.Add(id); }
@@ -304,7 +305,7 @@
         var usados = await db.ServicosLocais.AsNoTracking().Where(s => s.ObraId == _r!.ObraId).Select(s => s.ComposicaoId).Distinct().ToListAsync(Cancelamento);
         _compsObra = usados.Count;
         _compsOrc = await db.Composicoes.AsNoTracking().Where(c => c.Ativa && usados.Contains(c.Id)).OrderBy(c => c.Grupo).ThenBy(c => c.Codigo)
-            .Select(c => new SeletorDemanda.ItemServico(c.Id, c.Codigo, c.Descricao, c.Unidade, c.Grupo)).ToListAsync(Cancelamento);
+            .Select(c => new ServicoOrcado(c.Id, c.Codigo, c.Descricao, c.Unidade, c.Grupo)).ToListAsync(Cancelamento);
         _locaisObra = await db.Locais.AsNoTracking().Where(l => l.ObraId == _r!.ObraId).ToListAsync(Cancelamento);
         _selComp.Clear(); _selLoc = []; _demanda = null; ErrosForm = null; _abertoOrc = true;
     }
@@ -333,7 +334,7 @@
             {
                 if (!ja.TryGetValue((d.ProdutoId, x.ComposicaoId, x.LocalId), out var q)) return x;
                 extra += q;
-                return (x.LocalId, x.ComposicaoId, x.Orcado, x.Requisitado + q);
+                return x with { Requisitado = x.Requisitado + q };
             }).ToList();
             return extra == 0 ? d : d with { Locais = locais, Requisitado = d.Requisitado + extra };
         }).ToList();

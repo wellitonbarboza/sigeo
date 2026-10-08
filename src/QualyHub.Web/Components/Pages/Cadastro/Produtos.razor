@@ -1,5 +1,7 @@
 @page "/cadastros/produtos"
 @inherits PaginaBase
+@inject QualyHub.Application.IA.AnalisesIaServico Ia
+@inject QualyHub.Application.IA.IAssistenteIa Assistente
 @inject QualyHub.Infrastructure.Importacao.ImportadorProdutosExpertData ImpProd
 @inject CodigosProdutoServico Codigos
 @inject CadastrosServico Cad
@@ -69,6 +71,13 @@
                 <Campo Rotulo="Descrição completa" Classe="s12"><textarea @bind="_p.DescricaoCompleta" rows="2"></textarea></Campo>
                 <Campo Rotulo="Grupo" Classe="s4"><input @bind="_p.Grupo" list="grupos" /><datalist id="grupos">@foreach (var g in _grupos) { <option>@g</option> }</datalist></Campo>
                 <Campo Rotulo="Subgrupo" Classe="s4"><input @bind="_p.SubGrupo" list="subgrupos" /><datalist id="subgrupos">@foreach (var g in _subgrupos.Where(x => x.Grupo == _p.Grupo)) { <option>@g.Sub</option> }</datalist></Campo>
+                @if (Assistente.Configurado)
+                {
+                    <div class="s12" aria-live="polite">
+                        <button type="button" class="btn sec pq" id="prod-ia" disabled="@_iaOcupado" @onclick="ClassificarIa"><Icone Nome="lupa" Tam="14" /> @(_iaOcupado ? "Classificando…" : "Sugerir grupo e verificar duplicados (IA)")</button>
+                        @if (_iaMsg is not null) { <span class="fonte-13 mudo">&nbsp;@_iaMsg</span> }
+                    </div>
+                }
                 <Campo Rotulo="NCM" Classe="s2" Ajuda="8 dígitos"><input @bind="_p.Ncm" maxlength="10" inputmode="numeric" /></Campo>
                 <Campo Rotulo="Qtd. por embalagem" Classe="s2" Ajuda="Pacote/caixa"><input type="number" step="0.001" @bind="_p.QuantidadePorEmbalagem" /></Campo>
                 <Campo Rotulo="Marca" Classe="s4"><input @bind="_p.Marca" /></Campo>
@@ -255,14 +264,33 @@
         });
     }
 
-    private void Novo() { _p = new Produto(); ErrosForm = null; _aberto = true; }
+    private void Novo() { _p = new Produto(); ErrosForm = null; _iaMsg = null; _aberto = true; }
+
+    private bool _iaOcupado;
+    private string? _iaMsg;
+
+    /// <summary>IA sugere grupo/subgrupo (só os existentes) e aponta possíveis duplicados; preenche só campos vazios.</summary>
+    private async Task ClassificarIa()
+    {
+        _iaOcupado = true; _iaMsg = null;
+        try
+        {
+            var r = await Ia.ClassificarProdutoAsync(_p!.Nome, _p.DescricaoCompleta, _p.CriadoEm == default ? null : _p.Id, Cancelamento);
+            if (string.IsNullOrWhiteSpace(_p.Grupo) || _p.AClassificar) { _p.Grupo = r.Grupo; _p.SubGrupo = r.SubGrupo; }
+            else if (string.IsNullOrWhiteSpace(_p.SubGrupo) && r.Grupo == _p.Grupo) _p.SubGrupo = r.SubGrupo;
+            if (_p.CriadoEm == default && !string.IsNullOrWhiteSpace(r.Unidade) && _p.Unidade == "UN") _p.Unidade = r.Unidade!;
+            _iaMsg = $"Sugestão: {r.Grupo ?? "—"} › {r.SubGrupo ?? "—"}{(r.PossiveisDuplicados.Count > 0 ? $" · possível duplicado: {string.Join(", ", r.PossiveisDuplicados)}" : " · sem duplicado aparente")}. {r.Observacao}";
+        }
+        catch (RegraDeNegocioException e) { _iaMsg = e.Message; }
+        finally { _iaOcupado = false; }
+    }
 
     private async Task Abrir(Guid id)
     {
         Produto? p = null;
         if (!await Executar(async () => p = await Cad.ObterProdutoAsync(id, Cancelamento))) return;
         if (p is null) { Notif.Erro("Produto não encontrado (pode ter sido excluído)."); await CarregarPagina(); return; }
-        _p = p; ErrosForm = null; _aberto = true;
+        _p = p; ErrosForm = null; _iaMsg = null; _aberto = true;
     }
 
     private async Task Salvar()

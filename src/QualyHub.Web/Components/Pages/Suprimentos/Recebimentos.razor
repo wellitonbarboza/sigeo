@@ -125,6 +125,10 @@
                 @if (_r.Ensaios.Count > 0)
                 {
                     <div class="secao"><Icone Nome="regua" /> Ensaios de recebimento</div>
+                    @if (_r.Ensaios.Any(x => x.Situacao == SituacaoEnsaio.Aguardando))
+                    {
+                        <LeituraLaudoIa ReferenciaId="_r.Id" Especificacao="@string.Join("; ", _r.Ensaios.Select(x => $"{x.Ensaio}: {x.Criterio}"))" AoLer="PreencherEnsaios" />
+                    }
                     <div class="tabela-rolavel">
                         <table class="itens">
                             <thead><tr><th>Ensaio</th><th>Amostra</th><th>Coleta</th><th>Resultado previsto</th><th>Critério</th><th>Resultado</th><th>Situação</th><th></th></tr></thead>
@@ -197,6 +201,39 @@
     {
         await Carregar();
         if (Nav.Uri.Contains("?pedido=") && Guid.TryParse(Nav.Uri.Split("?pedido=")[1], out var pid)) { await Novo(); await EscolherPedido(pid.ToString()); }
+        else if (Nav.Uri.Contains("?nota=") && Guid.TryParse(Nav.Uri.Split("?nota=")[1], out var nid)) await NovoDaNota(nid);
+    }
+
+    /// <summary>
+    /// Recebimento a partir da NF-e importada (SIEG/XML) já ligada ao pedido: chave e número da nota preenchidos e a quantidade
+    /// de cada item vinda da nota (itens do pedido sem correspondente na nota ficam com zero). O almoxarife confere e avalia a FVM.
+    /// </summary>
+    private async Task NovoDaNota(Guid notaId)
+    {
+        await using var db = Fabrica.CriarLeitura();
+        var n = await db.NotasFiscais.AsNoTracking().Include(x => x.Itens).FirstOrDefaultAsync(x => x.Id == notaId, Cancelamento);
+        if (n?.PedidoId is not { } pedidoId || n.Situacao != QualyHub.Domain.Fiscal.SituacaoNota.Vinculada) { Notif.Erro("Nota sem pedido vinculado (ou já recebida)."); return; }
+        await Novo();
+        await EscolherPedido(pedidoId.ToString());
+        if (_r is null) return;
+        _r.ChaveNFe = n.Chave; _r.NumeroNotaFiscal = n.Numero.ToString();
+        var porItem = n.Itens.Where(i => i.PedidoItemId != null).GroupBy(i => i.PedidoItemId!.Value).ToDictionary(g => g.Key, g => g.ToList());
+        var avisos = new List<string>();
+        foreach (var ri in _r.Itens)
+        {
+            if (ri.PedidoItemId is { } pi && porItem.TryGetValue(pi, out var nfs))
+            {
+                ri.QtdRecebida = nfs.Sum(x => x.Quantidade);
+                if (nfs.Any(x => !QualyHub.Domain.Fiscal.ConferenciaNota.MesmaUnidade(x.Unidade, ri.Unidade)))
+                    avisos.Add($"{ri.Descricao}: unidade da nota ({string.Join("/", nfs.Select(x => x.Unidade).Distinct())}) diferente do pedido ({ri.Unidade}) — confira a quantidade.");
+                if (ri.QtdRecebida > ri.QtdPedida) avisos.Add($"{ri.Descricao}: nota com {ri.QtdRecebida:0.###} e saldo do pedido {ri.QtdPedida:0.###}.");
+            }
+            else ri.QtdRecebida = 0;
+        }
+        var semPedido = n.Itens.Count(i => i.PedidoItemId is null);
+        if (semPedido > 0) avisos.Add($"{semPedido} item(ns) da nota sem item do pedido correspondente.");
+        if (avisos.Count > 0) ErrosForm = avisos;
+        Notif.Aviso($"Recebimento preenchido pela NF {n.Numero}: confira as quantidades e avalie a FVM.");
     }
 
     private async Task Carregar()
@@ -247,6 +284,23 @@
     private Guid? _apLocal;
     private decimal _apQtd;
     private DateOnly _apData;
+
+    /// <summary>Laudo lido pela IA: sugere o resultado de cada ensaio aguardando (pelo nome mais parecido). Aprovar/reprovar continua com a pessoa.</summary>
+    private void PreencherEnsaios(QualyHub.Application.IA.ResultadoLaudo laudo)
+    {
+        var n = 0;
+        foreach (var en in _r!.Ensaios.Where(x => x.Situacao == SituacaoEnsaio.Aguardando))
+        {
+            var melhor = laudo.Resultados.Select(x => (x, s: QualyHub.Domain.Fiscal.ConferenciaNota.Semelhanca(en.Ensaio, x.Ensaio))).OrderByDescending(x => x.s).FirstOrDefault();
+            if (melhor.x is { } res && melhor.s >= 0.25m && !string.IsNullOrWhiteSpace(res.Valor))
+            {
+                _resEnsaio[en.Id] = $"{res.Valor} {res.Unidade}".Trim() + (laudo.Numero is null ? "" : $" (laudo {laudo.Numero})");
+                n++;
+            }
+        }
+        if (n > 0) Notif.Aviso($"{n} resultado(s) preenchido(s) pelo laudo — confira e aprove ou reprove cada ensaio.");
+        else Notif.Aviso("O laudo não trouxe resultado para os ensaios previstos: confira manualmente.");
+    }
 
     private async Task Ensaio(Guid id, bool aprovado)
     {

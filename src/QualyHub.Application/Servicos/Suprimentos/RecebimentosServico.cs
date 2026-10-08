@@ -88,6 +88,7 @@ public sealed class RecebimentosServico(IFabricaDb fabrica, IUsuarioAtual usuari
             ped.Status = ped.Itens.All(i => i.QuantidadeRecebidaAceita >= i.Quantidade) ? StatusPedido.Entregue : StatusPedido.EntregueParcial;
         }
         if (RegrasAvaliacao.PlanoPorFvm(r, Hoje, await AvaliacaoFornecedoresServico.NumeroPlanoAsync(db, ct)) is { } plano) db.PlanosAcao.Add(plano);
+        await Fiscal.NotasFiscaisServico.MarcarRecebidaAsync(db, r.Id, r.ChaveNFe, ct); // nota importada (SIEG/XML) sai da fila
         await db.SaveChangesAsync(ct);
         return r.Id;
     }

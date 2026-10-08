@@ -588,3 +588,10 @@ tr.linha-locais > td { padding-top: 0 !important; background: transparent; }
 .pl-lista { max-height: 320px; overflow: auto; }
 .ml-auto { margin-left: auto !important; }
 .ml-8 { margin-left: 8px !important; }
+
+/* Mapa da torre (tela no navegador): apartamentos e chips são botões (teclado e leitor de tela) com a aparência de antes. */
+button.predio-apto, button.predio-comum { font: inherit; color: inherit; text-align: left; display: block; }
+button.predio-comum { background: transparent; }
+button.chip { border: 0; font-family: inherit; cursor: pointer; }
+.texto-pre { white-space: pre-wrap; }
+.laudo-ia { margin: 8px 0; }

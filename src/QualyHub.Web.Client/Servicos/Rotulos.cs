@@ -196,6 +196,10 @@ public static partial class Rotulos
         [TipoFluxo.Transferencia] = "Transferência", [TipoFluxo.Venda] = "Venda", [TipoFluxo.Rateio] = "Rateio", [TipoFluxo.TaxaAdministracao] = "Taxa de administração", [TipoFluxo.Remessa] = "Remessa",
         [TipoFrete.CIF] = "CIF", [TipoFrete.FOB] = "FOB", [TipoFrete.NaoSeAplica] = "N/A",
         [StatusTransferencia.Rascunho] = "Rascunho", [StatusTransferencia.Enviada] = "Enviada", [StatusTransferencia.Recebida] = "Recebida na obra", [StatusTransferencia.Cancelada] = "Cancelada",
+        [Domain.Fiscal.SituacaoNota.Recebida] = "Sem pedido", [Domain.Fiscal.SituacaoNota.Vinculada] = "Vinculada ao pedido", [Domain.Fiscal.SituacaoNota.Recebimento] = "Recebimento registrado",
+        [Domain.Fiscal.SituacaoNota.Cancelada] = "Cancelada (SEFAZ)", [Domain.Fiscal.SituacaoNota.Ignorada] = "Ignorada",
+        [Domain.Fiscal.OrigemVinculo.Regra] = "automático", [Domain.Fiscal.OrigemVinculo.Ia] = "sugestão IA", [Domain.Fiscal.OrigemVinculo.Manual] = "manual",
+        [Domain.Fiscal.OrigemNota.Manual] = "Arquivo XML", [Domain.Fiscal.OrigemNota.Sieg] = "SIEG",
     };
 
     public static string De(Enum e)
@@ -245,6 +249,8 @@ public static partial class Rotulos
         StatusPedido.Cancelado => "erro",
         StatusContrato.Ativo => "ok",
         StatusTransferencia.Recebida => "ok", StatusTransferencia.Enviada => "aviso", StatusTransferencia.Cancelada => "erro",
+        Domain.Fiscal.SituacaoNota.Recebida => "aviso", Domain.Fiscal.SituacaoNota.Vinculada => "info", Domain.Fiscal.SituacaoNota.Recebimento => "ok",
+        Domain.Fiscal.SituacaoNota.Cancelada => "erro",
         StatusContrato.AguardandoAprovacaoDiretoria or StatusContrato.AguardandoAssinaturas or StatusContrato.Suspenso => "aviso",
         StatusContrato.Rescindido => "erro",
         StatusMedicao.Aprovada or StatusMedicao.Paga or StatusMedicao.NfRecebida => "ok",

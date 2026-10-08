@@ -190,6 +190,7 @@ internal sealed class CotacaoCfg : IEntityTypeConfiguration<Cotacao>
 {
     public void Configure(EntityTypeBuilder<Cotacao> b)
     {
+        b.Property(x => x.AnaliseIa).HasMaxLength(8000);
         b.HasIndex(x => new { x.EmpresaId, x.Numero }).IsUnique().HasFilter("[Excluido] = 0");
         b.HasOne<Obra>().WithMany().HasForeignKey(x => x.ObraId);
         b.HasOne(x => x.Requisicao).WithMany().HasForeignKey(x => x.RequisicaoId);

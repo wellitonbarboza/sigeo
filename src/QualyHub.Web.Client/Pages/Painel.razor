@@ -1,0 +1,69 @@
+@page "/painel"
+@attribute [Authorize]
+@inherits TelaNavegador
+@* Roda no navegador (WebAssembly): o servidor só calcula os números (API com cache de 5 min por empresa/filtro). *@
+
+<Pagina Titulo="Painel de indicadores" AoAtualizar="() => Carregar(novo: true)">
+    <ChildContent>
+        <div class="pagina">
+            <div class="barra-filtro">
+                <label>Período <select @bind="_meses" @bind:after="() => Carregar()"><option value="3">3 meses</option><option value="6">6 meses</option><option value="12">12 meses</option></select></label>
+                <EscolhaObra Valor="_obra" ValorChanged="TrocarObra" PermitirTodas />
+            </div>
+            <AvisoFalha Mensagem="@Falha" Tecnica="FalhaTecnica" AoTentar="() => Carregar()" />
+            @if (_d is null)
+            {
+                @if (Carregando) { <div class="kpis esqueleto" aria-busy="true">@for (var i = 0; i < 6; i++) { <div class="kpi"><div class="rot">&nbsp;</div><div class="val">…</div></div> }</div> }
+            }
+            else
+            {
+                var d = _d;
+                <div class="kpis">
+                    <Kpi Rotulo="Lead time requisição → pedido" Valor="@(d.LeadTimeDias is null ? "—" : $"{d.LeadTimeDias:0.0} dias")" Sub="meta ≤ 7" Tom="@(d.LeadTimeDias <= 7 ? "ok" : "aviso")" />
+                    <Kpi Rotulo="Compras > limite com propostas" Valor="@(d.PctPropostas is null ? "—" : $"{d.PctPropostas:0}%")" Sub="meta 100%" Tom="@(d.PctPropostas == 100 ? "ok" : "erro")" />
+                    <Kpi Rotulo="FVM aprovadas" Valor="@(d.PctFvm is null ? "—" : $"{d.PctFvm:0}%")" Sub="meta ≥ 95%" Tom="@(d.PctFvm >= 95 ? "ok" : "aviso")" />
+                    <Kpi Rotulo="Nota média prestadores" Valor="@Num(d.NotaMedia)" Sub="meta ≥ 8,0" Tom="@(d.NotaMedia >= 8 ? "ok" : "aviso")" />
+                    <Kpi Rotulo="FVS aprovadas na 1ª" Valor="@(d.PctFvs1a is null ? "—" : $"{d.PctFvs1a:0}%")" Sub="@($"meta ≥ {d.MetaFvs1a:0}%")" Tom="@(d.PctFvs1a >= d.MetaFvs1a ? "ok" : "aviso")" />
+                    <Kpi Rotulo="Documentos SGQ em dia" Valor="@(d.PctDocsEmDia is null ? "—" : $"{d.PctDocsEmDia:0.0}%")" Sub="@($"{d.AnaliseVencida} análise(s) vencida(s)")" Tom="@(d.AnaliseVencida == 0 ? "ok" : "aviso")" />
+                </div>
+                <div class="duas-caixas">
+                    <div class="caixa-sec"><div class="secao"><Icone Nome="grafico" /> FVM aprovadas por mês (%)</div>
+                        <div class="colunas-graf">@foreach (var m in d.FvmPorMes) { <div><b>@(m.Valor is null ? "—" : $"{m.Valor:0}")</b><span class="coluna-verde" style="height:@(Alt(m.Valor, 100))"></span><small>@m.Mes</small></div> }</div></div>
+                    <div class="caixa-sec"><div class="secao"><Icone Nome="grafico" /> Nota média dos prestadores</div>
+                        <div class="colunas-graf">@foreach (var m in d.NotaPorMes) { <div><b>@(m.Valor is null ? "—" : $"{m.Valor:0.0}")</b><span style="height:@(Alt(m.Valor, 10))"></span><small>@m.Mes</small></div> }</div></div>
+                </div>
+                <div class="duas-caixas">
+                    <div class="caixa-sec"><div class="secao"><Icone Nome="alerta" /> Fornecedores com pior desempenho</div>
+                        <table class="itens"><thead><tr><th>Fornecedor</th><th>Indicador</th><th class="num">Valor</th><th>Plano</th></tr></thead>
+                            <tbody>@foreach (var p in d.Piores) { <tr><td>@p.Fornecedor</td><td>@p.Indicador</td><td class="num">@p.Valor</td><td>@if (p.Plano is not null) { <Selo Texto="@p.Plano" Tom="@(p.PlanoAtrasado ? "erro" : "aviso")" /> }</td></tr> }
+                            @if (d.Piores.Count == 0) { <tr><td colspan="4" class="mudo">Sem dados no período.</td></tr> }</tbody></table></div>
+                    <div class="caixa-sec"><div class="secao"><Icone Nome="pasta" /> Controle de documentos</div>
+                        <table class="itens"><tbody>@foreach (var x in d.Documentos) { <tr><td>@x.Texto</td><td class="num"><b>@x.Quantidade</b></td></tr> }</tbody></table></div>
+                </div>
+                <div class="duas-caixas">
+                    <div class="caixa-sec"><div class="secao"><Icone Nome="x-circulo" /> Qualidade da obra</div>
+                        <table class="itens"><tbody>@foreach (var x in d.QualidadeObra) { <tr><td>@x.Texto</td><td class="num"><b>@x.Quantidade</b></td></tr> }</tbody></table></div>
+                    <div class="caixa-sec"><div class="secao"><Icone Nome="info" /> Uso na análise crítica</div>
+                        <p class="fonte-13">Estes indicadores alimentam a análise crítica pela direção (SiAC 9.3). Exporte a tela (Ctrl+P) ou use as grades de cada módulo em Excel para o relatório.</p></div>
+                </div>
+            }
+        </div>
+    </ChildContent>
+    <Faixa><b>Tela 31 · Painel de indicadores</b><span>Calculado no servidor, desenhado no navegador · atualiza a cada 5 min (botão Atualizar força)</span></Faixa>
+</Pagina>
+
+@code {
+    private int _meses = 6;
+    private Guid? _obra;
+    private PainelIndicadoresDto? _d;
+
+    private static string Alt(decimal? v, decimal max) =>
+        $"{(v is null ? 0 : Math.Min(100, 100 * v.Value / max)).ToString("0", System.Globalization.CultureInfo.InvariantCulture)}%";
+
+    protected override Task OnInitializedAsync() => Carregar();
+
+    private async Task TrocarObra(Guid? obra) { _obra = obra; await Carregar(); }
+
+    private Task Carregar(bool novo = false) => Buscar(async () =>
+        _d = await Api.ObterAsync<PainelIndicadoresDto>($"api/telas/painel?meses={_meses}{(_obra is { } o ? $"&obra={o}" : "")}{(novo ? "&novo=true" : "")}", Cancelamento));
+}

@@ -30,6 +30,14 @@ public static class Endpoints
             return a is null ? Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "Anexo não encontrado") : Results.File(await arm.AbrirAsync(a.ArquivoBlob), a.ContentType ?? "application/octet-stream", a.NomeOriginal);
         }).RequireAuthorization();
 
+        app.MapGet("/arquivos/nota/{id:guid}", async (Guid id, IFabricaDb fabrica, IArmazenamento arm) =>
+        {
+            await using var db = fabrica.CriarLeitura();
+            var n = await db.NotasFiscais.AsNoTracking().Where(x => x.Id == id).Select(x => new { x.Chave, x.ArquivoXml }).FirstOrDefaultAsync();
+            return n?.ArquivoXml is null ? Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "XML não encontrado")
+                : Results.File(await arm.AbrirAsync(n.ArquivoXml), "application/xml", $"NFe{n.Chave}.xml");
+        }).RequireAuthorization();
+
         app.MapGet("/arquivos/fornecedor/{id:guid}", async (Guid id, IFabricaDb fabrica, IArmazenamento arm) =>
         {
             await using var db = fabrica.Criar();

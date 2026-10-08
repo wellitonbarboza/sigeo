@@ -1,0 +1,213 @@
+@page "/obra/mapa-torre"
+@attribute [Authorize]
+@inherits TelaNavegador
+@using QualyHub.Domain.Engenharia
+@* Roda no navegador (WebAssembly): o servidor manda a árvore da torre, as células orçadas e a FVS mais recente de cada
+   (serviço, local); a situação de cada apartamento (sobe a árvore até achar FVS) é calculada aqui, sem ocupar o servidor. *@
+
+<Pagina Titulo="Mapa da torre (FVS)" AoAtualizar="Carregar">
+    <ChildContent>
+        <div class="pagina">
+            <div class="barra-filtro">
+                <EscolhaObra Id="mt-obra" Valor="_obraId" ValorChanged="TrocarObra" Inicial="ObraQuery" />
+                <label>Torre <select id="mt-torre" value="@_torreId" @onchange="TrocarTorre"><option value="">Selecione…</option>@foreach (var t in _torres) { <option @key="t.Id" value="@t.Id">@t.Texto</option> }</select></label>
+                <label>Serviço <select @bind="_fIts"><option value="">Todos</option>@foreach (var s in _its.Values.OrderBy(s => s.Codigo)) { <option @key="s.Id" value="@s.Id">@s.Sigla – @s.Nome</option> }</select></label>
+            </div>
+            <AvisoFalha Mensagem="@Falha" Tecnica="FalhaTecnica" AoTentar="Carregar" />
+            @if (_torreId is null) { <div class="alerta info"><Icone Nome="info" /> Escolha a obra e a torre. O mapa mostra, por apartamento, as siglas das FVS dos serviços que entram nele (pelo orçamento das tipologias), coloridas pela situação.</div> }
+            else if (_torre is not null)
+            {
+                <div class="kpis">
+                    <Kpi Rotulo="Inspeções previstas" Valor="@_totalPrev.ToString("N0", Br)" Sub="serviço controlado × local" />
+                    <Kpi Rotulo="Aprovadas / liberadas" Valor="@_totalOk.ToString("N0", Br)" Sub="@(_totalPrev == 0 ? "" : $"{100m * _totalOk / _totalPrev:0}%")" Tom="ok" />
+                    <Kpi Rotulo="Reprovadas" Valor="@_totalErro.ToString("N0", Br)" Tom="erro" />
+                    <Kpi Rotulo="Em inspeção" Valor="@_totalAnd.ToString("N0", Br)" Tom="aviso" />
+                </div>
+                @if (_comunsTorre.Count > 0 || _comunsCond.Count > 0)
+                {
+                    <div class="predio-comuns">
+                        @foreach (var c in _comunsCond.Concat(_comunsTorre)) { <button type="button" class="predio-comum" @key="c.Id" @onclick="() => Abrir(c)"><b>@c.Nome</b>@Chips(c)</button> }
+                    </div>
+                }
+                <div class="tabela-rolavel">
+                <div class="predio" id="mapa-torre">
+                    @foreach (var p in _pavs)
+                    {
+                        <div class="predio-pav" @key="p.Id">
+                            <div class="predio-rotulo">@p.Nome</div>
+                            @foreach (var a in _aptosPav[p.Id]) { <button type="button" class="predio-apto" @key="a.Id" id="apto-@a.Codigo" aria-label="@($"{a.Nome}: abrir cômodos e FVS")" @onclick="() => Abrir(a)"><b>@a.Nome.Replace("Apto ", "")</b>@Chips(a)</button> }
+                            @foreach (var c in _comunsPav[p.Id]) { <button type="button" class="predio-apto comum" @key="c.Id" @onclick="() => Abrir(c)"><b>@c.Nome</b>@Chips(c)</button> }
+                        </div>
+                    }
+                    <div class="predio-base">@_torre.Nome</div>
+                </div>
+                </div>
+                <div class="legenda"><span><i class="st-ok"></i>Aprovada / liberada</span><span><i class="st-and"></i>Em inspeção / parcial</span><span><i class="st-erro"></i>Reprovada</span><span><i class="st-pend"></i>Não iniciada</span></div>
+            }
+            else if (Carregando) { <p class="mudo" aria-busy="true">Carregando o mapa…</p> }
+        </div>
+    </ChildContent>
+    <Faixa><b>Mapa da torre</b><span>Pavimentos × apartamentos com as FVS dos serviços de cada um</span><span>Clique no apartamento para ver cômodo × serviço e abrir a FVS</span></Faixa>
+</Pagina>
+
+<Modal @bind-Aberto="_aberto" Titulo="@(_sel is null ? "" : $"{_sel.Codigo} – {_sel.Nome}")" Tamanho="grande">
+    <ChildContent>
+        @if (_sel is not null)
+        {
+            var locais = new[] { _sel }.Concat(_filhos[_sel.Id].OrderBy(x => x.Ordem)).ToList();
+            var its = ItsDe(_sel).Select(c => c.Its).ToList();
+            <div class="tabela-rolavel">
+            <table class="itens" id="mapa-detalhe">
+                <thead><tr><th>Local</th>@foreach (var s in its) { <th class="num" title="@s.Nome">@s.Sigla</th> }</tr></thead>
+                <tbody>
+                    @foreach (var l in locais)
+                    {
+                        <tr @key="l.Id"><td>@l.Nome <span class="mudo">@l.Codigo</span></td>
+                            @foreach (var s in its)
+                            {
+                                if (!_celulas.Contains((s.Id, l.Id))) { <td></td> continue; }
+                                var (st, f) = Situacao(s.Id, l.Id);
+                                <td class="num"><button type="button" class="chip @Classe(st) ponteiro" title="@(f is null ? "Abrir nova FVS" : $"{f.Numero} · {De(f.Status)}")" @onclick="() => AbrirFvs(l.Id, s.Id, f)">@s.Sigla</button></td>
+                            }
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            </div>
+            <p class="mudo">Só aparecem as células orçadas (serviço × local). FVS aberta no apartamento vale para os cômodos dele.</p>
+        }
+    </ChildContent>
+</Modal>
+
+@code {
+    [SupplyParameterFromQuery(Name = "obra")] public Guid? ObraQuery { get; set; }
+    private const string TipoPavimento = GeradorEmpreendimento.TipoPavimento, TipoApartamento = GeradorEmpreendimento.TipoApartamento, TipoAreaComum = GeradorEmpreendimento.TipoAreaComum;
+    private static readonly System.Globalization.CultureInfo Br = new("pt-BR");
+
+    private Guid? _obraId, _torreId, _fIts;
+    private List<Opcao> _torres = [];
+    private List<LocalMapa> _pavs = [], _comunsTorre = [], _comunsCond = [];
+    private LocalMapa? _torre, _sel;
+    private Dictionary<Guid, LocalMapa> _porId = [];
+    private ILookup<Guid?, LocalMapa> _filhos = Array.Empty<LocalMapa>().ToLookup(l => l.PaiId);
+    private ILookup<Guid, LocalMapa> _aptosPav = Array.Empty<LocalMapa>().ToLookup(l => l.Id), _comunsPav = Array.Empty<LocalMapa>().ToLookup(l => l.Id);
+    private HashSet<(Guid Its, Guid Local)> _celulas = [];
+    private ILookup<Guid, Guid> _itsPorLocal = Array.Empty<CelulaMapa>().ToLookup(c => c.LocalId, c => c.ServicoId);
+    private Dictionary<Guid, ServicoMapa> _its = [];
+    private Dictionary<(Guid Its, Guid Local), FvsMapa> _fvsPor = [];
+    private readonly Dictionary<(Guid Its, Guid Local), (St St, FvsMapa? Fvs)> _sitCache = [];
+    private readonly Dictionary<Guid, List<(ServicoMapa Its, St St)>> _chips = [];
+    private bool _aberto;
+    private int _totalPrev, _totalOk, _totalErro, _totalAnd;
+
+    private enum St { Pend, And, Ok, Erro }
+
+    private async Task TrocarObra(Guid? obra)
+    {
+        _obraId = obra; _torreId = null; _torre = null; _sel = null; _aberto = false; _torres = [];
+        if (obra is not { } o) return;
+        await Buscar(async () =>
+        {
+            _torres = await Api.ObterAsync<List<Opcao>>($"api/telas/obra/{o}/torres", Cancelamento);
+            _torreId = _torres.FirstOrDefault()?.Id;
+        });
+        await Carregar();
+    }
+
+    private async Task TrocarTorre(ChangeEventArgs e)
+    {
+        _torreId = Guid.TryParse(e.Value?.ToString(), out var g) ? g : null;
+        _sel = null; _aberto = false; _torre = null;
+        await Carregar();
+    }
+
+    private Task Carregar() => _obraId is not { } o || _torreId is not { } t ? Task.CompletedTask : Buscar(async () =>
+    {
+        var m = await Api.ObterAsync<MapaTorreDto>($"api/telas/obra/{o}/mapa-torre/{t}", Cancelamento);
+        Montar(m);
+    });
+
+    private void Montar(MapaTorreDto m)
+    {
+        _porId = m.Locais.ToDictionary(l => l.Id);
+        _filhos = m.Locais.ToLookup(l => l.PaiId);
+        _torre = _porId[m.TorreId];
+        var t = _torre.Id;
+        _pavs = _filhos[t].Where(l => l.Tipo == TipoPavimento).OrderByDescending(l => l.Ordem).ToList();
+        _aptosPav = _pavs.SelectMany(p => _filhos[p.Id].Where(x => x.Tipo == TipoApartamento).OrderBy(x => x.Ordem)).ToLookup(x => x.PaiId!.Value);
+        _comunsPav = _pavs.SelectMany(p => _filhos[p.Id].Where(x => x.Tipo == TipoAreaComum).OrderBy(x => x.Ordem)).ToLookup(x => x.PaiId!.Value);
+        _comunsTorre = _filhos[t].Where(l => l.Tipo == TipoAreaComum).OrderBy(l => l.Ordem).ToList();
+        _comunsCond = _filhos[_torre.PaiId].Where(l => l.Tipo == TipoAreaComum).OrderBy(l => l.Ordem).ToList();
+        _celulas = m.Celulas.Select(c => (c.ServicoId, c.LocalId)).ToHashSet();
+        _itsPorLocal = m.Celulas.ToLookup(c => c.LocalId, c => c.ServicoId);
+        _its = m.Servicos.ToDictionary(s => s.Id);
+        _fvsPor = m.Fvs.ToDictionary(f => (f.ServicoId, f.LocalId));
+        _sitCache.Clear();
+        var sts = _celulas.Select(c => Situacao(c.Its, c.Local).St).ToList();
+        _totalPrev = sts.Count; _totalOk = sts.Count(s => s == St.Ok); _totalErro = sts.Count(s => s == St.Erro); _totalAnd = sts.Count(s => s == St.And);
+        _chips.Clear();
+        foreach (var l in _comunsCond.Concat(_comunsTorre).Concat(_aptosPav.SelectMany(g => g)).Concat(_comunsPav.SelectMany(g => g))) _chips[l.Id] = CalcularChips(l);
+    }
+
+    private HashSet<Guid> Subarvore(Guid raiz)
+    {
+        var r = new HashSet<Guid> { raiz };
+        var fila = new Queue<Guid>([raiz]);
+        while (fila.Count > 0) foreach (var f in _filhos[fila.Dequeue()]) if (r.Add(f.Id)) fila.Enqueue(f.Id);
+        return r;
+    }
+
+    /// <summary>FVS do serviço no próprio local ou num nível acima (a mais recente).</summary>
+    private (St St, FvsMapa? Fvs) Situacao(Guid its, Guid local)
+    {
+        if (_sitCache.TryGetValue((its, local), out var r)) return r;
+        r = (St.Pend, null);
+        Guid? x = local;
+        while (x is { } id)
+        {
+            if (_fvsPor.TryGetValue((its, id), out var f))
+            { r = (f.Status switch { StatusFvs.Aprovada or StatusFvs.Liberada => St.Ok, StatusFvs.Reprovada => St.Erro, _ => St.And }, f); break; }
+            x = _porId.TryGetValue(id, out var l) ? l.PaiId : null;
+        }
+        _sitCache[(its, local)] = r;
+        return r;
+    }
+
+    /// <summary>Serviços do conjunto (local + cômodos) com a situação agregada: reprovada se alguma; aprovada se todas; parcial se alguma andou.</summary>
+    private List<(ServicoMapa Its, St St)> CalcularChips(LocalMapa raiz)
+    {
+        var porIts = new Dictionary<Guid, List<St>>();
+        foreach (var loc in Subarvore(raiz.Id))
+            foreach (var its in _itsPorLocal[loc])
+            {
+                if (!porIts.TryGetValue(its, out var lst)) porIts[its] = lst = [];
+                lst.Add(Situacao(its, loc).St);
+            }
+        return porIts.Where(kv => _its.ContainsKey(kv.Key)).Select(kv => (_its[kv.Key], Agregar(kv.Value))).OrderBy(x => x.Item1.Codigo).ToList();
+    }
+
+    private static St Agregar(List<St> st)
+    {
+        if (st.Count == 0) return St.Pend;
+        if (st.Contains(St.Erro)) return St.Erro;
+        if (st.All(s => s == St.Ok)) return St.Ok;
+        return st.Any(s => s is St.Ok or St.And) ? St.And : St.Pend;
+    }
+
+    private IEnumerable<(ServicoMapa Its, St St)> ItsDe(LocalMapa l)
+    {
+        if (!_chips.TryGetValue(l.Id, out var lst)) _chips[l.Id] = lst = CalcularChips(l);
+        return _fIts is { } f ? lst.Where(c => c.Its.Id == f) : lst;
+    }
+
+    private static string Classe(St s) => s switch { St.Ok => "st-ok", St.Erro => "st-erro", St.And => "st-and", _ => "st-pend" };
+
+    private void Abrir(LocalMapa l) { _sel = l; _aberto = true; }
+
+    // A FVS é tela do servidor: a navegação recarrega a página e o servidor a entrega.
+    private void AbrirFvs(Guid local, Guid its, FvsMapa? f) =>
+        Nav.NavigateTo(f is null ? $"obra/fvs?local={local}&servico={its}" : $"obra/fvs?id={f.Id}");
+
+    private RenderFragment Chips(LocalMapa l) =>
+        @<div class="chips">@foreach (var c in ItsDe(l)) { <span class="chip @Classe(c.St)" title="@c.Its.Nome">@c.Its.Sigla</span> }</div>;
+}

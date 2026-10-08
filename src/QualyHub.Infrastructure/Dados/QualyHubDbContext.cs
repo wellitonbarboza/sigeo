@@ -115,6 +115,10 @@ public class QualyHubDbContext(DbContextOptions<QualyHubDbContext> options, IUsu
     public DbSet<FornecedorContato> FornecedorContatos => Set<FornecedorContato>();
     public DbSet<CategoriaProduto> CategoriasProduto => Set<CategoriaProduto>();
     public DbSet<Spe> Spes => Set<Spe>();
+    public DbSet<Domain.Fiscal.NotaFiscalEntrada> NotasFiscais => Set<Domain.Fiscal.NotaFiscalEntrada>();
+    public DbSet<Domain.Fiscal.NotaFiscalItem> NotaFiscalItens => Set<Domain.Fiscal.NotaFiscalItem>();
+    public DbSet<Domain.Fiscal.ImportacaoNota> ImportacoesNota => Set<Domain.Fiscal.ImportacaoNota>();
+    public DbSet<Domain.Fiscal.UsoIa> UsosIa => Set<Domain.Fiscal.UsoIa>();
     public DbSet<Quadra> Quadras => Set<Quadra>();
     public DbSet<Tipologia> Tipologias => Set<Tipologia>();
     public DbSet<TipologiaAmbiente> TipologiaAmbientes => Set<TipologiaAmbiente>();

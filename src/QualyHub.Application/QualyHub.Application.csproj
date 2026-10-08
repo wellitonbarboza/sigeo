@@ -4,6 +4,7 @@
        mas não conhece SQL Server, Azure nem planilhas: isso fica na Infrastructure, que implementa as abstrações daqui. -->
   <ItemGroup>
     <ProjectReference Include="..\QualyHub.Domain\QualyHub.Domain.csproj" />
+    <ProjectReference Include="..\QualyHub.Contratos\QualyHub.Contratos.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -24,4 +25,7 @@
     <RootNamespace>QualyHub.Application</RootNamespace>
   </PropertyGroup>
 
+  <ItemGroup>
+    <Using Include="QualyHub.Contratos" />
+  </ItemGroup>
 </Project>

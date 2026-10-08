@@ -42,11 +42,8 @@
 }
 
 @code {
-    /// <summary>Serviço (composição) com células no orçamento da obra.</summary>
-    public sealed record ItemServico(Guid Id, string Codigo, string Descricao, string? Unidade, string? Grupo);
-
-    [Parameter] public IReadOnlyList<ItemServico> Servicos { get; set; } = [];
-    [Parameter] public IReadOnlyList<Local> Locais { get; set; } = [];
+    [Parameter] public IReadOnlyList<ServicoOrcado> Servicos { get; set; } = [];
+    [Parameter] public IReadOnlyList<LocalOrcamento> Locais { get; set; } = [];
     /// <summary>Conjuntos da tela (ela usa para calcular e para a ação); o componente marca/desmarca neles.</summary>
     [Parameter] public HashSet<Guid> ServicosSelecionados { get; set; } = [];
     [Parameter] public HashSet<Guid> LocaisSelecionados { get; set; } = [];
@@ -83,7 +80,7 @@
         if (_grupo is not null && !_grupos.Contains(_grupo)) _grupo = null;
     }
 
-    private IEnumerable<ItemServico> Filtrados()
+    private IEnumerable<ServicoOrcado> Filtrados()
     {
         var busca = string.IsNullOrWhiteSpace(_busca) ? null : Rotulos.SemAcento(_busca);
         return Servicos.Where(c => (string.IsNullOrEmpty(_grupo) || c.Grupo == _grupo)

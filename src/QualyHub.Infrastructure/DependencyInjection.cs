@@ -29,6 +29,9 @@ public static class DependencyInjection
         services.AddSingleton<IFabricaSistema>(new Servicos.FabricaSistema(connectionString));
         services.AddScoped<IFabricaDb, Servicos.FabricaDb>();
         services.AddScoped<AprovacaoServico>();
+        services.AddScoped<Application.Consultas.PaineisConsultas>();
+        services.AddScoped<Application.Consultas.EngenhariaConsultas>();
+        services.AddScoped<Application.Fiscal.NotasFiscaisServico>();
         // Suprimentos: um serviço por processo (antes um só com 7 processos).
         services.AddScoped<RequisicoesServico>();
         services.AddScoped<CotacoesServico>();
@@ -88,6 +91,22 @@ public static class DependencyInjectionComunicacao
                 sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<Comunicacao.EnvioAcs>>()));
         else if (desenvolvimento) services.AddSingleton<IEnvioMensagens, Comunicacao.EnvioLocalLog>();
         else services.AddSingleton<IEnvioMensagens, Comunicacao.EnvioIndisponivel>();
+        return services;
+    }
+    /// <summary>
+    /// Integrações externas: SIEG (notas fiscais de entrada). Sem credencial da empresa o conector fica registrado,
+    /// mas responde "não configurada" — a tela mostra só a importação por arquivo.
+    /// </summary>
+    public static IServiceCollection AddQualyHubIntegracoes(this IServiceCollection services, Microsoft.Extensions.Configuration.IConfiguration cfg)
+    {
+        services.AddHttpClient("sieg", c => c.Timeout = TimeSpan.FromMinutes(3));
+        services.AddSingleton<Application.Fiscal.IFonteNotas, Servicos.FonteSieg>();
+        // IA (Azure OpenAI + Document Intelligence): sem endpoint configurado os botões não aparecem.
+        services.AddHttpClient("ia", c => c.Timeout = TimeSpan.FromMinutes(2));
+        services.AddSingleton<Application.IA.IAssistenteIa, Servicos.AssistenteAzureOpenAi>();
+        services.AddSingleton<Application.IA.ILeitorDocumentos, Servicos.LeitorDocumentIntelligence>();
+        services.AddSingleton(new Application.IA.LimitesIa(int.TryParse(cfg["IA:LimiteMensalPorEmpresa"], out var l) ? l : 3000));
+        services.AddScoped<Application.IA.AnalisesIaServico>();
         return services;
     }
 }

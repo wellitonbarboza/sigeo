@@ -1,0 +1,24 @@
+@* Roteador das telas que rodam no navegador. Rota que não é daqui (tela do servidor) → o Router recarrega a página
+   e o servidor entrega a tela pelo roteador dele. Layout é o mesmo das telas do servidor (MainLayout). *@
+<Router AppAssembly="typeof(RotasNavegador).Assembly">
+    <Found Context="routeData">
+        <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(MainLayout)">
+            <NotAuthorized><IrParaLogin /></NotAuthorized>
+            <Authorizing><div style="padding:40px">Carregando…</div></Authorizing>
+        </AuthorizeRouteView>
+        <FocusOnNavigate RouteData="routeData" Selector="h1" />
+    </Found>
+    <NotFound><RecarregarNoServidor /></NotFound>
+</Router>
+
+@code {
+    // Rotas das páginas deste projeto (atributo @page). Lidas uma vez; o servidor usa para escolher o modo da página.
+    private static readonly HashSet<string> Caminhos = typeof(RotasNavegador).Assembly.GetTypes()
+        .SelectMany(t => t.GetCustomAttributes(typeof(RouteAttribute), false).Cast<RouteAttribute>())
+        .Select(r => "/" + r.Template.Trim('/').ToLowerInvariant())
+        .ToHashSet();
+
+    /// <summary>A página do caminho roda no navegador? (sem parâmetros de rota: as telas daqui usam query string)</summary>
+    public static bool Atende(string? caminho) =>
+        caminho is { Length: > 0 } && Caminhos.Contains("/" + caminho.Trim('/').ToLowerInvariant());
+}

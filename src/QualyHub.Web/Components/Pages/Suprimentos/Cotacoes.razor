@@ -108,6 +108,7 @@
                     </tbody>
                 </table>
             </div>
+            <AnaliseIaCotacao Cotacao="_c" AntesDeAnalisar="SalvarAntesDaIa" AoConcluir="Recarregar" />
 
             <div class="form mt-14">
                 <Campo Rotulo="Fornecedor vencedor" Obrigatorio Classe="s4">
@@ -282,6 +283,9 @@
         if (_c!.Status == StatusCotacao.AguardandoPropostas && _c.Fornecedores.Any(f => f.Status != StatusConvite.Convidado)) _c.Status = StatusCotacao.EmAnalise;
         if (await Executar(() => CotacoesSrv.SalvarCotacaoAsync(_c!, Cancelamento), "Cotação salva.")) await Recarregar();
     }
+
+    /// <summary>A IA lê o mapa gravado: em edição, salva antes (sem recarregar; a análise recarrega no fim).</summary>
+    private Task<bool> SalvarAntesDaIa() => Editavel ? Executar(() => CotacoesSrv.SalvarCotacaoAsync(_c!, Cancelamento)) : Task.FromResult(true);
 
     private async Task Enviar()
     {

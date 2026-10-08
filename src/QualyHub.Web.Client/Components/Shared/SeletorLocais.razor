@@ -1,3 +1,4 @@
+@using QualyHub.Domain.Engenharia
 @* Escolha de locais na árvore (condomínio › torre › pavimento › apartamento › cômodo/área comum). Marcar um nível inclui tudo abaixo dele. *@
 <div class="seletor-locais">
     @foreach (var (l, n) in Linhas())
@@ -13,15 +14,15 @@
 </div>
 
 @code {
-    [Parameter] public IReadOnlyList<Local> Locais { get; set; } = [];
+    [Parameter] public IReadOnlyList<LocalOrcamento> Locais { get; set; } = [];
     [Parameter] public HashSet<Guid> Selecionados { get; set; } = [];
     [Parameter] public EventCallback SelecionadosChanged { get; set; }
     /// <summary>Nível mais baixo exibido (ex.: Apartamento esconde cômodos).</summary>
     [Parameter] public string? AteNivel { get; set; } = GeradorEmpreendimento.TipoApartamento;
 
-    private ILookup<Guid?, Local> _filhos = Array.Empty<Local>().ToLookup(l => l.LocalPaiId);
-    private ILookup<Guid?, Local> _todosFilhos = Array.Empty<Local>().ToLookup(l => l.LocalPaiId);
-    private Dictionary<Guid, Local> _porId = [];
+    private ILookup<Guid?, LocalOrcamento> _filhos = Array.Empty<LocalOrcamento>().ToLookup(l => l.PaiId);
+    private ILookup<Guid?, LocalOrcamento> _todosFilhos = Array.Empty<LocalOrcamento>().ToLookup(l => l.PaiId);
+    private Dictionary<Guid, LocalOrcamento> _porId = [];
     private readonly HashSet<Guid> _abertos = [];
     private static readonly string[] Ordem = [GeradorEmpreendimento.TipoCondominio, GeradorEmpreendimento.TipoTorre, GeradorEmpreendimento.TipoPavimento, GeradorEmpreendimento.TipoApartamento, GeradorEmpreendimento.TipoComodo];
 
@@ -29,15 +30,15 @@
     {
         var limite = AteNivel is null ? 99 : Array.IndexOf(Ordem, AteNivel);
         var visiveis = Locais.Where(l => { var i = Array.IndexOf(Ordem, l.Tipo); return i < 0 ? limite >= 3 : i <= limite; }).ToList();
-        _filhos = visiveis.ToLookup(l => l.LocalPaiId);
+        _filhos = visiveis.ToLookup(l => l.PaiId);
         _porId = Locais.ToDictionary(l => l.Id);
-        _todosFilhos = Locais.ToLookup(l => l.LocalPaiId);
+        _todosFilhos = Locais.ToLookup(l => l.PaiId);
         foreach (var c in visiveis.Where(l => l.Tipo == GeradorEmpreendimento.TipoCondominio)) _abertos.Add(c.Id);
     }
 
-    private IEnumerable<(Local, int)> Linhas()
+    private IEnumerable<(LocalOrcamento, int)> Linhas()
     {
-        IEnumerable<(Local, int)> Desce(Guid? pai, int n)
+        IEnumerable<(LocalOrcamento, int)> Desce(Guid? pai, int n)
         {
             foreach (var l in _filhos[pai].OrderBy(l => l.Tipo == GeradorEmpreendimento.TipoAreaComum ? 0 : 1).ThenBy(l => l.Ordem).ThenBy(l => l.Codigo))
             {
@@ -46,14 +47,14 @@
             }
         }
         var ids = _filhos.SelectMany(g => g).Select(l => l.Id).ToHashSet();
-        var raizes = _filhos.SelectMany(g => g).Where(l => l.LocalPaiId is null || !ids.Contains(l.LocalPaiId.Value)).Select(l => l.LocalPaiId).Distinct();
+        var raizes = _filhos.SelectMany(g => g).Where(l => l.PaiId is null || !ids.Contains(l.PaiId.Value)).Select(l => l.PaiId).Distinct();
         return raizes.SelectMany(r => Desce(r, 0));
     }
 
-    private bool Coberto(Local l)
+    private bool Coberto(LocalOrcamento l)
     {
-        var p = l.LocalPaiId;
-        while (p is { } id && _porId.TryGetValue(id, out var x)) { if (Selecionados.Contains(id)) return true; p = x.LocalPaiId; }
+        var p = l.PaiId;
+        while (p is { } id && _porId.TryGetValue(id, out var x)) { if (Selecionados.Contains(id)) return true; p = x.PaiId; }
         return false;
     }
 

@@ -2,6 +2,8 @@
 @inherits PaginaBase
 @inject QualidadeObraServico Qob
 @inject NavigationManager Nav
+@inject QualyHub.Application.IA.AnalisesIaServico Ia
+@inject QualyHub.Application.IA.IAssistenteIa Assistente
 
 <Pagina Titulo="Não conformidades" Grade="_grade" AoNovo="Novo" AoAtualizar="Carregar">
     <ChildContent>
@@ -53,6 +55,31 @@
                 <Campo Rotulo="Exige ação corretiva?" Classe="s4"><select @bind="_r.ExigeAcao" disabled="@Encerrada"><option value="False">Não — caso isolado</option><option value="True">Sim (gravidade alta / reincidência)</option></select></Campo>
                 @if (!string.IsNullOrEmpty(_r.LocaisAfetados)) { <Campo Rotulo="Locais afetados (rastreabilidade do lote)" Classe="s12"><input readonly value="@_r.LocaisAfetados" /></Campo> }
             </div>
+            @if (Assistente.Configurado && !Encerrada)
+            {
+                <div class="caixa-sec mt-10" id="rnc-ia">
+                    <div class="secao"><Icone Nome="lupa" /> Sugestão de tratamento (IA)
+                        <span class="acao"><button class="btn sec pq" id="rnc-ia-sugerir" disabled="@_iaOcupado" @onclick="SugerirIa">@(_iaOcupado ? "Analisando…" : "Sugerir com IA")</button></span></div>
+                    <div aria-live="polite">
+                        @if (_iaErro is not null) { <div class="alerta aviso" role="alert"><Icone Nome="exclamacao" /> @_iaErro</div> }
+                        @if (_sug is { } sg)
+                        {
+                            <div class="fonte-13">
+                                <p><b>Resumo:</b> @sg.Resumo</p>
+                                @if (sg.CausasProvaveis.Count > 0) { <p><b>Causas prováveis:</b></p><ul>@foreach (var c in sg.CausasProvaveis) { <li>@c</li> }</ul> }
+                                @if (sg.CincoPorques.Count > 0) { <p><b>5 porquês:</b></p><ol>@foreach (var c in sg.CincoPorques) { <li>@c</li> }</ol> }
+                                <p><b>Disposição sugerida:</b> @sg.Disposicao</p>
+                                <p><b>Ação corretiva:</b> @sg.AcaoCorretiva</p>
+                                <p><b>Ação preventiva:</b> @sg.AcaoPreventiva</p>
+                                @if (sg.Referencias.Count > 0) { <p><b>Referências:</b> @string.Join("; ", sg.Referencias)</p> }
+                                <p class="mudo">Sugestão para a equipe avaliar — não substitui a análise do responsável técnico.
+                                    @if (sg.PrazoDias > 0) { <button class="btn sec pq" @onclick="() => _r!.Prazo = Hoje.AddDays(sg.PrazoDias)">Usar prazo de @sg.PrazoDias dia(s)</button> }</p>
+                            </div>
+                        }
+                        else if (!_iaOcupado) { <p class="mudo">Descreva a não conformidade e peça causas prováveis, disposição e ações sugeridas.</p> }
+                    </div>
+                </div>
+            }
             @if (_r.Origem == OrigemRnc.Fvs && _r.ReferenciaId is { } fid) { <div class="alerta aviso"><Icone Nome="alerta" /> Etapa seguinte do local bloqueada até a reinspeção da <a href="obra/fvs?id=@fid">&nbsp;FVS&nbsp;</a> ser aprovada. Prestador avisado (conta na nota de qualidade do serviço da medição).</div> }
             @if (_r.AcaoCorretivaId is { } ac) { <div class="alerta info"><Icone Nome="ferramenta" /> Ação corretiva <a href="obra/acoes?id=@ac">&nbsp;@_acs.GetValueOrDefault(ac)</a></div> }
             @if (!Novo_) { <Anexos Entidade="Rnc" EntidadeId="_r.Id" Categoria="Evidencia" Titulo="Evidências e fotos" SomenteLeitura="Encerrada" /> }
@@ -74,6 +101,22 @@
     private Grade<Rnc>? _grade;
     private List<Rnc>? _itens;
     private Rnc? _r;
+    private QualyHub.Application.IA.SugestaoRnc? _sug;
+    private bool _iaOcupado;
+    private string? _iaErro;
+
+    private async Task SugerirIa()
+    {
+        _iaErro = null; _iaOcupado = true;
+        try
+        {
+            var local = _r!.LocalId is { } l ? _locais.FirstOrDefault(x => x.Id == l)?.Texto : null;
+            var forn = _r.FornecedorId is { } f ? _fornecedores.FirstOrDefault(x => x.Id == f)?.Texto : null;
+            _sug = await Ia.SugerirRncAsync(_r.Descricao, De(_r.Classificacao), De(_r.Gravidade), local, forn, _r.CriadoEm == default ? null : _r.Id, Cancelamento);
+        }
+        catch (RegraDeNegocioException e) { _iaErro = e.Message; }
+        finally { _iaOcupado = false; }
+    }
     private bool _aberto;
     private Dictionary<Guid, string> _acs = [], _locNomes = [];
     private List<Opcao> _obras = [], _locais = [], _fornecedores = [], _usuarios = [];
@@ -99,6 +142,7 @@
 
     private void Novo()
     {
+        _sug = null; _iaErro = null;
         _r = new Rnc { Origem = OrigemRnc.ProcessoInterno, Prazo = Hoje.AddDays(7), ResponsavelId = Usuario.UsuarioId, ObraId = _obras.Count == 1 ? _obras[0].Id : null };
         ErrosForm = null; _aberto = true;
     }
@@ -106,6 +150,7 @@
     private async Task Abrir(Guid id)
     {
         await using var db = Fabrica.CriarLeitura();
+        _sug = null; _iaErro = null;
         _r = await db.Rncs.AsNoTracking().FirstAsync(x => x.Id == id, Cancelamento);
         _locais = _r.ObraId is { } o ? await Cat.LocaisAsync(o) : [];
         ErrosForm = null; _aberto = true;

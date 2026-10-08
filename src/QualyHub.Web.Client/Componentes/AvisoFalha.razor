@@ -1,0 +1,14 @@
+@* Recusa de negócio (texto do servidor) ou falha técnica com "tentar de novo". Região anunciada ao leitor de tela. *@
+<div aria-live="polite">
+    @if (Mensagem is not null)
+    {
+        <div class="alerta @(Tecnica ? "erro" : "aviso")" role="alert"><Icone Nome="exclamacao" />
+            <div>@Mensagem @if (Tecnica && AoTentar.HasDelegate) { <button type="button" class="btn sec pq" @onclick="AoTentar">Tentar de novo</button> }</div>
+        </div>
+    }
+</div>
+@code {
+    [Parameter] public string? Mensagem { get; set; }
+    [Parameter] public bool Tecnica { get; set; }
+    [Parameter] public EventCallback AoTentar { get; set; }
+}

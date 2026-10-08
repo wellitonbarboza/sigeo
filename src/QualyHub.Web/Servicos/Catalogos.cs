@@ -4,7 +4,6 @@ using QualyHub.Infrastructure.Servicos;
 
 namespace QualyHub.Web.Servicos;
 
-public sealed record Opcao(Guid Id, string Texto, string? Extra = null);
 
 /// <summary>Produto para a busca (requisição, composição): categoria automática pelo grupo.</summary>
 public sealed record ProdutoBusca(Guid Id, string Codigo, string Nome, string Unidade, string? Grupo, string? SubGrupo, bool Controlado, decimal? Preco)
@@ -175,23 +174,4 @@ public sealed class Catalogos(IFabricaDb fabrica, QualyHub.Web.Seguranca.Usuario
         await using var db = fabrica.CriarLeitura();
         return await db.TiposDocumento.AsNoTracking().Where(o => o.Ativo && o.AplicaA == AplicaA.Fornecedor).OrderBy(o => o.Nome).Select(o => new Opcao(o.Id, o.Nome)).ToListAsync();
     });
-}
-
-/// <summary>Mensagens (toast) exibidas no canto da tela.</summary>
-public sealed class Notificacoes
-{
-    public event Action? Mudou;
-    public List<(Guid Id, string Texto, string Tipo)> Itens { get; } = [];
-
-    public void Sucesso(string texto) => Add(texto, "ok");
-    public void Erro(string texto) => Add(texto, "erro");
-    public void Aviso(string texto) => Add(texto, "aviso");
-
-    private void Add(string t, string tipo)
-    {
-        var id = Guid.NewGuid();
-        Itens.Add((id, t, tipo));
-        Mudou?.Invoke();
-        _ = Task.Delay(tipo == "erro" ? 9000 : 4500).ContinueWith(_ => { Itens.RemoveAll(i => i.Id == id); Mudou?.Invoke(); });
-    }
 }

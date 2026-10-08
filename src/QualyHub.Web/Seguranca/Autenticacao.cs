@@ -55,6 +55,9 @@ public static class Autenticacao
                 o.AccessDeniedPath = "/login";
                 o.ExpireTimeSpan = TimeSpan.FromHours(10);
                 o.SlidingExpiration = true;
+                // API das telas no navegador: sessão vencida responde 401/403 (a tela leva ao login), em vez de redirecionar para o HTML do login.
+                o.Events.OnRedirectToLogin = ctx => ApiOuRedireciona(ctx, StatusCodes.Status401Unauthorized);
+                o.Events.OnRedirectToAccessDenied = ctx => ApiOuRedireciona(ctx, StatusCodes.Status403Forbidden);
                 o.Cookie.Name = "qualyhub";
                 o.Cookie.HttpOnly = true;
                 o.Cookie.SameSite = SameSiteMode.Lax;
@@ -89,6 +92,13 @@ public static class Autenticacao
                 ctx.Connection.RemoteIpAddress?.ToString() ?? "desconhecido",
                 _ => new FixedWindowRateLimiterOptions { PermitLimit = 60, Window = TimeSpan.FromMinutes(5), QueueLimit = 0 }));
         });
+    }
+
+    private static Task ApiOuRedireciona(Microsoft.AspNetCore.Authentication.RedirectContext<CookieAuthenticationOptions> ctx, int status)
+    {
+        if (ctx.Request.Path.StartsWithSegments("/api")) ctx.Response.StatusCode = status;
+        else ctx.Response.Redirect(ctx.RedirectUri);
+        return Task.CompletedTask;
     }
 
     public static IEnumerable<Claim> Claims(Usuario u, string empresaNome, bool trocarSenha = false)

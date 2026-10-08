@@ -1,6 +1,7 @@
 @inherits LayoutComponentBase
-@inject UsuarioAtualWeb Usuario
 @inject IJSRuntime JS
+@* Layout único das telas internas: serve às páginas do servidor (Blazor Server) e às do navegador (WebAssembly).
+   Por isso não injeta serviço do servidor — o usuário vem do estado de autenticação em cascata (claims do cookie). *@
 
 <div class="app">
     <aside class="lateral">
@@ -28,8 +29,8 @@
             </ul>
         </nav>
         <div class="usuario-box">
-            <b>@Usuario.Nome</b>
-            @Rotulos.De(Enum.TryParse<PerfilUsuario>(Usuario.Perfil, out var p) ? p : PerfilUsuario.Campo) · @Usuario.EmpresaNome
+            <b>@_nome</b>
+            @Rotulos.De(Enum.TryParse<PerfilUsuario>(_perfil, out var p) ? p : PerfilUsuario.Campo) · @_empresa
             <div class="conta-links"><a href="conta/trocar-senha" data-enhance-nav="false"><Icone Nome="cadeado" Tam="14" /> Alterar senha</a><a href="conta/sair" data-enhance-nav="false"><Icone Nome="sair" Tam="14" /> Sair</a></div>
         </div>
     </aside>
@@ -71,7 +72,7 @@
         new("eng", "Engenharia", "regua", [("engenharia/obras", "predio", "Obras e Empreendimentos"), ("engenharia/tipologias", "cubo", "Tipologias"),
             ("engenharia/composicoes", "lista", "Serviços e Composições"), ("engenharia/orcamento", "calculadora", "Orçamento por Local"), ("engenharia/mao-de-obra", "pessoa", "Mão de Obra Própria")]),
         new("sup", "Suprimentos", "carrinho", [("requisicoes", "prancheta", "Requisição"), ("cotacoes", "calculadora", "Orçamentos"), ("pedidos", "sacola", "Pedidos"), ("contratos", "contrato", "Contratos"),
-            ("recebimentos", "caixa", "Recebimento / FVM"), ("transferencias", "enviar", "Transferências p/ Obra"), ("medicoes", "regua", "Medições"), ("pagamentos", "dinheiro", "Liberação Pagamento")]),
+            ("notas-fiscais", "arquivo", "Notas Fiscais (entrada)"), ("recebimentos", "caixa", "Recebimento / FVM"), ("transferencias", "enviar", "Transferências p/ Obra"), ("medicoes", "regua", "Medições"), ("pagamentos", "dinheiro", "Liberação Pagamento")]),
         new("sgq", "Qualidade", "medalha", [("sgq/documentos", "pasta", "Documentos SGQ"), ("sgq/copias", "impressora", "Cópias Controladas"), ("sgq/lista-mestra", "lista", "Lista Mestra"),
             ("sgq/externos", "livro", "Documentos Externos"), ("fornecedores/avaliacao", "grafico", "Avaliação Fornec."), ("fornecedores/planos", "alvo", "Planos de Ação"),
             ("sgq/grd", "enviar", "GRD"), ("sgq/leituras", "livro", "Leituras / Ciência"), ("sgq/registros", "arquivo-morto", "Registros (Retenção)")]),
@@ -87,8 +88,18 @@
 
     [Inject] private NavigationManager Nav { get; set; } = default!;
 
-    protected override void OnInitialized()
+    [CascadingParameter] private Task<AuthenticationState>? Autenticacao { get; set; }
+    private string _nome = "", _perfil = "", _empresa = "";
+
+    protected override async Task OnInitializedAsync()
     {
+        if (Autenticacao is not null)
+        {
+            var u = (await Autenticacao).User;
+            _nome = u.Identity?.Name ?? "";
+            _perfil = u.FindFirst("qh:perfil")?.Value ?? "";
+            _empresa = u.FindFirst("qh:empresa_nome")?.Value ?? "";
+        }
         var rel = Nav.ToBaseRelativePath(Nav.Uri).Split('?')[0];
         foreach (var g in _grupos) if (g.Itens.Any(i => rel.StartsWith(i.Href))) _abertos.Add(g.Id);
         if (_abertos.Count == 0) _abertos.Add("sup");

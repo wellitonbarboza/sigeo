@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 namespace QualyHub.Application.Abstracoes;
 
 /// <summary>
@@ -25,4 +26,35 @@ public interface IFabricaDb
 public interface IFabricaSistema
 {
     IQualyHubDb Criar(Guid empresaId, string origem);
+}
+
+/// <summary>
+/// <see cref="IFabricaDb"/> com identidade de sistema numa empresa: permite usar os serviços de aplicação nas rotinas
+/// em segundo plano (busca de notas no SIEG às 6h30), com auditoria "sistema" e acesso a todas as obras da empresa.
+/// </summary>
+public sealed class FabricaDbSistema(IFabricaSistema sistema, Guid empresaId, string origem) : IFabricaDb
+{
+    public IQualyHubDb Criar() => sistema.Criar(empresaId, origem);
+
+    public IQualyHubDb CriarLeitura()
+    {
+        var db = sistema.Criar(empresaId, origem);
+        db.ChangeTracker.QueryTrackingBehavior = Microsoft.EntityFrameworkCore.QueryTrackingBehavior.NoTracking;
+        db.ChangeTracker.AutoDetectChangesEnabled = false;
+        return db;
+    }
+
+    public IUsuarioAtual Usuario { get; } = new UsuarioSistema(empresaId, origem);
+
+    public async Task EmTransacaoAsync(Func<IQualyHubDb, Task> acao, CancellationToken ct = default)
+    {
+        await using var estrategia = Criar();
+        await estrategia.Database.CreateExecutionStrategy().ExecuteAsync(async () =>
+        {
+            await using var db = Criar();
+            await using var tx = await db.Database.BeginTransactionAsync(ct);
+            await acao(db);
+            await tx.CommitAsync(ct);
+        });
+    }
 }

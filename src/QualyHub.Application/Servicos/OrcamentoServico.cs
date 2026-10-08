@@ -7,15 +7,6 @@ using QualyHub.Domain.Suprimentos;
 
 namespace QualyHub.Application.Servicos;
 
-public sealed record ResultadoOrcamento(int Criadas, int Atualizadas, int Removidas, int Travadas, decimal Total);
-
-/// <summary>Linha da demanda (material por produto ou serviço por composição) para os locais escolhidos.</summary>
-public sealed record LinhaDemanda(Guid? ProdutoId, Guid? ComposicaoId, string Descricao, string Unidade, decimal Orcado, decimal Requisitado,
-    decimal ValorReferencia, Guid? ServicoControladoId, string? Grupo, IReadOnlyList<(Guid LocalId, Guid ComposicaoId, decimal Orcado, decimal Requisitado)> Locais)
-{
-    public decimal Saldo => Math.Max(0, Orcado - Requisitado);
-}
-
 /// <summary>
 /// Serviços e composições, serviços por tipologia, matriz serviço × local (orçamento) e demanda de materiais/serviços
 /// por local para a requisição e a contratação.
@@ -160,7 +151,7 @@ public sealed class OrcamentoServico(IFabricaDb fabrica)
                 var porLocal = g.Select(c => (c.LocalId, c.ComposicaoId, c.Quantidade, req.GetValueOrDefault(((Guid?)c.ComposicaoId, c.LocalId)))).ToList();
                 var refUnit = comp.Custo(TipoInsumo.MaoObraEmpreitada) + comp.Custo(TipoInsumo.ServicoTerceiro);
                 r.Add(new LinhaDemanda(null, comp.Id, comp.Descricao, comp.Unidade, porLocal.Sum(x => x.Quantidade), porLocal.Sum(x => x.Item4),
-                    refUnit > 0 ? refUnit : comp.CustoUnitario, comp.ServicoControladoId, comp.Grupo, porLocal));
+                    refUnit > 0 ? refUnit : comp.CustoUnitario, comp.ServicoControladoId, comp.Grupo, porLocal.Select(x => new LocalDemanda(x.LocalId, x.ComposicaoId, x.Quantidade, x.Item4)).ToList()));
             }
         }
         else
@@ -184,7 +175,7 @@ public sealed class OrcamentoServico(IFabricaDb fabrica)
                         + (semUsado.Add(x.Key.LocalId) ? reqSem.GetValueOrDefault((g.Key, x.Key.LocalId)) : 0))).ToList();
                 var p = prods.GetValueOrDefault(g.Key);
                 r.Add(new LinhaDemanda(g.Key, null, p?.Nome ?? g.First().Descricao, p?.Unidade ?? g.First().Unidade, porLocal.Sum(x => x.Item3), porLocal.Sum(x => x.Item4),
-                    p?.PrecoReferencia ?? g.First().CustoUnitario, null, p?.Grupo, porLocal));
+                    p?.PrecoReferencia ?? g.First().CustoUnitario, null, p?.Grupo, porLocal.Select(x => new LocalDemanda(x.LocalId, x.ComposicaoId, x.Item3, x.Item4)).ToList()));
             }
         }
         return r.OrderBy(x => x.Grupo).ThenBy(x => x.Descricao).ToList();

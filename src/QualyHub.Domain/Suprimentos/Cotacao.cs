@@ -30,6 +30,9 @@ public class Cotacao : EntidadeDaObra, IHistoricoTemporal
     public bool Concluido { get; set; }
     public bool SemOrcamento { get; set; }
     public string? ChaveNFe { get; set; }
+    /// <summary>Análise do mapa por IA (pedida no botão do mapa): texto para o comprador conferir, não decide o vencedor.</summary>
+    public string? AnaliseIa { get; set; }
+    public DateTimeOffset? AnaliseIaEm { get; set; }
     public StatusCotacao Status { get; set; } = StatusCotacao.Aberto;
 
     public ICollection<CotacaoFornecedor> Fornecedores { get; set; } = [];

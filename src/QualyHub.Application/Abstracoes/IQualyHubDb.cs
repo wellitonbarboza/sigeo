@@ -161,4 +161,8 @@ public interface IQualyHubDb : IDisposable, IAsyncDisposable
     DbSet<LinhaImportacao> LinhasImportacao { get; }
     DbSet<RegistroAuditoria> Auditoria { get; }
     DbSet<CodigoAcessoFornecedor> CodigosAcessoFornecedor { get; }
+    DbSet<Domain.Fiscal.NotaFiscalEntrada> NotasFiscais { get; }
+    DbSet<Domain.Fiscal.NotaFiscalItem> NotaFiscalItens { get; }
+    DbSet<Domain.Fiscal.ImportacaoNota> ImportacoesNota { get; }
+    DbSet<Domain.Fiscal.UsoIa> UsosIa { get; }
 }

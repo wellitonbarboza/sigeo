@@ -21,11 +21,13 @@ var cs = builder.Configuration.GetConnectionString("QualyHub")
          ?? throw new InvalidOperationException("Configure ConnectionStrings:QualyHub (produção: Managed Identity — Authentication=Active Directory Default).");
 
 // Aba esquecida/desconectada libera a memória do servidor em 2 min (padrão 3) — cada usuário conectado ocupa memória no Blazor Server.
+// Telas pesadas de leitura (painéis, mapa da torre) rodam no navegador (WebAssembly): o servidor só responde a API.
+// As claims do login vão junto com a página para o navegador saber quem é o usuário (sem token guardado no navegador).
 builder.Services.AddRazorComponents().AddInteractiveServerComponents(o =>
 {
     o.DisconnectedCircuitRetentionPeriod = TimeSpan.FromMinutes(2);
     o.DisconnectedCircuitMaxRetained = 50;
-});
+}).AddInteractiveWebAssemblyComponents().AddAuthenticationStateSerialization(o => o.SerializeAllClaims = true);
 
 // Telemetria (Application Insights via OpenTelemetry): só liga com a cadeia de conexão do App Service.
 // Amostragem de 25% e sem o /saude (verificação a cada minuto) para ficar dentro dos 5 GB/mês gratuitos do Log Analytics.
@@ -54,6 +56,7 @@ else
     builder.Services.AddSingleton<IArmazenamento>(new ArmazenamentoLocal(
         builder.Configuration["Armazenamento:PastaLocal"] is { Length: > 0 } pasta ? pasta : Path.Combine(builder.Environment.ContentRootPath, "App_Data", "arquivos")));
 builder.Services.AddQualyHubComunicacao(builder.Configuration, builder.Environment.IsDevelopment());
+builder.Services.AddQualyHubIntegracoes(builder.Configuration);
 builder.Services.AddScoped<Notificacoes>();
 builder.Services.AddScoped<Catalogos>();
 builder.Services.AddSingleton<CacheCompartilhado>();
@@ -105,7 +108,8 @@ if (!app.Environment.IsDevelopment())
 }
 // Interno ao /Error: erros dos endpoints viram Problem Details antes de chegar ao tratador das páginas.
 app.UseWhen(ctx => ProblemasApi.EhEndpoint(ctx.Request.Path), ramo => ramo.UseExceptionHandler());
-app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
+// Página "não encontrada" só para as telas: a API responde o código (401/403/404) para a tela do navegador tratar.
+app.UseWhen(ctx => !ProblemasApi.EhEndpoint(ctx.Request.Path), ramo => ramo.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true));
 app.UseHttpsRedirection();
 app.UseAuthentication();
 Autenticacao.UsarTrocaObrigatoria(app);
@@ -136,7 +140,9 @@ app.MapStaticAssets();
 app.MapGet("/saude", () => Results.Ok("ok")).AllowAnonymous(); // health check do App Service
 Autenticacao.MapearEndpoints(app);
 Endpoints.Mapear(app);
-app.MapRazorComponents<App>().AddInteractiveServerRenderMode();
+ApiTelas.Mapear(app);
+app.MapRazorComponents<App>().AddInteractiveServerRenderMode().AddInteractiveWebAssemblyRenderMode()
+   .AddAdditionalAssemblies(typeof(QualyHub.Web.Client.RotasNavegador).Assembly);
 
 app.Run();
 
