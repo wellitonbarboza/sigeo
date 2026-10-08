@@ -187,6 +187,9 @@ public sealed class AprovacaoServico(IUsuarioAtual usuario, TimeProvider relogio
                 else if (reprovado) ad.Status = StatusAditivo.Reprovado;
                 else if (devolvido) ad.Status = StatusAditivo.EmElaboracao;
                 break;
+            case EntidadeAprovavel.Cronograma:
+                await PlanejamentoServico.RefletirDecisaoAsync(db, s.EntidadeId, aprovado, reprovado || devolvido, nome, agora, just, ct);
+                break;
             case EntidadeAprovavel.Pagamento:
                 var l = await db.Pagamentos.FirstAsync(x => x.Id == s.EntidadeId, ct);
                 if (aprovado) { l.LiberadoPor = nome; l.LiberadoEm = agora; l.Status = StatusPagamento.Liberado; }

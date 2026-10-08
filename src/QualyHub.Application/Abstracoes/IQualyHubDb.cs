@@ -165,4 +165,14 @@ public interface IQualyHubDb : IDisposable, IAsyncDisposable
     DbSet<Domain.Fiscal.NotaFiscalItem> NotaFiscalItens { get; }
     DbSet<Domain.Fiscal.ImportacaoNota> ImportacoesNota { get; }
     DbSet<Domain.Fiscal.UsoIa> UsosIa { get; }
+    DbSet<Domain.Planejamento.VersaoCronograma> VersoesCronograma { get; }
+    DbSet<Domain.Planejamento.AtividadeCronograma> AtividadesCronograma { get; }
+    DbSet<Domain.Planejamento.VinculoAtividade> VinculosAtividade { get; }
+    DbSet<Domain.Planejamento.DesembolsoVersao> DesembolsosVersao { get; }
+    DbSet<Domain.Planejamento.Feriado> Feriados { get; }
+    DbSet<Domain.Planejamento.RedePlanejamento> RedesPlanejamento { get; }
+    DbSet<Domain.Planejamento.RedeLocal> RedeLocais { get; }
+    DbSet<Domain.Planejamento.RedePacote> RedePacotes { get; }
+    DbSet<Domain.Planejamento.RedePacoteLocal> RedePacoteLocais { get; }
+    DbSet<Domain.Planejamento.VinculoRede> VinculosRede { get; }
 }

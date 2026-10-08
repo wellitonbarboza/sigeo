@@ -190,7 +190,7 @@
         {
             EntidadeAprovavel.Requisicao => "requisicoes", EntidadeAprovavel.Cotacao => "cotacoes", EntidadeAprovavel.Pedido => "pedidos",
             EntidadeAprovavel.Contrato => "contratos", EntidadeAprovavel.Medicao => "medicoes", EntidadeAprovavel.Pagamento => "pagamentos",
-            EntidadeAprovavel.Aditivo => "contratos", EntidadeAprovavel.DocumentoSgq => "sgq/documentos", _ => ""
+            EntidadeAprovavel.Aditivo => "contratos", EntidadeAprovavel.DocumentoSgq => "sgq/documentos", EntidadeAprovavel.Cronograma => "engenharia/planejamento?aba=versoes", _ => ""
         };
         Nav.NavigateTo(e == EntidadeAprovavel.Aditivo ? $"contratos?aditivo={id}" : $"{rota}?id={id}");
     }

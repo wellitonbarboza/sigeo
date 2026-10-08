@@ -56,3 +56,64 @@
 }
 /* Painel: coluna do gráfico de FVM em verde (a altura vem do dado e fica inline). */
 .colunas-graf span.coluna-verde { background: #16a34a; }
+
+/* ───────── Planejamento (Gantt Syncfusion, redes, linha de balanço, desembolso) ───────── */
+.plan .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin-bottom: 10px; }
+.plan-acoes { align-items: center; flex-wrap: wrap; gap: 8px; }
+.plan-acoes .esp { flex: 1; }
+.plan-acoes .alerta.pq { padding: 4px 10px; margin: 0; }
+.plan-opcoes { align-items: center; gap: 14px; flex-wrap: wrap; }
+.plan-opcoes .mudo { font-size: 12px; }
+.plan-gantt { border: 1px solid var(--borda); border-radius: 10px; overflow: hidden; margin-bottom: 12px; }
+.plan-edicao { padding: 12px 14px; margin-bottom: 12px; }
+.plan-edicao .cab-edicao { display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; margin-bottom: 8px; }
+.plan-svg { overflow-x: auto; padding: 8px; background: #fff; }
+.plan-svg svg { display: block; max-width: none; }
+#tabela-versoes tr.sel td { background: var(--primaria-suave); }
+.plan td.neg, .plan .neg { color: #b42318; }
+.lista-simples { list-style: none; padding: 0; margin: 0; columns: 2; font-size: 13px; }
+.lista-simples li { padding: 2px 0; }
+
+/* Redes */
+.plan-redes { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start; }
+.plan-redes-lista { flex: 1 1 240px; max-width: 320px; display: flex; flex-direction: column; gap: 8px; }
+.plan-redes-editor { flex: 999 1 560px; min-width: 0; padding: 14px 16px; }
+.plan-redes .rede-cartao { display: grid !important; grid-template-columns: 6px 1fr; column-gap: 10px; row-gap: 2px; text-align: left; border: 1px solid var(--borda); background: var(--superficie); color: inherit; border-radius: 10px; padding: 10px 12px; cursor: pointer; font: inherit; }
+.rede-cartao .faixa { grid-row: 1 / 4; grid-column: 1; width: 6px; border-radius: 3px; }
+.rede-cartao .nome, .rede-cartao .sub { grid-column: 2; }
+.rede-cartao .nome { font-weight: 600; }
+.rede-cartao .sub { font-size: 12px; color: var(--texto-2, #64748b); }
+.rede-cartao.sel { border-color: var(--primaria); box-shadow: 0 0 0 2px var(--primaria-suave); }
+.rede-cartao.nova .nome, .rede-cartao.nova .sub { grid-column: 1; }
+.rede-cartao.nova { grid-template-columns: 1fr !important; border-style: dashed; color: var(--primaria); }
+.matriz-locais th, .matriz-locais td { white-space: nowrap; }
+.matriz-locais td.centro, .matriz-locais th.centro { text-align: center; }
+.matriz-locais .chk { display: inline-flex; gap: 4px; align-items: center; font-size: 12px; }
+.lista-chk { display: flex; flex-wrap: wrap; gap: 10px 22px; }
+.lista-chk .grupo-chk { display: flex; flex-direction: column; gap: 4px; min-width: 200px; }
+.lista-chk label { display: flex; gap: 6px; align-items: center; font-size: 13px; }
+.selo-mini { font-size: 10px; margin-left: 2px; color: var(--primaria); }
+button.link { border: 0; background: none; color: var(--primaria); cursor: pointer; padding: 2px 4px; font: inherit; font-size: 12px; }
+
+/* Barras do Gantt por rede e caminho crítico (classe vinda do campo Classe da linha) */
+.plan .e-gantt .qh-critica .e-gantt-child-taskbar-inner-div, .plan .e-gantt .qh-critica.e-gantt-child-taskbar-inner-div { background: #f3c3c3 !important; border-color: #b42318 !important; }
+.plan .e-gantt .qh-critica .e-gantt-child-progressbar-inner-div, .plan .e-gantt .qh-critica.e-gantt-child-progressbar-inner-div { background: #d64545 !important; }
+.plan .e-gantt .qh-rede1 .e-gantt-child-progressbar-inner-div { background: #4f52d6 !important; }
+.plan .e-gantt .qh-rede2 .e-gantt-child-taskbar-inner-div { background: #cfd5dd !important; border-color: #64748b !important; }
+.plan .e-gantt .qh-rede2 .e-gantt-child-progressbar-inner-div { background: #64748b !important; }
+.plan .e-gantt .qh-rede3 .e-gantt-child-taskbar-inner-div { background: #c4e7dc !important; border-color: #0f8a6b !important; }
+.plan .e-gantt .qh-rede3 .e-gantt-child-progressbar-inner-div { background: #0f8a6b !important; }
+.plan .e-gantt .qh-rede4 .e-gantt-child-taskbar-inner-div { background: #f6d7bf !important; border-color: #d4691e !important; }
+.plan .e-gantt .qh-rede4 .e-gantt-child-progressbar-inner-div { background: #d4691e !important; }
+.plan .e-gantt .qh-rede5 .e-gantt-child-taskbar-inner-div { background: #ead0ee !important; border-color: #a23ea8 !important; }
+.plan .e-gantt .qh-rede5 .e-gantt-child-progressbar-inner-div { background: #a23ea8 !important; }
+.plan .e-gantt .e-event-markers { border-left-color: #d4691e; }
+.plan .e-gantt .e-event-markers .e-span-label { background: #d4691e; color: #fff; }
+@media (max-width: 760px) { .lista-simples { columns: 1; } .plan-redes-lista { max-width: none; } }
+#rede-pacotes td.nowrap { white-space: nowrap; }
+#rede-pacotes td.nowrap .icone-btn { display: inline-flex; vertical-align: middle; }
+#rede-pacotes td:nth-child(2) input { min-width: 220px; }
+#rede-pacotes td:nth-child(3) select { min-width: 260px; }
+#tabela-versoes td.nowrap { white-space: nowrap; }
+.plan .barra-filtro select { max-width: 100%; }
+@media (max-width: 760px) { .plan .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

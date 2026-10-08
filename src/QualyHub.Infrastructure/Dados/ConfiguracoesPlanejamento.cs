@@ -1,0 +1,136 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using QualyHub.Domain.Engenharia;
+using QualyHub.Domain.Estrutura;
+using QualyHub.Domain.Planejamento;
+
+namespace QualyHub.Infrastructure.Dados;
+
+// ───────────── Planejamento: versões do cronograma, atividades, vínculos, redes e calendário ─────────────
+
+internal sealed class VersaoCronogramaCfg : IEntityTypeConfiguration<VersaoCronograma>
+{
+    public void Configure(EntityTypeBuilder<VersaoCronograma> b)
+    {
+        b.ToTable("VersoesCronograma");
+        b.Property(x => x.Codigo).HasMaxLength(10);
+        b.Property(x => x.EnviadoPor).HasMaxLength(150);
+        b.Property(x => x.AprovadoPor).HasMaxLength(150);
+        b.Property(x => x.CustoTotal).HasPrecision(18, 2);
+        b.HasIndex(x => new { x.ObraId, x.Numero }).IsUnique().HasFilter("[Excluido] = 0");
+        b.HasOne<Obra>().WithMany().HasForeignKey(x => x.ObraId).OnDelete(DeleteBehavior.Restrict);
+        b.HasMany(x => x.Atividades).WithOne().HasForeignKey(a => a.VersaoId);
+        b.HasMany(x => x.Vinculos).WithOne().HasForeignKey(v => v.VersaoId);
+        b.HasMany(x => x.Desembolso).WithOne().HasForeignKey(d => d.VersaoId);
+    }
+}
+
+internal sealed class AtividadeCronogramaCfg : IEntityTypeConfiguration<AtividadeCronograma>
+{
+    public void Configure(EntityTypeBuilder<AtividadeCronograma> b)
+    {
+        b.ToTable("AtividadesCronograma");
+        b.Property(x => x.Eap).HasMaxLength(40);
+        b.Property(x => x.Nome).HasMaxLength(250);
+        b.Property(x => x.Chave).HasMaxLength(80);
+        b.Property(x => x.Avanco).HasPrecision(5, 1);
+        b.Property(x => x.Custo).HasPrecision(18, 2);
+        b.Ignore(x => x.Marco);
+        b.Ignore(x => x.Concluida);
+        b.HasIndex(x => new { x.VersaoId, x.PaiId, x.Ordem });
+        b.HasOne<AtividadeCronograma>().WithMany().HasForeignKey(x => x.PaiId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne<Composicao>().WithMany().HasForeignKey(x => x.ComposicaoId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne<Local>().WithMany().HasForeignKey(x => x.LocalId).OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
+internal sealed class VinculoAtividadeCfg : IEntityTypeConfiguration<VinculoAtividade>
+{
+    public void Configure(EntityTypeBuilder<VinculoAtividade> b)
+    {
+        b.ToTable("VinculosAtividade");
+        b.HasIndex(x => x.VersaoId);
+        b.HasIndex(x => new { x.PredecessoraId, x.SucessoraId }).IsUnique();
+        b.HasOne<AtividadeCronograma>().WithMany().HasForeignKey(x => x.PredecessoraId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne<AtividadeCronograma>().WithMany().HasForeignKey(x => x.SucessoraId).OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
+internal sealed class DesembolsoVersaoCfg : IEntityTypeConfiguration<DesembolsoVersao>
+{
+    public void Configure(EntityTypeBuilder<DesembolsoVersao> b)
+    {
+        b.ToTable("DesembolsoVersao");
+        b.Property(x => x.Valor).HasPrecision(18, 2);
+        b.Property(x => x.ValorBase).HasPrecision(18, 2);
+        b.HasIndex(x => new { x.VersaoId, x.Mes }).IsUnique();
+    }
+}
+
+internal sealed class FeriadoCfg : IEntityTypeConfiguration<Feriado>
+{
+    public void Configure(EntityTypeBuilder<Feriado> b)
+    {
+        b.ToTable("Feriados");
+        b.Property(x => x.Nome).HasMaxLength(120);
+        b.HasIndex(x => new { x.EmpresaId, x.Data });
+        b.HasOne<Obra>().WithMany().HasForeignKey(x => x.ObraId).OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
+internal sealed class RedePlanejamentoCfg : IEntityTypeConfiguration<RedePlanejamento>
+{
+    public void Configure(EntityTypeBuilder<RedePlanejamento> b)
+    {
+        b.ToTable("RedesPlanejamento");
+        b.Property(x => x.Nome).HasMaxLength(120);
+        b.Property(x => x.Cor).HasMaxLength(9);
+        b.HasOne<Obra>().WithMany().HasForeignKey(x => x.ObraId).OnDelete(DeleteBehavior.Restrict);
+        b.HasMany(x => x.Locais).WithOne().HasForeignKey(l => l.RedeId);
+        b.HasMany(x => x.Pacotes).WithOne().HasForeignKey(p => p.RedeId);
+    }
+}
+
+internal sealed class RedeLocalCfg : IEntityTypeConfiguration<RedeLocal>
+{
+    public void Configure(EntityTypeBuilder<RedeLocal> b)
+    {
+        b.ToTable("RedeLocais");
+        b.HasIndex(x => new { x.RedeId, x.LocalId }).IsUnique();
+        b.HasOne<Local>().WithMany().HasForeignKey(x => x.LocalId).OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
+internal sealed class RedePacoteCfg : IEntityTypeConfiguration<RedePacote>
+{
+    public void Configure(EntityTypeBuilder<RedePacote> b)
+    {
+        b.ToTable("RedePacotes");
+        b.Property(x => x.Nome).HasMaxLength(150);
+        b.HasIndex(x => new { x.RedeId, x.Ordem });
+        b.HasOne<Composicao>().WithMany().HasForeignKey(x => x.ComposicaoId).OnDelete(DeleteBehavior.Restrict);
+        b.HasMany(x => x.Ajustes).WithOne().HasForeignKey(a => a.PacoteId);
+    }
+}
+
+internal sealed class RedePacoteLocalCfg : IEntityTypeConfiguration<RedePacoteLocal>
+{
+    public void Configure(EntityTypeBuilder<RedePacoteLocal> b)
+    {
+        b.ToTable("RedePacoteLocais");
+        b.HasIndex(x => new { x.PacoteId, x.LocalId }).IsUnique();
+        b.HasOne<Local>().WithMany().HasForeignKey(x => x.LocalId).OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
+internal sealed class VinculoRedeCfg : IEntityTypeConfiguration<VinculoRede>
+{
+    public void Configure(EntityTypeBuilder<VinculoRede> b)
+    {
+        b.ToTable("VinculosRede");
+        b.HasIndex(x => x.ObraId);
+        b.HasOne<Obra>().WithMany().HasForeignKey(x => x.ObraId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne<RedePacote>().WithMany().HasForeignKey(x => x.PacoteOrigemId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne<RedePacote>().WithMany().HasForeignKey(x => x.PacoteDestinoId).OnDelete(DeleteBehavior.Restrict);
+    }
+}

@@ -119,6 +119,16 @@ public class QualyHubDbContext(DbContextOptions<QualyHubDbContext> options, IUsu
     public DbSet<Domain.Fiscal.NotaFiscalItem> NotaFiscalItens => Set<Domain.Fiscal.NotaFiscalItem>();
     public DbSet<Domain.Fiscal.ImportacaoNota> ImportacoesNota => Set<Domain.Fiscal.ImportacaoNota>();
     public DbSet<Domain.Fiscal.UsoIa> UsosIa => Set<Domain.Fiscal.UsoIa>();
+    public DbSet<Domain.Planejamento.VersaoCronograma> VersoesCronograma => Set<Domain.Planejamento.VersaoCronograma>();
+    public DbSet<Domain.Planejamento.AtividadeCronograma> AtividadesCronograma => Set<Domain.Planejamento.AtividadeCronograma>();
+    public DbSet<Domain.Planejamento.VinculoAtividade> VinculosAtividade => Set<Domain.Planejamento.VinculoAtividade>();
+    public DbSet<Domain.Planejamento.DesembolsoVersao> DesembolsosVersao => Set<Domain.Planejamento.DesembolsoVersao>();
+    public DbSet<Domain.Planejamento.Feriado> Feriados => Set<Domain.Planejamento.Feriado>();
+    public DbSet<Domain.Planejamento.RedePlanejamento> RedesPlanejamento => Set<Domain.Planejamento.RedePlanejamento>();
+    public DbSet<Domain.Planejamento.RedeLocal> RedeLocais => Set<Domain.Planejamento.RedeLocal>();
+    public DbSet<Domain.Planejamento.RedePacote> RedePacotes => Set<Domain.Planejamento.RedePacote>();
+    public DbSet<Domain.Planejamento.RedePacoteLocal> RedePacoteLocais => Set<Domain.Planejamento.RedePacoteLocal>();
+    public DbSet<Domain.Planejamento.VinculoRede> VinculosRede => Set<Domain.Planejamento.VinculoRede>();
     public DbSet<Quadra> Quadras => Set<Quadra>();
     public DbSet<Tipologia> Tipologias => Set<Tipologia>();
     public DbSet<TipologiaAmbiente> TipologiaAmbientes => Set<TipologiaAmbiente>();
