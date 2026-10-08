@@ -6,7 +6,7 @@
 <Pagina Titulo="Ações corretivas" Grade="_grade" AoAtualizar="Carregar">
     <ChildContent>
         <div class="pagina">
-            <Grade T="AcaoCorretiva" @ref="_grade" Itens="_itens" AoClicar="a => Abrir(a.Id)" NomeExportacao="acoes-corretivas" CriadoPor="a => a.CriadoPor">
+            <Grade T="AcaoCorretiva" @ref="_grade" Itens="_itens" Limite="LimiteGrade" AoCarregarTudo="async () => { ListaCompleta = true; await Carregar(); }" AoClicar="a => Abrir(a.Id)" NomeExportacao="acoes-corretivas" CriadoPor="a => a.CriadoPor">
                 <Colunas>
                     <Coluna T="AcaoCorretiva" Titulo="Nº" Valor="a => a.Numero" Largura="90px" />
                     <Coluna T="AcaoCorretiva" Titulo="RNC de origem" Valor="a => a.RncsOrigem" />
@@ -98,7 +98,7 @@
     private async Task Carregar()
     {
         await using var db = Fabrica.CriarLeitura();
-        _itens = await db.AcoesCorretivas.AsNoTracking().OrderByDescending(a => a.Numero).ToListAsync(Cancelamento);
+        _itens = await db.AcoesCorretivas.AsNoTracking().OrderByDescending(a => a.Numero).Take(LimiteAtual).ToListAsync(Cancelamento);
     }
 
     private async Task Abrir(Guid id)

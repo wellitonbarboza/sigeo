@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Components;
+﻿using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Logging;
 using QualyHub.Domain.Aprovacoes;
 using QualyHub.Infrastructure.Servicos;
@@ -34,6 +34,15 @@ public abstract class PaginaBase : ComponentBase, IDisposable
 
     protected IReadOnlyList<string>? ErrosForm { get; set; }
     protected bool Ocupado { get; set; }
+    /// <summary>
+    /// Listas grandes buscam no banco só os registros mais recentes (menos leitura no banco e menos memória por usuário);
+    /// a grade avisa quando o limite é atingido e "Carregar todos" liga <see cref="ListaCompleta"/>.
+    /// </summary>
+    protected const int LimiteLista = 1000;
+    protected bool ListaCompleta { get; set; }
+    protected int LimiteAtual => ListaCompleta ? int.MaxValue : LimiteLista;
+    protected int? LimiteGrade => ListaCompleta ? null : LimiteLista;
+
     protected DateOnly Hoje => DateOnly.FromDateTime(Relogio.GetLocalNow().Date);
 
     protected bool Perfil(params QualyHub.Domain.Common.PerfilUsuario[] perfis) =>

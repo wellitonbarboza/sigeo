@@ -12,7 +12,7 @@
                 <Kpi Rotulo="Pagos" Valor="@_itens?.Count(p => p.Status == StatusPagamento.Pago)" Tom="ok" />
                 <Kpi Rotulo="Bloqueados" Valor="@_itens?.Count(p => p.Status == StatusPagamento.Bloqueado)" Tom="erro" />
             </div>
-            <Grade T="Linha" @ref="_grade" Itens="_itens" AoClicar="l => Abrir(l.Id)" NomeExportacao="pagamentos" CriadoPor="l => l.CriadoPor">
+            <Grade T="Linha" @ref="_grade" Itens="_itens" Limite="LimiteGrade" AoCarregarTudo="async () => { ListaCompleta = true; await Carregar(); }" AoClicar="l => Abrir(l.Id)" NomeExportacao="pagamentos" CriadoPor="l => l.CriadoPor">
                 <Colunas>
                     <Coluna T="Linha" Titulo="Número" Valor="l => l.Numero" Largura="80px" />
                     <Coluna T="Linha" Titulo="Origem" Valor="l => l.Origem" />
@@ -118,7 +118,7 @@
     {
         await using var db = Fabrica.CriarLeitura();
         var forn = await db.Fornecedores.AsNoTracking().ToDictionaryAsync(f => f.Id, f => f.NomeExibicao, Cancelamento);
-        _itens = (await db.Pagamentos.AsNoTracking().OrderByDescending(p => p.Numero).ToListAsync(Cancelamento))
+        _itens = (await db.Pagamentos.AsNoTracking().OrderByDescending(p => p.Numero).Take(LimiteAtual).ToListAsync(Cancelamento))
             .Select(p => new Linha(p.Id, p.Numero, p.Origem, forn.GetValueOrDefault(p.FornecedorId, ""), p.ChaveNFe.Length >= 9 ? "…" + p.ChaveNFe[^9..] : p.ChaveNFe,
                 p.ValorNF, p.ValorLiberado, p.Vencimento, p.Status, p.CriadoPor)).ToList();
     }

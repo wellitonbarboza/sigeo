@@ -55,7 +55,7 @@ resource logs 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
   properties: {
     sku: { name: 'PerGB2018' }
     retentionInDays: 30
-    workspaceCapping: { dailyQuotaGb: 1 } // teto diário: evita surpresa de custo com log
+    workspaceCapping: { dailyQuotaGb: json('0.3') } // teto diário (~9 GB/mês no pior caso): telemetria amostrada cabe nos 5 GB grátis
   }
 }
 
@@ -197,6 +197,13 @@ resource dbBackup 'Microsoft.Sql/servers/databases/backupShortTermRetentionPolic
   properties: { retentionDays: 14 }
 }
 
+// Retenção longa (auditoria SiAC): 1 backup por mês guardado 12 meses e 1 por ano guardado 5 anos (LRS, centavos por GB).
+resource dbLtr 'Microsoft.Sql/servers/databases/backupLongTermRetentionPolicies@2023-08-01-preview' = {
+  parent: db
+  name: 'default'
+  properties: { weeklyRetention: 'PT0S', monthlyRetention: 'P12M', yearlyRetention: 'P5Y', weekOfYear: 1 }
+}
+
 // ---------------------------- App Service (Web) --------------------------------------
 resource plano 'Microsoft.Web/serverfarms@2023-12-01' = {
   name: 'asp-${nome}'
@@ -259,6 +266,44 @@ resource rWebKv 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(kv.id, web.id, roles.kvSecretsUser)
   properties: { principalId: web.identity.principalId, principalType: 'ServicePrincipal', roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roles.kvSecretsUser) }
 }
+
+// ---------------------------- Alertas de operação ------------------------------------
+// Avisam antes de o usuário sentir: banco no teto de CPU, servidor sem memória e erros 5xx. Centavos por regra.
+resource grupoAlerta 'Microsoft.Insights/actionGroups@2023-01-01' = {
+  name: 'ag-${nome}'
+  location: 'global'
+  tags: tags
+  properties: {
+    groupShortName: 'qualyhub'
+    enabled: true
+    emailReceivers: [for (e, i) in emailsAlerta: { name: 'email${i}', emailAddress: e, useCommonAlertSchema: true }]
+  }
+}
+
+var alertas = [
+  { nome: 'sql-cpu', escopo: db.id, ns: 'Microsoft.Sql/servers/databases', metrica: 'cpu_percent', limite: 85, agg: 'Average', desc: 'Banco acima de 85% de CPU por 15 min: avaliar máximo de 2 vCores.' }
+  { nome: 'web-memoria', escopo: plano.id, ns: 'Microsoft.Web/serverfarms', metrica: 'MemoryPercentage', limite: 85, agg: 'Average', desc: 'Servidor acima de 85% de memória por 15 min: avaliar plano maior (P0v3).' }
+  { nome: 'web-5xx', escopo: web.id, ns: 'Microsoft.Web/sites', metrica: 'Http5xx', limite: 10, agg: 'Total', desc: 'Mais de 10 erros 5xx em 15 min.' }
+]
+
+resource alerta 'Microsoft.Insights/metricAlerts@2018-03-01' = [for a in alertas: {
+  name: 'al-${nome}-${a.nome}'
+  location: 'global'
+  tags: tags
+  properties: {
+    description: a.desc
+    severity: 2
+    enabled: true
+    scopes: [ a.escopo ]
+    evaluationFrequency: 'PT5M'
+    windowSize: 'PT15M'
+    criteria: {
+      'odata.type': 'Microsoft.Azure.Monitor.SingleResourceMultipleMetricCriteria'
+      allOf: [ { name: a.nome, metricNamespace: a.ns, metricName: a.metrica, operator: 'GreaterThan', threshold: a.limite, timeAggregation: a.agg, criterionType: 'StaticThresholdCriterion' } ]
+    }
+    actions: [ { actionGroupId: grupoAlerta.id } ]
+  }
+}]
 
 // ---------------------------- Orçamento e alerta de custo ---------------------------
 resource orcamento 'Microsoft.Consumption/budgets@2023-11-01' = if (criarOrcamento) {

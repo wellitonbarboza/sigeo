@@ -587,3 +587,4 @@ tr.linha-locais > td { padding-top: 0 !important; background: transparent; }
 .pl-tipo tfoot td { font-weight: 700; border-bottom: 0; }
 .pl-lista { max-height: 320px; overflow: auto; }
 .ml-auto { margin-left: auto !important; }
+.ml-8 { margin-left: 8px !important; }

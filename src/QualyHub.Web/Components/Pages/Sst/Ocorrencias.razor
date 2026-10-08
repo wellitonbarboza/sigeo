@@ -12,7 +12,7 @@
                 <Kpi Rotulo="Ocorrências no mês" Valor="@_itens?.Count(o => o.DataHora >= new DateTimeOffset(Hoje.Year, Hoje.Month, 1, 0, 0, 0, TimeSpan.Zero))" Sub="@($"{_itens?.Count(o => o.Tipo == TipoOcorrencia.QuaseAcidente && o.DataHora.Month == Hoje.Month)} quase-acidentes")" />
                 <Kpi Rotulo="Investigações abertas" Valor="@_itens?.Count(o => o.Status == StatusOcorrencia.EmInvestigacao)" Tom="aviso" />
             </div>
-            <Grade T="Ocorrencia" @ref="_grade" Itens="_itens" AoClicar="o => Abrir(o.Id)" NomeExportacao="ocorrencias">
+            <Grade T="Ocorrencia" @ref="_grade" Itens="_itens" Limite="LimiteGrade" AoCarregarTudo="async () => { ListaCompleta = true; await Carregar(); }" AoClicar="o => Abrir(o.Id)" NomeExportacao="ocorrencias">
                 <Colunas>
                     <Coluna T="Ocorrencia" Titulo="Nº" Valor="o => o.Numero" Largura="80px" />
                     <Coluna T="Ocorrencia" Titulo="Data" Valor="o => o.DataHora" />
@@ -86,7 +86,7 @@
     private async Task Carregar()
     {
         await using var db = Fabrica.CriarLeitura();
-        _itens = await db.Ocorrencias.AsNoTracking().OrderByDescending(o => o.DataHora).ToListAsync(Cancelamento);
+        _itens = await db.Ocorrencias.AsNoTracking().OrderByDescending(o => o.DataHora).Take(LimiteAtual).ToListAsync(Cancelamento);
         _locNomes = await db.Locais.AsNoTracking().ToDictionaryAsync(l => l.Id, l => l.Nome, Cancelamento);
         _acs = await db.AcoesCorretivas.AsNoTracking().ToDictionaryAsync(a => a.Id, a => a.Numero, Cancelamento);
         _pts = await db.PermissoesTrabalho.AsNoTracking().OrderByDescending(p => p.Inicio).Take(LimitePts).Select(p => new Opcao(p.Id, p.Numero + " · " + p.Atividade)).ToListAsync(Cancelamento);

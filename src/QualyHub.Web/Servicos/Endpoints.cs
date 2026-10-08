@@ -1,4 +1,4 @@
-using System.Security.Cryptography;
+﻿using System.Security.Cryptography;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
 using QualyHub.Domain.Common;
@@ -15,41 +15,12 @@ public static class Endpoints
     public static void Mapear(WebApplication app)
     {
         // Configuração inicial (banco vazio): cria a empresa, o administrador e aplica a carga padrão SiAC.
-        app.MapPost("/configuracao-inicial/salvar", async (HttpContext http, IFabricaSistema sistema, Microsoft.AspNetCore.Antiforgery.IAntiforgery af) =>
-        {
-            if (!await af.IsRequestValidAsync(http)) return Results.Redirect("/configuracao-inicial?erro=1");
-            var f = await http.Request.ReadFormAsync();
-            await using (var check = sistema.Criar(Guid.Empty, "Setup"))
-                if (await check.Empresas.AnyAsync()) return Results.Redirect("/");
-            string V(string k) => f[k].ToString().Trim();
-            // Proteção da primeira execução: fora de desenvolvimento exige o código guardado no Key Vault
-            // (segredo CodigoConfiguracaoInicial) — quem só conhece a URL não consegue "tomar" o sistema vazio.
-            var codigo = app.Configuration["CodigoConfiguracaoInicial"];
-            if (!app.Environment.IsDevelopment() && string.IsNullOrWhiteSpace(codigo)) return Results.Forbid();
-            if (!string.IsNullOrWhiteSpace(codigo) && !CryptographicOperations.FixedTimeEquals(Encoding.UTF8.GetBytes(V("codigoSetup")), Encoding.UTF8.GetBytes(codigo)))
-                return Results.Redirect("/configuracao-inicial?erro=codigo");
-            if (V("razao") == "" || V("nome") == "" || V("email") == "") return Results.Redirect("/configuracao-inicial?erro=1");
-            var login = PoliticaSenha.NormalizarLogin(V("login"));
-            var senha = f["senha"].ToString();
-            var errosSenha = PoliticaSenha.ValidarLogin(login).Concat(PoliticaSenha.Validar(senha, login, V("nome"))).ToList();
-            if (senha != f["confirmacao"].ToString()) errosSenha.Add("A confirmação não confere com a senha.");
-            if (errosSenha.Count > 0) return Results.Redirect("/configuracao-inicial?erro=senha&msg=" + Uri.EscapeDataString(string.Join(" ", errosSenha)));
+        app.MapPost("/configuracao-inicial/salvar", (HttpContext http, IFabricaSistema sistema, Microsoft.AspNetCore.Antiforgery.IAntiforgery af) =>
+            CriarEmpresaAsync(app, http, sistema, af, novaConstrutora: false)).DisableAntiforgery().RequireRateLimiting(Autenticacao.PoliticaLogin);
 
-            var empresa = new Empresa { RazaoSocial = V("razao"), NomeFantasia = V("fantasia") is { Length: > 0 } nf ? nf : V("razao"), Cnpj = V("cnpj"), Codigo = V("codigo"), NivelSiac = V("nivel") is { Length: > 0 } n ? n : "B" };
-            await using var db = sistema.Criar(empresa.Id, "Setup");
-            db.Empresas.Add(empresa);
-            var admin = new Usuario
-            {
-                EmpresaId = empresa.Id, Nome = V("nome"), Email = V("email"), Perfil = PerfilUsuario.Administrador, Funcao = "Coordenador da Qualidade",
-                AcessoTodasObras = true, Login = login
-            };
-            db.Usuarios.Add(admin);
-            ContaServico.DefinirSenha(db, admin, senha, DateTimeOffset.UtcNow);
-            await db.SaveChangesAsync();
-            await CargaPadrao.AplicarSeNovaVersaoAsync(db, empresa.Id);
-            await Autenticacao.EntrarAsync(http, admin, empresa.NomeFantasia);
-            return Results.Redirect("/");
-        }).DisableAntiforgery().RequireRateLimiting(Autenticacao.PoliticaLogin);
+        // Nova construtora (plataforma com várias empresas no mesmo banco): mesmo cadastro, protegido pelo código da plataforma.
+        app.MapPost("/plataforma/nova-construtora/salvar", (HttpContext http, IFabricaSistema sistema, Microsoft.AspNetCore.Antiforgery.IAntiforgery af) =>
+            CriarEmpresaAsync(app, http, sistema, af, novaConstrutora: true)).DisableAntiforgery().RequireRateLimiting(Autenticacao.PoliticaLogin);
 
         // Download de anexo (sempre autenticado; log de auditoria no acesso a documento do SGQ).
         app.MapGet("/arquivos/anexo/{id:guid}", async (Guid id, IFabricaDb fabrica, IArmazenamento arm) =>
@@ -95,5 +66,61 @@ public static class Endpoints
         // (var api = ...; api.MapGet/MapPost(...)) e herdam autenticação e Problem Details. Versão nova = novo grupo /api/v2,
         // mantendo o v1 enquanto houver aparelho com a versão antiga do app.
         app.MapGroup("/api/v1").RequireAuthorization().AddEndpointFilter<FiltroProblemDetails>();
+    }
+
+    /// <summary>
+    /// Cria empresa + administrador + carga padrão. Primeira execução: só com o banco vazio (código CodigoConfiguracaoInicial).
+    /// Nova construtora: com o banco já em uso, exige o código da plataforma (CodigoPlataforma; sem ele, o mesmo CodigoConfiguracaoInicial).
+    /// Cada construtora fica isolada pelo EmpresaId (filtros globais); o login é único entre todas.
+    /// </summary>
+    private static async Task<IResult> CriarEmpresaAsync(WebApplication app, HttpContext http, IFabricaSistema sistema,
+        Microsoft.AspNetCore.Antiforgery.IAntiforgery af, bool novaConstrutora)
+    {
+        var rota = novaConstrutora ? "/plataforma/nova-construtora" : "/configuracao-inicial";
+        if (!await af.IsRequestValidAsync(http)) return Results.Redirect($"{rota}?erro=1");
+        var f = await http.Request.ReadFormAsync();
+        await using (var check = sistema.Criar(Guid.Empty, "Setup"))
+        {
+            var existe = await check.Empresas.AnyAsync();
+            if (!novaConstrutora && existe) return Results.Redirect("/");
+            if (novaConstrutora && !existe) return Results.Redirect("/configuracao-inicial");
+        }
+        string V(string k) => f[k].ToString().Trim();
+        // Proteção: fora de desenvolvimento exige o código guardado no Key Vault — quem só conhece a URL não cria empresa.
+        var codigo = novaConstrutora ? app.Configuration["CodigoPlataforma"] ?? app.Configuration["CodigoConfiguracaoInicial"] : app.Configuration["CodigoConfiguracaoInicial"];
+        if (!app.Environment.IsDevelopment() && string.IsNullOrWhiteSpace(codigo)) return Results.Forbid();
+        if (!string.IsNullOrWhiteSpace(codigo) && !CryptographicOperations.FixedTimeEquals(Encoding.UTF8.GetBytes(V("codigoSetup")), Encoding.UTF8.GetBytes(codigo)))
+            return Results.Redirect($"{rota}?erro=codigo");
+        if (V("razao") == "" || V("nome") == "" || V("email") == "") return Results.Redirect($"{rota}?erro=1");
+        var login = PoliticaSenha.NormalizarLogin(V("login"));
+        var senha = f["senha"].ToString();
+        var errosSenha = PoliticaSenha.ValidarLogin(login).Concat(PoliticaSenha.Validar(senha, login, V("nome"))).ToList();
+        if (senha != f["confirmacao"].ToString()) errosSenha.Add("A confirmação não confere com a senha.");
+        if (errosSenha.Count > 0) return Results.Redirect($"{rota}?erro=senha&msg=" + Uri.EscapeDataString(string.Join(" ", errosSenha)));
+
+        var empresa = new Empresa { RazaoSocial = V("razao"), NomeFantasia = V("fantasia") is { Length: > 0 } nf ? nf : V("razao"), Cnpj = V("cnpj"), Codigo = V("codigo"), NivelSiac = V("nivel") is { Length: > 0 } n ? n : "B" };
+        await using var db = sistema.Criar(empresa.Id, "Setup");
+        if (novaConstrutora)
+        {
+            var dup = new List<string>();
+            if (await db.Usuarios.IgnoreQueryFilters().AnyAsync(u => u.Login == login && !u.Excluido)) dup.Add("Login já está em uso em outra construtora.");
+            var doc = new string(empresa.Cnpj.Where(char.IsDigit).ToArray());
+            if (doc.Length > 0 && (await db.Empresas.IgnoreQueryFilters().Select(e => e.Cnpj).ToListAsync()).Any(c => new string((c ?? "").Where(char.IsDigit).ToArray()) == doc))
+                dup.Add("Já existe construtora com este CNPJ.");
+            if (dup.Count > 0) return Results.Redirect($"{rota}?erro=senha&msg=" + Uri.EscapeDataString(string.Join(" ", dup)));
+        }
+        db.Empresas.Add(empresa);
+        var admin = new Usuario
+        {
+            EmpresaId = empresa.Id, Nome = V("nome"), Email = V("email"), Perfil = PerfilUsuario.Administrador, Funcao = "Coordenador da Qualidade",
+            AcessoTodasObras = true, Login = login
+        };
+        db.Usuarios.Add(admin);
+        ContaServico.DefinirSenha(db, admin, senha, DateTimeOffset.UtcNow);
+        await db.SaveChangesAsync();
+        await CargaPadrao.AplicarSeNovaVersaoAsync(db, empresa.Id);
+        if (novaConstrutora) return Results.Redirect("/plataforma/nova-construtora?ok=" + Uri.EscapeDataString(empresa.NomeFantasia));
+        await Autenticacao.EntrarAsync(http, admin, empresa.NomeFantasia);
+        return Results.Redirect("/");
     }
 }

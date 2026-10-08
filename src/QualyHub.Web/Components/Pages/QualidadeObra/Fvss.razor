@@ -12,7 +12,7 @@
                 <Kpi Rotulo="Reprovadas abertas" Valor="@_itens?.Count(f => f.Status == StatusFvs.Reprovada)" Tom="erro" />
                 <Kpi Rotulo="Aguardando liberação" Valor="@_itens?.Count(f => f.Status == StatusFvs.Aprovada)" Sub="engenheiro da obra" Tom="aviso" />
             </div>
-            <Grade T="Linha" @ref="_grade" Itens="_itens" AoClicar="l => Abrir(l.Id)" NomeExportacao="fvs" CriadoPor="l => l.Inspetor">
+            <Grade T="Linha" @ref="_grade" Itens="_itens" Limite="LimiteGrade" AoCarregarTudo="async () => { ListaCompleta = true; await Carregar(); }" AoClicar="l => Abrir(l.Id)" NomeExportacao="fvs" CriadoPor="l => l.Inspetor">
                 <Acoes>
                     <a title="Abrir no celular" href="campo/fvs/@context.Id" target="_blank" data-enhance-nav="false"><Icone Nome="celular" Tam="16" /></a>
                 </Acoes>
@@ -173,7 +173,7 @@
         await using var db = Fabrica.CriarLeitura();
         var locais = await db.Locais.AsNoTracking().ToDictionaryAsync(l => l.Id, l => l.Nome, Cancelamento);
         var forn = await db.Fornecedores.AsNoTracking().ToDictionaryAsync(f => f.Id, f => f.NomeExibicao, Cancelamento);
-        var lista = await db.Fvss.AsNoTracking().Include(f => f.Itens).Include(f => f.Modelo).OrderByDescending(f => f.DataInspecao).ToListAsync(Cancelamento);
+        var lista = await db.Fvss.AsNoTracking().Include(f => f.Itens).Include(f => f.Modelo).OrderByDescending(f => f.DataInspecao).Take(LimiteAtual).ToListAsync(Cancelamento);
         _itens = lista.Select(f => new Linha(f.Id, f.Numero, f.Modelo?.Titulo ?? "", locais.GetValueOrDefault(f.LocalId, ""), forn.GetValueOrDefault(f.FornecedorId, ""),
             f.InspetorNome, f.DataInspecao, f.Status == StatusFvs.EmInspecao ? "—" : f.Resumo, f.Status, f.Aprovada1aInspecao)).ToList();
     }

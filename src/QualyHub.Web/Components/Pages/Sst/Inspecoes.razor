@@ -5,7 +5,7 @@
 <Pagina Titulo="Inspeções de segurança" Grade="_grade" AoNovo="Nova" AoAtualizar="Carregar">
     <ChildContent>
         <div class="pagina">
-            <Grade T="InspecaoSeguranca" @ref="_grade" Itens="_itens" AoClicar="i => Abrir(i.Id)" NomeExportacao="inspecoes-seguranca">
+            <Grade T="InspecaoSeguranca" @ref="_grade" Itens="_itens" Limite="LimiteGrade" AoCarregarTudo="async () => { ListaCompleta = true; await Carregar(); }" AoClicar="i => Abrir(i.Id)" NomeExportacao="inspecoes-seguranca">
                 <Colunas>
                     <Coluna T="InspecaoSeguranca" Titulo="Nº" Valor="i => i.Numero" Largura="80px" />
                     <Coluna T="InspecaoSeguranca" Titulo="Modelo" Valor="i => i.Modelo" />
@@ -104,7 +104,7 @@
     private async Task Carregar()
     {
         await using var db = Fabrica.CriarLeitura();
-        _itens = await db.InspecoesSeguranca.AsNoTracking().Include(i => i.Itens).OrderByDescending(i => i.Data).ToListAsync(Cancelamento);
+        _itens = await db.InspecoesSeguranca.AsNoTracking().Include(i => i.Itens).OrderByDescending(i => i.Data).Take(LimiteAtual).ToListAsync(Cancelamento);
         _locNomes = await db.Locais.AsNoTracking().ToDictionaryAsync(l => l.Id, l => l.Nome, Cancelamento);
     }
 

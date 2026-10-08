@@ -1,3 +1,4 @@
+﻿using QualyHub.Application.Servicos;
 using System.Globalization;
 using System.Text;
 using ClosedXML.Excel;
@@ -164,12 +165,13 @@ public sealed class ImportadorProdutosExpertData(IFabricaDb fabrica)
         var (_, _, validos) = await AnalisarAsync(arquivo, db, true, ct);
         db.ChangeTracker.AutoDetectChangesEnabled = false; // lote grande
         int ins = 0, upd = 0;
+        var alterados = new List<Guid>();
         var cache = new CodigosProdutoServico.Cache();
         foreach (var (r, atual, ctrl) in validos)
         {
             if (atual is not null)
             {
-                if (Aplicar(atual, r, ctrl).Count > 0) { upd++; await CodigosProdutoServico.AplicarAoSalvarAsync(db, atual, cache, ct); }
+                if (Aplicar(atual, r, ctrl).Count > 0) { upd++; alterados.Add(atual.Id); await CodigosProdutoServico.AplicarAoSalvarAsync(db, atual, cache, ct); }
                 continue;
             }
             var p = new Produto { Nome = r.Nome.Trim(), Unidade = r.Un, Ativo = true };
@@ -180,6 +182,8 @@ public sealed class ImportadorProdutosExpertData(IFabricaDb fabrica)
         }
         db.ChangeTracker.AutoDetectChangesEnabled = true;
         await db.SaveChangesAsync(ct);
+        // Produtos alterados pela planilha valem também nas requisições, cotações e pedidos em aberto.
+        if (await SincronizacaoCadastros.ProdutosAsync(db, alterados, ct) > 0) await db.SaveChangesAsync(ct);
         return (ins, upd);
     }
 }

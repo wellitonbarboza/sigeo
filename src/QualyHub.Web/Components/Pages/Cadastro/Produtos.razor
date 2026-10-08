@@ -196,6 +196,7 @@
     /// <summary>Recarrega indicadores, grupos e a página atual (após salvar, importar ou padronizar).</summary>
     private async Task Carregar()
     {
+        Cat.InvalidarProdutos(); // produto/controlado mudou: a busca de produtos de todos relê o catálogo
         _resumo = await Cad.ResumoProdutosAsync(Cancelamento);
         (_grupos, _subgrupos) = await Cad.GruposProdutoAsync(Cancelamento);
         await CarregarPagina();

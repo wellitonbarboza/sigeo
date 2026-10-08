@@ -100,6 +100,11 @@
     </table>
 </div>
 @* Região viva sempre presente: o leitor de tela anuncia a nova contagem quando um filtro muda a lista. *@
+@if (Itens is not null && Limite is { } lim && Itens.Count() >= lim)
+{
+    <div class="alerta info mt-8"><Icone Nome="info" /> Mostrando os @lim.ToString("N0", new System.Globalization.CultureInfo("pt-BR")) registros mais recentes (filtros e totais valem para eles).
+        @if (AoCarregarTudo.HasDelegate) { <button type="button" class="btn sec pq ml-8" @onclick="AoCarregarTudo">Carregar todos</button> }</div>
+}
 <div class="so-leitor" role="status" aria-live="polite">@(Itens is null ? "" : $"{_linhas.Count} registros")</div>
 @if (Itens is not null && _linhas.Count > TamanhoPagina)
 {
@@ -117,6 +122,9 @@
 
 @code {
     [Parameter] public IEnumerable<T>? Itens { get; set; }
+    /// <summary>Quantos registros a tela buscou no banco (os mais recentes). Atingido o limite, avisa e oferece carregar todos.</summary>
+    [Parameter] public int? Limite { get; set; }
+    [Parameter] public EventCallback AoCarregarTudo { get; set; }
     [Parameter] public RenderFragment? Colunas { get; set; }
     [Parameter] public RenderFragment<T>? Acoes { get; set; }
     [Parameter] public EventCallback<T> AoClicar { get; set; }

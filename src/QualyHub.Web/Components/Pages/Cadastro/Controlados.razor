@@ -207,6 +207,7 @@
 
     private async Task Carregar()
     {
+        Cat.InvalidarProdutos(); // produto/controlado mudou: a busca de produtos de todos relê o catálogo
         await using var db = Fabrica.CriarLeitura();
         _mats = await db.MateriaisControlados.OrderBy(m => m.Codigo).ToListAsync(Cancelamento);
         _srvs = await db.ServicosControlados.OrderBy(m => m.Codigo).ToListAsync(Cancelamento);

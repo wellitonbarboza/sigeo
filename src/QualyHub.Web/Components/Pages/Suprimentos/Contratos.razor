@@ -13,7 +13,7 @@
                 <Kpi Rotulo="Aguard. aprovação/assinatura" Valor="@_itens?.Count(c => c.Status is StatusContrato.AguardandoAprovacaoDiretoria or StatusContrato.AguardandoAssinaturas)" Tom="aviso" />
                 <Kpi Rotulo="Vencendo em 30 dias" Valor="@_itens?.Count(c => c.Status == StatusContrato.Ativo && c.Fim <= Hoje.AddDays(30))" Tom="erro" />
             </div>
-            <Grade T="Linha" @ref="_grade" Itens="_itens" AoClicar="l => Abrir(l.Id)" NomeExportacao="contratos" CriadoPor="l => l.CriadoPor">
+            <Grade T="Linha" @ref="_grade" Itens="_itens" Limite="LimiteGrade" AoCarregarTudo="async () => { ListaCompleta = true; await Carregar(); }" AoClicar="l => Abrir(l.Id)" NomeExportacao="contratos" CriadoPor="l => l.CriadoPor">
                 <Colunas>
                     <Coluna T="Linha" Titulo="Número" Valor="l => l.Numero" Largura="120px" />
                     <Coluna T="Linha" Titulo="Obra" Valor="l => l.Obra" />
@@ -317,7 +317,7 @@
     private async Task Carregar()
     {
         await using var db = Fabrica.CriarLeitura();
-        var lista = await db.Contratos.AsNoTracking().Include(k => k.Itens).Include(k => k.Fornecedor).OrderByDescending(k => k.CriadoEm).ToListAsync(Cancelamento);
+        var lista = await db.Contratos.AsNoTracking().Include(k => k.Itens).Include(k => k.Fornecedor).OrderByDescending(k => k.CriadoEm).Take(LimiteAtual).ToListAsync(Cancelamento);
         var obras = await db.Obras.AsNoTracking().ToDictionaryAsync(o => o.Id, o => o.Nome, Cancelamento);
         _itens = lista.Select(k => new Linha(k.Id, k.Numero, obras.GetValueOrDefault(k.ObraId, ""), k.Fornecedor.NomeExibicao, k.Categoria, k.Objeto, k.ValorTotal, k.VigenciaFim, k.Status, k.CriadoPor)).ToList();
     }

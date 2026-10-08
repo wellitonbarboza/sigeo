@@ -8,7 +8,7 @@
 <Pagina Titulo="Orçamentos (cotação)" Grade="_grade" AoAtualizar="Carregar">
     <ChildContent>
         <div class="pagina">
-            <Grade T="Linha" @ref="_grade" Itens="_itens" AoClicar="l => Abrir(l.Id)" NomeExportacao="cotacoes" CriadoPor="l => l.CriadoPor">
+            <Grade T="Linha" @ref="_grade" Itens="_itens" Limite="LimiteGrade" AoCarregarTudo="async () => { ListaCompleta = true; await Carregar(); }" AoClicar="l => Abrir(l.Id)" NomeExportacao="cotacoes" CriadoPor="l => l.CriadoPor">
                 <Colunas>
                     <Coluna T="Linha" Titulo="Número" Valor="l => l.Numero" Largura="90px" />
                     <Coluna T="Linha" Titulo="Nome" Valor="l => l.Nome" />
@@ -220,7 +220,7 @@
     private async Task Carregar()
     {
         await using var db = Fabrica.CriarLeitura();
-        _itens = await db.Cotacoes.AsNoTracking().OrderByDescending(c => c.Numero)
+        _itens = await db.Cotacoes.AsNoTracking().OrderByDescending(c => c.Numero).Take(LimiteAtual)
             .Select(c => new Linha(c.Id, c.Numero, c.Nome, db.Obras.Where(o => o.Id == c.ObraId).Select(o => o.Nome).FirstOrDefault() ?? "", c.Tipo,
                 c.PropostasRecebidas, c.PropostasExigidas, c.ValorEstimado, c.FornecedorVencedor != null ? c.FornecedorVencedor.RazaoSocial : null, c.Status, c.CriadoPor, c.CriadoEm)).ToListAsync(Cancelamento);
     }

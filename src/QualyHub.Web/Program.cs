@@ -9,6 +9,7 @@ using QualyHub.Infrastructure.Servicos;
 using QualyHub.Web.Components;
 using QualyHub.Web.Seguranca;
 using QualyHub.Web.Servicos;
+using Azure.Monitor.OpenTelemetry.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -19,7 +20,21 @@ if (builder.Configuration["QualyHub:KeyVaultUri"] is { Length: > 0 } kvUri)
 var cs = builder.Configuration.GetConnectionString("QualyHub")
          ?? throw new InvalidOperationException("Configure ConnectionStrings:QualyHub (produção: Managed Identity — Authentication=Active Directory Default).");
 
-builder.Services.AddRazorComponents().AddInteractiveServerComponents();
+// Aba esquecida/desconectada libera a memória do servidor em 2 min (padrão 3) — cada usuário conectado ocupa memória no Blazor Server.
+builder.Services.AddRazorComponents().AddInteractiveServerComponents(o =>
+{
+    o.DisconnectedCircuitRetentionPeriod = TimeSpan.FromMinutes(2);
+    o.DisconnectedCircuitMaxRetained = 50;
+});
+
+// Telemetria (Application Insights via OpenTelemetry): só liga com a cadeia de conexão do App Service.
+// Amostragem de 25% e sem o /saude (verificação a cada minuto) para ficar dentro dos 5 GB/mês gratuitos do Log Analytics.
+if (builder.Configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"] is { Length: > 0 })
+{
+    builder.Services.AddOpenTelemetry().UseAzureMonitor(o => o.SamplingRatio = 0.25f);
+    builder.Services.Configure<OpenTelemetry.Instrumentation.AspNetCore.AspNetCoreTraceInstrumentationOptions>(o =>
+        o.Filter = ctx => !ctx.Request.Path.StartsWithSegments("/saude") && !ctx.Request.Path.StartsWithSegments("/_framework"));
+}
 builder.Services.AddHttpContextAccessor();
 Autenticacao.Configurar(builder);
 
@@ -41,7 +56,9 @@ else
 builder.Services.AddQualyHubComunicacao(builder.Configuration, builder.Environment.IsDevelopment());
 builder.Services.AddScoped<Notificacoes>();
 builder.Services.AddScoped<Catalogos>();
+builder.Services.AddSingleton<CacheCompartilhado>();
 builder.Services.AddSingleton<RotinaCadastros>();
+builder.Services.AddHostedService<RotinaMatinal>();
 builder.Services.AddScoped<EstadoGrades>();
 // Endpoints HTTP (downloads, GRD, configuração inicial, /api) respondem erro em Problem Details (RFC 9457).
 builder.Services.AddProblemDetails();
@@ -101,10 +118,16 @@ app.Use(async (ctx, next) =>
 {
     var p = ctx.Request.Path.Value ?? "";
     if (p == "/saude") { await next(); return; }
-    if (!p.StartsWith("/configuracao-inicial") && !p.StartsWith("/_") && !p.Contains('.') && !p.StartsWith("/portal") && !p.StartsWith("/cotacao/") && !p.StartsWith("/qr"))
+    if (!p.StartsWith("/configuracao-inicial") && !p.StartsWith("/plataforma/") && !p.StartsWith("/_") && !p.Contains('.') && !p.StartsWith("/portal") && !p.StartsWith("/cotacao/") && !p.StartsWith("/qr"))
     {
-        await using var db = ctx.RequestServices.GetRequiredService<IFabricaSistema>().Criar(Guid.Empty, "Web");
-        if (!await db.Empresas.AnyAsync()) { ctx.Response.Redirect("/configuracao-inicial"); return; }
+        // Depois que existe empresa isso nunca volta a ser falso: guarda em memória e não consulta mais o banco
+        // (cada consulta aqui, inclusive o "Always On" do App Service, impedia o Azure SQL serverless de pausar).
+        if (!PrimeiraExecucao.EmpresaExiste)
+        {
+            await using var db = ctx.RequestServices.GetRequiredService<IFabricaSistema>().Criar(Guid.Empty, "Web");
+            if (!await db.Empresas.AnyAsync()) { ctx.Response.Redirect("/configuracao-inicial"); return; }
+            PrimeiraExecucao.EmpresaExiste = true;
+        }
     }
     await next();
 });
@@ -116,3 +139,6 @@ Endpoints.Mapear(app);
 app.MapRazorComponents<App>().AddInteractiveServerRenderMode();
 
 app.Run();
+
+/// <summary>Memória do processo: já existe empresa cadastrada (evita ir ao banco a cada requisição).</summary>
+static class PrimeiraExecucao { public static volatile bool EmpresaExiste; }

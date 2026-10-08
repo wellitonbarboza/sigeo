@@ -61,6 +61,9 @@ if ! az keyvault secret show --vault-name "$KV" -n CpfHmacChave >/dev/null 2>&1;
   az keyvault secret set --vault-name "$KV" -n CpfHmacChave --value "$(openssl rand -base64 48)" -o none
   echo "    CpfHmacChave criada. NUNCA rotacione sem reprocessar os hashes de CPF."
 fi
+# Código da plataforma: cadastrar outras construtoras em /plataforma/nova-construtora.
+az keyvault secret show --vault-name "$KV" -n CodigoPlataforma >/dev/null 2>&1 || \
+  az keyvault secret set --vault-name "$KV" -n CodigoPlataforma --value "$(openssl rand -hex 16)" -o none
 if ! az keyvault secret show --vault-name "$KV" -n CodigoConfiguracaoInicial >/dev/null 2>&1; then
   az keyvault secret set --vault-name "$KV" -n CodigoConfiguracaoInicial --value "$(openssl rand -hex 12)" -o none
 fi

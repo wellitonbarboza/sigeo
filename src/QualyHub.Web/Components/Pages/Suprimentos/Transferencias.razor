@@ -12,7 +12,7 @@
                 <Kpi Rotulo="Recebidas" Valor="@_itens?.Count(t => t.Status == StatusTransferencia.Recebida)" Tom="ok" />
                 <Kpi Rotulo="Valor transferido (mês)" Valor="@(_itens?.Where(t => t.Data >= new DateOnly(Hoje.Year, Hoje.Month, 1)).Sum(t => t.Valor).ToString("C0", Br))" Tom="info" />
             </div>
-            <Grade T="Linha" @ref="_grade" Itens="_itens" AoClicar="l => Abrir(l.Id)" NomeExportacao="transferencias">
+            <Grade T="Linha" @ref="_grade" Itens="_itens" Limite="LimiteGrade" AoCarregarTudo="async () => { ListaCompleta = true; await Carregar(); }" AoClicar="l => Abrir(l.Id)" NomeExportacao="transferencias">
                 <Colunas>
                     <Coluna T="Linha" Titulo="Nº" Valor="l => l.Numero" Largura="70px" />
                     <Coluna T="Linha" Titulo="Data" Valor="l => l.Data" />
@@ -100,7 +100,7 @@
     private async Task Carregar()
     {
         await using var db = Fabrica.CriarLeitura();
-        var lista = await db.Transferencias.AsNoTracking().Include(t => t.Itens).OrderByDescending(t => t.Numero).ToListAsync(Cancelamento);
+        var lista = await db.Transferencias.AsNoTracking().Include(t => t.Itens).OrderByDescending(t => t.Numero).Take(LimiteAtual).ToListAsync(Cancelamento);
         var idsRec = lista.Where(t => t.RecebimentoId != null).Select(t => t.RecebimentoId!.Value).Distinct().ToList();
         var recs = await db.Recebimentos.AsNoTracking().Where(r => idsRec.Contains(r.Id)).Select(r => new { r.Id, r.Numero }).ToDictionaryAsync(r => r.Id, r => r.Numero, Cancelamento);
         var obras = _obras.ToDictionary(o => o.Id, o => o.Texto);

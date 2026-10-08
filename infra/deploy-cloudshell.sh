@@ -73,6 +73,8 @@ az role assignment create --assignee-object-id "$EU" --assignee-principal-type U
 echo "  Aguardando a permissão propagar (40 s)…"; sleep 40
 az keyvault secret show --vault-name "$KV" -n CpfHmacChave >/dev/null 2>&1 || \
   az keyvault secret set --vault-name "$KV" -n CpfHmacChave --value "$(openssl rand -base64 48)" -o none
+az keyvault secret show --vault-name "$KV" -n CodigoPlataforma >/dev/null 2>&1 || \
+  az keyvault secret set --vault-name "$KV" -n CodigoPlataforma --value "$(openssl rand -hex 16)" -o none
 az keyvault secret show --vault-name "$KV" -n CodigoConfiguracaoInicial >/dev/null 2>&1 || \
   az keyvault secret set --vault-name "$KV" -n CodigoConfiguracaoInicial --value "$(openssl rand -hex 12)" -o none
 az webapp config appsettings set -g "$RG" -n "$WEB" --settings Banco__MigrarAoIniciar=true -o none

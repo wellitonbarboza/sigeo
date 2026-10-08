@@ -10,7 +10,7 @@
 <Pagina Titulo="Requisição de compras" Grade="_grade" AoNovo="Novo" AoAtualizar="Carregar">
     <ChildContent>
         <div class="pagina">
-            <Grade T="Linha" @ref="_grade" Itens="_itens" AoClicar="l => Abrir(l.Id)" NomeExportacao="requisicoes" CriadoPor="l => l.CriadoPor">
+            <Grade T="Linha" @ref="_grade" Itens="_itens" Limite="LimiteGrade" AoCarregarTudo="async () => { ListaCompleta = true; await Carregar(); }" AoClicar="l => Abrir(l.Id)" NomeExportacao="requisicoes" CriadoPor="l => l.CriadoPor">
                 <Acoes><button title="Abrir" @onclick="() => Abrir(context.Id)"><Icone Nome="prancheta" Tam="16" /></button></Acoes>
                 <Colunas>
                     <Coluna T="Linha" Titulo="Número" Valor="l => l.Numero" Largura="90px" />
@@ -249,7 +249,7 @@
     private async Task Carregar()
     {
         await using var db = Fabrica.CriarLeitura();
-        _itens = await db.Requisicoes.AsNoTracking().OrderByDescending(r => r.Numero)
+        _itens = await db.Requisicoes.AsNoTracking().OrderByDescending(r => r.Numero).Take(LimiteAtual)
             .Select(r => new Linha(r.Id, r.Numero, db.Obras.Where(o => o.Id == r.ObraId).Select(o => o.Nome).FirstOrDefault() ?? "",
                 r.Tipo, r.Atividade, r.CentroCusto != null ? r.CentroCusto.Nome : null, r.DataEntrega, r.Itens.Count, r.Status, r.CriadoPor, r.CriadoEm)).ToListAsync(Cancelamento);
     }

@@ -13,7 +13,7 @@
                 <Kpi Rotulo="Origem auditoria" Valor="@_itens?.Count(r => Aberta(r.Status) && r.Origem is OrigemRnc.AuditoriaInterna or OrigemRnc.AuditoriaExterna)" />
                 <Kpi Rotulo="Prazo vencido" Valor="@_itens?.Count(r => r.Vencida(Hoje))" Tom="erro" />
             </div>
-            <Grade T="Rnc" @ref="_grade" Itens="_itens" AoClicar="r => Abrir(r.Id)" NomeExportacao="rnc" CriadoPor="r => r.CriadoPor">
+            <Grade T="Rnc" @ref="_grade" Itens="_itens" Limite="LimiteGrade" AoCarregarTudo="async () => { ListaCompleta = true; await Carregar(); }" AoClicar="r => Abrir(r.Id)" NomeExportacao="rnc" CriadoPor="r => r.CriadoPor">
                 <Colunas>
                     <Coluna T="Rnc" Titulo="Nº" Valor="r => r.Numero" Largura="90px" />
                     <Coluna T="Rnc" Titulo="Origem" Valor="r => r.Origem" />
@@ -92,7 +92,7 @@
     private async Task Carregar()
     {
         await using var db = Fabrica.CriarLeitura();
-        _itens = await db.Rncs.AsNoTracking().OrderByDescending(r => r.Numero).ToListAsync(Cancelamento);
+        _itens = await db.Rncs.AsNoTracking().OrderByDescending(r => r.Numero).Take(LimiteAtual).ToListAsync(Cancelamento);
         _acs = await db.AcoesCorretivas.AsNoTracking().ToDictionaryAsync(a => a.Id, a => a.Numero, Cancelamento);
         _locNomes = await db.Locais.AsNoTracking().ToDictionaryAsync(l => l.Id, l => l.Nome, Cancelamento);
     }

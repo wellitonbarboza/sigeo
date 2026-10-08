@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using QualyHub.Domain.Common;
 using QualyHub.Infrastructure.Servicos;
 
@@ -14,7 +14,7 @@ public sealed record ProdutoBusca(Guid Id, string Codigo, string Nome, string Un
 }
 
 /// <summary>Listas para os combos das telas (cache curto por circuito — escopo = um usuário).</summary>
-public sealed class Catalogos(IFabricaDb fabrica, QualyHub.Web.Seguranca.UsuarioAtualWeb usuario)
+public sealed class Catalogos(IFabricaDb fabrica, QualyHub.Web.Seguranca.UsuarioAtualWeb usuario, CacheCompartilhado compartilhado)
 {
     private readonly Dictionary<string, (DateTime Em, object Valor)> _cache = [];
 
@@ -27,6 +27,9 @@ public sealed class Catalogos(IFabricaDb fabrica, QualyHub.Web.Seguranca.Usuario
     }
 
     public void Invalidar() => _cache.Clear();
+
+    /// <summary>Produto salvo/importado: a próxima busca de qualquer usuário da empresa relê o catálogo.</summary>
+    public void InvalidarProdutos() { _cache.Clear(); compartilhado.Invalidar(usuario.EmpresaId, "prodbusca"); }
 
     public Task<List<string>> ListaAsync(TipoLista tipo) => Cache($"lista:{tipo}", async () =>
     {
@@ -136,7 +139,8 @@ public sealed class Catalogos(IFabricaDb fabrica, QualyHub.Web.Seguranca.Usuario
         return await db.Documentos.AsNoTracking().OrderBy(d => d.Codigo).Select(d => new Opcao(d.Id, d.Codigo + " – " + d.Titulo)).ToListAsync();
     });
 
-    public Task<List<ProdutoBusca>> ProdutosBuscaAsync() => Cache("prodbusca", async () =>
+    /// <summary>Catálogo de produtos para a busca: uma cópia por empresa no processo (5 min ou até salvar um produto).</summary>
+    public Task<List<ProdutoBusca>> ProdutosBuscaAsync() => compartilhado.ObterAsync(usuario.EmpresaId, "prodbusca", TimeSpan.FromMinutes(5), async () =>
     {
         await using var db = fabrica.CriarLeitura();
         return await db.Produtos.AsNoTracking().Where(o => o.Ativo).OrderBy(o => o.Nome)

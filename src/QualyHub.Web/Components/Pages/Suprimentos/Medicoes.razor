@@ -12,7 +12,7 @@
                 <Kpi Rotulo="Nota média" Valor="@Num(_itens?.Where(m => m.Nota != null).Select(m => m.Nota).DefaultIfEmpty(null).Average())" Tom="info" />
                 <Kpi Rotulo="@($"Abaixo de {Num(_p?[Parametros.NotaPlanoPontual])}")" Valor="@_itens?.Count(m => m.Faixa != FaixaNota.Nenhuma)" Sub="geraram plano de ação" Tom="erro" />
             </div>
-            <Grade T="Linha" @ref="_grade" Itens="_itens" AoClicar="l => Abrir(l.Id)" NomeExportacao="medicoes" CriadoPor="l => l.CriadoPor">
+            <Grade T="Linha" @ref="_grade" Itens="_itens" Limite="LimiteGrade" AoCarregarTudo="async () => { ListaCompleta = true; await Carregar(); }" AoClicar="l => Abrir(l.Id)" NomeExportacao="medicoes" CriadoPor="l => l.CriadoPor">
                 <Colunas>
                     <Coluna T="Linha" Titulo="Contrato" Valor="l => l.Contrato" />
                     <Coluna T="Linha" Titulo="Nº" Valor="l => l.Numero" Largura="60px" />
@@ -177,7 +177,7 @@
     private async Task Carregar()
     {
         await using var db = Fabrica.CriarLeitura();
-        _itens = await db.Medicoes.AsNoTracking().OrderByDescending(m => m.CriadoEm)
+        _itens = await db.Medicoes.AsNoTracking().OrderByDescending(m => m.CriadoEm).Take(LimiteAtual)
             .Select(m => new Linha(m.Id, m.Contrato.Numero, m.NumeroMedicao, m.Contrato.Fornecedor.RazaoSocial, m.PeriodoInicio, m.PeriodoFim, m.ValorPeriodo, m.NotaFinal, m.Faixa, m.Status, m.CriadoPor)).ToListAsync(Cancelamento);
     }
 
