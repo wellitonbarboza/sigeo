@@ -595,3 +595,10 @@ button.predio-comum { background: transparent; }
 button.chip { border: 0; font-family: inherit; cursor: pointer; }
 .texto-pre { white-space: pre-wrap; }
 .laudo-ia { margin: 8px 0; }
+.linha-botoes { display: flex; gap: 8px; flex-wrap: wrap; margin: 6px 0; }
+.mapa-cotacao small { display: block; font-size: 11px; }
+@media print {
+    .mapa-cotacao input { border: 0; background: none; padding: 0; width: auto; }
+    .mapa-cotacao .tabela-rolavel { overflow: visible; }
+    @page { size: A4 landscape; margin: 10mm; }
+}

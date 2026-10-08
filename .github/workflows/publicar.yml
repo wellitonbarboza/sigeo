@@ -1,0 +1,64 @@
+# Publica o QualyHub no Azure App Service a cada push na main (ou manualmente em Actions › Publicar › Run workflow).
+# Login no Azure por OIDC (federação): nenhuma senha/chave guardada no GitHub. Configuração única: infra/configurar-github.sh.
+# Secrets do repositório: AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID. Variáveis: AZURE_WEBAPP (nome do site).
+# O banco é atualizado pelo próprio app ao iniciar (Banco__MigrarAoIniciar=true), como no atualizar-app.sh.
+name: Publicar
+
+on:
+  push:
+    branches: [main]
+    paths: ["src/**", "tests/**", "QualyHub.slnx", ".github/workflows/publicar.yml"]
+  workflow_dispatch:
+
+permissions:
+  id-token: write   # OIDC com o Azure
+  contents: read
+
+concurrency:
+  group: publicar-producao
+  cancel-in-progress: false
+
+jobs:
+  testar-e-publicar:
+    runs-on: ubuntu-latest
+    environment: producao   # proteção opcional: exigir aprovação em Settings › Environments
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Compilar
+        run: dotnet build QualyHub.slnx -c Release
+
+      - name: Testes unitários
+        run: dotnet test tests/QualyHub.Tests -c Release --no-build
+
+      - name: Testes com banco (SQL Server em contêiner)
+        run: |
+          docker run -d --name sql -e ACCEPT_EULA=Y -e MSSQL_SA_PASSWORD='Ci!Teste2026x' -p 1433:1433 mcr.microsoft.com/mssql/server:2022-latest
+          for i in $(seq 1 30); do sleep 3; docker exec sql /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P 'Ci!Teste2026x' -Q "select 1" >/dev/null 2>&1 && break; done
+          QH_TEST_SQL='Server=localhost,1433;User Id=sa;Password=Ci!Teste2026x;TrustServerCertificate=True' dotnet test tests/QualyHub.Tests.Integracao -c Release --no-build
+
+      - name: Publicar pacote
+        run: dotnet publish src/QualyHub.Web -c Release -r linux-x64 --self-contained false -o publicar
+
+      - name: Entrar no Azure (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Enviar para o App Service
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ vars.AZURE_WEBAPP }}
+          package: publicar
+
+      - name: Conferir saúde
+        run: |
+          url="https://$(az webapp show -g ${{ vars.AZURE_RG }} -n ${{ vars.AZURE_WEBAPP }} --query defaultHostName -o tsv)/saude"
+          for i in $(seq 1 20); do sleep 15; code=$(curl -s -o /dev/null -w '%{http_code}' "$url"); echo "saude: $code"; [ "$code" = "200" ] && exit 0; done
+          echo "Site não respondeu /saude em 5 min"; exit 1
