@@ -1,0 +1,135 @@
+@page "/sst/inspecoes"
+@inherits PaginaBase
+@inject SstServico Sst
+
+<Pagina Titulo="Inspeções de segurança" Grade="_grade" AoNovo="Nova" AoAtualizar="Carregar">
+    <ChildContent>
+        <div class="pagina">
+            <Grade T="InspecaoSeguranca" @ref="_grade" Itens="_itens" Limite="LimiteGrade" AoCarregarTudo="async () => { ListaCompleta = true; await Carregar(); }" AoClicar="i => Abrir(i.Id)" NomeExportacao="inspecoes-seguranca">
+                <Colunas>
+                    <Coluna T="InspecaoSeguranca" Titulo="Nº" Valor="i => i.Numero" Largura="80px" />
+                    <Coluna T="InspecaoSeguranca" Titulo="Modelo" Valor="i => i.Modelo" />
+                    <Coluna T="InspecaoSeguranca" Titulo="Local" Valor="i => _locNomes.GetValueOrDefault(i.LocalId)" />
+                    <Coluna T="InspecaoSeguranca" Titulo="Inspetor" Valor="i => i.InspetorNome" />
+                    <Coluna T="InspecaoSeguranca" Titulo="Data" Valor="i => i.Data" />
+                    <Coluna T="InspecaoSeguranca" Titulo="Conformidade" Valor='i => i.Conformidade == null ? "—" : $"{i.Conformidade:0}%"' Alinhar="num" />
+                    <Coluna T="InspecaoSeguranca" Titulo="NC abertas" Valor="i => i.Itens.Count(x => x.Resultado == ResultadoItem.NaoConforme && !x.Corrigido)" Alinhar="num" />
+                    <Coluna T="InspecaoSeguranca" Titulo="Status" Valor="i => i.Status"><Modelo><Selo Texto="@De(context.Status)" Tom="@Tom(context.Status)" /></Modelo></Coluna>
+                </Colunas>
+            </Grade>
+        </div>
+    </ChildContent>
+    <Faixa><b>Tela 46 · Inspeções de segurança</b><span>Checklist de canteiro (modelos tipo SST) com foto, prazo e responsável</span><span>Risco grave e iminente → paralisação + RNC</span></Faixa>
+</Pagina>
+
+<Modal @bind-Aberto="_nova" Titulo="Nova inspeção de segurança" Tamanho="media">
+    <ChildContent>
+        <Erros Lista="ErrosForm" />
+        <div class="form">
+            <Campo Rotulo="Checklist" Obrigatorio Classe="s12"><select @bind="_modelo"><option value="">Selecione…</option>@foreach (var m in _modelos) { <option value="@m.Id">@m.Texto</option> }</select></Campo>
+            <Campo Rotulo="Obra" Obrigatorio Classe="s6"><select value="@_obra" @onchange="async e => { _obra = Guid.TryParse(e.Value?.ToString(), out var g) ? g : null; _locais = _obra is { } o ? await Cat.LocaisAsync(o) : []; }"><option value="">Selecione…</option>@foreach (var o in _obras) { <option value="@o.Id">@o.Texto</option> }</select></Campo>
+            <Campo Rotulo="Local" Obrigatorio Classe="s6"><select @bind="_local"><option value="">Selecione…</option>@foreach (var l in _locais) { <option value="@l.Id">@l.Texto</option> }</select></Campo>
+        </div>
+        <p class="mudo">Os checklists são modelos do tipo SST (Qualidade da obra › modelos). Carga inicial: canteiro geral semanal.</p>
+    </ChildContent>
+    <Rodape><a class="btn sec" href="obra/modelos/sst">Editar checklists</a><button class="btn prim" disabled="@Ocupado" @onclick="Criar"><Icone Nome="prancheta" Tam="16" /> Iniciar</button></Rodape>
+</Modal>
+
+<Modal @bind-Aberto="_aberto" Titulo="@($"{_i?.Numero} — inspeção de segurança · {_i?.Modelo}")" Tamanho="grande">
+    <ChildContent>
+        @if (_i is not null)
+        {
+            var edita = _i.Status != StatusInspecaoSst.Concluida;
+            <Erros Lista="ErrosForm" />
+            <div class="tabela-rolavel">
+            <table class="itens">
+                <thead><tr><th>#</th><th>Item</th><th>Ref.</th><th class="larg-min-220">Resultado</th><th>Gravidade</th><th>Responsável / empresa</th><th>Prazo</th><th>Foto</th><th>Obs.</th><th>Corrigido</th></tr></thead>
+                <tbody>
+                    @foreach (var x in _i.Itens.OrderBy(x => x.Ordem))
+                    {
+                        <tr @key="x.Id" class="@(x.Resultado == ResultadoItem.NaoConforme && !x.Corrigido ? "alerta-linha" : "")">
+                            <td>@x.Ordem</td><td>@x.Descricao</td><td>@x.Referencia</td>
+                            <td><div class="botoes-resultado">
+                                <button class="btn pq @(x.Resultado == ResultadoItem.Conforme ? "ok" : "sec")" disabled="@(!edita)" @onclick="() => x.Resultado = ResultadoItem.Conforme">Conforme</button>
+                                <button class="btn pq @(x.Resultado == ResultadoItem.NaoConforme ? "perigo-cheio" : "sec")" disabled="@(!edita)" @onclick="() => x.Resultado = ResultadoItem.NaoConforme">Não conf.</button>
+                                <button class="btn pq @(x.Resultado == ResultadoItem.NaoAplica ? "prim" : "sec")" disabled="@(!edita)" @onclick="() => x.Resultado = ResultadoItem.NaoAplica">N/A</button></div></td>
+                            @if (x.Resultado == ResultadoItem.NaoConforme)
+                            {
+                                <td><select @bind="x.Gravidade" disabled="@(!edita)"><option value="">—</option>@foreach (var g in Enum.GetValues<Gravidade>()) { <option value="@g">@De(g)</option> }</select></td>
+                                <td><input @bind="x.Responsavel" disabled="@(!edita)" /></td>
+                                <td class="larg-130"><input type="date" @bind="x.Prazo" disabled="@(!edita)" /></td>
+                                <td><Fotos Entidade="InspecaoItem" EntidadeId="x.Id" SomenteLeitura="!edita" Obrigatoria="true" /></td>
+                                <td><input @bind="x.Observacao" disabled="@(!edita)" /></td>
+                                <td class="texto-centro"><input type="checkbox" @bind="x.Corrigido" disabled="@(!edita)" /> @if (x.RncId is { } r) { <a href="obra/rnc?id=@r">RNC</a> }</td>
+                            }
+                            else { <td colspan="6"></td> }
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            </div>
+            @if (_i.Itens.Any(x => x.Gravidade == Gravidade.RiscoGraveIminente) || !string.IsNullOrEmpty(_i.Paralisacao))
+            {
+                <div class="alerta erro"><Icone Nome="alerta" /> Risco grave e iminente: registre a paralisação da frente (NR-03). Gera RNC / ação corretiva e aviso ao engenheiro e à empresa.</div>
+                <div class="form"><Campo Rotulo="Paralisação" Obrigatorio Classe="s12"><input @bind="_i.Paralisacao" disabled="@(!edita)" placeholder="ex.: frente do Pav. 5 paralisada até correção" /></Campo></div>
+            }
+        }
+    </ChildContent>
+    <Rodape>
+        @if (_i is not null && _i.Status != StatusInspecaoSst.Concluida)
+        {
+            <button class="btn sec" @onclick='() => JS.InvokeVoidAsync("print")'><Icone Nome="impressora" Tam="16" /> Relatório</button>
+            <button class="btn ok" disabled="@Ocupado" @onclick="() => Salvar(true)"><Icone Nome="check" Tam="16" /> Concluir</button>
+            <button class="btn prim" disabled="@Ocupado" @onclick="() => Salvar(false)"><Icone Nome="check" Tam="16" /> Salvar</button>
+        }
+    </Rodape>
+</Modal>
+
+@code {
+    [Inject] private IJSRuntime JS { get; set; } = default!;
+    private Grade<InspecaoSeguranca>? _grade;
+    private List<InspecaoSeguranca>? _itens;
+    private InspecaoSeguranca? _i;
+    private bool _aberto, _nova;
+    private Guid? _obra, _local, _modelo;
+    private Dictionary<Guid, string> _locNomes = [];
+    private List<Opcao> _obras = [], _locais = [], _modelos = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _obras = await Cat.ObrasAsync(); _modelos = await Cat.ModelosAsync(TipoModelo.SST);
+        await Carregar();
+    }
+
+    private async Task Carregar()
+    {
+        await using var db = Fabrica.CriarLeitura();
+        _itens = await db.InspecoesSeguranca.AsNoTracking().Include(i => i.Itens).OrderByDescending(i => i.Data).Take(LimiteAtual).ToListAsync(Cancelamento);
+        _locNomes = await db.Locais.AsNoTracking().ToDictionaryAsync(l => l.Id, l => l.Nome, Cancelamento);
+    }
+
+    private async Task Nova()
+    {
+        _obra = _obras.Count == 1 ? _obras[0].Id : null; _locais = _obra is { } o ? await Cat.LocaisAsync(o) : []; _local = null; _modelo = _modelos.FirstOrDefault()?.Id;
+        ErrosForm = null; _nova = true;
+    }
+
+    private async Task Criar()
+    {
+        if (_modelo is null || _local is null) { ErrosForm = ["Informe o checklist e o local."]; return; }
+        Guid id = default;
+        if (await Executar(async () => id = await Sst.AbrirInspecaoAsync(_modelo.Value, _local.Value, Cancelamento), "Inspeção iniciada.")) { _nova = false; await Carregar(); await Abrir(id); }
+    }
+
+    private async Task Abrir(Guid id)
+    {
+        await using var db = Fabrica.CriarLeitura();
+        _i = await db.InspecoesSeguranca.AsNoTracking().Include(i => i.Itens).FirstAsync(i => i.Id == id, Cancelamento);
+        ErrosForm = null; _aberto = true;
+    }
+
+    private async Task Salvar(bool concluir)
+    {
+        if (await Executar(() => Sst.SalvarInspecaoAsync(_i!, concluir, Cancelamento), concluir ? "Inspeção concluída." : "Inspeção salva.")) { await Carregar(); await Abrir(_i!.Id); }
+    }
+}

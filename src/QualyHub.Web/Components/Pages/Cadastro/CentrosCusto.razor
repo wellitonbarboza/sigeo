@@ -1,0 +1,96 @@
+@page "/cadastros/centros-custo"
+@inherits PaginaBase
+@inject EstabelecimentosServico Est
+
+<Pagina Titulo="Centros de custo" Grade="_g" AoNovo="Novo" AoAtualizar="Carregar">
+    <ChildContent>
+        <div class="pagina">
+            <Grade T="CentroCusto" @ref="_g" Itens="_ccs" AoClicar="c => { _c = c; ErrosForm = null; _aberto = true; }" NomeExportacao="centros-custo" CriadoPor="c => c.CriadoPor">
+                <Colunas>
+                    <Coluna T="CentroCusto" Titulo="Código / etapa" Valor="c => c.Codigo" Largura="120px" />
+                    <Coluna T="CentroCusto" Titulo="Centro de custo" Valor="c => Caminho(c)" />
+                    <Coluna T="CentroCusto" Titulo="Estabelecimentos" Valor="c => Estabs(c)" />
+                    <Coluna T="CentroCusto" Titulo="Código ERP" Valor="c => c.CodigoErp" Visivel="false" />
+                    <Coluna T="CentroCusto" Titulo="Obra" Valor='c => c.ObraId == null ? "(corporativo)" : _obras.FirstOrDefault(o => o.Id == c.ObraId)?.Texto' />
+                    <Coluna T="CentroCusto" Titulo="Orçamento" Valor="c => c.Orcamento" Formato="C2" Alinhar="num" />
+                    <Coluna T="CentroCusto" Titulo="Comprometido" Valor="c => _comprometido.GetValueOrDefault(c.Id)" Formato="C2" Alinhar="num" />
+                    <Coluna T="CentroCusto" Titulo="Saldo" Valor="c => c.Orcamento == null ? (decimal?)null : c.Orcamento - _comprometido.GetValueOrDefault(c.Id)" Formato="C2" Alinhar="num" />
+                    <Coluna T="CentroCusto" Titulo="Ativo" Valor="c => c.Ativo" />
+                </Colunas>
+            </Grade>
+            <div class="alerta info"><Icone Nome="info" /> Plano único do grupo. Centros corporativos (Administração, Comercial, Fábricas…) ficam sem obra; os de obra/etapa ficam ligados à obra. Use o "centro de custo pai" para montar a árvore (ex.: 3 Produção industrial › 3.1 Pré-moldados) e marque em quais estabelecimentos (CNPJs) ele pode ser usado.</div>
+        </div>
+    </ChildContent>
+    <Faixa><b>Centros de custo</b><span>Requisição, pedido e contrato ficam amarrados ao centro de custo</span><span>Orçado × comprometido é opcional</span></Faixa>
+</Pagina>
+
+<Modal @bind-Aberto="_aberto" Titulo="Centro de custo / etapa" Tamanho="media">
+    <ChildContent>
+        @if (_c is not null)
+        {
+            <Erros Lista="ErrosForm" />
+            <div class="form">
+                <Campo Rotulo="Código / etapa" Obrigatorio Classe="s4"><input id="cc-cod" @bind="_c.Codigo" /></Campo>
+                <Campo Rotulo="Descrição" Obrigatorio Classe="s8"><input id="cc-nome" @bind="_c.Nome" /></Campo>
+                <Campo Rotulo="Centro de custo pai" Classe="s6"><select id="cc-pai" @bind="_c.PaiId"><option value="">(raiz)</option>@foreach (var x in (_ccs ?? []).Where(x => x.Id != _c.Id).OrderBy(x => x.Codigo)) { <option value="@x.Id">@x.Codigo – @x.Nome</option> }</select></Campo>
+                <Campo Rotulo="Código no ERP" Classe="s6"><input @bind="_c.CodigoErp" /></Campo>
+                <Campo Rotulo="Obra" Classe="s6"><select @bind="_c.ObraId"><option value="">(corporativo)</option>@foreach (var o in _obras) { <option value="@o.Id">@o.Texto</option> }</select></Campo>
+                <Campo Rotulo="Orçamento (opcional)" Classe="s3"><input type="number" step="0.01" @bind="_c.Orcamento" /></Campo>
+                <Campo Rotulo="Situação" Classe="s3"><label class="check-linha"><input type="checkbox" @bind="_c.Ativo" /> Ativo</label></Campo>
+                <Campo Rotulo="Pode ser usado em (vazio = todos os estabelecimentos)" Classe="s12">
+                    <div class="checks quebra">@foreach (var e in _estabs) { <label class="larg-min-240"><input type="checkbox" checked="@((_c.EstabelecimentosPermitidos ?? "").Contains(e.Id.ToString()))" @onchange="ev => MarcarEst(e.Id, (bool)ev.Value!)" /> @e.Texto</label> }</div>
+                </Campo>
+            </div>
+        }
+    </ChildContent>
+    <Rodape><button class="btn prim" id="cc-salvar" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="16" /> Salvar</button></Rodape>
+</Modal>
+
+@code {
+    private Grade<CentroCusto>? _g;
+    private List<CentroCusto>? _ccs;
+    private List<Opcao> _obras = [];
+    private Dictionary<Guid, decimal> _comprometido = [];
+    private CentroCusto? _c;
+    private bool _aberto;
+
+    private List<Opcao> _estabs = [];
+    protected override async Task OnInitializedAsync() { _obras = await Cat.ObrasAsync(); _estabs = await Cat.EstabelecimentosAsync(); await Carregar(); }
+
+    private string Caminho(CentroCusto c)
+    {
+        var partes = new List<string> { c.Nome };
+        var p = c.PaiId; var n = 0;
+        while (p is { } id && n++ < 10 && _ccs?.FirstOrDefault(x => x.Id == id) is { } pai) { partes.Insert(0, pai.Nome); p = pai.PaiId; }
+        return string.Join(" › ", partes);
+    }
+
+    private string? Estabs(CentroCusto c) => string.IsNullOrWhiteSpace(c.EstabelecimentosPermitidos) ? "todos"
+        : string.Join(", ", c.EstabelecimentosPermitidos.Split(',').Select(id => _estabs.FirstOrDefault(e => e.Id.ToString() == id)?.Texto.Split(" – ")[0]).Where(x => x != null));
+
+    private void MarcarEst(Guid id, bool on)
+    {
+        var l = (_c!.EstabelecimentosPermitidos ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries).ToList();
+        if (on) l.Add(id.ToString()); else l.Remove(id.ToString());
+        _c.EstabelecimentosPermitidos = l.Count == 0 ? null : string.Join(',', l.Distinct());
+    }
+
+    private async Task Carregar()
+    {
+        await using var db = Fabrica.CriarLeitura();
+        _ccs = await db.CentrosCusto.AsNoTracking().OrderBy(o => o.Codigo).ToListAsync(Cancelamento);
+        var peds = await db.Pedidos.AsNoTracking().Where(p => p.Status >= StatusPedido.Aprovado && p.Status != StatusPedido.Cancelado).Include(p => p.Itens).ToListAsync(Cancelamento);
+        var reqs = await db.Requisicoes.AsNoTracking().Where(r => r.CentroCustoId != null).ToDictionaryAsync(r => r.Id, r => r.CentroCustoId!.Value, Cancelamento);
+        var ctrs = await db.Contratos.AsNoTracking().Include(k => k.Itens).Where(k => k.CentroCustoId != null && k.Status == StatusContrato.Ativo).ToListAsync(Cancelamento);
+        _comprometido = peds.Where(p => p.RequisicaoId is { } r && reqs.ContainsKey(r)).GroupBy(p => reqs[p.RequisicaoId!.Value]).ToDictionary(g => g.Key, g => g.Sum(p => p.Valor));
+        foreach (var k in ctrs) _comprometido[k.CentroCustoId!.Value] = _comprometido.GetValueOrDefault(k.CentroCustoId!.Value) + k.ValorTotal;
+    }
+
+    private void Novo() { _c = new CentroCusto(); ErrosForm = null; _aberto = true; }
+
+    private async Task Salvar()
+    {
+        var ok = await Executar(() => Est.SalvarCentroCustoAsync(_c!, ct: Cancelamento), "Centro de custo salvo.");
+        if (ok) { _aberto = false; Cat.Invalidar(); await Carregar(); }
+    }
+}

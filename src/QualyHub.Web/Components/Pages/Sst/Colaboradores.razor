@@ -1,0 +1,162 @@
+@page "/sst/colaboradores"
+@inherits PaginaBase
+@inject SstServico Sst
+@inject NavigationManager Nav
+
+<Pagina Titulo="Colaboradores" Grade="_grade" AoNovo="Novo" AoAtualizar="Recalcular">
+    <ChildContent>
+        <div class="pagina">
+            <div class="kpis">
+                <Kpi Rotulo="Colaboradores na obra" Valor="@_ativos.Count" Sub="@($"{_ativos.Count(c => c.Vinculo == VinculoColaborador.Proprio)} próprios · {_ativos.Count(c => c.Vinculo == VinculoColaborador.Terceiro)} terceiros")" />
+                <Kpi Rotulo="Aptos" Valor="@_ativos.Count(c => c.Situacao == SituacaoColaborador.Apto)" Tom="ok" />
+                <Kpi Rotulo="Aptos com restrição" Valor="@_ativos.Count(c => c.Situacao == SituacaoColaborador.AptoComRestricao)" Sub="não liberados p/ alguma atividade" Tom="aviso" />
+                <Kpi Rotulo="Bloqueados / pendentes" Valor="@_ativos.Count(c => c.Situacao is SituacaoColaborador.Bloqueado or SituacaoColaborador.Pendente)" Sub="ASO ou integração vencidos" Tom="erro" />
+            </div>
+            <Grade T="Linha" @ref="_grade" Itens="_itens" AoClicar="l => Abrir(l.Id)" NomeExportacao="colaboradores">
+                <Colunas>
+                    <Coluna T="Linha" Titulo="Nome" Valor="l => l.Nome" />
+                    <Coluna T="Linha" Titulo="Empresa" Valor="l => l.Empresa" />
+                    <Coluna T="Linha" Titulo="Função" Valor="l => l.Funcao" />
+                    <Coluna T="Linha" Titulo="CPF" Valor="l => l.Cpf" />
+                    <Coluna T="Linha" Titulo="Início na obra" Valor="l => l.Inicio" />
+                    <Coluna T="Linha" Titulo="Pendências" Valor="l => l.Pendencias" />
+                    <Coluna T="Linha" Titulo="Situação" Valor="l => l.Situacao"><Modelo><Selo Texto="@De(context.Situacao)" Tom="@Tom(context.Situacao)" /></Modelo></Coluna>
+                </Colunas>
+            </Grade>
+        </div>
+    </ChildContent>
+    <Faixa><b>Tela 41 · Colaboradores</b><span>Próprios e terceiros · situação calculada pelas exigências da função</span><span>Restrição por atividade · CPF mascarado (LGPD)</span></Faixa>
+</Pagina>
+
+<Modal @bind-Aberto="_aberto" Titulo="@($"Colaborador — {_c?.Nome} · {Nome(_funcoes, _c?.FuncaoObraId)}")" Tamanho="grande">
+    <ChildContent>
+        @if (_c is not null)
+        {
+            <Erros Lista="ErrosForm" />
+            @if (_c.CriadoEm != default) { <div class="cabecalho-doc"><Selo Texto="@De(_c.Situacao)" Tom="@Tom(_c.Situacao)" /> @if (_c.Restricoes != AtividadeRisco.Nenhuma) { <span>Restrito: <b>@De(_c.Restricoes)</b></span> } </div> }
+            <Abas Itens="_abas" @bind-Ativa="_aba" />
+            @if (_aba == "dados")
+            {
+                <div class="form">
+                    <Campo Rotulo="Nome" Obrigatorio Classe="s6"><input @bind="_c.Nome" /></Campo>
+                    <Campo Rotulo="@(_c.CriadoEm == default ? "CPF" : $"CPF ({_c.CpfMascarado}) — preencha só para alterar")" Obrigatorio="@(_c.CriadoEm == default)" Classe="s3"><input @bind="_cpf" inputmode="numeric" autocomplete="off" /></Campo>
+                    <Campo Rotulo="Vínculo" Classe="s3"><select @bind="_c.Vinculo">@foreach (var v in Enum.GetValues<VinculoColaborador>()) { <option value="@v">@De(v)</option> }</select></Campo>
+                    @if (_c.Vinculo == VinculoColaborador.Terceiro)
+                    {
+                        <Campo Rotulo="Empresa" Obrigatorio Classe="s6"><select @bind="_c.FornecedorId"><option value="">Selecione…</option>@foreach (var f in _fornecedores) { <option value="@f.Id">@f.Texto</option> }</select></Campo>
+                        <Campo Rotulo="Contrato" Classe="s6"><select @bind="_c.ContratoId"><option value="">—</option>@foreach (var k in _contratos.Where(k => k.Extra == _c.FornecedorId?.ToString())) { <option value="@k.Id">@k.Texto</option> }</select></Campo>
+                    }
+                    <Campo Rotulo="Função" Obrigatorio Classe="s4"><select @bind="_c.FuncaoObraId"><option value="@Guid.Empty">Selecione…</option>@foreach (var f in _funcoes) { <option value="@f.Id">@f.Texto</option> }</select></Campo>
+                    <Campo Rotulo="Obra" Obrigatorio Classe="s4"><select @bind="_c.ObraId"><option value="@Guid.Empty">Selecione…</option>@foreach (var o in _obras) { <option value="@o.Id">@o.Texto</option> }</select></Campo>
+                    <Campo Rotulo="Início na obra" Classe="s2"><input type="date" @bind="_c.DataInicio" /></Campo>
+                    <Campo Rotulo="Saída" Classe="s2"><input type="date" @bind="_c.DataSaida" /></Campo>
+                    <Campo Rotulo="Telefone (avisos)" Classe="s4"><input @bind="_c.Telefone" /></Campo>
+                    <Campo Rotulo="" Classe="s8"><label><input type="checkbox" @bind="_c.ConsentimentoTelefone" /> Consentimento para avisos registrado (LGPD)</label></Campo>
+                </div>
+            }
+            else if (_aba == "exig")
+            {
+                <table class="itens">
+                    <thead><tr><th>Exigência (função @Nome(_funcoes, _c.FuncaoObraId))</th><th>Situação</th><th>Validade</th></tr></thead>
+                    <tbody>
+                        @foreach (var d in _calc?.Detalhe ?? [])
+                        {
+                            <tr><td>@d.Exigencia</td><td><Selo Texto="@d.Situacao" Tom="@(d.Ok ? "ok" : "erro")" /></td><td>@Data(d.Validade)</td></tr>
+                        }
+                    </tbody>
+                </table>
+                <div class="duas-caixas">
+                    <div class="caixa-sec"><div class="secao"><Icone Nome="alerta" /> Restrição</div><p class="fonte-13">@(_c.Restricoes == AtividadeRisco.Nenhuma ? "Sem restrição de atividade." : $"Não pode ser incluído em permissão de trabalho de: {De(_c.Restricoes)}.")</p></div>
+                    <div class="caixa-sec"><div class="secao"><Icone Nome="qr" /> Crachá</div><p class="fonte-13">QR abre a situação atual do colaborador (consulta do técnico de segurança ou encarregado): <code>/sst/colaboradores?id=@_c.Id</code></p></div>
+                </div>
+            }
+            else if (_aba == "docs")
+            {
+                <table class="itens"><thead><tr><th>Documento</th><th>Emissão</th><th>Validade</th><th>Origem</th><th>Validação</th></tr></thead>
+                    <tbody>@foreach (var d in _docs) { <tr><td>@Nome(_exig, d.ExigenciaId)</td><td>@Data(d.DataEmissao)</td><td>@Data(d.Validade)</td><td>@De(d.Origem)</td><td><Selo Texto="@De(d.Validacao)" Tom="@Tom(d.Validacao)" /></td></tr> }</tbody></table>
+                <a class="btn sec pq marg-topo-8" href="sst/documentos?colaborador=@_c.Id">Lançar / validar documentos</a>
+            }
+            else if (_aba == "trein")
+            {
+                <table class="itens"><thead><tr><th>Treinamento</th><th>Turma</th><th>Data</th><th>Resultado</th><th>Válido até</th></tr></thead>
+                    <tbody>@foreach (var t in _treins) { <tr><td>@t.Treinamento</td><td>@t.Turma</td><td>@DataHora(t.Data)</td><td>@(t.Resultado is { } r ? De(r) : "—")</td><td>@(t.ValidoAte == DateOnly.MaxValue ? "sem vencimento" : Data(t.ValidoAte))</td></tr> }</tbody></table>
+            }
+            else if (_aba == "epi")
+            {
+                <table class="itens"><thead><tr><th>EPI</th><th>Qtd.</th><th>Entregue em</th><th>Troca prevista</th><th>Assinatura</th></tr></thead>
+                    <tbody>@foreach (var e in _epis) { <tr><td>@e.Epi</td><td>@Num(e.Qtd, 0)</td><td>@Data(e.Data)</td><td>@Data(e.Troca)</td><td>@e.Assinatura</td></tr> }</tbody></table>
+            }
+        }
+    </ChildContent>
+    <Rodape>
+        @if (_c is not null)
+        {
+            @if (_c.CriadoEm != default) { <a class="btn sec" href="sst/treinamentos"><Icone Nome="livro" Tam="16" /> Inscrever em treinamento</a> }
+            <button class="btn prim" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="16" /> Salvar</button>
+        }
+    </Rodape>
+</Modal>
+
+@code {
+    private sealed record Linha(Guid Id, string Nome, string? Empresa, string? Funcao, string Cpf, DateOnly Inicio, string? Pendencias, SituacaoColaborador Situacao);
+    private Grade<Linha>? _grade;
+    private List<Linha>? _itens;
+    private List<Colaborador> _ativos = [];
+    private Colaborador? _c;
+    private SituacaoCalculada? _calc;
+    private List<DocumentoColaborador> _docs = [];
+    private List<(string Treinamento, string Turma, DateTimeOffset Data, ResultadoParticipante? Resultado, DateOnly? ValidoAte)> _treins = [];
+    private List<(string Epi, decimal Qtd, DateOnly Data, DateOnly? Troca, string Assinatura)> _epis = [];
+    private string? _cpf;
+    private bool _aberto;
+    private string _aba = "dados";
+    private List<Opcao> _obras = [], _fornecedores = [], _contratos = [], _funcoes = [], _exig = [];
+    private static readonly List<(string, string)> _abas = [("dados", "Dados"), ("exig", "Exigências"), ("docs", "Documentos"), ("trein", "Treinamentos"), ("epi", "EPI")];
+    private static string Nome(List<Opcao> l, Guid? id) => id is null ? "—" : l.FirstOrDefault(x => x.Id == id)?.Texto ?? "—";
+
+    protected override async Task OnInitializedAsync()
+    {
+        _obras = await Cat.ObrasAsync(); _fornecedores = await Cat.FornecedoresAsync(); _contratos = await Cat.ContratosAtivosAsync(); _funcoes = await Cat.FuncoesAsync();
+        await using (var db = Fabrica.CriarLeitura()) _exig = await db.Exigencias.AsNoTracking().Select(e => new Opcao(e.Id, e.Descricao)).ToListAsync(Cancelamento);
+        await Carregar();
+        if (Nav.Uri.Contains("?id=") && Guid.TryParse(Nav.Uri.Split("?id=")[1], out var id)) await Abrir(id);
+    }
+
+    private async Task Recalcular() { await Sst.RecalcularAsync(null, Cancelamento); await Carregar(); Notif.Sucesso("Situação recalculada."); }
+
+    private async Task Carregar()
+    {
+        await using var db = Fabrica.CriarLeitura();
+        _ativos = await db.Colaboradores.AsNoTracking().Where(c => c.DataSaida == null || c.DataSaida > Hoje).OrderBy(c => c.Nome).ToListAsync(Cancelamento);
+        var todos = await db.Colaboradores.AsNoTracking().OrderBy(c => c.Nome).ToListAsync(Cancelamento);
+        _itens = todos.Select(c => new Linha(c.Id, c.Nome, c.FornecedorId is { } f ? Nome(_fornecedores, f) : "Própria", Nome(_funcoes, c.FuncaoObraId), c.CpfMascarado, c.DataInicio, c.Pendencias, c.Situacao)).ToList();
+    }
+
+    private void Novo()
+    {
+        _c = new Colaborador { DataInicio = Hoje, ObraId = _obras.Count == 1 ? _obras[0].Id : Guid.Empty };
+        _cpf = null; _calc = null; _aba = "dados"; ErrosForm = null; _aberto = true;
+    }
+
+    private async Task Abrir(Guid id)
+    {
+        var calc = await Sst.RecalcularAsync([id], Cancelamento);
+        await using var db = Fabrica.CriarLeitura();
+        _c = await db.Colaboradores.AsNoTracking().FirstAsync(c => c.Id == id, Cancelamento);
+        _calc = calc.GetValueOrDefault(id);
+        _docs = await db.DocumentosColaborador.AsNoTracking().Where(d => d.ColaboradorId == id).OrderByDescending(d => d.DataEmissao).ToListAsync(Cancelamento);
+        _treins = (await db.Participantes.AsNoTracking().Where(p => p.ColaboradorId == id)
+            .Join(db.Turmas, p => p.TurmaId, t => t.Id, (p, t) => new { p, t })
+            .Join(db.Treinamentos, x => x.t.TreinamentoId, tr => tr.Id, (x, tr) => new { tr.Descricao, x.t.Codigo, x.t.Data, x.p.Resultado, x.p.ValidoAte }).ToListAsync(Cancelamento))
+            .Select(x => (x.Descricao, x.Codigo, x.Data, x.Resultado, x.ValidoAte)).ToList();
+        _epis = (await db.EntregasEpi.AsNoTracking().Where(e => e.ColaboradorId == id).Join(db.Epis, e => e.EpiId, p => p.Id, (e, p) => new { p.Descricao, p.Ca, e.Quantidade, e.DataEntrega, e.TrocaPrevista, e.Assinatura }).ToListAsync(Cancelamento))
+            .Select(x => ($"{x.Descricao} (CA {x.Ca})", x.Quantidade, x.DataEntrega, x.TrocaPrevista, x.Assinatura)).ToList();
+        _cpf = null; ErrosForm = null; _aberto = true;
+    }
+
+    private async Task Salvar()
+    {
+        Guid id = default;
+        if (await Executar(async () => id = await Sst.SalvarColaboradorAsync(_c!, _cpf, Cancelamento), "Colaborador salvo.")) { await Carregar(); await Abrir(id); _aba = "exig"; }
+    }
+}

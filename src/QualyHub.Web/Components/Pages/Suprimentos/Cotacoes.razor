@@ -1,0 +1,275 @@
+@page "/cotacoes"
+@inherits PaginaBase
+@inject CotacoesServico CotacoesSrv
+@inject NavigationManager Nav
+@inject FornecedoresServico Forn
+@using QualyHub.Application.Comum
+
+<Pagina Titulo="Orçamentos (cotação)" Grade="_grade" AoAtualizar="Carregar">
+    <ChildContent>
+        <div class="pagina">
+            <Grade T="Linha" @ref="_grade" Itens="_itens" Limite="LimiteGrade" AoCarregarTudo="async () => { ListaCompleta = true; await Carregar(); }" AoClicar="l => Abrir(l.Id)" NomeExportacao="cotacoes" CriadoPor="l => l.CriadoPor">
+                <Colunas>
+                    <Coluna T="Linha" Titulo="Número" Valor="l => l.Numero" Largura="90px" />
+                    <Coluna T="Linha" Titulo="Nome" Valor="l => l.Nome" />
+                    <Coluna T="Linha" Titulo="Obra" Valor="l => l.Obra" />
+                    <Coluna T="Linha" Titulo="Tipo" Valor="l => l.Tipo" />
+                    <Coluna T="Linha" Titulo="Propostas" Valor='l => $"{l.Recebidas}/{l.Exigidas}"' Alinhar="num" />
+                    <Coluna T="Linha" Titulo="Valor estimado" Valor="l => l.Valor" Formato="C2" Alinhar="num" />
+                    <Coluna T="Linha" Titulo="Vencedor" Valor="l => l.Vencedor" />
+                    <Coluna T="Linha" Titulo="Status" Valor="l => l.Status"><Modelo><Selo Texto="@De(context.Status)" Tom="@Tom(context.Status)" /></Modelo></Coluna>
+                    <Coluna T="Linha" Titulo="Criado em" Valor="l => l.CriadoEm" />
+                </Colunas>
+            </Grade>
+        </div>
+    </ChildContent>
+    <Faixa><b>Orçamento</b><span>Até @Moeda(_p?[Parametros.LimiteUmOrcamento]) → 1 proposta; acima → @_p?.Int(Parametros.OrcamentosAcimaLimite) propostas</span><span>Vencedor precisa estar qualificado</span><span>Aprovação conforme alçada configurada</span></Faixa>
+</Pagina>
+
+<Modal @bind-Aberto="_aberto" Titulo="@($"Cotação {_c?.Numero} — {_c?.Nome}")" Tamanho="grande">
+    <ChildContent>
+        @if (_c is not null)
+        {
+            <Erros Lista="ErrosForm" />
+            <div class="kpis">
+                <Kpi Rotulo="Valor estimado" Valor="@Moeda(_c.ValorEstimado)" Sub="@($"faixa {_c.FaixaAlcada(_p!)}")" />
+                <Kpi Rotulo="Propostas" Valor="@($"{_c.PropostasRecebidas}/{_c.PropostasExigidas}")" Tom="@(_c.PropostasRecebidas >= _c.PropostasExigidas ? "ok" : "aviso")" Sub="recebidas / exigidas" />
+                <Kpi Rotulo="Economia negociada" Valor="@Moeda(Econ.Negociada)" Sub="@($"{Econ.NegociadaPerc:0.0}% vs. ofertado")" Tom="ok" />
+                <Kpi Rotulo="Economia vs. último preço" Valor="@(Econ.VsUltimo is { } u ? Moeda(u) : "—")" Sub="@(Econ.VsUltimoPerc is { } up ? $"{up:0.0}% vs. última compra" : "sem compra anterior")" Tom="@(Econ.VsUltimo is < 0 ? "erro" : "ok")" />
+                <Kpi Rotulo="Economia vs. referência" Valor="@(Econ.VsReferencia is { } r ? Moeda(r) : "—")" Sub="@(Econ.VsReferenciaPerc is { } rp ? $"{rp:0.0}% vs. preço de referência" : "produto sem preço de referência")" Tom="@(Econ.VsReferencia is < 0 ? "erro" : "ok")" />
+                <Kpi Rotulo="Status" Valor="@De(_c.Status)" />
+            </div>
+            @if (_c.FornecedorVencedorId is null) { <p class="mudo mt-menos-6">Economias calculadas sobre o menor preço de cada item até escolher o vencedor.</p> }
+
+            <div class="secao"><Icone Nome="predio" /> Fornecedores convidados
+                @if (Editavel) { <button class="btn sec pq acao" id="cot-add-forn" disabled="@Ocupado" @onclick="AbrirAdicionar"><Icone Nome="mais" Tam="14" /> Adicionar fornecedor</button> }</div>
+            <table class="itens">
+                <thead><tr><th>Fornecedor</th><th>Qualificação @(EmAndamento ? "(hoje)" : "na data")</th><th>Status</th><th>Resposta</th><th>Condição pagto.</th><th>Validade proposta</th><th>Frete (R$)</th><th>Total</th><th>Convite</th>@if (Editavel) { <th></th> }</tr></thead>
+                <tbody>
+                    @foreach (var f in _c.Fornecedores)
+                    {
+                        var total = Total(f.FornecedorId);
+                        <tr @key="f" class="@(f.FornecedorId == _c.FornecedorVencedorId ? "destaque" : "")">
+                            <td><b>@Nome(f.FornecedorId)</b></td>
+                            <td><Selo Texto="@De(f.QualificacaoNaData)" Tom="@Tom(f.QualificacaoNaData)" /></td>
+                            <td>
+                                <select @bind="f.Status" disabled="@(!Editavel)">@foreach (var s in Enum.GetValues<StatusConvite>()) { <option value="@s">@De(s)</option> }</select>
+                            </td>
+                            <td class="larg-140"><input type="date" @bind="f.DataResposta" disabled="@(!Editavel)" /></td>
+                            <td><select @bind="f.CondicaoPagamento" disabled="@(!Editavel)"><option value="">—</option>@foreach (var c in _condicoes) { <option>@c</option> }</select></td>
+                            <td class="larg-140"><input type="date" @bind="f.ValidadeProposta" disabled="@(!Editavel)" /></td>
+                            <td class="larg-110">@if (_c.Frete == TipoFrete.NaoSeAplica) { <span class="mudo">N/A</span> } else { <input type="number" step="0.01" @bind="f.ValorFrete" disabled="@(!Editavel)" /> }</td>
+                            <td class="num">@Moeda(total)</td>
+                            <td>@if (Editavel) { <button class="btn sec pq" title="Envia ao contato do fornecedor (e-mail ou WhatsApp) o acesso à proposta na Área do Fornecedor" @onclick="() => Convidar(f)"><Icone Nome="enviar" Tam="14" /> @(f.Status == StatusConvite.Convidado ? "Convidar" : "Reenviar")</button> }</td>
+                            @if (Editavel) { <td><button class="btn sec pq" title="Retirar o fornecedor da cotação" @onclick="() => Retirar(f)"><Icone Nome="lixeira" Tam="14" /></button></td> }
+                        </tr>
+                    }
+                </tbody>
+            </table>
+
+            <div class="secao"><Icone Nome="tabela" /> Mapa comparativo</div>
+            <div class="caixa-sec mapa-atalho">
+                <p class="fonte-13">@_c.Itens.Select(i => i.RequisicaoItemId).Distinct().Count() item(ns) × @_c.Fornecedores.Count fornecedor(es) ·
+                    @_c.Fornecedores.Count(f => _c.Itens.Any(i => i.FornecedorId == f.FornecedorId && i.ValorUnitarioFinal > 0)) com preço lançado
+                    @if (!string.IsNullOrWhiteSpace(_c.AnaliseIa)) { <span>· <Selo Texto="análise por IA feita" Tom="info" /></span> }</p>
+                <div class="linha-botoes">
+                    <a class="btn prim" id="cot-mapa" href="@($"cotacoes/mapa?id={_c.Id}")" target="_blank" rel="noopener"><Icone Nome="tabela" Tam="14" /> Abrir mapa comparativo (nova janela)</a>
+                    <button class="btn sec" @onclick="Recarregar"><Icone Nome="atualizar" Tam="14" /> Atualizar com o mapa</button>
+                </div>
+                <p class="mudo">Preços ofertados/negociados, economia, Excel, impressão e análise por IA ficam no mapa. @(Editavel ? "Salve a cotação antes de abrir o mapa e, ao voltar, clique em \"Atualizar com o mapa\"." : "")</p>
+            </div>
+
+            <div class="form mt-14">
+                <Campo Rotulo="Fornecedor vencedor" Obrigatorio Classe="s4">
+                    <select @bind="_c.FornecedorVencedorId" disabled="@(!Editavel)"><option value="">Selecione…</option>
+                        @foreach (var f in _c.Fornecedores) { <option value="@f.FornecedorId">@Nome(f.FornecedorId) (@De(f.QualificacaoNaData))</option> }
+                    </select>
+                </Campo>
+                <Campo Rotulo="Critério de seleção" Obrigatorio Classe="s3">
+                    <select @bind="_c.CriterioSelecao" disabled="@(!Editavel)"><option value="">Selecione…</option>@foreach (var c in Enum.GetValues<CriterioSelecao>()) { <option value="@c">@De(c)</option> }</select>
+                </Campo>
+                <Campo Rotulo="Frete" Classe="s3"><select id="cot-frete" @bind="_c.Frete" disabled="@(!Editavel)"><option value="@TipoFrete.CIF">CIF (fornecedor entrega)</option><option value="@TipoFrete.FOB">FOB (retirar / transportadora)</option><option value="@TipoFrete.NaoSeAplica">N/A (não se aplica)</option></select></Campo>
+                <Campo Rotulo="Endereço de entrega" Classe="s2"><input @bind="_c.EnderecoEntrega" disabled="@(!Editavel)" /></Campo>
+                @if (_c.PropostasRecebidas < _c.PropostasExigidas || _c.CriterioSelecao is not null and not CriterioSelecao.MenorPreco)
+                {
+                    <Campo Rotulo="Justificativa (propostas abaixo do mínimo / critério diferente de menor preço)" Classe="s12"><textarea @bind="_c.JustificativaPropostas" disabled="@(!Editavel)"></textarea></Campo>
+                }
+            </div>
+            <Anexos Entidade="Cotacao" EntidadeId="_c.Id" Categoria="Proposta" Titulo="Propostas dos fornecedores" SomenteLeitura="!Editavel" />
+            @if (_c.CriadoEm != default) { <Notas Entidade="Cotacao" EntidadeId="_c.Id" /> }
+            <Autorizacoes Entidade="EntidadeAprovavel.Cotacao" EntidadeId="_c.Id" Versao="_versao" AoDecidir="Recarregar" />
+        }
+    </ChildContent>
+    <Rodape>
+        @if (_c is not null)
+        {
+            @if (_c.Status == StatusCotacao.Aprovado)
+            {
+                if (_c.Tipo == TipoRequisicao.Material) { <button class="btn laranja" disabled="@Ocupado" @onclick="GerarPedido"><Icone Nome="sacola" Tam="16" /> Gerar pedido</button> }
+                else { <button class="btn laranja" disabled="@Ocupado" @onclick="GerarContrato"><Icone Nome="contrato" Tam="16" /> Gerar contrato</button> }
+            }
+            @if (Editavel)
+            {
+                <button class="btn ok" disabled="@Ocupado" @onclick="Enviar"><Icone Nome="enviar" Tam="16" /> Enviar p/ aprovação</button>
+                <button class="btn prim" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="16" /> Salvar</button>
+            }
+        }
+    </Rodape>
+</Modal>
+
+<Modal @bind-Aberto="_abertoAdd" Titulo="Adicionar fornecedor à cotação" Tamanho="media">
+    <ChildContent>
+        <p class="mudo">Os novos fornecedores recebem os mesmos itens, sem preço. Depois use <b>Convidar</b> para mandar o acesso. <b>Sugeridos</b> = atendem os grupos do catálogo (ou as ITS) dos itens.</p>
+        <input class="mb-6" placeholder="Filtrar por nome…" @bind="_filtroAdd" @bind:event="oninput" />
+        <div class="tabela-rolavel" style="max-height:380px">
+            <table class="itens">
+                <thead><tr><th></th><th>Fornecedor</th><th>Qualificação</th></tr></thead>
+                <tbody>
+                    @foreach (var f in _paraAdicionar.Where(f => string.IsNullOrWhiteSpace(_filtroAdd) || f.Texto.Contains(_filtroAdd, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        <tr @key="f.Id"><td class="larg-30"><input type="checkbox" checked="@_selAdd.Contains(f.Id)" @onchange="e => { if ((bool)e.Value!) _selAdd.Add(f.Id); else _selAdd.Remove(f.Id); }" /></td>
+                            <td>@f.Texto @if (_sugeridosAdd.Contains(f.Id)) { <Selo Texto="sugerido" Tom="info" /> }</td><td>@if (Enum.TryParse<StatusQualificacao>(f.Extra, out var st)) { <Selo Texto="@De(st)" Tom="@Tom(st)" /> }</td></tr>
+                    }
+                    @if (_paraAdicionar.Count == 0) { <tr><td colspan="3" class="mudo">Todos os fornecedores ativos desse tipo já estão na cotação.</td></tr> }
+                </tbody>
+            </table>
+        </div>
+    </ChildContent>
+    <Rodape><button class="btn prim" id="cot-add-ok" disabled="@(_selAdd.Count == 0 || Ocupado)" @onclick="Adicionar"><Icone Nome="mais" Tam="16" /> Incluir (@_selAdd.Count)</button></Rodape>
+</Modal>
+
+<Confirmacao Pergunta="@PerguntaConfirmacao" AoSim="ConfirmacaoSim" AoNao="ConfirmacaoNao" />
+
+@if (_c is not null && _convidado is not null)
+{
+    <EnviarConvite @bind-Aberto="_abertoConvite" FornecedorId="_convidado.FornecedorId" Titulo="@($"Convidar {Nome(_convidado.FornecedorId)}")"
+                   Assunto="@($"enviar proposta para a cotação nº {_c.Numero} — {_c.Nome}")" Endereco="@EnderecoConvite" AoConvidar="Convidou" />
+}
+
+@code {
+    private sealed record Linha(Guid Id, int Numero, string Nome, string Obra, TipoRequisicao Tipo, int Recebidas, int Exigidas, decimal Valor, string? Vencedor, StatusCotacao Status, string CriadoPor, DateTimeOffset CriadoEm);
+    private Grade<Linha>? _grade;
+    private List<Linha>? _itens;
+    private Cotacao? _c;
+    private bool _aberto;
+    private int _versao;
+    private ParametrosVigentes? _p;
+    private Dictionary<Guid, string> _nomes = [];
+    private List<string> _condicoes = [];
+
+    private bool Editavel => _c is { Status: StatusCotacao.Aberto or StatusCotacao.AguardandoPropostas or StatusCotacao.EmAnalise or StatusCotacao.ReprovadoVoltaCotacao };
+    private bool EmAndamento => _c is not null && SincronizacaoCadastros.CotacoesEmAndamento.Contains(_c.Status);
+    private string Nome(Guid id) => _nomes.GetValueOrDefault(id, "?");
+    private decimal Total(Guid f) => _c!.Itens.Where(i => i.FornecedorId == f).Sum(i => i.ValorTotal) + (_c.Fornecedores.First(x => x.FornecedorId == f).ValorFrete ?? 0);
+    private void Recalcular() => _c!.Recalcular(_p!);
+
+    /// <summary>Itens do vencedor (ou, sem vencedor, o menor preço de cada item) — base das 3 economias.</summary>
+    private EconomiaCotacao Econ => EconomiaCotacao.Calcular(_c!.FornecedorVencedorId is { } v
+        ? _c.Itens.Where(i => i.FornecedorId == v)
+        : _c.Itens.Where(i => i.ValorUnitarioFinal > 0).GroupBy(i => i.RequisicaoItemId).Select(g => g.OrderBy(i => i.ValorTotal).First()));
+
+    // Convite pela Área do Fornecedor: o endereço não leva chave; o fornecedor entra com CNPJ + código.
+    // Links antigos (/cotacao/{chave}) continuam valendo até a cotação fechar.
+    private CotacaoFornecedor? _convidado;
+    private bool _abertoConvite;
+    private string EnderecoConvite => _convidado is null ? "" : $"{Nav.BaseUri}fornecedor/cotacao/{_c!.Id}?f={_convidado.FornecedorId}";
+    private void Convidar(CotacaoFornecedor f) { _convidado = f; _abertoConvite = true; }
+    private void Convidou()
+    {
+        if (_convidado is { Status: StatusConvite.Convidado } && _c!.Status == StatusCotacao.Aberto) _c.Status = StatusCotacao.AguardandoPropostas;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using (var db = Fabrica.CriarLeitura()) _p = await ParametrosServico.CarregarAsync(db, Cancelamento);
+        _condicoes = await Cat.ListaAsync(TipoLista.CondicaoPagamento);
+        await Carregar();
+        if (Nav.Uri.Contains("?id=") && Guid.TryParse(Nav.Uri.Split("?id=")[1], out var id)) await Abrir(id);
+    }
+
+    private async Task Carregar()
+    {
+        await using var db = Fabrica.CriarLeitura();
+        _itens = await db.Cotacoes.AsNoTracking().OrderByDescending(c => c.Numero).Take(LimiteAtual)
+            .Select(c => new Linha(c.Id, c.Numero, c.Nome, db.Obras.Where(o => o.Id == c.ObraId).Select(o => o.Nome).FirstOrDefault() ?? "", c.Tipo,
+                c.PropostasRecebidas, c.PropostasExigidas, c.ValorEstimado, c.FornecedorVencedor != null ? c.FornecedorVencedor.RazaoSocial : null, c.Status, c.CriadoPor, c.CriadoEm)).ToListAsync(Cancelamento);
+    }
+
+    private Dictionary<Guid, List<LocalQuantidade>> _locaisItem = [];
+    private readonly HashSet<Guid> _abertos = [];
+    private void AlternarLocais(Guid id) { if (!_abertos.Remove(id)) _abertos.Add(id); }
+
+    // Incluir / retirar fornecedor com a cotação em andamento (grava o que está na tela antes).
+    private bool _abertoAdd;
+    private string? _filtroAdd;
+    private List<Opcao> _paraAdicionar = [];
+    private HashSet<Guid> _sugeridosAdd = [];
+    private readonly HashSet<Guid> _selAdd = [];
+
+    private async Task AbrirAdicionar()
+    {
+        await using var db = Fabrica.CriarLeitura();
+        var itens = _c!.RequisicaoId is { } rq ? await db.RequisicaoItens.AsNoTracking().Where(i => i.RequisicaoId == rq).ToListAsync(Cancelamento) : [];
+        var (lista, sug) = await SugestaoFornecedores.ParaAsync(db, Forn, _c.Tipo, itens, Cancelamento);
+        var ja = _c.Fornecedores.Select(f => f.FornecedorId).ToHashSet();
+        _paraAdicionar = lista.Where(f => !ja.Contains(f.Id)).ToList();
+        _sugeridosAdd = sug; _selAdd.Clear(); _filtroAdd = null; _abertoAdd = true;
+    }
+
+    private async Task Adicionar()
+    {
+        if (await Executar(async () => { await CotacoesSrv.SalvarCotacaoAsync(_c!, Cancelamento); await CotacoesSrv.AdicionarFornecedoresAsync(_c!.Id, _selAdd, Cancelamento); },
+                $"{_selAdd.Count} fornecedor(es) incluído(s). Use Convidar para mandar o acesso."))
+        { _abertoAdd = false; await Recarregar(); }
+    }
+
+    private void Retirar(CotacaoFornecedor f) =>
+        Confirmar($"Retirar {Nome(f.FornecedorId)} da cotação?{(f.Status != StatusConvite.Convidado ? " A proposta dele será descartada." : "")} Fica registrado nas notas.", async () =>
+        {
+            if (await Executar(async () => { await CotacoesSrv.SalvarCotacaoAsync(_c!, Cancelamento); await CotacoesSrv.RemoverFornecedorAsync(_c!.Id, f.FornecedorId, Cancelamento); }, "Fornecedor retirado."))
+                await Recarregar();
+        });
+
+    private async Task Abrir(Guid id)
+    {
+        // Qualificação de hoje (o cadastro do fornecedor pode ter mudado desde o convite) — grava antes de ler.
+        await CotacoesSrv.AtualizarQualificacoesAsync(id, Cancelamento);
+        await using var db = Fabrica.CriarLeitura();
+        _c = await db.Cotacoes.AsNoTracking().Include(c => c.Fornecedores).Include(c => c.Itens).FirstAsync(c => c.Id == id, Cancelamento);
+        var ids = _c.Fornecedores.Select(f => f.FornecedorId).ToList();
+        _nomes = await db.Fornecedores.AsNoTracking().Where(f => ids.Contains(f.Id)).ToDictionaryAsync(f => f.Id, f => f.NomeFantasia ?? f.RazaoSocial, Cancelamento);
+        var rids = _c.Itens.Where(i => i.RequisicaoItemId != null).Select(i => i.RequisicaoItemId!.Value).Distinct().ToList();
+        _locaisItem = await QuadroLocais.CarregarAsync(db, rids, Cancelamento);
+        _c.Recalcular(_p!);
+        await CotacoesServico.PrecosReferenciaAsync(db, _c, Cancelamento);
+        ErrosForm = null; _versao++; _aberto = true;
+    }
+
+    private async Task Recarregar() { if (_c is not null) await Abrir(_c.Id); await Carregar(); }
+
+    private async Task Salvar()
+    {
+        if (_c!.Status == StatusCotacao.AguardandoPropostas && _c.Fornecedores.Any(f => f.Status != StatusConvite.Convidado)) _c.Status = StatusCotacao.EmAnalise;
+        if (await Executar(() => CotacoesSrv.SalvarCotacaoAsync(_c!, Cancelamento), "Cotação salva.")) await Recarregar();
+    }
+
+    /// <summary>A IA lê o mapa gravado: em edição, salva antes (sem recarregar; a análise recarrega no fim).</summary>
+    private Task<bool> SalvarAntesDaIa() => Editavel ? Executar(() => CotacoesSrv.SalvarCotacaoAsync(_c!, Cancelamento)) : Task.FromResult(true);
+
+    private async Task Enviar()
+    {
+        if (await Executar(async () => { await CotacoesSrv.SalvarCotacaoAsync(_c!, Cancelamento); await CotacoesSrv.EnviarCotacaoAprovacaoAsync(_c!.Id, Cancelamento); }, "Cotação enviada para aprovação.")) await Recarregar();
+    }
+
+    private async Task GerarPedido()
+    {
+        Guid id = default;
+        if (await Executar(async () => id = await CotacoesSrv.GerarPedidoAsync(_c!.Id, Cancelamento), "Pedido gerado.")) { _aberto = false; Nav.NavigateTo($"pedidos?id={id}"); }
+    }
+
+    private async Task GerarContrato()
+    {
+        Guid id = default;
+        if (await Executar(async () => id = await CotacoesSrv.GerarContratoAsync(_c!.Id, Cancelamento), "Minuta de contrato gerada.")) { _aberto = false; Nav.NavigateTo($"contratos?id={id}"); }
+    }
+}

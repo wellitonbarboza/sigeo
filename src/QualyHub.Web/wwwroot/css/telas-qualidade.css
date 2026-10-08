@@ -1,0 +1,40 @@
+/* Estilos das telas (qualidade): classes que substituíram os style="" soltos nas tags. */
+
+/* Larguras de coluna (células com input em table.itens/grade) */
+
+/* Utilitários de texto e espaçamento */
+
+.barra-botoes-sst { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+.checks.coluna { flex-direction: column; gap: 6px; }
+/* Barra de ranking em vermelho (pendências por empresa); a largura continua inline porque é calculada. */
+.barra-nota .trilho i.barra-erro { background: #ef4444; }
+
+/* Proporções das duas caixas: só no desktop — no celular (≤ 900px) o app.css empilha em uma coluna. */
+@media (min-width: 901px) {
+    .duas-caixas.prop-2-1 { grid-template-columns: 2fr 1fr; }
+    .duas-caixas.prop-3-2 { grid-template-columns: 3fr 2fr; }
+}
+
+/* Quadro com rolagem (mapa de inspeções, matriz de exigências): rola sem estourar a página no celular. */
+.quadro-rolavel { overflow: auto; -webkit-overflow-scrolling: touch; background: var(--superficie); border: 1px solid var(--borda); border-radius: 10px; padding: 10px; }
+.quadro-rolavel.justo { padding: 0; }
+
+/* Legenda do mapa de inspeções (mesmas cores das células .mapa-insp td.<Status>) */
+.legenda i.cor-liberada { background: #16a34a; }
+.legenda i.cor-aprovada { background: #86efac; }
+.legenda i.cor-reprovada { background: #ef4444; }
+.legenda i.cor-reinspecao { background: #fde68a; }
+.legenda i.cor-em-inspecao { background: #c7d2fe; }
+.legenda i.cor-nao-iniciada { background: var(--neutro-suave); }
+
+/* Celular (obra): toque confortável nos controles das telas de campo */
+@media (max-width: 640px) {
+    .botoes-resultado { flex-wrap: wrap; }
+    .botoes-resultado .btn { min-height: 40px; min-width: 64px; justify-content: center; }
+    table.itens td input, table.itens td select { min-height: 40px; }
+    table.itens td input[type="checkbox"] { min-height: 0; width: 22px; height: 22px; }
+    .grade .acoes button, .grade .acoes a, .icone-btn { min-width: 40px; min-height: 40px; }
+    .mapa-insp td { height: 40px; }
+    .chip.ponteiro { display: inline-block; padding: 8px 10px; font-size: 12px; }
+    .checks.coluna label { min-height: 40px; }
+}

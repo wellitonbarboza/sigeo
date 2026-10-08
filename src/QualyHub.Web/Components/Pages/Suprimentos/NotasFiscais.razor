@@ -1,0 +1,282 @@
+@page "/notas-fiscais"
+@inherits PaginaBase
+@using QualyHub.Application.Fiscal
+@using QualyHub.Domain.Fiscal
+@inject NotasFiscaisServico Notas
+@inject IFonteNotas Fonte
+@inject NavigationManager Nav
+@inject IServiceProvider Servicos
+
+<Pagina Titulo="Notas fiscais de entrada" AoAtualizar="Carregar">
+    <ChildContent>
+        <div class="pagina">
+            <div class="barra-filtro">
+                <label>Situação <select @bind="_fSit" @bind:after="Carregar">
+                    <option value="fila">Na fila (sem recebimento)</option><option value="">Todas</option>
+                    @foreach (var s in Enum.GetValues<SituacaoNota>()) { <option value="@s">@De(s)</option> }
+                </select></label>
+                <label>Buscar <input @bind="_busca" @bind:event="oninput" placeholder="fornecedor, nº, chave…" /></label>
+                <label class="btn sec arquivo cursor-mao" title="XML da NF-e ou ZIP com vários XMLs (até 20 MB)"><Icone Nome="upload" Tam="14" /> Importar XML / ZIP<InputFile OnChange="Importar" accept=".xml,.zip" class="so-leitor" /></label>
+                @if (_siegOk)
+                {
+                    <label>De <input type="date" @bind="_de" /></label><label>Até <input type="date" @bind="_ate" /></label>
+                    <button class="btn prim" id="nf-sieg" disabled="@Ocupado" @onclick="BuscarSieg"><Icone Nome="atualizar" Tam="14" /> Buscar no SIEG</button>
+                }
+            </div>
+            <Erros Lista="ErrosForm" />
+            @if (!_siegOk) { <div class="alerta info"><Icone Nome="info" /> Integração SIEG ainda não configurada para esta empresa: importe os XMLs por arquivo. Configuração: script <b>configurar-sieg.sh</b> no Cloud Shell (credenciais da API do SIEG no Key Vault) com o código desta empresa: <code>@Usuario.EmpresaId</code></div> }
+            @if (_resultado is { } r)
+            {
+                <div class="alerta @(r.Avisos.Count == 0 ? "ok" : "aviso")" role="status"><Icone Nome="info" />
+                    <div><b>@r.Novas nota(s) nova(s)</b> de @r.Lidas arquivo(s) · @r.Repetidas já existiam · @r.Canceladas cancelada(s) · @r.Vinculadas ligada(s) ao pedido automaticamente.
+                        @if (r.Avisos.Count > 0) { <ul class="mt-6">@foreach (var a in r.Avisos.Take(10)) { <li>@a</li> }</ul> }</div>
+                </div>
+            }
+            <div class="kpis">
+                <Kpi Rotulo="Sem pedido" Valor="@_kSemPedido" Sub="ligar ao pedido" Tom="@(_kSemPedido > 0 ? "aviso" : "ok")" />
+                <Kpi Rotulo="Vinculadas" Valor="@_kVinculadas" Sub="aguardando recebimento" Tom="info" />
+                <Kpi Rotulo="Valor na fila" Valor="@Moeda(_kValorFila)" Tom="info" />
+                <Kpi Rotulo="Canceladas (30 dias)" Valor="@_kCanceladas" Tom="@(_kCanceladas > 0 ? "erro" : "ok")" />
+            </div>
+            <div class="tabela-rolavel">
+                <table class="itens" id="nf-lista">
+                    <thead><tr><th>NF</th><th>Emissão</th><th>Fornecedor (emitente)</th><th class="num">Valor</th><th>Pedido</th><th>Situação</th><th>Vínculo</th><th></th></tr></thead>
+                    <tbody>
+                        @foreach (var n in Filtradas())
+                        {
+                            <tr @key="n.Id">
+                                <td><b>@n.Numero</b><span class="mudo">/@n.Serie</span></td><td>@n.Emissao.ToLocalTime().ToString("dd/MM/yyyy")</td>
+                                <td>@n.EmitenteNome<br /><small class="mudo">@Cnpj(n.EmitenteCnpj)</small></td><td class="num">@Moeda(n.ValorTotal)</td>
+                                <td>@(n.PedidoId is { } p && _numPedido.TryGetValue(p, out var np) ? $"Pedido {np}" : "—")</td>
+                                <td><Selo Texto="@De(n.Situacao)" Tom="@Tom(n.Situacao)" /></td>
+                                <td class="fonte-13">@n.VinculoDetalhe</td>
+                                <td><button class="btn sec pq" aria-label="@($"Abrir NF {n.Numero} de {n.EmitenteNome}")" @onclick="() => Abrir(n.Id)">Abrir</button></td>
+                            </tr>
+                        }
+                        @if (!Filtradas().Any()) { <tr><td colspan="8" class="mudo">Nenhuma nota nesta situação.</td></tr> }
+                    </tbody>
+                </table>
+            </div>
+            @if (_lista.Count >= LimiteAtual) { <div class="alerta info"><Icone Nome="info" /> Mostrando as @LimiteAtual mais recentes. <button class="btn sec pq" @onclick="async () => { ListaCompleta = true; await Carregar(); }">Carregar todas</button></div> }
+            @if (_importacoes.Count > 0)
+            {
+                <details class="mt-10"><summary>Últimas importações</summary>
+                    <table class="itens"><thead><tr><th>Quando</th><th>Origem</th><th>CNPJ</th><th>Período</th><th class="num">Lidas</th><th class="num">Novas</th><th>Detalhe</th></tr></thead>
+                        <tbody>@foreach (var i in _importacoes) { <tr @key="i.Id" class="@(i.Falhou ? "texto-erro" : "")"><td>@i.CriadoEm.ToLocalTime().ToString("dd/MM HH:mm")</td><td>@De(i.Origem)</td><td>@Cnpj(i.Cnpj)</td><td>@(i.De is null ? "" : $"{i.De:dd/MM} a {i.Ate:dd/MM}")</td><td class="num">@i.Lidas</td><td class="num">@i.Novas</td><td class="fonte-13">@i.Detalhe</td></tr> }</tbody></table>
+                </details>
+            }
+        </div>
+    </ChildContent>
+    <Faixa><b>Notas fiscais de entrada</b><span>XML do SIEG ou arquivo → fornecedor pelo CNPJ → pedido → recebimento (FVM)</span><span>Nota cancelada na SEFAZ sai da fila sozinha</span></Faixa>
+</Pagina>
+
+<Modal @bind-Aberto="_aberto" Titulo="@(_n is null ? "" : $"NF {_n.Numero}/{_n.Serie} — {_n.EmitenteNome}")" Tamanho="grande">
+    <ChildContent>
+        @if (_n is { } n)
+        {
+            <Erros Lista="ErrosForm" />
+            <div class="form">
+                <Campo Rotulo="Chave de acesso" Classe="s8"><input readonly value="@n.Chave" /></Campo>
+                <Campo Rotulo="Emissão" Classe="s2"><input readonly value="@n.Emissao.ToLocalTime().ToString("dd/MM/yyyy HH:mm")" /></Campo>
+                <Campo Rotulo="Valor da nota" Classe="s2"><input readonly value="@Moeda(n.ValorTotal)" /></Campo>
+                <Campo Rotulo="Destinatário" Classe="s6"><input readonly value="@($"{n.DestinatarioNome} ({Cnpj(n.DestinatarioCnpj)})")" /></Campo>
+                <Campo Rotulo="Situação" Classe="s3"><input readonly value="@De(n.Situacao)" /></Campo>
+                <Campo Rotulo="Origem" Classe="s3"><input readonly value="@De(n.Origem)" /></Campo>
+                @if (!string.IsNullOrWhiteSpace(n.InformacoesComplementares)) { <Campo Rotulo="Informações complementares" Classe="s12"><textarea readonly rows="2">@n.InformacoesComplementares</textarea></Campo> }
+            </div>
+            @if (n.FornecedorId is null) { <div class="alerta aviso"><Icone Nome="exclamacao" /> Emitente não cadastrado como fornecedor (CNPJ @Cnpj(n.EmitenteCnpj)). Cadastre-o para vincular a nota a um pedido.</div> }
+            else if (n.PodeVincular)
+            {
+                <div class="barra-filtro">
+                    <label>Pedido do fornecedor <select id="nf-pedido" @bind="_pedidoEscolhido"><option value="">Selecione…</option>@foreach (var p in _pedidosForn) { <option @key="p.Id" value="@p.Id">@p.Texto</option> }</select></label>
+                    <button class="btn prim" id="nf-vincular" disabled="@(Ocupado || _pedidoEscolhido is null || _pedidoEscolhido == n.PedidoId)" @onclick="Vincular"><Icone Nome="check" Tam="14" /> Vincular</button>
+                    @if (n.PedidoId is not null) { <button class="btn sec" disabled="@Ocupado" @onclick="Desvincular">Desvincular</button> }
+                </div>
+            }
+            <div class="secao"><Icone Nome="lista" /> Itens da nota × itens do pedido</div>
+            <div class="tabela-rolavel">
+                <table class="itens" id="nf-itens">
+                    <thead><tr><th>#</th><th>Item da nota</th><th>Un.</th><th class="num">Quant.</th><th class="num">Valor</th><th>Item do pedido</th><th>Vínculo</th></tr></thead>
+                    <tbody>
+                        @foreach (var i in n.Itens.OrderBy(i => i.Item))
+                        {
+                            <tr @key="i.Id">
+                                <td>@i.Item</td><td>@i.Descricao<br /><small class="mudo">@i.Codigo @(i.Ncm is null ? "" : $"· NCM {i.Ncm}") @(i.PedidoCitado is null ? "" : $"· pedido citado {i.PedidoCitado}")</small></td>
+                                <td>@i.Unidade</td><td class="num">@i.Quantidade.ToString("N3", Br)</td><td class="num">@Moeda(i.Valor)</td>
+                                <td>
+                                    @if (n.PedidoId is not null && n.PodeVincular)
+                                    {
+                                        <select aria-label="@($"Item do pedido para o item {i.Item} da nota")" value="@i.PedidoItemId" @onchange="e => DefinirItem(i.Item, e.Value?.ToString())">
+                                            <option value="">— sem item —</option>
+                                            @foreach (var p in _itensPedido) { <option @key="p.Id" value="@p.Id">@p.Descricao (@p.Unidade · saldo @p.Saldo.ToString("N3", Br))</option> }
+                                        </select>
+                                    }
+                                    else { @(_itensPedido.FirstOrDefault(p => p.Id == i.PedidoItemId)?.Descricao ?? "—") }
+                                </td>
+                                <td>@if (i.VinculoOrigem is { } vo) { <Selo Texto="@($"{De(vo)}{(i.Confianca is { } c && vo != OrigemVinculo.Manual ? $" {c:P0}" : "")}")" Tom="@(i.Confianca >= 0.7m || vo == OrigemVinculo.Manual ? "ok" : "aviso")" /> }</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            @if (!string.IsNullOrWhiteSpace(n.AnaliseIa))
+            {
+                <div class="caixa-sec mt-10"><div class="secao"><Icone Nome="info" /> Análise por IA (conferir antes de usar)</div><div class="fonte-13 texto-pre">@n.AnaliseIa</div></div>
+            }
+        }
+    </ChildContent>
+    <Rodape>
+        @if (_n is { } n)
+        {
+            <a class="btn sec" href="@($"arquivos/nota/{n.Id}")" target="_blank" data-enhance-nav="false"><Icone Nome="arquivo" Tam="14" /> XML</a>
+            @if (n.Situacao == SituacaoNota.Ignorada) { <button class="btn sec" disabled="@Ocupado" @onclick="VoltarFila">Voltar para a fila</button> }
+            else if (n.Situacao is SituacaoNota.Recebida or SituacaoNota.Vinculada) { <button class="btn sec" disabled="@Ocupado" @onclick="AbrirIgnorar">Ignorar (não gera recebimento)</button> }
+            @if (_iaOk && n.PodeVincular) { <button class="btn sec" id="nf-ia" disabled="@Ocupado" @onclick="AnalisarIa"><Icone Nome="lupa" Tam="14" /> Analisar com IA</button> }
+            @if (n.Situacao == SituacaoNota.Vinculada) { <button class="btn prim" id="nf-receber" @onclick="GerarRecebimento"><Icone Nome="caixa" Tam="14" /> Gerar recebimento</button> }
+            @if (n.RecebimentoId is { } rid) { <a class="btn prim" href="@($"recebimentos?id={rid}")">Abrir recebimento</a> }
+        }
+    </Rodape>
+</Modal>
+
+<Modal @bind-Aberto="_abertoIgnorar" Titulo="Ignorar nota" Tamanho="media">
+    <ChildContent>
+        <Erros Lista="ErrosForm" />
+        <p class="mudo">A nota sai da fila e não gera recebimento (ex.: serviço, devolução, uso e consumo fora de pedido). Fica registrada e pode voltar.</p>
+        <Campo Rotulo="Motivo" Obrigatorio><input @bind="_motivo" placeholder="Ex.: nota de serviço medida no contrato" /></Campo>
+    </ChildContent>
+    <Rodape><button class="btn prim" disabled="@(Ocupado || string.IsNullOrWhiteSpace(_motivo))" @onclick="Ignorar">Ignorar</button></Rodape>
+</Modal>
+
+<Confirmacao Pergunta="@PerguntaConfirmacao" AoSim="ConfirmacaoSim" AoNao="ConfirmacaoNao" />
+
+@code {
+    private static readonly System.Globalization.CultureInfo Br = new("pt-BR");
+    [SupplyParameterFromQuery(Name = "id")] public Guid? IdQuery { get; set; }
+
+    private string? _fSit = "fila", _busca, _motivo;
+    private List<NotaFiscalEntrada> _lista = [];
+    private List<ImportacaoNota> _importacoes = [];
+    private Dictionary<Guid, int> _numPedido = [];
+    private NotaFiscalEntrada? _n;
+    private List<Opcao> _pedidosForn = [];
+    private List<ItemPedidoParaConferencia> _itensPedido = [];
+    private Guid? _pedidoEscolhido;
+    private bool _aberto, _abertoIgnorar, _siegOk, _iaOk;
+    private DateOnly _de, _ate;
+    private ResultadoImportacaoNotas? _resultado;
+    private int _kSemPedido, _kVinculadas, _kCanceladas;
+    private decimal _kValorFila;
+
+    private static string Cnpj(string? c) => c is { Length: 14 } ? $"{c[..2]}.{c[2..5]}.{c[5..8]}/{c[8..12]}-{c[12..]}" : c ?? "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        _siegOk = Fonte.Configurada(Usuario.EmpresaId);
+        _iaOk = Servicos.GetService<QualyHub.Application.IA.IAssistenteIa>()?.Configurado == true;
+        _ate = Hoje; _de = Hoje.AddDays(-7);
+        await Carregar();
+        if (IdQuery is { } id) await Abrir(id);
+    }
+
+    private async Task Carregar()
+    {
+        await using var db = Fabrica.CriarLeitura();
+        var q = db.NotasFiscais.AsNoTracking();
+        if (_fSit == "fila") q = q.Where(n => n.Situacao == SituacaoNota.Recebida || n.Situacao == SituacaoNota.Vinculada);
+        else if (Enum.TryParse<SituacaoNota>(_fSit, out var s)) q = q.Where(n => n.Situacao == s);
+        _lista = await q.OrderByDescending(n => n.Emissao).Take(LimiteAtual).ToListAsync(Cancelamento);
+        var pids = _lista.Where(n => n.PedidoId != null).Select(n => n.PedidoId!.Value).Distinct().ToList();
+        _numPedido = await db.Pedidos.IgnoreQueryFilters([QualyHub.Application.Abstracoes.FiltrosNomes.Obra]).AsNoTracking().Where(p => pids.Contains(p.Id)).ToDictionaryAsync(p => p.Id, p => p.Numero, Cancelamento);
+        var fila = await db.NotasFiscais.AsNoTracking().Where(n => n.Situacao == SituacaoNota.Recebida || n.Situacao == SituacaoNota.Vinculada)
+            .GroupBy(n => n.Situacao).Select(g => new { g.Key, Qtd = g.Count(), Valor = g.Sum(x => x.ValorTotal) }).ToListAsync(Cancelamento);
+        _kSemPedido = fila.FirstOrDefault(x => x.Key == SituacaoNota.Recebida)?.Qtd ?? 0;
+        _kVinculadas = fila.FirstOrDefault(x => x.Key == SituacaoNota.Vinculada)?.Qtd ?? 0;
+        _kValorFila = fila.Sum(x => x.Valor);
+        var ha30 = DateTimeOffset.UtcNow.AddDays(-30);
+        _kCanceladas = await db.NotasFiscais.AsNoTracking().CountAsync(n => n.Situacao == SituacaoNota.Cancelada && n.Emissao >= ha30, Cancelamento);
+        _importacoes = await db.ImportacoesNota.AsNoTracking().OrderByDescending(i => i.CriadoEm).Take(10).ToListAsync(Cancelamento);
+    }
+
+    private IEnumerable<NotaFiscalEntrada> Filtradas()
+    {
+        if (string.IsNullOrWhiteSpace(_busca)) return _lista;
+        var b = Rotulos.SemAcento(_busca.Trim());
+        return _lista.Where(n => Rotulos.SemAcento($"{n.Numero} {n.EmitenteNome} {n.EmitenteCnpj} {n.Chave}").Contains(b));
+    }
+
+    private async Task Importar(InputFileChangeEventArgs e)
+    {
+        _resultado = null;
+        await Executar(async () =>
+        {
+            const long max = 20 * 1024 * 1024;
+            if (e.File.Size > max) throw new RegraDeNegocioException("Arquivo acima de 20 MB: divida o ZIP.");
+            await using var s = e.File.OpenReadStream(max, Cancelamento);
+            _resultado = await Notas.ImportarArquivoAsync(s, e.File.Name, Cancelamento);
+        });
+        await Carregar();
+    }
+
+    private async Task BuscarSieg()
+    {
+        _resultado = null;
+        Notif.Aviso("Buscando no SIEG… (o SIEG aceita poucas consultas por minuto: pode levar alguns minutos)");
+        await Executar(async () => _resultado = await Notas.BuscarNaFonteAsync(Fonte, Usuario.EmpresaId, _de, _ate, Cancelamento));
+        await Carregar();
+    }
+
+    private async Task Abrir(Guid id)
+    {
+        await using var db = Fabrica.CriarLeitura();
+        _n = await db.NotasFiscais.AsNoTracking().Include(n => n.Itens).FirstOrDefaultAsync(n => n.Id == id, Cancelamento);
+        if (_n is null) { Notif.Erro("Nota não encontrada."); return; }
+        _pedidoEscolhido = _n.PedidoId;
+        _pedidosForn = _n.FornecedorId is { } f
+            ? (await db.Pedidos.AsNoTracking().Where(p => p.FornecedorId == f && (NotasFiscaisServico.PedidosAbertos.Contains(p.Status) || p.Id == _n.PedidoId))
+                .OrderByDescending(p => p.Numero).Select(p => new { p.Id, p.Numero, Obra = db.Obras.Where(o => o.Id == p.ObraId).Select(o => o.Nome).FirstOrDefault(), p.Entrega })
+                .ToListAsync(Cancelamento)).Select(p => new Opcao(p.Id, $"Pedido {p.Numero} · {p.Obra} · entrega {p.Entrega:dd/MM/yyyy}")).ToList()
+            : [];
+        _itensPedido = _n.PedidoId is { } pid
+            ? await db.PedidoItens.AsNoTracking().Where(i => i.PedidoId == pid).OrderBy(i => i.Descricao)
+                .Select(i => new ItemPedidoParaConferencia(i.Id, i.Descricao, i.Unidade, i.Quantidade - i.QuantidadeRecebidaAceita, i.CodigoInsumo)).ToListAsync(Cancelamento)
+            : [];
+        ErrosForm = null; _aberto = true;
+    }
+
+    private async Task Vincular()
+    {
+        if (await Executar(() => Notas.VincularPedidoAsync(_n!.Id, _pedidoEscolhido!.Value, ct: Cancelamento), "Nota vinculada ao pedido — confira os itens.")) { await Abrir(_n!.Id); await Carregar(); }
+    }
+
+    private void Desvincular() => Confirmar("Desvincular a nota do pedido?", async () =>
+    {
+        if (await Executar(() => Notas.DesvincularAsync(_n!.Id, Cancelamento), "Nota desvinculada.")) { await Abrir(_n!.Id); await Carregar(); }
+    });
+
+    private async Task DefinirItem(int item, string? valor)
+    {
+        Guid? pi = Guid.TryParse(valor, out var g) ? g : null;
+        if (await Executar(() => Notas.DefinirItemAsync(_n!.Id, item, pi, Cancelamento))) await Abrir(_n!.Id);
+    }
+
+    private void AbrirIgnorar() { _motivo = null; ErrosForm = null; _abertoIgnorar = true; }
+
+    private async Task Ignorar()
+    {
+        if (await Executar(() => Notas.IgnorarAsync(_n!.Id, _motivo ?? "", Cancelamento), "Nota fora da fila.")) { _abertoIgnorar = false; _aberto = false; await Carregar(); }
+    }
+
+    private async Task VoltarFila()
+    {
+        if (await Executar(() => Notas.VoltarParaFilaAsync(_n!.Id, Cancelamento), "Nota de volta à fila.")) { await Abrir(_n!.Id); await Carregar(); }
+    }
+
+    private void GerarRecebimento() => Nav.NavigateTo($"recebimentos?nota={_n!.Id}");
+
+    private async Task AnalisarIa()
+    {
+        var ia = Servicos.GetRequiredService<QualyHub.Application.IA.AnalisesIaServico>();
+        Notif.Aviso("Analisando com IA…");
+        if (await Executar(() => ia.AnalisarNotaAsync(_n!.Id, Cancelamento), "Análise pronta — confira as sugestões.")) await Abrir(_n!.Id);
+    }
+}

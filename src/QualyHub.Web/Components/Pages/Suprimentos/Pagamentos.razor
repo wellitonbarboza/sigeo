@@ -1,0 +1,181 @@
+@page "/pagamentos"
+@inherits PaginaBase
+@inject PagamentosServico PagamentosSrv
+@inject NavigationManager Nav
+
+<Pagina Titulo="Liberação de pagamento" Grade="_grade" AoNovo="Novo" AoAtualizar="Carregar">
+    <ChildContent>
+        <div class="pagina">
+            <div class="kpis">
+                <Kpi Rotulo="Aguardando liberação" Valor="@_itens?.Count(p => p.Status == StatusPagamento.Aguardando)" Sub="@Moeda(_itens?.Where(p => p.Status == StatusPagamento.Aguardando).Sum(p => p.Valor))" Tom="aviso" />
+                <Kpi Rotulo="Liberados (a pagar)" Valor="@_itens?.Count(p => p.Status == StatusPagamento.Liberado)" Sub="@Moeda(_itens?.Where(p => p.Status == StatusPagamento.Liberado).Sum(p => p.Valor))" Tom="info" />
+                <Kpi Rotulo="Pagos" Valor="@_itens?.Count(p => p.Status == StatusPagamento.Pago)" Tom="ok" />
+                <Kpi Rotulo="Bloqueados" Valor="@_itens?.Count(p => p.Status == StatusPagamento.Bloqueado)" Tom="erro" />
+            </div>
+            <Grade T="Linha" @ref="_grade" Itens="_itens" Limite="LimiteGrade" AoCarregarTudo="async () => { ListaCompleta = true; await Carregar(); }" AoClicar="l => Abrir(l.Id)" NomeExportacao="pagamentos" CriadoPor="l => l.CriadoPor">
+                <Colunas>
+                    <Coluna T="Linha" Titulo="Número" Valor="l => l.Numero" Largura="80px" />
+                    <Coluna T="Linha" Titulo="Origem" Valor="l => l.Origem" />
+                    <Coluna T="Linha" Titulo="Fornecedor" Valor="l => l.Fornecedor" />
+                    <Coluna T="Linha" Titulo="NF-e" Valor="l => l.Nf" />
+                    <Coluna T="Linha" Titulo="Valor NF" Valor="l => l.ValorNf" Formato="C2" Alinhar="num" />
+                    <Coluna T="Linha" Titulo="Liberado" Valor="l => l.Valor" Formato="C2" Alinhar="num" />
+                    <Coluna T="Linha" Titulo="Vencimento" Valor="l => l.Vencimento" />
+                    <Coluna T="Linha" Titulo="Status" Valor="l => l.Status"><Modelo><Selo Texto="@De(context.Status)" Tom="@Tom(context.Status)" /></Modelo></Coluna>
+                </Colunas>
+            </Grade>
+        </div>
+    </ChildContent>
+    <Faixa><b>Pagamento</b><span>Material: pedido × recebimento (FVM) × NF</span><span>Serviço: medição aprovada × NF</span><span>Liberação pelo Diretor Técnico (alçada)</span></Faixa>
+</Pagina>
+
+<Modal @bind-Aberto="_aberto" Titulo="@(_l?.Numero > 0 ? $"Liberação {_l.Numero}" : "Encaminhar pagamento")" Tamanho="grande">
+    <ChildContent>
+        @if (_l is not null)
+        {
+            <Erros Lista="ErrosForm" />
+            <div class="form">
+                <Campo Rotulo="Origem" Classe="s3">
+                    <select value="@_l.Origem" @onchange="e => { _l.Origem = Enum.Parse<OrigemPagamento>(e.Value!.ToString()!); _l.PedidoId = null; _l.MedicaoId = null; _pedido = null; _medicao = null; _recs = []; }" disabled="@(!Novo_)">
+                        @foreach (var o in Enum.GetValues<OrigemPagamento>()) { <option value="@o">@De(o)</option> }
+                    </select>
+                </Campo>
+                @if (_l.Origem == OrigemPagamento.NotaMaterial)
+                {
+                    <Campo Rotulo="Pedido" Obrigatorio Classe="s5"><select value="@_l.PedidoId" @onchange="e => EscolherPedido(e.Value?.ToString())" disabled="@(!Novo_)"><option value="">Selecione…</option>@foreach (var p in _pedidos) { <option value="@p.Id">@p.Texto</option> }</select></Campo>
+                }
+                else
+                {
+                    <Campo Rotulo="Medição aprovada" Obrigatorio Classe="s5"><select value="@_l.MedicaoId" @onchange="e => EscolherMedicao(e.Value?.ToString())" disabled="@(!Novo_)"><option value="">Selecione…</option>@foreach (var m in _medicoesOp) { <option value="@m.Id">@m.Texto</option> }</select></Campo>
+                }
+                <Campo Rotulo="Vencimento" Classe="s2"><input type="date" @bind="_l.Vencimento" disabled="@(!Novo_)" /></Campo>
+                <Campo Rotulo="Chave NF-e (44 dígitos)" Obrigatorio Classe="s6"><input @bind="_l.ChaveNFe" maxlength="44" disabled="@(!Novo_)" /></Campo>
+                <Campo Rotulo="Valor da NF" Obrigatorio Classe="s3"><input type="number" step="0.01" @bind="_l.ValorNF" disabled="@(!Novo_)" /></Campo>
+                <Campo Rotulo="Valor liberado" Obrigatorio Classe="s3"><input type="number" step="0.01" @bind="_l.ValorLiberado" disabled="@(!Novo_)" /></Campo>
+                @if (_l.ValorLiberado != _l.ValorNF)
+                {
+                    <Campo Rotulo="Justificativa da diferença (retenção, desconto, glosa…)" Obrigatorio Classe="s12"><textarea @bind="_l.JustificativaDiferenca" disabled="@(!Novo_)"></textarea></Campo>
+                }
+            </div>
+
+            <div class="secao"><Icone Nome="escudo-check" /> Conferência em 3 vias</div>
+            <div class="vias">
+                @if (_l.Origem == OrigemPagamento.NotaMaterial)
+                {
+                    <div class="via @(_pedido is not null ? "ok" : "")"><b>1. Pedido</b>@if (_pedido is not null) { <span>Nº @_pedido.Numero · @Moeda(_pedido.Valor)</span><span>@De(_pedido.Status)</span> } else { <span class="mudo">não vinculado</span> }</div>
+                    <div class="via @(_recs.Count > 0 && _recs.All(r => r.FvmAprovada == true) ? "ok" : _recs.Any(r => r.FvmAprovada == false) ? "erro" : "")"><b>2. Recebimento / FVM</b>
+                        @if (_recs.Count == 0) { <span class="mudo">sem recebimento</span> }
+                        @foreach (var r in _recs) { <span>Rec. @r.Numero · @(r.FvmAprovada == true ? "FVM aprovada" : "FVM reprovada") · @De(r.Destino)</span> }
+                    </div>
+                }
+                else
+                {
+                    <div class="via @(_medicao is not null ? "ok" : "")"><b>1. Contrato</b>@if (_medicao is not null) { <span>@_medicao.Contrato.Numero</span><span>@_medicao.Contrato.Fornecedor.NomeExibicao</span> } else { <span class="mudo">—</span> }</div>
+                    <div class="via @(_medicao?.Status is StatusMedicao.Aprovada or StatusMedicao.NfRecebida or StatusMedicao.Paga ? "ok" : _medicao is null ? "" : "erro")"><b>2. Medição</b>@if (_medicao is not null) { <span>Nº @_medicao.NumeroMedicao.ToString("00") · @Moeda(_medicao.ValorPeriodo)</span><span>nota @Num(_medicao.NotaFinal) · @De(_medicao.Status)</span> } else { <span class="mudo">não vinculada</span> }</div>
+                }
+                <div class="via @(_l.ChaveNFe is { Length: 44 } ? "ok" : "")"><b>3. Nota fiscal</b><span>@(_l.ChaveNFe is { Length: 44 } ? "…" + _l.ChaveNFe[^9..] : "informe a chave")</span><span>@Moeda(_l.ValorNF)</span></div>
+            </div>
+            @if (!string.IsNullOrEmpty(_l.Bloqueios)) { <div class="alerta erro mt-10"><Icone Nome="x-circulo" /> @_l.Bloqueios</div> }
+            @if (!Novo_)
+            {
+                <Anexos Entidade="Pagamento" EntidadeId="_l.Id" Categoria="NF" Titulo="Nota fiscal e boletos" />
+                @if (_l.CriadoEm != default) { <Notas Entidade="Pagamento" EntidadeId="_l.Id" /> }
+                <Autorizacoes Entidade="EntidadeAprovavel.Pagamento" EntidadeId="_l.Id" Versao="_versao" AoDecidir="Recarregar" />
+            }
+        }
+    </ChildContent>
+    <Rodape>
+        @if (_l is not null)
+        {
+            @if (Novo_) { <button class="btn prim" disabled="@Ocupado" @onclick="Encaminhar"><Icone Nome="enviar" Tam="16" /> Encaminhar para liberação</button> }
+            @if (_l.Status == StatusPagamento.Liberado && Perfil(PerfilUsuario.Financeiro)) { <button class="btn ok" disabled="@Ocupado" @onclick="Pago"><Icone Nome="dinheiro" Tam="16" /> Marcar como pago</button> }
+        }
+    </Rodape>
+</Modal>
+
+@code {
+    private sealed record Linha(Guid Id, int Numero, OrigemPagamento Origem, string Fornecedor, string Nf, decimal ValorNf, decimal Valor, DateOnly Vencimento, StatusPagamento Status, string CriadoPor);
+    private Grade<Linha>? _grade;
+    private List<Linha>? _itens;
+    private LiberacaoPagamento? _l;
+    private Pedido? _pedido;
+    private Medicao? _medicao;
+    private List<Recebimento> _recs = [];
+    private List<Opcao> _pedidos = [], _medicoesOp = [];
+    private bool _aberto;
+    private int _versao;
+    private bool Novo_ => _l is { Numero: 0 };
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Carregar();
+        if (Nav.Uri.Contains("?id=") && Guid.TryParse(Nav.Uri.Split("?id=")[1], out var pid)) await Abrir(pid);
+        else if (Nav.Uri.Contains("?medicao=") && Guid.TryParse(Nav.Uri.Split("?medicao=")[1], out var mid))
+        { await Novo(); _l!.Origem = OrigemPagamento.MedicaoServico; await EscolherMedicao(mid.ToString()); }
+    }
+
+    private async Task Carregar()
+    {
+        await using var db = Fabrica.CriarLeitura();
+        var forn = await db.Fornecedores.AsNoTracking().ToDictionaryAsync(f => f.Id, f => f.NomeExibicao, Cancelamento);
+        _itens = (await db.Pagamentos.AsNoTracking().OrderByDescending(p => p.Numero).Take(LimiteAtual).ToListAsync(Cancelamento))
+            .Select(p => new Linha(p.Id, p.Numero, p.Origem, forn.GetValueOrDefault(p.FornecedorId, ""), p.ChaveNFe.Length >= 9 ? "…" + p.ChaveNFe[^9..] : p.ChaveNFe,
+                p.ValorNF, p.ValorLiberado, p.Vencimento, p.Status, p.CriadoPor)).ToList();
+    }
+
+    private async Task Novo()
+    {
+        await using var db = Fabrica.CriarLeitura();
+        _pedidos = await db.Pedidos.AsNoTracking().Where(p => p.Status == StatusPedido.Entregue || p.Status == StatusPedido.EntregueParcial || p.Status == StatusPedido.EnviadoFornecedor)
+            .OrderByDescending(p => p.Numero).Select(p => new Opcao(p.Id, "Pedido " + p.Numero + " – " + p.Fornecedor.RazaoSocial)).ToListAsync(Cancelamento);
+        _medicoesOp = await db.Medicoes.AsNoTracking().Where(m => m.Status == StatusMedicao.Aprovada)
+            .Select(m => new Opcao(m.Id, m.Contrato.Numero + " · med. " + m.NumeroMedicao + " – " + m.Contrato.Fornecedor.RazaoSocial)).ToListAsync(Cancelamento);
+        _l = new LiberacaoPagamento { Origem = OrigemPagamento.NotaMaterial, Vencimento = Hoje.AddDays(10) };
+        _pedido = null; _medicao = null; _recs = []; ErrosForm = null; _aberto = true;
+    }
+
+    private async Task EscolherPedido(string? v)
+    {
+        _l!.PedidoId = Guid.TryParse(v, out var id) ? id : null; _pedido = null; _recs = [];
+        if (_l.PedidoId is null) return;
+        await using var db = Fabrica.CriarLeitura();
+        _pedido = await db.Pedidos.AsNoTracking().Include(p => p.Itens).FirstAsync(p => p.Id == id, Cancelamento);
+        _recs = await db.Recebimentos.AsNoTracking().Include(r => r.Itens).Where(r => r.PedidoId == id).ToListAsync(Cancelamento);
+        _l.FornecedorId = _pedido.FornecedorId;
+        if (_l.ValorNF == 0) { _l.ValorNF = _pedido.Valor; _l.ValorLiberado = _pedido.Valor; }
+        _l.ChaveNFe = string.IsNullOrEmpty(_l.ChaveNFe) ? _recs.Select(r => r.ChaveNFe).FirstOrDefault(c => c is { Length: 44 }) ?? "" : _l.ChaveNFe;
+    }
+
+    private async Task EscolherMedicao(string? v)
+    {
+        _l!.MedicaoId = Guid.TryParse(v, out var id) ? id : null; _medicao = null;
+        if (_l.MedicaoId is null) return;
+        await using var db = Fabrica.CriarLeitura();
+        _medicao = await db.Medicoes.AsNoTracking().Include(m => m.Contrato).ThenInclude(k => k.Fornecedor).FirstAsync(m => m.Id == id, Cancelamento);
+        if (_medicoesOp.All(o => o.Id != id)) _medicoesOp.Add(new Opcao(id, $"{_medicao.Contrato.Numero} · med. {_medicao.NumeroMedicao}"));
+        _l.FornecedorId = _medicao.Contrato.FornecedorId;
+        if (_l.ValorNF == 0) { _l.ValorNF = _medicao.ValorPeriodo; _l.ValorLiberado = _medicao.ValorPeriodo - _medicao.ValorRetencao; _l.JustificativaDiferenca = _medicao.ValorRetencao > 0 ? $"Retenção contratual {_medicao.Contrato.RetencaoPerc:0.##}%" : null; }
+    }
+
+    private async Task Abrir(Guid id)
+    {
+        await using var db = Fabrica.CriarLeitura();
+        _l = await db.Pagamentos.AsNoTracking().FirstAsync(p => p.Id == id, Cancelamento);
+        _pedido = _l.PedidoId is { } pid ? await db.Pedidos.AsNoTracking().Include(p => p.Itens).FirstAsync(p => p.Id == pid, Cancelamento) : null;
+        _recs = _l.PedidoId is { } p2 ? await db.Recebimentos.AsNoTracking().Include(r => r.Itens).Where(r => r.PedidoId == p2).ToListAsync(Cancelamento) : [];
+        _medicao = _l.MedicaoId is { } mid ? await db.Medicoes.AsNoTracking().Include(m => m.Contrato).ThenInclude(k => k.Fornecedor).FirstAsync(m => m.Id == mid, Cancelamento) : null;
+        _pedidos = _pedido is null ? [] : [new Opcao(_pedido.Id, $"Pedido {_pedido.Numero}")];
+        _medicoesOp = _medicao is null ? [] : [new Opcao(_medicao.Id, $"{_medicao.Contrato.Numero} · med. {_medicao.NumeroMedicao}")];
+        ErrosForm = null; _versao++; _aberto = true;
+    }
+
+    private async Task Recarregar() { if (_l is not null) await Abrir(_l.Id); await Carregar(); }
+
+    private async Task Encaminhar()
+    {
+        Guid id = default;
+        if (await Executar(async () => id = await PagamentosSrv.EncaminharPagamentoAsync(_l!, Cancelamento), "Encaminhado para liberação do Diretor Técnico.")) { await Carregar(); await Abrir(id); }
+    }
+
+    private async Task Pago() { if (await Executar(() => PagamentosSrv.MarcarPagoAsync(_l!.Id, Cancelamento), "Pagamento registrado.")) await Recarregar(); }
+}

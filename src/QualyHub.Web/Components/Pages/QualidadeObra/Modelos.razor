@@ -1,0 +1,263 @@
+@page "/obra/modelos/{TipoRota}"
+@inherits PaginaBase
+@inject QualidadeObraServico Qob
+@inject KitModelosServico KitMod
+
+<Pagina Titulo="@(Fvm ? "Modelos de FVM" : Sst ? "Checklists de segurança" : "Modelos de FVS")" Grade="_grade" AoNovo="Novo" AoAtualizar="Carregar">
+    <ChildContent>
+        <div class="pagina">
+            @if (!Sst && Perfil(PerfilUsuario.Qualidade))
+            {
+                <div class="barra-filtro">
+                    <label class="btn sec arquivo" id="kit-modelos" style="cursor:@(Ocupado ? "wait" : "pointer")" title="Planilha com as abas Modelos, Itens e Ensaios (FVS e FVM juntos; atualiza por código)">
+                        <Icone Nome="upload" Tam="14" /> Importar modelos (xlsx)<InputFile OnChange="PreverKit" accept=".xlsx" disabled="@Ocupado" class="so-leitor" /></label>
+                </div>
+            }
+            <Grade T="ModeloInspecao" @ref="_grade" Itens="_itens" AoClicar="Abrir" NomeExportacao="@($"modelos-{TipoRota}")" CriadoPor="m => m.CriadoPor">
+                <Colunas>
+                    <Coluna T="ModeloInspecao" Titulo="Modelo" Valor="m => m.Codigo" />
+                    <Coluna T="ModeloInspecao" Titulo="@(Fvm ? "Material controlado" : "Serviço (ITS)")" Valor="m => Escopo(m)" />
+                    @if (Fvm)
+                    {
+                        <Coluna T="ModeloInspecao" Titulo="Norma" Valor="m => m.NormaReferencia" />
+                        <Coluna T="ModeloInspecao" Titulo="Amostragem" Valor="m => m.Amostragem" />
+                        <Coluna T="ModeloInspecao" Titulo="Ensaios" Valor='m => string.Join(" · ", m.Ensaios.Select(e => e.Ensaio))' />
+                        <Coluna T="ModeloInspecao" Titulo="Quarentena" Valor='m => m.QuarentenaAteEnsaio ? "Sim" : "Não"' />
+                    }
+                    else
+                    {
+                        <Coluna T="ModeloInspecao" Titulo="Título" Valor="m => m.Titulo" />
+                        <Coluna T="ModeloInspecao" Titulo="Libera p/ medição" Valor='m => m.LiberaMedicao ? "Sim" : "Não"' />
+                    }
+                    <Coluna T="ModeloInspecao" Titulo="Rev." Valor="m => m.Rotulo" Largura="60px" />
+                    <Coluna T="ModeloInspecao" Titulo="Itens" Valor="m => m.Itens.Count" Alinhar="num" />
+                    <Coluna T="ModeloInspecao" Titulo="Situação" Valor="m => m.Situacao"><Modelo><Selo Texto="@De(context.Situacao)" Tom="@Tom(context.Situacao)" /></Modelo></Coluna>
+                </Colunas>
+            </Grade>
+            @if (!Sst && _semModelo.Count > 0)
+            {
+                <div class="alerta aviso"><Icone Nome="alerta" /> Sem modelo vigente: @string.Join(", ", _semModelo.Take(12))@(_semModelo.Count > 12 ? $" e mais {_semModelo.Count - 12}" : "")</div>
+            }
+        </div>
+    </ChildContent>
+    <Faixa>@if (TipoRota == "sst")
+        {
+            <b>Checklists de segurança (S08)</b><span>Itens por NR usados nas inspeções de segurança do canteiro</span><span>Item não conforme gera pendência com prazo; risco grave e iminente pede paralisação</span>
+        }
+        else
+        {
+            <b>@(Fvm ? "Tela 40 · Modelos de FVM" : "Tela 35 · Modelos de FVS")</b><span>Itens, método, tolerância e critério de aceitação @(Fvm ? "+ amostragem, ensaios e quarentena por material" : "por serviço controlado")</span><span>Segue a revisão da ITS/especificação: documento revisado → modelo em revisão</span>
+        }</Faixa>
+</Pagina>
+
+<Modal @bind-Aberto="_aberto" Titulo="@($"{(Fvm ? "Modelo de FVM" : Sst ? "Checklist de segurança" : "Modelo de FVS")} — {_m?.Codigo} · {_m?.Rotulo}")" Tamanho="grande">
+    <ChildContent>
+        @if (_m is not null)
+        {
+            <Erros Lista="ErrosForm" />
+            <div class="form">
+                <Campo Rotulo="Código" Obrigatorio Classe="s3"><input @bind="_m.Codigo" disabled="@(!Editavel)" /></Campo>
+                <Campo Rotulo="Título" Obrigatorio Classe="s5"><input @bind="_m.Titulo" disabled="@(!Editavel)" /></Campo>
+                @if (Fvm)
+                {
+                    <Campo Rotulo="Material controlado" Obrigatorio Classe="s4"><select @bind="_m.MaterialControladoId" disabled="@(!Editavel)"><option value="">Selecione…</option>@foreach (var x in _materiais) { <option value="@x.Id">@x.Texto</option> }</select></Campo>
+                    <Campo Rotulo="Norma / especificação" Obrigatorio Classe="s4"><input @bind="_m.NormaReferencia" placeholder="ex.: NBR 7480, especificação técnica" disabled="@(!Editavel)" /></Campo>
+                    <Campo Rotulo="Amostragem" Obrigatorio Classe="s4"><input @bind="_m.Amostragem" placeholder="ex.: cada caminhão, 3 barras por lote" disabled="@(!Editavel)" /></Campo>
+                    <Campo Rotulo="Regras do lote" Classe="s4">
+                        <div class="checks"><label><input type="checkbox" @bind="_m.QuarentenaAteEnsaio" disabled="@(!Editavel)" /> Quarentena até ensaio</label>
+                            <label><input type="checkbox" @bind="_m.RastrearAplicacao" disabled="@(!Editavel)" /> Rastrear aplicação do lote</label></div>
+                    </Campo>
+                }
+                else if (!Sst)
+                {
+                    <Campo Rotulo="Serviço (ITS)" Obrigatorio Classe="s4"><select @bind="_m.ServicoControladoId" disabled="@(!Editavel)"><option value="">Selecione…</option>@foreach (var x in _servicos) { <option value="@x.Id">@x.Texto</option> }</select></Campo>
+                    <Campo Rotulo="Momento da inspeção" Classe="s3"><select @bind="_m.MomentoInspecao" disabled="@(!Editavel)"><option value="">—</option>@foreach (var x in Momentos) { <option>@x</option> }</select></Campo>
+                    <Campo Rotulo="Unidade de local" Classe="s3"><select @bind="_m.NivelLocal" disabled="@(!Editavel)"><option value="">Qualquer</option>@foreach (var x in Niveis) { <option>@x</option> }@if (!string.IsNullOrEmpty(_m.NivelLocal) && !Niveis.Contains(_m.NivelLocal)) { <option value="@_m.NivelLocal">@_m.NivelLocal (antigo)</option> }</select></Campo>
+                    <Campo Rotulo="Etapa seguinte bloqueada" Classe="s4"><select @bind="_m.ServicoSeguinteId" disabled="@(!Editavel)"><option value="">—</option>@foreach (var x in _servicos) { <option value="@x.Id">@x.Texto</option> }</select></Campo>
+                    <Campo Rotulo="" Classe="s2"><label><input type="checkbox" @bind="_m.LiberaMedicao" disabled="@(!Editavel)" /> Libera medição</label></Campo>
+                }
+                @if (!Sst)
+                {
+                    <Campo Rotulo="@(Fvm ? "Orientações de armazenamento" : "Pré-requisitos para a execução")" Classe="s12"><textarea id="mod-orient" rows="3" @bind="_m.Orientacoes" disabled="@(!Editavel)" placeholder="@(Fvm ? "Como armazenar o material na obra" : "Um por linha: o que precisa estar pronto antes de liberar a frente")"></textarea></Campo>
+                    <Campo Rotulo="Documento (ITS / especificação)" Classe="s6"><select @bind="_m.DocumentoId" disabled="@(!Editavel)"><option value="">—</option>@foreach (var x in _docs) { <option value="@x.Id">@x.Texto</option> }</select></Campo>
+                }
+            </div>
+
+            <div class="secao"><Icone Nome="lista" /> Itens de verificação
+                @if (Editavel) { <span class="acao"><button class="btn sec pq" @onclick="NovoItem"><Icone Nome="mais" Tam="14" /> Incluir item</button></span> }
+            </div>
+            <div class="tabela-rolavel">
+            <table class="itens">
+                <thead><tr><th>#</th><th class="larg-min-220">Item de verificação</th><th>@(Sst ? "Referência (NR)" : "Método / equipamento")</th><th>Tolerância / critério</th><th>Mín.</th><th>Máx.</th><th>Foto</th><th>Equip. calibrado</th><th>Bloqueia</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var i in _m.Itens.OrderBy(i => i.Ordem))
+                    {
+                        <tr @key="i">
+                            <td class="larg-40"><input type="number" @bind="i.Ordem" disabled="@(!Editavel)" /></td>
+                            <td><input @bind="i.Descricao" disabled="@(!Editavel)" /></td>
+                            <td>@if (Sst) { <input @bind="i.Referencia" disabled="@(!Editavel)" /> } else { <input @bind="i.Metodo" disabled="@(!Editavel)" /> }</td>
+                            <td><input @bind="i.Criterio" disabled="@(!Editavel)" /></td>
+                            <td class="larg-80"><input type="number" step="0.01" @bind="i.ValorMin" disabled="@(!Editavel)" /></td>
+                            <td class="larg-80"><input type="number" step="0.01" @bind="i.ValorMax" disabled="@(!Editavel)" /></td>
+                            <td><select @bind="i.Foto" disabled="@(!Editavel)">@foreach (var f in Enum.GetValues<FotoItem>()) { <option value="@f">@De(f)</option> }</select></td>
+                            <td class="texto-centro"><input type="checkbox" @bind="i.ExigeEquipamento" disabled="@(!Editavel)" /></td>
+                            <td class="texto-centro"><input type="checkbox" @bind="i.Bloqueia" disabled="@(!Editavel)" /></td>
+                            <td>@if (Editavel) { <button class="icone-btn" @onclick="() => _m.Itens.Remove(i)"><Icone Nome="lixeira" Tam="16" /></button> }</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            </div>
+
+            @if (Fvm)
+            {
+                <div class="secao"><Icone Nome="regua" /> Ensaios do modelo
+                    @if (Editavel) { <span class="acao"><button class="btn sec pq" @onclick="() => _m.Ensaios.Add(new EnsaioModelo { ModeloInspecaoId = _m.Id })"><Icone Nome="mais" Tam="14" /> Incluir ensaio</button></span> }
+                </div>
+                <div class="tabela-rolavel">
+                <table class="itens">
+                    <thead><tr><th>Ensaio</th><th>Norma</th><th>Quando</th><th>Idade/prazo (dias)</th><th>Frequência / amostra</th><th>Executante</th><th>Critério</th><th>Se reprovar</th><th></th></tr></thead>
+                    <tbody>
+                        @foreach (var x in _m.Ensaios)
+                        {
+                            <tr @key="x">
+                                <td><input @bind="x.Ensaio" disabled="@(!Editavel)" /></td>
+                                <td><input @bind="x.Norma" disabled="@(!Editavel)" /></td>
+                                <td><select @bind="x.Momento" disabled="@(!Editavel)">@foreach (var e in Enum.GetValues<MomentoEnsaio>()) { <option value="@e">@De(e)</option> }</select></td>
+                                <td class="larg-90"><input @bind="x.PrazoDias" placeholder="7 e 28" disabled="@(!Editavel)" /></td>
+                                <td><input @bind="x.Frequencia" disabled="@(!Editavel)" /></td>
+                                <td><select @bind="x.Executante" disabled="@(!Editavel)">@foreach (var e in Enum.GetValues<ExecutanteEnsaio>()) { <option value="@e">@De(e)</option> }</select></td>
+                                <td><input @bind="x.Criterio" disabled="@(!Editavel)" /></td>
+                                <td><select @bind="x.AcaoReprovacao" disabled="@(!Editavel)">@foreach (var e in Enum.GetValues<AcaoReprovacaoEnsaio>()) { <option value="@e">@De(e)</option> }</select></td>
+                                <td>@if (Editavel) { <button class="icone-btn" @onclick="() => _m.Ensaios.Remove(x)"><Icone Nome="lixeira" Tam="16" /></button> }</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+                </div>
+            }
+            <div class="alerta info marg-topo-12"><Icone Nome="info" /> Critérios e amostragens da carga são exemplos: os valores oficiais vêm das ITS e especificações vigentes. O modelo segue a revisão do documento; FVS e FVM novas usam sempre o modelo vigente.</div>
+        }
+    </ChildContent>
+    <Rodape>
+        @if (_m is not null && Editavel)
+        {
+            <button class="btn ok" disabled="@Ocupado" @onclick="Publicar"><Icone Nome="check" Tam="16" /> @(_m.Situacao == SituacaoModelo.EmRevisao ? "Publicar nova revisão" : "Tornar vigente")</button>
+            <button class="btn prim" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="16" /> Salvar</button>
+        }
+    </Rodape>
+</Modal>
+
+<Modal @bind-Aberto="_abertoKit" Titulo="Importar modelos de FVS e FVM">
+    <ChildContent>
+        <Erros Lista="ErrosForm" />
+        @if (_resumoKit is { } r)
+        {
+            <table class="itens" id="kitmod-resumo"><tbody>
+                <tr><td>Modelos novos / atualizados</td><td class="num">@r.Novos / @r.Atualizados</td></tr>
+                <tr><td>Itens de verificação</td><td class="num">@r.Itens</td></tr>
+                <tr><td>Ensaios</td><td class="num">@r.Ensaios</td></tr>
+            </tbody></table>
+            @if (r.ItsCriadas.Count > 0) { <div class="alerta info"><Icone Nome="info" /> <div>ITS que serão criadas em Serviços controlados: @string.Join("; ", r.ItsCriadas)</div></div> }
+            @if (r.ItsRenomeadas.Count > 0) { <details class="mb-10"><summary>ITS que passam a ter o nome do documento da empresa (@r.ItsRenomeadas.Count)</summary><ul>@foreach (var x in r.ItsRenomeadas) { <li>@x</li> }</ul></details> }
+            @if (r.MateriaisCriados.Count > 0) { <div class="alerta info"><Icone Nome="info" /> <div>Materiais controlados que serão criados: @string.Join("; ", r.MateriaisCriados)</div></div> }
+            @if (r.Mantidos.Count > 0) { <div class="alerta aviso"><Icone Nome="alerta" /> <div>Já têm fichas preenchidas — só o cabeçalho é atualizado (itens mantidos): @string.Join(", ", r.Mantidos)</div></div> }
+            @foreach (var a in r.Avisos) { <div class="alerta aviso"><Icone Nome="alerta" /> @a</div> }
+            <p class="mudo">Os modelos marcados "Publicar" ficam vigentes; os demais entram como rascunho para revisão.</p>
+        }
+    </ChildContent>
+    <Rodape>@if (_kit is not null && _resumoKit is not null) { <button class="btn prim" id="kitmod-aplicar" disabled="@Ocupado" @onclick="AplicarKit"><Icone Nome="check" Tam="16" /> Importar</button> }</Rodape>
+</Modal>
+
+@code {
+    private bool _abertoKit;
+    private KitModelos? _kit;
+    private ResumoKitModelos? _resumoKit;
+
+    private async Task PreverKit(InputFileChangeEventArgs e)
+    {
+        if (Ocupado) return;
+        _kit = null; _resumoKit = null;
+        await Executar(async () =>
+        {
+            using var ms = new MemoryStream();
+            await e.File.OpenReadStream(10 * 1024 * 1024).CopyToAsync(ms, Cancelamento);
+            ms.Position = 0;
+            _kit = QualyHub.Infrastructure.Importacao.LeitorKitModelos.Ler(ms);
+            _resumoKit = await KitMod.AnalisarAsync(_kit, Cancelamento);
+        });
+        _abertoKit = true;
+    }
+
+    private async Task AplicarKit()
+    {
+        if (_kit is null) return;
+        if (await Executar(() => KitMod.AplicarAsync(_kit, Cancelamento), "Modelos importados."))
+        {
+            _abertoKit = false; _kit = null; _resumoKit = null;
+            Cat.Invalidar();
+            _materiais = await Cat.MateriaisAsync(); _servicos = await Cat.ServicosAsync();
+            await Carregar();
+        }
+    }
+
+    [Parameter] public string TipoRota { get; set; } = "fvs";
+    private bool Fvm => TipoRota == "fvm";
+    private bool Sst => TipoRota == "sst";
+    private TipoModelo Tipo => Fvm ? TipoModelo.FVM : Sst ? TipoModelo.SST : TipoModelo.FVS;
+    private static readonly string[] Momentos = ["Antes do serviço (liberação de frente)", "Durante", "Após (final)", "Antes da concretagem"];
+    private static readonly string[] Niveis = [GeradorEmpreendimento.TipoCondominio, GeradorEmpreendimento.TipoTorre, GeradorEmpreendimento.TipoPavimento,
+        GeradorEmpreendimento.TipoApartamento, GeradorEmpreendimento.TipoComodo, GeradorEmpreendimento.TipoAreaComum, "Elemento"];
+    private Grade<ModeloInspecao>? _grade;
+    private List<ModeloInspecao>? _itens;
+    private ModeloInspecao? _m;
+    private bool _aberto;
+    private List<Opcao> _materiais = [], _servicos = [], _docs = [];
+    private List<string> _semModelo = [];
+    private bool Editavel => _m is { Situacao: SituacaoModelo.Rascunho or SituacaoModelo.EmRevisao };
+
+    private string? Escopo(ModeloInspecao m) =>
+        m.MaterialControladoId is { } a ? _materiais.FirstOrDefault(x => x.Id == a)?.Texto : m.ServicoControladoId is { } b ? _servicos.FirstOrDefault(x => x.Id == b)?.Texto : null;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _materiais = await Cat.MateriaisAsync(); _servicos = await Cat.ServicosAsync(); _docs = await Cat.DocumentosSgqAsync();
+        _aberto = false;
+        await Carregar();
+    }
+
+    private async Task Carregar()
+    {
+        await using var db = Fabrica.CriarLeitura();
+        _itens = await db.ModelosInspecao.AsNoTracking().Include(m => m.Itens).Include(m => m.Ensaios).Where(m => m.Tipo == Tipo).OrderBy(m => m.Codigo).ToListAsync(Cancelamento);
+        var vigentes = _itens.Where(m => m.Situacao == SituacaoModelo.Vigente).ToList();
+        _semModelo = Fvm ? _materiais.Where(x => vigentes.All(m => m.MaterialControladoId != x.Id)).Select(x => x.Texto).ToList()
+                   : Sst ? [] : _servicos.Where(x => vigentes.All(m => m.ServicoControladoId != x.Id)).Select(x => x.Texto).ToList();
+    }
+
+    private void NovoItem() => _m!.Itens.Add(new ItemVerificacao { Ordem = _m.Itens.Count + 1, ModeloInspecaoId = _m.Id, Metodo = Sst ? "Visual" : string.Empty });
+
+    private void Novo()
+    {
+        _m = new ModeloInspecao { Tipo = Tipo, LiberaMedicao = !Fvm && !Sst };
+        ErrosForm = null; _aberto = true;
+    }
+
+    private async Task Abrir(ModeloInspecao m)
+    {
+        await using var db = Fabrica.CriarLeitura();
+        _m = await db.ModelosInspecao.AsNoTracking().Include(x => x.Itens).Include(x => x.Ensaios).FirstAsync(x => x.Id == m.Id, Cancelamento);
+        ErrosForm = null; _aberto = true;
+    }
+
+    private async Task Salvar()
+    {
+        if (await Executar(async () => await Qob.SalvarModeloAsync(_m!, Cancelamento), "Modelo salvo.")) { await Carregar(); await Abrir(_m!); }
+    }
+
+    private async Task Publicar()
+    {
+        if (await Executar(async () => { await Qob.SalvarModeloAsync(_m!, Cancelamento); await Qob.PublicarModeloAsync(_m!.Id, Cancelamento); }, "Modelo vigente."))
+        { await Carregar(); await Abrir(_m!); }
+    }
+}

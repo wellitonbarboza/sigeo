@@ -1,0 +1,16 @@
+@* O rótulo recebe um id e o app.js liga o primeiro campo do bloco a ele (aria-labelledby): leitor de tela anuncia o nome
+   e clicar no rótulo leva o foco ao campo. *@
+<div class="campo @Classe">
+    @if (!string.IsNullOrEmpty(Rotulo)) { <label class="rotulo" id="@_id">@Rotulo@if (Obrigatorio) {<span class="req" aria-hidden="true">*</span><span class="so-leitor"> (obrigatório)</span>}</label> }
+    else { <label class="rotulo vazio" aria-hidden="true">&nbsp;</label> }
+    @ChildContent
+    @if (!string.IsNullOrEmpty(Ajuda)) { <span class="ajuda">@Ajuda</span> }
+</div>
+@code {
+    private readonly string _id = "r" + Guid.NewGuid().ToString("N")[..10];
+    [Parameter] public string Rotulo { get; set; } = "";
+    [Parameter] public string Classe { get; set; } = "";
+    [Parameter] public bool Obrigatorio { get; set; }
+    [Parameter] public string? Ajuda { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

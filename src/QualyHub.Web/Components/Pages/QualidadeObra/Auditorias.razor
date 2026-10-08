@@ -1,0 +1,132 @@
+@page "/obra/auditorias"
+@inherits PaginaBase
+@inject QualidadeObraServico Qob
+
+<Pagina Titulo="Auditorias internas" Grade="_grade" AoNovo="Novo" AoAtualizar="Carregar">
+    <ChildContent>
+        <div class="pagina">
+            <Grade T="AuditoriaInterna" @ref="_grade" Itens="_itens" AoClicar="a => Abrir(a.Id)" NomeExportacao="auditorias" CriadoPor="a => a.CriadoPor">
+                <Colunas>
+                    <Coluna T="AuditoriaInterna" Titulo="Auditoria" Valor="a => a.Codigo" />
+                    <Coluna T="AuditoriaInterna" Titulo="Escopo" Valor="a => a.Escopo" />
+                    <Coluna T="AuditoriaInterna" Titulo="Data" Valor='a => $"{a.Inicio:dd} – {a.Fim:dd/MM/yy}"' />
+                    <Coluna T="AuditoriaInterna" Titulo="Auditor" Valor="a => a.Auditores" />
+                    <Coluna T="AuditoriaInterna" Titulo="Constatações" Valor='a => a.Constatacoes.Count == 0 ? "—" : $"{a.Ncs} NC · {a.Oms} OM"' />
+                    <Coluna T="AuditoriaInterna" Titulo="RNC geradas" Valor="a => a.Constatacoes.Count(c => c.RncId != null)" Alinhar="num" />
+                    <Coluna T="AuditoriaInterna" Titulo="Status" Valor="a => a.Status"><Modelo><Selo Texto="@De(context.Status)" Tom="@Tom(context.Status)" /></Modelo></Coluna>
+                </Colunas>
+            </Grade>
+        </div>
+    </ChildContent>
+    <Faixa><b>Tela 39 · Auditoria interna</b><span>SiAC 9.2 · auditor não audita o próprio trabalho</span><span>Constatação NC vira RNC · resumo alimenta a análise crítica</span></Faixa>
+</Pagina>
+
+<Modal @bind-Aberto="_aberto" Titulo="@($"Auditoria interna {(string.IsNullOrEmpty(_a?.Codigo) ? "(nova)" : _a.Codigo)} · plano e checklist")" Tamanho="grande">
+    <ChildContent>
+        @if (_a is not null)
+        {
+            <Erros Lista="ErrosForm" />
+            <div class="form">
+                <Campo Rotulo="Escopo" Obrigatorio Classe="s6"><input @bind="_a.Escopo" disabled="@Fechada" /></Campo>
+                <Campo Rotulo="Início" Obrigatorio Classe="s2"><input type="date" @bind="_a.Inicio" disabled="@Fechada" /></Campo>
+                <Campo Rotulo="Fim" Obrigatorio Classe="s2"><input type="date" @bind="_a.Fim" disabled="@Fechada" /></Campo>
+                <Campo Rotulo="Auditor" Obrigatorio Classe="s2"><input @bind="_a.Auditores" disabled="@Fechada" /></Campo>
+                <Campo Rotulo="Critério" Obrigatorio Classe="s6"><input @bind="_a.Criterio" disabled="@Fechada" /></Campo>
+                <Campo Rotulo="Independência" Obrigatorio Classe="s6"><input @bind="_a.Independencia" placeholder="Auditor não audita o próprio trabalho" disabled="@Fechada" /></Campo>
+            </div>
+            <div class="secao"><Icone Nome="lista" /> Checklist e constatações
+                @if (!Fechada) { <span class="acao"><button class="btn sec pq" @onclick="CarregarChecklist">Checklist sugerido</button> <button class="btn sec pq" @onclick="() => _a.Constatacoes.Add(new Constatacao { AuditoriaInternaId = _a.Id })"><Icone Nome="mais" Tam="14" /> Item</button></span> }
+            </div>
+            <div class="tabela-rolavel">
+            <table class="itens">
+                <thead><tr><th>Requisito</th><th>Pergunta</th><th>Evidência</th><th>Resultado</th><th>RNC</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var c in _a.Constatacoes.OrderBy(c => c.Ordem))
+                    {
+                        <tr @key="c">
+                            <td class="larg-80"><input @bind="c.Requisito" disabled="@Fechada" /></td>
+                            <td><input @bind="c.Pergunta" disabled="@Fechada" /></td>
+                            <td><input @bind="c.Evidencia" disabled="@Fechada" /></td>
+                            <td class="larg-200"><select @bind="c.Tipo" disabled="@Fechada">@foreach (var t in Enum.GetValues<TipoConstatacao>()) { <option value="@t">@De(t)</option> }</select></td>
+                            <td>@if (c.RncId is { } r) { <a href="obra/rnc?id=@r">ver</a> } else { <span class="mudo">—</span> }</td>
+                            <td>@if (!Fechada) { <button class="icone-btn" @onclick="() => _a.Constatacoes.Remove(c)"><Icone Nome="lixeira" Tam="16" /></button> }</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            </div>
+            <div class="alerta info"><Icone Nome="info" /> Constatação "Não conformidade" gera RNC com origem Auditoria ao emitir o relatório; "Oportunidade de melhoria" fica registrada. O resultado entra na análise crítica pela direção.</div>
+            @if (_a.Status == StatusAuditoria.RelatorioEmitido)
+            {
+                <div class="form"><Campo Rotulo="Resumo para a análise crítica (SiAC 9.3)" Classe="s12"><textarea @bind="_resumo"></textarea></Campo></div>
+            }
+            @if (!string.IsNullOrEmpty(_a.Codigo)) { <Anexos Entidade="Auditoria" EntidadeId="_a.Id" Categoria="Relatorio" Titulo="Relatório e evidências" /> }
+            @if (_a.CriadoEm != default) { <Notas Entidade="Auditoria" EntidadeId="_a.Id" /> }
+        }
+    </ChildContent>
+    <Rodape>
+        @if (_a is not null)
+        {
+            @if (_a.Status == StatusAuditoria.RelatorioEmitido) { <button class="btn ok" disabled="@Ocupado" @onclick="Encerrar"><Icone Nome="check" Tam="16" /> Encerrar auditoria</button> }
+            @if (!Fechada && !string.IsNullOrEmpty(_a.Codigo)) { <button class="btn laranja" disabled="@Ocupado" @onclick="Emitir"><Icone Nome="arquivo" Tam="16" /> Emitir relatório</button> }
+            @if (!Fechada) { <button class="btn prim" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="16" /> Salvar</button> }
+        }
+    </Rodape>
+</Modal>
+
+@code {
+    private static readonly (string Req, string Perg)[] Sugerido =
+    [
+        ("7.1.5", "Equipamentos usados nas FVS com calibração válida?"), ("7.2", "Inspetores treinados nas ITS que inspecionam?"),
+        ("7.5.3", "Cópias em uso na obra estão na revisão vigente (QR)?"), ("8.4.1", "Fornecedores de materiais controlados qualificados antes da compra?"),
+        ("8.4.3", "Pedidos levam especificação técnica dos materiais controlados?"), ("8.5.1", "FVS das ITS controladas registradas nos locais executados?"),
+        ("8.6", "Recebimento de materiais controlados com FVM e ensaios?"), ("8.7", "Não conformidades tratadas com disposição registrada?"),
+        ("10.2", "Ações corretivas com causa raiz e eficácia verificada?"),
+    ];
+    private Grade<AuditoriaInterna>? _grade;
+    private List<AuditoriaInterna>? _itens;
+    private AuditoriaInterna? _a;
+    private bool _aberto;
+    private string _resumo = "";
+    private bool Fechada => _a?.Status is StatusAuditoria.RelatorioEmitido or StatusAuditoria.Encerrada;
+
+    protected override Task OnInitializedAsync() => Carregar();
+
+    private async Task Carregar()
+    {
+        await using var db = Fabrica.CriarLeitura();
+        _itens = await db.AuditoriasInternas.AsNoTracking().Include(a => a.Constatacoes).OrderByDescending(a => a.Inicio).ToListAsync(Cancelamento);
+    }
+
+    private void Novo() { _a = new AuditoriaInterna { Inicio = Hoje.AddDays(14), Fim = Hoje.AddDays(15), Criterio = "SiAC/PBQP-H · procedimentos e ITS vigentes", Independencia = "Auditor não audita o próprio trabalho" }; ErrosForm = null; _aberto = true; }
+
+    private void CarregarChecklist()
+    {
+        var ordem = _a!.Constatacoes.Count;
+        foreach (var (r, p) in Sugerido.Where(s => _a.Constatacoes.All(c => c.Requisito != s.Req)))
+            _a.Constatacoes.Add(new Constatacao { AuditoriaInternaId = _a.Id, Ordem = ++ordem, Requisito = r, Pergunta = p });
+    }
+
+    private async Task Abrir(Guid id)
+    {
+        await using var db = Fabrica.CriarLeitura();
+        _a = await db.AuditoriasInternas.AsNoTracking().Include(a => a.Constatacoes).FirstAsync(a => a.Id == id, Cancelamento);
+        _resumo = _a.ResumoAnaliseCritica ?? $"{_a.Ncs} não conformidade(s), {_a.Oms} oportunidade(s) de melhoria.";
+        ErrosForm = null; _aberto = true;
+    }
+
+    private async Task Salvar()
+    {
+        Guid id = default;
+        if (await Executar(async () => id = await Qob.SalvarAuditoriaAsync(_a!, Cancelamento), "Auditoria salva.")) { await Carregar(); await Abrir(id); }
+    }
+
+    private async Task Emitir()
+    {
+        var n = 0;
+        if (await Executar(async () => { await Qob.SalvarAuditoriaAsync(_a!, Cancelamento); n = await Qob.EmitirRelatorioAuditoriaAsync(_a!.Id, Cancelamento); }))
+        { Notif.Sucesso($"Relatório emitido · {n} RNC aberta(s)."); await Carregar(); await Abrir(_a!.Id); }
+    }
+
+    private async Task Encerrar() { if (await Executar(() => Qob.EncerrarAuditoriaAsync(_a!.Id, _resumo, Cancelamento), "Auditoria encerrada.")) { _aberto = false; await Carregar(); } }
+}

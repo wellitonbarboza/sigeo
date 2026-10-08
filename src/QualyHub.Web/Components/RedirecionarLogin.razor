@@ -1,0 +1,11 @@
+@inject NavigationManager Nav
+@code {
+    // Página da Área do Fornecedor sem sessão → entrada por CNPJ + código; demais → login interno.
+    protected override void OnInitialized()
+    {
+        var caminho = "/" + Nav.ToBaseRelativePath(Nav.Uri);
+        Nav.NavigateTo(caminho.StartsWith("/fornecedor", StringComparison.OrdinalIgnoreCase)
+            ? $"fornecedor?volta={Uri.EscapeDataString(caminho)}"
+            : $"login?retorno={Uri.EscapeDataString(caminho)}", forceLoad: true);
+    }
+}

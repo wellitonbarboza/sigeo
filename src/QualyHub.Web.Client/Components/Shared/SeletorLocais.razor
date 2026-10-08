@@ -1,0 +1,76 @@
+@using QualyHub.Domain.Engenharia
+@* Escolha de locais na árvore (condomínio › torre › pavimento › apartamento › cômodo/área comum). Marcar um nível inclui tudo abaixo dele. *@
+<div class="seletor-locais">
+    @foreach (var (l, n) in Linhas())
+    {
+        var tem = _filhos[l.Id].Any();
+        var coberto = Coberto(l);
+        <div class="sl-linha" @key="l.Id" style="padding-left:@(n * 18)px">
+            @if (tem) { <button type="button" class="sl-abre" @onclick="() => Alternar(l.Id)">@(_abertos.Contains(l.Id) ? "▾" : "▸")</button> } else { <span class="sl-abre"></span> }
+            <label><input type="checkbox" checked="@(coberto || Selecionados.Contains(l.Id))" disabled="@coberto" title="@(coberto ? "Incluído pelo nível acima" : null)" @onchange="e => Marcar(l.Id, (bool)e.Value!)" /> <b>@l.Codigo</b> @l.Nome <span class="mudo">@l.Tipo</span></label>
+        </div>
+    }
+    @if (Locais.Count == 0) { <div class="mudo">Sem locais gerados para esta obra.</div> }
+</div>
+
+@code {
+    [Parameter] public IReadOnlyList<LocalOrcamento> Locais { get; set; } = [];
+    [Parameter] public HashSet<Guid> Selecionados { get; set; } = [];
+    [Parameter] public EventCallback SelecionadosChanged { get; set; }
+    /// <summary>Nível mais baixo exibido (ex.: Apartamento esconde cômodos).</summary>
+    [Parameter] public string? AteNivel { get; set; } = GeradorEmpreendimento.TipoApartamento;
+
+    private ILookup<Guid?, LocalOrcamento> _filhos = Array.Empty<LocalOrcamento>().ToLookup(l => l.PaiId);
+    private ILookup<Guid?, LocalOrcamento> _todosFilhos = Array.Empty<LocalOrcamento>().ToLookup(l => l.PaiId);
+    private Dictionary<Guid, LocalOrcamento> _porId = [];
+    private readonly HashSet<Guid> _abertos = [];
+    private static readonly string[] Ordem = [GeradorEmpreendimento.TipoCondominio, GeradorEmpreendimento.TipoTorre, GeradorEmpreendimento.TipoPavimento, GeradorEmpreendimento.TipoApartamento, GeradorEmpreendimento.TipoComodo];
+
+    protected override void OnParametersSet()
+    {
+        var limite = AteNivel is null ? 99 : Array.IndexOf(Ordem, AteNivel);
+        var visiveis = Locais.Where(l => { var i = Array.IndexOf(Ordem, l.Tipo); return i < 0 ? limite >= 3 : i <= limite; }).ToList();
+        _filhos = visiveis.ToLookup(l => l.PaiId);
+        _porId = Locais.ToDictionary(l => l.Id);
+        _todosFilhos = Locais.ToLookup(l => l.PaiId);
+        foreach (var c in visiveis.Where(l => l.Tipo == GeradorEmpreendimento.TipoCondominio)) _abertos.Add(c.Id);
+    }
+
+    private IEnumerable<(LocalOrcamento, int)> Linhas()
+    {
+        IEnumerable<(LocalOrcamento, int)> Desce(Guid? pai, int n)
+        {
+            foreach (var l in _filhos[pai].OrderBy(l => l.Tipo == GeradorEmpreendimento.TipoAreaComum ? 0 : 1).ThenBy(l => l.Ordem).ThenBy(l => l.Codigo))
+            {
+                yield return (l, n);
+                if (_abertos.Contains(l.Id)) foreach (var f in Desce(l.Id, n + 1)) yield return f;
+            }
+        }
+        var ids = _filhos.SelectMany(g => g).Select(l => l.Id).ToHashSet();
+        var raizes = _filhos.SelectMany(g => g).Where(l => l.PaiId is null || !ids.Contains(l.PaiId.Value)).Select(l => l.PaiId).Distinct();
+        return raizes.SelectMany(r => Desce(r, 0));
+    }
+
+    private bool Coberto(LocalOrcamento l)
+    {
+        var p = l.PaiId;
+        while (p is { } id && _porId.TryGetValue(id, out var x)) { if (Selecionados.Contains(id)) return true; p = x.PaiId; }
+        return false;
+    }
+
+    private void Alternar(Guid id) { if (!_abertos.Remove(id)) _abertos.Add(id); }
+
+    private async Task Marcar(Guid id, bool on)
+    {
+        if (on)
+        {
+            if (_porId.TryGetValue(id, out var l) && Coberto(l)) return; // já incluído pelo nível acima
+            Selecionados.Add(id);
+            // marcar um nível inclui tudo abaixo: tira os descendentes para não contar em dobro
+            var pilha = new Stack<Guid>([id]);
+            while (pilha.Count > 0) foreach (var f in _todosFilhos[pilha.Pop()]) { Selecionados.Remove(f.Id); pilha.Push(f.Id); }
+        }
+        else Selecionados.Remove(id);
+        await SelecionadosChanged.InvokeAsync();
+    }
+}

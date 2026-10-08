@@ -1,0 +1,128 @@
+@* Quadro visual da quebra por local de um item (cotação e portal do fornecedor):
+   Mapa da torre (pavimento × final do apartamento, com totais), Por cômodo e Lista.
+   Clique num apartamento mostra os cômodos dele. Áreas comuns aparecem à parte. *@
+@using QualyHub.Domain.Engenharia
+<div class="painel-locais" id="@Id">
+    <div class="pl-abas" role="tablist">
+        @if (TemMapa) { <button type="button" role="tab" class="@(_aba == Aba.Mapa ? "on" : "")" @onclick="() => _aba = Aba.Mapa">Mapa da torre</button> }
+        @if (TemComodos) { <button type="button" role="tab" class="@(_aba == Aba.Comodo ? "on" : "")" @onclick="() => _aba = Aba.Comodo">Por cômodo</button> }
+        <button type="button" role="tab" class="@(_aba == Aba.Lista ? "on" : "")" @onclick="() => _aba = Aba.Lista">Lista (@Linhas.Count)</button>
+    </div>
+
+    @if (_aba == Aba.Mapa)
+    {
+        @foreach (var torre in Linhas.Where(l => l.Apartamento is not null || l.Pavimento is not null).GroupBy(l => (l.TorreOrdem, l.Torre)).OrderBy(g => g.Key.TorreOrdem))
+        {
+            var t = torre.ToList();
+            var finais = t.Where(l => l.Apartamento is not null).Select(l => l.ApartamentoOrdem).Distinct().Order().ToList();
+            var pavs = t.GroupBy(l => (l.PavimentoOrdem, l.Pavimento)).OrderByDescending(g => g.Key.PavimentoOrdem).ToList();
+            var temComum = t.Any(l => l.Apartamento is null);
+            var aptoSel = _sel is { } s ? t.Where(l => l.Torre == s.Torre && l.PavimentoOrdem == s.Pav && l.Apartamento is not null && l.ApartamentoOrdem == s.Final).ToList() : [];
+            <div class="pl-lado">
+                <div class="tabela-rolavel">
+                    @if (TorresDistintas > 1) { <div class="pl-tit">@(torre.Key.Torre ?? "Sem torre")</div> }
+                    <table class="pl-grade">
+                        <thead><tr><th>Pav.</th>@foreach (var f in finais) { <th>final @f.ToString("00")</th> }@if (temComum) { <th title="Áreas comuns do pavimento">Comum</th> }<th class="t">Total pav.</th></tr></thead>
+                        <tbody>
+                            @foreach (var p in pavs)
+                            {
+                                <tr>
+                                    <th title="@p.Key.Pavimento">@Curto(p.Key.Pavimento, p.Key.PavimentoOrdem)</th>
+                                    @foreach (var f in finais)
+                                    {
+                                        var ls = p.Where(l => l.Apartamento is not null && l.ApartamentoOrdem == f).ToList();
+                                        if (ls.Count == 0) { <td class="vazio">—</td> continue; }
+                                        var chave = (torre.Key.Torre, p.Key.PavimentoOrdem, f);
+                                        <td class="@(_sel == chave ? "sel" : "")" title="@ls[0].Apartamento" @onclick="() => _sel = chave"><small>@ls[0].NumeroApartamento</small><b>@Qtd(ls.Sum(l => l.Quantidade))</b></td>
+                                    }
+                                    @if (temComum)
+                                    {
+                                        var cs = p.Where(l => l.Apartamento is null).ToList();
+                                        <td class="@(cs.Count == 0 ? "vazio" : "comum")" title="@string.Join("\n", cs.Select(c => $"{c.Nome}: {Qtd(c.Quantidade)}"))">@(cs.Count == 0 ? "—" : Qtd(cs.Sum(c => c.Quantidade)))</td>
+                                    }
+                                    <td class="t">@Qtd(p.Sum(l => l.Quantidade))</td>
+                                </tr>
+                            }
+                        </tbody>
+                        <tfoot><tr><th>Total</th>@foreach (var f in finais) { <td>@Qtd(t.Where(l => l.Apartamento is not null && l.ApartamentoOrdem == f).Sum(l => l.Quantidade))</td> }@if (temComum) { <td>@Qtd(t.Where(l => l.Apartamento is null).Sum(l => l.Quantidade))</td> }<td class="t">@Qtd(t.Sum(l => l.Quantidade))</td></tr></tfoot>
+                    </table>
+                </div>
+                <div class="pl-dir">
+                    @if (aptoSel.Count > 0)
+                    {
+                        <div class="pl-com-tit">@aptoSel[0].Apartamento — @(aptoSel.Any(l => l.Comodo is not null) ? "cômodos" : "apartamento inteiro")</div>
+                        <div class="pl-chips">@foreach (var l in aptoSel) { <span class="pl-chip" title="@l.Codigo"><i>@(l.Comodo ?? "Apartamento")</i><b>@Qtd(l.Quantidade)</b></span> }</div>
+                    }
+                    else { <p class="mudo pl-dica">Clique num apartamento para ver os cômodos e as quantidades.</p> }
+                </div>
+            </div>
+        }
+        var foraTorre = Linhas.Where(l => l.Pavimento is null && l.Apartamento is null).ToList();
+        @if (foraTorre.Count > 0)
+        {
+            <div class="pl-com-tit mt-6">Áreas comuns (torre / condomínio)</div>
+            <div class="pl-chips">@foreach (var l in foraTorre) { <span class="pl-chip" title="@l.Codigo"><i>@l.Nome@(l.Torre is not null && TorresDistintas > 1 ? $" · {l.Torre}" : "")</i><b>@Qtd(l.Quantidade)</b></span> }</div>
+        }
+    }
+    else if (_aba == Aba.Comodo)
+    {
+        var aptos = Linhas.Where(l => l.Apartamento is not null).ToList();
+        var comuns = Linhas.Where(l => l.Apartamento is null).ToList();
+        <table class="pl-tipo">
+            <thead><tr><th>Cômodo / área</th><th class="num">Por apto</th><th class="num">Locais</th><th class="num">Total @Unidade</th></tr></thead>
+            <tbody>
+                @foreach (var g in aptos.GroupBy(l => l.Comodo ?? "Apartamento inteiro").OrderByDescending(g => g.Sum(l => l.Quantidade)))
+                {
+                    var min = g.Min(l => l.Quantidade); var max = g.Max(l => l.Quantidade);
+                    <tr><td>@g.Key</td><td class="num">@(min == max ? Qtd(min) : $"{Qtd(min)} a {Qtd(max)}")</td><td class="num">@g.Count()</td><td class="num"><b>@Qtd(g.Sum(l => l.Quantidade))</b></td></tr>
+                }
+                @foreach (var g in comuns.GroupBy(l => l.Nome).OrderBy(g => g.Key))
+                {
+                    <tr class="mudo"><td>@g.Key <small>(área comum)</small></td><td class="num">—</td><td class="num">@g.Count()</td><td class="num"><b>@Qtd(g.Sum(l => l.Quantidade))</b></td></tr>
+                }
+            </tbody>
+            <tfoot><tr><td>Total</td><td></td><td class="num">@Linhas.Count</td><td class="num"><b>@Qtd(Linhas.Sum(l => l.Quantidade))</b></td></tr></tfoot>
+        </table>
+    }
+    else
+    {
+        <div class="pl-lista">
+            <table class="pl-tipo">
+                <thead><tr><th>Código</th><th>Local</th><th class="num">Quant. @Unidade</th></tr></thead>
+                <tbody>@foreach (var l in Linhas) { <tr><td class="mudo">@l.Codigo</td><td>@Descricao(l)</td><td class="num">@Qtd(l.Quantidade)</td></tr> }</tbody>
+                <tfoot><tr><td></td><td>Total</td><td class="num"><b>@Qtd(Linhas.Sum(l => l.Quantidade))</b></td></tr></tfoot>
+            </table>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<LocalQuantidade> Linhas { get; set; } = [];
+    [Parameter] public string? Unidade { get; set; }
+    [Parameter] public string? Id { get; set; }
+
+    private enum Aba { Mapa, Comodo, Lista }
+    private Aba _aba;
+    private (string? Torre, int Pav, int Final)? _sel;
+    private bool _iniciado;
+    private static readonly System.Globalization.CultureInfo Br = new("pt-BR");
+
+    private bool TemMapa => Linhas.Any(l => l.Apartamento is not null);
+    private bool TemComodos => Linhas.Any(l => l.Comodo is not null);
+    private int TorresDistintas => Linhas.Select(l => l.Torre).Distinct().Count();
+
+    protected override void OnParametersSet()
+    {
+        if (_iniciado) return;
+        _iniciado = true;
+        _aba = TemMapa ? Aba.Mapa : TemComodos ? Aba.Comodo : Aba.Lista;
+    }
+
+    private static string Qtd(decimal q) => q.ToString("#,##0.###", Br);
+
+    /// <summary>"1º pavimento" → "01º"; térreo → "Térreo".</summary>
+    private static string Curto(string? nome, int ordem) =>
+        nome is not null && nome.Contains("rreo", StringComparison.OrdinalIgnoreCase) ? "Térreo" : $"{ordem:00}º";
+
+    private static string Descricao(LocalQuantidade l) => QuadroLocais.Caminho(l);
+}

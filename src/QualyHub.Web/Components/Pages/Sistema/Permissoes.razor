@@ -1,0 +1,102 @@
+@page "/sistema/permissoes"
+@inherits PaginaBase
+@inject SistemaServico Sistema
+
+<Pagina Titulo="Permissões de documentos do SGQ" Grade="_grade" AoNovo="Novo" AoAtualizar="Carregar">
+    <ChildContent>
+        <div class="pagina">
+            @if (!Gestor) { <div class="alerta aviso"><Icone Nome="escudo" /> Somente Qualidade/Administrador altera permissões.</div> }
+            <div class="alerta info"><Icone Nome="alerta" /> Sem regra específica: Diretoria/Qualidade/Administrador têm acesso total; demais perfis veem apenas as revisões vigentes. Regra por documento prevalece sobre regra por pasta; regra por usuário prevalece sobre regra por perfil.</div>
+            <Grade T="Linha" @ref="_grade" Itens="_itens" AoClicar="l => Abrir(l.Id)" NomeExportacao="permissoes-sgq">
+                <Colunas>
+                    <Coluna T="Linha" Titulo="Escopo" Valor="l => l.Escopo" />
+                    <Coluna T="Linha" Titulo="Alvo" Valor="l => l.Alvo" />
+                    <Coluna T="Linha" Titulo="Para" Valor="l => l.Para" />
+                    <Coluna T="Linha" Titulo="Ver" Valor="l => l.P.PodeVer" />
+                    <Coluna T="Linha" Titulo="Baixar" Valor="l => l.P.PodeBaixar" />
+                    <Coluna T="Linha" Titulo="Imprimir" Valor="l => l.P.PodeImprimir" />
+                    <Coluna T="Linha" Titulo="Editar" Valor="l => l.P.PodeEditar" />
+                    <Coluna T="Linha" Titulo="Aprovar" Valor="l => l.P.PodeAprovar" />
+                    <Coluna T="Linha" Titulo="Obsoletos" Valor="l => l.P.PodeVerObsoletos" />
+                    <Coluna T="Linha" Titulo="Válido até" Valor="l => l.P.ValidoAte" />
+                </Colunas>
+            </Grade>
+        </div>
+    </ChildContent>
+    <Faixa><b>Permissões</b><span>Por pasta ou documento · por perfil ou usuário · com validade</span><span>Toda alteração fica registrada no log</span></Faixa>
+</Pagina>
+
+<Modal @bind-Aberto="_aberto" Titulo="Regra de permissão" Tamanho="media">
+    <ChildContent>
+        @if (_p is not null)
+        {
+            <Erros Lista="ErrosForm" />
+            <div class="form">
+                <Campo Rotulo="Escopo" Classe="s4"><select value="@_p.Escopo" @onchange="e => { _p.Escopo = Enum.Parse<EscopoPermissao>(e.Value!.ToString()!); _p.AlvoId = Guid.Empty; }" disabled="@(!Gestor)">@foreach (var s in Enum.GetValues<EscopoPermissao>()) { <option value="@s">@De(s)</option> }</select></Campo>
+                <Campo Rotulo="@(_p.Escopo == EscopoPermissao.Pasta ? "Pasta" : "Documento")" Obrigatorio Classe="s8">
+                    <select @bind="_p.AlvoId" disabled="@(!Gestor)"><option value="@Guid.Empty">Selecione…</option>
+                        @foreach (var a in _p.Escopo == EscopoPermissao.Pasta ? _pastas : _docs) { <option value="@a.Id">@a.Texto</option> }
+                    </select>
+                </Campo>
+                <Campo Rotulo="Perfil" Classe="s6"><select @bind="_p.Perfil" disabled="@(!Gestor)"><option value="">—</option>@foreach (var pf in Enum.GetValues<PerfilUsuario>()) { <option value="@pf">@De(pf)</option> }</select></Campo>
+                <Campo Rotulo="ou Usuário" Classe="s6"><select @bind="_p.UsuarioId" disabled="@(!Gestor)"><option value="">—</option>@foreach (var u in _usuarios) { <option value="@u.Id">@u.Texto</option> }</select></Campo>
+                <Campo Rotulo="Permissões" Classe="s12">
+                    <div class="checks">
+                        <label><input type="checkbox" @bind="_p.PodeVer" disabled="@(!Gestor)" /> Ver</label>
+                        <label><input type="checkbox" @bind="_p.PodeBaixar" disabled="@(!Gestor)" /> Baixar</label>
+                        <label><input type="checkbox" @bind="_p.PodeImprimir" disabled="@(!Gestor)" /> Imprimir</label>
+                        <label><input type="checkbox" @bind="_p.PodeEditar" disabled="@(!Gestor)" /> Editar</label>
+                        <label><input type="checkbox" @bind="_p.PodeAprovar" disabled="@(!Gestor)" /> Aprovar</label>
+                        <label><input type="checkbox" @bind="_p.PodeVerObsoletos" disabled="@(!Gestor)" /> Ver obsoletos</label>
+                    </div>
+                </Campo>
+                <Campo Rotulo="Válido até" Classe="s4"><input type="date" @bind="_p.ValidoAte" disabled="@(!Gestor)" /></Campo>
+            </div>
+        }
+    </ChildContent>
+    <Rodape>
+        @if (_p is not null && Gestor)
+        {
+            @if (_itens?.Any(x => x.Id == _p.Id) == true) { <button class="btn perigo" disabled="@Ocupado" @onclick='() => Confirmar("Excluir esta regra de permissão? A exclusão fica registrada no log.", Excluir)'>Excluir</button> }
+            <button class="btn prim" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="16" /> Salvar</button>
+        }
+    </Rodape>
+</Modal>
+<Confirmacao Pergunta="@PerguntaConfirmacao" AoSim="ConfirmacaoSim" AoNao="ConfirmacaoNao" />
+
+@code {
+    private sealed record Linha(Guid Id, EscopoPermissao Escopo, string Alvo, string Para, PermissaoDocumento P);
+    private Grade<Linha>? _grade;
+    private List<Linha>? _itens;
+    private PermissaoDocumento? _p;
+    private bool _aberto;
+    private List<Opcao> _pastas = [], _docs = [], _usuarios = [];
+    private bool Gestor => Perfil(PerfilUsuario.Qualidade);
+
+    protected override async Task OnInitializedAsync() { _usuarios = await Cat.UsuariosAsync(); await Carregar(); }
+
+    private async Task Carregar()
+    {
+        await using var db = Fabrica.CriarLeitura();
+        _pastas = await db.Pastas.OrderBy(p => p.Ordem).Select(p => new Opcao(p.Id, p.Nome)).ToListAsync(Cancelamento);
+        _docs = await db.Documentos.OrderBy(d => d.Codigo).Select(d => new Opcao(d.Id, d.Codigo + " – " + d.Titulo)).ToListAsync(Cancelamento);
+        var regras = await db.Permissoes.ToListAsync(Cancelamento);
+        string Alvo(PermissaoDocumento p) => (p.Escopo == EscopoPermissao.Pasta ? _pastas : _docs).FirstOrDefault(o => o.Id == p.AlvoId)?.Texto ?? "?";
+        string Para(PermissaoDocumento p) => p.UsuarioId is { } u ? _usuarios.FirstOrDefault(x => x.Id == u)?.Texto ?? "?" : p.Perfil is { } pf ? $"Perfil {De(pf)}" : "—";
+        _itens = regras.Select(r => new Linha(r.Id, r.Escopo, Alvo(r), Para(r), r)).OrderBy(l => l.Alvo).ToList();
+    }
+
+    private void Novo() { if (!Gestor) return; _p = new PermissaoDocumento { Escopo = EscopoPermissao.Pasta, PodeVer = true }; ErrosForm = null; _aberto = true; }
+
+    private void Abrir(Guid id) { _p = _itens!.First(x => x.Id == id).P; ErrosForm = null; _aberto = true; }
+
+    private async Task Salvar()
+    {
+        if (await Executar(() => Sistema.SalvarPermissaoAsync(_p!, Cancelamento), "Permissão salva.")) { _aberto = false; await Carregar(); }
+    }
+
+    private async Task Excluir()
+    {
+        if (await Executar(() => Sistema.ExcluirPermissaoAsync(_p!.Id, Cancelamento), "Regra excluída.")) { _aberto = false; await Carregar(); }
+    }
+}

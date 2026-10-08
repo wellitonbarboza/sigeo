@@ -1,0 +1,119 @@
+@inherits LayoutComponentBase
+@inject IJSRuntime JS
+@* Layout único das telas internas: serve às páginas do servidor (Blazor Server) e às do navegador (WebAssembly).
+   Por isso não injeta serviço do servidor — o usuário vem do estado de autenticação em cascata (claims do cookie). *@
+
+<div class="app">
+    <aside class="lateral">
+        <Logo />
+        <div class="tema" role="group" aria-label="Tema">
+            <button class="@(_tema == "claro" ? "on" : "")" @onclick='() => Tema("claro")'><Icone Nome="sol" Tam="13" /> Claro</button>
+            <button class="@(_tema == "escuro" ? "on" : "")" @onclick='() => Tema("escuro")'><Icone Nome="lua" Tam="13" /> Escuro</button>
+        </div>
+        <nav>
+            <ul class="menu">
+                <li class="grupo"><NavLink href="" Match="NavLinkMatch.All"><Icone Nome="casa" /> Minhas pendências</NavLink></li>
+                <li class="grupo"><NavLink href="tarefas"><Icone Nome="lista" /> Tarefas</NavLink></li>
+                <li class="grupo"><NavLink href="painel"><Icone Nome="grafico" /> Painel de indicadores</NavLink></li>
+                @foreach (var g in _grupos)
+                {
+                    <li class="grupo"><a class="dobra @(Aberto(g.Id) ? "aberto" : "")" @onclick="() => Alternar(g.Id)"><Icone Nome="@g.Icone" /> @g.Titulo <span class="seta">›</span></a></li>
+                    @if (Aberto(g.Id))
+                    {
+                        @foreach (var (href, icone, texto) in g.Itens)
+                        {
+                            <li class="item"><NavLink href="@href" Match="NavLinkMatch.All"><Icone Nome="@icone" Tam="16" /> @texto</NavLink></li>
+                        }
+                    }
+                }
+            </ul>
+        </nav>
+        <div class="usuario-box">
+            <b>@_nome</b>
+            @Rotulos.De(Enum.TryParse<PerfilUsuario>(_perfil, out var p) ? p : PerfilUsuario.Campo) · @_empresa
+            <div class="conta-links"><a href="conta/trocar-senha" data-enhance-nav="false"><Icone Nome="cadeado" Tam="14" /> Alterar senha</a><a href="conta/sair" data-enhance-nav="false"><Icone Nome="sair" Tam="14" /> Sair</a></div>
+        </div>
+    </aside>
+    <main class="principal">
+        <div class="conteudo">
+            @* Erro ao desenhar um componente fica contido aqui: menu e cabeçalho continuam e o usuário pode tentar de novo. *@
+            <ErrorBoundary @ref="_limiteErro">
+                <ChildContent>@Body</ChildContent>
+                <ErrorContent Context="ex">
+                    <div class="alerta erro" role="alert"><Icone Nome="exclamacao" />
+                        <div>Não foi possível exibir esta parte da tela. O erro foi registrado.
+                            <button type="button" class="btn sec pq" @onclick="Recuperar">Tentar de novo</button></div>
+                    </div>
+                </ErrorContent>
+            </ErrorBoundary>
+        </div>
+    </main>
+</div>
+<Toasts />
+
+<div id="blazor-error-ui" data-nosnippet>
+    Ocorreu um erro inesperado. <a href="." class="reload">Recarregar</a>
+    <span class="dismiss">🗙</span>
+</div>
+
+@code {
+    private ErrorBoundary? _limiteErro;
+    private void Recuperar() => _limiteErro?.Recover();
+    // Ao navegar para outra tela, um erro da tela anterior não deve continuar bloqueando o conteúdo.
+    protected override void OnParametersSet() => _limiteErro?.Recover();
+
+    private string _tema = "claro";
+    private sealed record Grupo(string Id, string Titulo, string Icone, (string Href, string Icone, string Texto)[] Itens);
+    private readonly HashSet<string> _abertos = [];
+    private static readonly Grupo[] _grupos =
+    [
+        new("cad", "Cadastro", "cadastro", [("fornecedores", "predio", "Fornecedores"), ("fornecedores/qualificacao", "selo", "Qualificação Fornec."), ("fornecedores/documentos", "arquivo", "Docs. do Fornecedor"), ("fornecedores/exigencias", "tabela", "Matriz de Documentos"),
+            ("cadastros/controlados", "escudo-check", "Materiais/Serv. Control."), ("cadastros/estabelecimentos", "predio", "Estabelecimentos (CNPJs)"), ("cadastros/centros-custo", "tabela", "Centros de Custo"), ("cadastros/produtos", "caixa", "Produtos"), ("cadastros/categorias", "lista", "Categorias de Produto")]),
+        new("eng", "Engenharia", "regua", [("engenharia/obras", "predio", "Obras e Empreendimentos"), ("engenharia/tipologias", "cubo", "Tipologias"),
+            ("engenharia/composicoes", "lista", "Serviços e Composições"), ("engenharia/orcamento", "calculadora", "Orçamento por Local"), ("engenharia/mao-de-obra", "pessoa", "Mão de Obra Própria")]),
+        new("sup", "Suprimentos", "carrinho", [("requisicoes", "prancheta", "Requisição"), ("cotacoes", "calculadora", "Orçamentos"), ("pedidos", "sacola", "Pedidos"), ("contratos", "contrato", "Contratos"),
+            ("notas-fiscais", "arquivo", "Notas Fiscais (entrada)"), ("recebimentos", "caixa", "Recebimento / FVM"), ("transferencias", "enviar", "Transferências p/ Obra"), ("medicoes", "regua", "Medições"), ("pagamentos", "dinheiro", "Liberação Pagamento")]),
+        new("sgq", "Qualidade", "medalha", [("sgq/documentos", "pasta", "Documentos SGQ"), ("sgq/copias", "impressora", "Cópias Controladas"), ("sgq/lista-mestra", "lista", "Lista Mestra"),
+            ("sgq/externos", "livro", "Documentos Externos"), ("fornecedores/avaliacao", "grafico", "Avaliação Fornec."), ("fornecedores/planos", "alvo", "Planos de Ação"),
+            ("sgq/grd", "enviar", "GRD"), ("sgq/leituras", "livro", "Leituras / Ciência"), ("sgq/registros", "arquivo-morto", "Registros (Retenção)")]),
+        new("qob", "Qualidade da Obra", "escudo-check", [("obra/mapa-torre", "predio", "Mapa da Torre (FVS)"), ("obra/mapa", "tabela", "Mapa de Inspeções"), ("obra/fvs", "prancheta", "FVS – Inspeções"), ("obra/modelos/fvs", "lista", "Modelos de FVS"),
+            ("obra/modelos/fvm", "caixa", "Modelos de FVM"), ("obra/rnc", "x-circulo", "Não Conformidades"), ("obra/acoes", "ferramenta", "Ações Corretivas"),
+            ("obra/equipamentos", "regua", "Equip. de Medição"), ("obra/auditorias", "lupa", "Auditorias Internas")]),
+        new("sst", "Segurança e Pessoas", "pessoa", [("sst/colaboradores", "pessoa", "Colaboradores"), ("sst/exigencias", "tabela", "Exigências por Função"), ("sst/documentos", "arquivo", "Docs. do Colaborador"),
+            ("sst/treinamentos", "livro", "Treinamentos"), ("sst/epi", "escudo", "Entrega de EPI"), ("sst/inspecoes", "prancheta", "Inspeções de Segurança"),
+            ("sst/pt", "chave", "Permissão de Trabalho"), ("sst/ocorrencias", "alerta", "Ocorrências e Acidentes"), ("sst/painel", "grafico", "Painel SST")]),
+        new("sis", "Sistema", "engrenagem", [("sistema/usuarios", "pessoa", "Usuários e Alçadas"), ("sistema/parametros", "ferramenta", "Parâmetros e Notificações"),
+            ("sistema/permissoes", "escudo", "Permissões SGQ"), ("sistema/log", "relogio", "Log de Auditoria")]),
+    ];
+
+    [Inject] private NavigationManager Nav { get; set; } = default!;
+
+    [CascadingParameter] private Task<AuthenticationState>? Autenticacao { get; set; }
+    private string _nome = "", _perfil = "", _empresa = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Autenticacao is not null)
+        {
+            var u = (await Autenticacao).User;
+            _nome = u.Identity?.Name ?? "";
+            _perfil = u.FindFirst("qh:perfil")?.Value ?? "";
+            _empresa = u.FindFirst("qh:empresa_nome")?.Value ?? "";
+        }
+        var rel = Nav.ToBaseRelativePath(Nav.Uri).Split('?')[0];
+        foreach (var g in _grupos) if (g.Itens.Any(i => rel.StartsWith(i.Href))) _abertos.Add(g.Id);
+        if (_abertos.Count == 0) _abertos.Add("sup");
+    }
+
+    private bool Aberto(string id) => _abertos.Contains(id);
+    private void Alternar(string id) { if (!_abertos.Remove(id)) _abertos.Add(id); }
+
+    protected override async Task OnAfterRenderAsync(bool primeira)
+    {
+        if (!primeira) return;
+        _tema = await JS.InvokeAsync<string>("qh.temaAtual");
+        StateHasChanged();
+    }
+
+    private async Task Tema(string t) { _tema = t; await JS.InvokeVoidAsync("qh.tema", t); }
+}

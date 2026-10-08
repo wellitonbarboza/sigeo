@@ -1,0 +1,26 @@
+@page "/conta/primeiro-acesso"
+@attribute [AllowAnonymous]
+@attribute [ExcludeFromInteractiveRouting]
+@layout LayoutPublico
+
+<PageTitle>Primeiro acesso do administrador · QualyHub</PageTitle>
+<div class="login">
+    <div class="caixa">
+        <div class="login-marca"><Logo /></div>
+        <h1>Primeiro acesso do administrador</h1>
+        <p class="mudo">Para o administrador que ainda não tem senha. Exige o código de configuração guardado no Key Vault (segredo "CodigoConfiguracaoInicial"). Os demais usuários recebem senha provisória do administrador em Sistema › Usuários.</p>
+        @if (Erro is not null) { <div class="alerta erro">@(Erro == "sessao" ? "A página ficou aberta por muito tempo. Tente de novo." : Erro)</div> }
+        <form method="post" action="conta/primeiro-acesso/salvar" class="form mt-14">
+            <AntiforgeryToken />
+            <div class="campo s12"><label for="codigoSetup">Código de configuração</label><input id="codigoSetup" name="codigoSetup" type="password" autocomplete="off" required /></div>
+            <div class="campo s12"><label for="login">Login ou e-mail do administrador</label><input id="login" name="login" autocomplete="username" required /></div>
+            <div class="campo s12"><label for="senha">Nova senha</label><input id="senha" name="senha" type="password" autocomplete="new-password" minlength="@PoliticaSenha.TamanhoMinimo" required /></div>
+            <div class="campo s12"><label for="confirmacao">Confirme a senha</label><input id="confirmacao" name="confirmacao" type="password" autocomplete="new-password" required /></div>
+            <div class="campo s12"><button class="btn prim btn-centro" type="submit">Definir senha</button></div>
+        </form>
+    </div>
+</div>
+
+@code {
+    [SupplyParameterFromQuery] public string? Erro { get; set; }
+}

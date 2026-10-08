@@ -1,0 +1,388 @@
+// =====================================================================================
+// QualyHub — Infraestrutura Azure (escopo: resource group)
+// Custo sob controle: App Service B1 (Web), Azure SQL serverless
+// com auto-pause, Storage LRS e orçamento com alerta. Escalar só quando o uso justificar.
+// =====================================================================================
+targetScope = 'resourceGroup'
+
+@description('Prefixo dos recursos (minúsculo, sem espaços).')
+@maxLength(10)
+param prefixo string = 'qualyhub'
+
+@allowed([ 'dev', 'hml', 'prd' ])
+param ambiente string = 'prd'
+
+@description('Região. Brazil South mantém os dados no Brasil (LGPD) e reduz latência.')
+param local string = 'brazilsouth'
+
+@description('ObjectId do GRUPO do Entra ID administrador do Azure SQL (ex.: "QualyHub-DBA").')
+param sqlAdminGrupoObjectId string
+
+@description('Nome de exibição do grupo administrador do SQL.')
+param sqlAdminGrupoNome string
+
+@description('SKU do plano. B1 atende o MVP; subir para B2/S1/P0v3 quando houver uso real.')
+@allowed([ 'F1', 'B1', 'B2', 'B3', 'S1', 'P0v3', 'P1v3' ])
+param appServiceSku string = 'B1'
+
+@description('vCores máximos do SQL serverless (0.5 a 2 cobre o MVP).')
+param sqlMaxVCores int = 1
+
+@description('Minutos sem uso até pausar o banco (mín. 60). -1 desativa o auto-pause.')
+param sqlAutoPauseMinutos int = 60
+
+@description('Orçamento mensal (moeda da assinatura) para alerta de custo.')
+param orcamentoMensal int = 500
+
+@description('E-mails que recebem alertas de orçamento.')
+param emailsAlerta array
+
+@description('Cria o orçamento com alerta de custo (desligue se a assinatura não suportar Consumption budgets).')
+param criarOrcamento bool = true
+
+@description('Início do orçamento: primeiro dia do mês corrente (yyyy-MM-01).')
+param orcamentoInicio string
+
+@description('IA: Azure OpenAI (modelo implantado como Global Standard) + Document Intelligence F0 (500 páginas/mês grátis). Acesso só por identidade gerenciada.')
+param criarIa bool = true
+param iaModelo string = 'gpt-4.1-mini'
+param iaModeloVersao string = '2025-04-14'
+@description('Capacidade em milhares de tokens por minuto (cobrança é por token usado, não pela capacidade).')
+param iaCapacidade int = 50
+
+var sufixo = uniqueString(resourceGroup().id)
+var nome = '${prefixo}-${ambiente}'
+var tags = { sistema: 'QualyHub', ambiente: ambiente, gerenciadoPor: 'bicep' }
+
+// ---------------------------- Observabilidade ---------------------------------------
+resource logs 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
+  name: 'log-${nome}'
+  location: local
+  tags: tags
+  properties: {
+    sku: { name: 'PerGB2018' }
+    retentionInDays: 30
+    workspaceCapping: { dailyQuotaGb: json('0.3') } // teto diário (~9 GB/mês no pior caso): telemetria amostrada cabe nos 5 GB grátis
+  }
+}
+
+resource appi 'Microsoft.Insights/components@2020-02-02' = {
+  name: 'appi-${nome}'
+  location: local
+  kind: 'web'
+  tags: tags
+  properties: {
+    Application_Type: 'web'
+    WorkspaceResourceId: logs.id
+    SamplingPercentage: 50
+  }
+}
+
+// ---------------------------- Key Vault ----------------------------------------------
+resource kv 'Microsoft.KeyVault/vaults@2023-07-01' = {
+  name: 'kv-${prefixo}-${ambiente}-${take(sufixo, 6)}'
+  location: local
+  tags: tags
+  properties: {
+    tenantId: subscription().tenantId
+    sku: { family: 'A', name: 'standard' }
+    enableRbacAuthorization: true
+    enableSoftDelete: true
+    softDeleteRetentionInDays: 30
+    enablePurgeProtection: true
+    publicNetworkAccess: 'Enabled'
+  }
+}
+
+// ---------------------------- Storage (documentos e evidências) ---------------------
+resource st 'Microsoft.Storage/storageAccounts@2023-05-01' = {
+  name: take('st${prefixo}${ambiente}${sufixo}', 24)
+  location: local
+  tags: tags
+  kind: 'StorageV2'
+  sku: { name: 'Standard_LRS' }
+  properties: {
+    accessTier: 'Hot'
+    allowBlobPublicAccess: false
+    allowSharedKeyAccess: false // a aplicação usa só Managed Identity
+    minimumTlsVersion: 'TLS1_2'
+    supportsHttpsTrafficOnly: true
+  }
+}
+
+resource blobSvc 'Microsoft.Storage/storageAccounts/blobServices@2023-05-01' = {
+  parent: st
+  name: 'default'
+  properties: {
+    isVersioningEnabled: true                                   // cada versão de arquivo preservada
+    deleteRetentionPolicy: { enabled: true, days: 30 }          // lixeira de 30 dias
+    containerDeleteRetentionPolicy: { enabled: true, days: 30 }
+    changeFeed: { enabled: true, retentionInDays: 90 }          // trilha de alterações dos arquivos
+  }
+}
+
+// documentos: certidões/fornecedores | sgq: MQ/PO/PEIS | evidencias: fotos FVS/FVM
+// sensivel: ASO e afins (LGPD, acesso restrito) | importacoes: arquivos do ERP
+var containers = [ 'documentos', 'sgq', 'evidencias', 'sensivel', 'importacoes' ]
+resource cont 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-05-01' = [for c in containers: {
+  parent: blobSvc
+  name: c
+  properties: { publicAccess: 'None' }
+}]
+
+// Custo: fotos e imports antigos vão para camada Cool/Cold automaticamente.
+resource ciclo 'Microsoft.Storage/storageAccounts/managementPolicies@2023-05-01' = {
+  parent: st
+  name: 'default'
+  properties: {
+    policy: {
+      rules: [
+        {
+          name: 'evidencias-para-cool'
+          enabled: true
+          type: 'Lifecycle'
+          definition: {
+            filters: { blobTypes: [ 'blockBlob' ], prefixMatch: [ 'evidencias/', 'importacoes/' ] }
+            actions: {
+              baseBlob: {
+                tierToCool: { daysAfterModificationGreaterThan: 90 }
+                tierToCold: { daysAfterModificationGreaterThan: 365 }
+              }
+              version: { delete: { daysAfterCreationGreaterThan: 365 } }
+            }
+          }
+        }
+      ]
+    }
+  }
+}
+
+// ---------------------------- Azure SQL (serverless) ---------------------------------
+resource sql 'Microsoft.Sql/servers@2023-08-01-preview' = {
+  name: 'sql-${nome}-${take(sufixo, 6)}'
+  location: local
+  tags: tags
+  properties: {
+    minimalTlsVersion: '1.2'
+    publicNetworkAccess: 'Enabled'
+    administrators: {
+      administratorType: 'ActiveDirectory'
+      azureADOnlyAuthentication: true // sem usuário/senha SQL: só Entra ID e Managed Identity
+      login: sqlAdminGrupoNome
+      sid: sqlAdminGrupoObjectId
+      principalType: 'Group'
+      tenantId: subscription().tenantId
+    }
+  }
+}
+
+resource sqlFwAzure 'Microsoft.Sql/servers/firewallRules@2023-08-01-preview' = {
+  parent: sql
+  name: 'AllowAzureServices'
+  properties: { startIpAddress: '0.0.0.0', endIpAddress: '0.0.0.0' }
+}
+
+resource db 'Microsoft.Sql/servers/databases@2023-08-01-preview' = {
+  parent: sql
+  name: 'sqldb-${prefixo}'
+  location: local
+  tags: tags
+  sku: { name: 'GP_S_Gen5', tier: 'GeneralPurpose', family: 'Gen5', capacity: sqlMaxVCores }
+  properties: {
+    autoPauseDelay: sqlAutoPauseMinutos
+    minCapacity: json('0.5')
+    maxSizeBytes: 34359738368 // 32 GB
+    zoneRedundant: false
+    requestedBackupStorageRedundancy: 'Local'
+    collation: 'Latin1_General_100_CI_AI_SC_UTF8'
+  }
+}
+
+resource dbBackup 'Microsoft.Sql/servers/databases/backupShortTermRetentionPolicies@2023-08-01-preview' = {
+  parent: db
+  name: 'default'
+  properties: { retentionDays: 14 }
+}
+
+// Retenção longa (auditoria SiAC): 1 backup por mês guardado 12 meses e 1 por ano guardado 5 anos (LRS, centavos por GB).
+resource dbLtr 'Microsoft.Sql/servers/databases/backupLongTermRetentionPolicies@2023-08-01-preview' = {
+  parent: db
+  name: 'default'
+  properties: { weeklyRetention: 'PT0S', monthlyRetention: 'P12M', yearlyRetention: 'P5Y', weekOfYear: 1 }
+}
+
+// ---------------------------- App Service (Web) --------------------------------------
+resource plano 'Microsoft.Web/serverfarms@2023-12-01' = {
+  name: 'asp-${nome}'
+  location: local
+  tags: tags
+  kind: 'linux'
+  sku: { name: appServiceSku }
+  properties: { reserved: true }
+}
+
+var sqlConn = 'Server=tcp:${sql.properties.fullyQualifiedDomainName},1433;Database=${db.name};Authentication=Active Directory Default;Encrypt=True;Connect Timeout=60'
+
+resource web 'Microsoft.Web/sites@2023-12-01' = {
+  name: 'app-${nome}-${take(sufixo, 6)}'
+  location: local
+  tags: tags
+  kind: 'app,linux'
+  identity: { type: 'SystemAssigned' }
+  properties: {
+    serverFarmId: plano.id
+    httpsOnly: true
+    clientAffinityEnabled: true // Blazor Server: mantém o circuito SignalR na mesma instância
+    siteConfig: {
+      linuxFxVersion: 'DOTNETCORE|10.0'
+      alwaysOn: appServiceSku != 'F1' // F1 (gratuito) não permite Always On
+      webSocketsEnabled: true      // Blazor Server
+      http20Enabled: true
+      minTlsVersion: '1.2'
+      ftpsState: 'Disabled'
+      healthCheckPath: '/saude'
+      appSettings: concat([
+        { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: appi.properties.ConnectionString }
+        { name: 'QualyHub__KeyVaultUri', value: kv.properties.vaultUri }
+        { name: 'QualyHub__BlobUri', value: st.properties.primaryEndpoints.blob }
+        { name: 'ASPNETCORE_ENVIRONMENT', value: ambiente == 'prd' ? 'Production' : 'Staging' }
+        { name: 'ASPNETCORE_FORWARDEDHEADERS_ENABLED', value: 'true' } // TLS termina no proxy do App Service
+        { name: 'TZ', value: 'America/Sao_Paulo' }
+      ], criarIa ? [
+        { name: 'IA__Endpoint', value: 'https://${iaNome}.openai.azure.com' }
+        { name: 'IA__Deployment', value: iaModelo }
+        { name: 'IA__DocumentosEndpoint', value: 'https://${docNome}.cognitiveservices.azure.com' }
+        { name: 'IA__LimiteMensalPorEmpresa', value: '3000' }
+        { name: 'IA__AnalisarNotasAutomatico', value: 'true' }
+      ] : [])
+      connectionStrings: [
+        { name: 'QualyHub', connectionString: sqlConn, type: 'SQLAzure' }
+      ]
+    }
+  }
+}
+
+// ---------------------------- Permissões (RBAC, sem chaves na aplicação) -------------
+var roles = {
+  blobContributor: 'ba92f5b4-2d11-453d-a403-e96b0029c9fe'
+  kvSecretsUser: '4633458b-17de-408a-b874-0445c86b69e6'
+  openAiUser: '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd'      // Cognitive Services OpenAI User
+  cognitiveUser: 'a97b65f3-24c7-4388-baec-2e87135dc908'   // Cognitive Services User (Document Intelligence)
+}
+
+resource rWebBlob 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  scope: st
+  name: guid(st.id, web.id, roles.blobContributor)
+  properties: { principalId: web.identity.principalId, principalType: 'ServicePrincipal', roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roles.blobContributor) }
+}
+
+resource rWebKv 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  scope: kv
+  name: guid(kv.id, web.id, roles.kvSecretsUser)
+  properties: { principalId: web.identity.principalId, principalType: 'ServicePrincipal', roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roles.kvSecretsUser) }
+}
+
+// ---------------------------- IA (Azure OpenAI + Document Intelligence) ---------------
+// Sem chave: disableLocalAuth e acesso só pela identidade do App Service. O app só chama a IA por botão ou na rotina das 6h30.
+var iaNome = 'oai-${nome}-${take(sufixo, 6)}'
+var docNome = 'doc-${nome}-${take(sufixo, 6)}'
+
+resource oai 'Microsoft.CognitiveServices/accounts@2024-10-01' = if (criarIa) {
+  name: iaNome
+  location: local
+  tags: tags
+  kind: 'OpenAI'
+  sku: { name: 'S0' }
+  properties: { customSubDomainName: iaNome, disableLocalAuth: true, publicNetworkAccess: 'Enabled' }
+}
+
+resource oaiModelo 'Microsoft.CognitiveServices/accounts/deployments@2024-10-01' = if (criarIa) {
+  parent: oai
+  name: iaModelo
+  sku: { name: 'GlobalStandard', capacity: iaCapacidade }
+  properties: { model: { format: 'OpenAI', name: iaModelo, version: iaModeloVersao } }
+}
+
+resource docInt 'Microsoft.CognitiveServices/accounts@2024-10-01' = if (criarIa) {
+  name: docNome
+  location: local
+  tags: tags
+  kind: 'FormRecognizer'
+  sku: { name: 'F0' }
+  properties: { customSubDomainName: docNome, disableLocalAuth: true, publicNetworkAccess: 'Enabled' }
+}
+
+resource rWebOai 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (criarIa) {
+  scope: oai
+  name: guid(iaNome, web.id, roles.openAiUser)
+  properties: { principalId: web.identity.principalId, principalType: 'ServicePrincipal', roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roles.openAiUser) }
+}
+
+resource rWebDoc 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (criarIa) {
+  scope: docInt
+  name: guid(docNome, web.id, roles.cognitiveUser)
+  properties: { principalId: web.identity.principalId, principalType: 'ServicePrincipal', roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roles.cognitiveUser) }
+}
+
+// ---------------------------- Alertas de operação ------------------------------------
+// Avisam antes de o usuário sentir: banco no teto de CPU, servidor sem memória e erros 5xx. Centavos por regra.
+resource grupoAlerta 'Microsoft.Insights/actionGroups@2023-01-01' = {
+  name: 'ag-${nome}'
+  location: 'global'
+  tags: tags
+  properties: {
+    groupShortName: 'qualyhub'
+    enabled: true
+    emailReceivers: [for (e, i) in emailsAlerta: { name: 'email${i}', emailAddress: e, useCommonAlertSchema: true }]
+  }
+}
+
+var alertas = [
+  { nome: 'sql-cpu', escopo: db.id, ns: 'Microsoft.Sql/servers/databases', metrica: 'cpu_percent', limite: 85, agg: 'Average', desc: 'Banco acima de 85% de CPU por 15 min: avaliar máximo de 2 vCores.' }
+  { nome: 'web-memoria', escopo: plano.id, ns: 'Microsoft.Web/serverfarms', metrica: 'MemoryPercentage', limite: 85, agg: 'Average', desc: 'Servidor acima de 85% de memória por 15 min: avaliar plano maior (P0v3).' }
+  { nome: 'web-5xx', escopo: web.id, ns: 'Microsoft.Web/sites', metrica: 'Http5xx', limite: 10, agg: 'Total', desc: 'Mais de 10 erros 5xx em 15 min.' }
+]
+
+resource alerta 'Microsoft.Insights/metricAlerts@2018-03-01' = [for a in alertas: {
+  name: 'al-${nome}-${a.nome}'
+  location: 'global'
+  tags: tags
+  properties: {
+    description: a.desc
+    severity: 2
+    enabled: true
+    scopes: [ a.escopo ]
+    evaluationFrequency: 'PT5M'
+    windowSize: 'PT15M'
+    criteria: {
+      'odata.type': 'Microsoft.Azure.Monitor.SingleResourceMultipleMetricCriteria'
+      allOf: [ { name: a.nome, metricNamespace: a.ns, metricName: a.metrica, operator: 'GreaterThan', threshold: a.limite, timeAggregation: a.agg, criterionType: 'StaticThresholdCriterion' } ]
+    }
+    actions: [ { actionGroupId: grupoAlerta.id } ]
+  }
+}]
+
+// ---------------------------- Orçamento e alerta de custo ---------------------------
+resource orcamento 'Microsoft.Consumption/budgets@2023-11-01' = if (criarOrcamento) {
+  name: 'orc-${nome}'
+  properties: {
+    category: 'Cost'
+    amount: orcamentoMensal
+    timeGrain: 'Monthly'
+    timePeriod: { startDate: orcamentoInicio }
+    notifications: {
+      real80: { enabled: true, operator: 'GreaterThanOrEqualTo', threshold: 80, thresholdType: 'Actual', contactEmails: emailsAlerta }
+      real100: { enabled: true, operator: 'GreaterThanOrEqualTo', threshold: 100, thresholdType: 'Actual', contactEmails: emailsAlerta }
+      previsto100: { enabled: true, operator: 'GreaterThanOrEqualTo', threshold: 100, thresholdType: 'Forecasted', contactEmails: emailsAlerta }
+    }
+  }
+}
+
+// ---------------------------- Saídas -------------------------------------------------
+output webAppNome string = web.name
+output webAppUrl string = 'https://${web.properties.defaultHostName}'
+output sqlServidor string = sql.properties.fullyQualifiedDomainName
+output sqlBanco string = db.name
+output keyVaultNome string = kv.name
+output storageNome string = st.name
+output webIdentidade string = web.name

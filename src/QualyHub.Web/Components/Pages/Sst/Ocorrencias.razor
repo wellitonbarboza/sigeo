@@ -1,0 +1,122 @@
+@page "/sst/ocorrencias"
+@inherits PaginaBase
+@inject SstServico Sst
+@inject QualidadeObraServico Qob
+@inject NavigationManager Nav
+
+<Pagina Titulo="Ocorrências e acidentes" Grade="_grade" AoNovo="Nova" AoAtualizar="Carregar">
+    <ChildContent>
+        <div class="pagina">
+            <div class="kpis">
+                <Kpi Rotulo="Dias sem acidente c/ afastamento" Valor="@DiasSem()" Tom="ok" />
+                <Kpi Rotulo="Ocorrências no mês" Valor="@_itens?.Count(o => o.DataHora >= new DateTimeOffset(Hoje.Year, Hoje.Month, 1, 0, 0, 0, TimeSpan.Zero))" Sub="@($"{_itens?.Count(o => o.Tipo == TipoOcorrencia.QuaseAcidente && o.DataHora.Month == Hoje.Month)} quase-acidentes")" />
+                <Kpi Rotulo="Investigações abertas" Valor="@_itens?.Count(o => o.Status == StatusOcorrencia.EmInvestigacao)" Tom="aviso" />
+            </div>
+            <Grade T="Ocorrencia" @ref="_grade" Itens="_itens" Limite="LimiteGrade" AoCarregarTudo="async () => { ListaCompleta = true; await Carregar(); }" AoClicar="o => Abrir(o.Id)" NomeExportacao="ocorrencias">
+                <Colunas>
+                    <Coluna T="Ocorrencia" Titulo="Nº" Valor="o => o.Numero" Largura="80px" />
+                    <Coluna T="Ocorrencia" Titulo="Data" Valor="o => o.DataHora" />
+                    <Coluna T="Ocorrencia" Titulo="Tipo" Valor="o => o.Tipo" />
+                    <Coluna T="Ocorrencia" Titulo="Local" Valor="o => _locNomes.GetValueOrDefault(o.LocalId)" />
+                    <Coluna T="Ocorrencia" Titulo="Empresa" Valor='o => o.FornecedorId == null ? "Própria" : Nome(_fornecedores, o.FornecedorId.Value)' />
+                    <Coluna T="Ocorrencia" Titulo="Envolvido" Valor="o => o.ColaboradorId == null ? null : Nome(_colabs, o.ColaboradorId.Value)" />
+                    <Coluna T="Ocorrencia" Titulo="Investigação" Valor='o => o.AcaoCorretivaId == null ? (o.Acidente ? "Exigida" : "Não exigida") : _acs.GetValueOrDefault(o.AcaoCorretivaId.Value)' />
+                    <Coluna T="Ocorrencia" Titulo="Status" Valor="o => o.Status"><Modelo><Selo Texto="@De(context.Status)" Tom="@Tom(context.Status)" /></Modelo></Coluna>
+                </Colunas>
+            </Grade>
+        </div>
+    </ChildContent>
+    <Faixa><b>Tela 48 · Ocorrências e acidentes</b><span>Quase-acidente, incidente e acidente (NBR 14280)</span><span>Investigação reusa a ação corretiva · sem dados médicos no registro</span></Faixa>
+</Pagina>
+
+<Modal @bind-Aberto="_aberto" Titulo="@($"{(string.IsNullOrEmpty(_o?.Numero) ? "Nova ocorrência" : _o.Numero)} — {(_o is null ? "" : De(_o.Tipo).ToLowerInvariant())}")">
+    <ChildContent>
+        @if (_o is not null)
+        {
+            <Erros Lista="ErrosForm" />
+            <div class="form">
+                <Campo Rotulo="Data / hora" Obrigatorio Classe="s3"><input type="datetime-local" @bind="_o.DataHora" /></Campo>
+                <Campo Rotulo="Tipo" Obrigatorio Classe="s3"><select @bind="_o.Tipo">@foreach (var t in Enum.GetValues<TipoOcorrencia>()) { <option value="@t">@De(t)</option> }</select></Campo>
+                <Campo Rotulo="Obra" Obrigatorio Classe="s3"><select value="@_o.ObraId" @onchange="async e => { _o.ObraId = Guid.TryParse(e.Value?.ToString(), out var g) ? g : Guid.Empty; _locais = await Cat.LocaisAsync(_o.ObraId); }"><option value="@Guid.Empty">Selecione…</option>@foreach (var x in _obras) { <option value="@x.Id">@x.Texto</option> }</select></Campo>
+                <Campo Rotulo="Local" Obrigatorio Classe="s3"><select @bind="_o.LocalId"><option value="@Guid.Empty">Selecione…</option>@foreach (var l in _locais) { <option value="@l.Id">@l.Texto</option> }</select></Campo>
+                <Campo Rotulo="Empresa" Classe="s4"><select @bind="_o.FornecedorId"><option value="">Própria</option>@foreach (var f in _fornecedores) { <option value="@f.Id">@f.Texto</option> }</select></Campo>
+                <Campo Rotulo="Envolvido" Classe="s4"><select @bind="_o.ColaboradorId"><option value="">—</option>@foreach (var c in _colabs) { <option value="@c.Id">@c.Texto</option> }</select></Campo>
+                <Campo Rotulo="CAT (nº, se emitida)" Classe="s4"><input @bind="_o.Cat" /></Campo>
+                <Campo Rotulo="Descrição (sem dados médicos)" Obrigatorio Classe="s12"><textarea @bind="_o.Descricao"></textarea></Campo>
+                <Campo Rotulo="Dias de afastamento / debitados" Classe="s4"><input type="number" @bind="_o.DiasPerdidos" /></Campo>
+                <Campo Rotulo="PT relacionada" Classe="s4"><select @bind="_o.PermissaoTrabalhoId"><option value="">—</option>@foreach (var p in _pts) { <option value="@p.Id">@p.Texto</option> }@if (_pts.Count >= LimitePts) { <option disabled>Exibindo as primeiras @LimitePts — refine o filtro.</option> }</select></Campo>
+                <Campo Rotulo="Investigação" Classe="s4"><input readonly value="@(_o.AcaoCorretivaId is { } a ? _acs.GetValueOrDefault(a) : "—")" /></Campo>
+            </div>
+            <div class="alerta aviso"><Icone Nome="cadeado" /> Detalhe médico da lesão fica só no arquivo restrito ao SST; o registro geral guarda tipo de ocorrência, local, empresa e dias perdidos (base das taxas de frequência e gravidade).</div>
+            @if (!string.IsNullOrEmpty(_o.Numero)) { <Anexos Entidade="OcorrenciaRestrita" EntidadeId="_o.Id" Categoria="Restrito" Titulo="Arquivo restrito (SST)" SomenteLeitura="!Perfil(PerfilUsuario.Seguranca)" /> }
+        }
+    </ChildContent>
+    <Rodape>
+        @if (_o is not null)
+        {
+            @if (!string.IsNullOrEmpty(_o.Numero) && _o.AcaoCorretivaId is null) { <button class="btn sec" disabled="@Ocupado" @onclick="AbrirAc"><Icone Nome="ferramenta" Tam="16" /> Abrir ação corretiva</button> }
+            @if (_o.AcaoCorretivaId is { } ac) { <a class="btn sec" href="obra/acoes?id=@ac"><Icone Nome="ferramenta" Tam="16" /> Ver investigação</a> }
+            <button class="btn prim" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="16" /> Salvar</button>
+        }
+    </Rodape>
+</Modal>
+
+@code {
+    private Grade<Ocorrencia>? _grade;
+    private List<Ocorrencia>? _itens;
+    private Ocorrencia? _o;
+    private bool _aberto;
+    private Dictionary<Guid, string> _locNomes = [], _acs = [];
+    // A lista de PTs só serve para vincular a ocorrência: as mais recentes bastam e evitam um select gigante.
+    private const int LimitePts = 200;
+    private List<Opcao> _obras = [], _locais = [], _fornecedores = [], _colabs = [], _pts = [];
+    private static string Nome(List<Opcao> l, Guid id) => l.FirstOrDefault(x => x.Id == id)?.Texto ?? "—";
+    private string DiasSem()
+    {
+        var ult = _itens?.Where(o => o.Tipo == TipoOcorrencia.AcidenteComAfastamento).Select(o => (DateTimeOffset?)o.DataHora).Max();
+        return ult is null ? "—" : ((int)(DateTimeOffset.Now - ult.Value).TotalDays).ToString();
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _obras = await Cat.ObrasAsync(); _fornecedores = await Cat.FornecedoresAsync(); _colabs = await Cat.ColaboradoresAsync();
+        await Carregar();
+    }
+
+    private async Task Carregar()
+    {
+        await using var db = Fabrica.CriarLeitura();
+        _itens = await db.Ocorrencias.AsNoTracking().OrderByDescending(o => o.DataHora).Take(LimiteAtual).ToListAsync(Cancelamento);
+        _locNomes = await db.Locais.AsNoTracking().ToDictionaryAsync(l => l.Id, l => l.Nome, Cancelamento);
+        _acs = await db.AcoesCorretivas.AsNoTracking().ToDictionaryAsync(a => a.Id, a => a.Numero, Cancelamento);
+        _pts = await db.PermissoesTrabalho.AsNoTracking().OrderByDescending(p => p.Inicio).Take(LimitePts).Select(p => new Opcao(p.Id, p.Numero + " · " + p.Atividade)).ToListAsync(Cancelamento);
+    }
+
+    private async Task Nova()
+    {
+        _o = new Ocorrencia { DataHora = DateTimeOffset.Now, Tipo = TipoOcorrencia.QuaseAcidente, ObraId = _obras.Count == 1 ? _obras[0].Id : Guid.Empty };
+        _locais = _o.ObraId == Guid.Empty ? [] : await Cat.LocaisAsync(_o.ObraId);
+        ErrosForm = null; _aberto = true;
+    }
+
+    private async Task Abrir(Guid id)
+    {
+        await using var db = Fabrica.CriarLeitura();
+        _o = await db.Ocorrencias.AsNoTracking().FirstAsync(o => o.Id == id, Cancelamento);
+        _locais = await Cat.LocaisAsync(_o.ObraId);
+        ErrosForm = null; _aberto = true;
+    }
+
+    private async Task Salvar()
+    {
+        if (_o!.LocalId == Guid.Empty) { ErrosForm = ["Informe o local."]; return; }
+        Guid id = default;
+        if (await Executar(async () => id = await Sst.SalvarOcorrenciaAsync(_o, Cancelamento), "Ocorrência registrada.")) { await Carregar(); await Abrir(id); }
+    }
+
+    private async Task AbrirAc()
+    {
+        Guid id = default;
+        if (await Executar(async () => id = await Qob.AbrirAcaoCorretivaAsync([], _o!.Id, $"{De(_o.Tipo)} {_o.Numero}: {_o.Descricao}", Cancelamento), "Investigação aberta.")) Nav.NavigateTo($"obra/acoes?id={id}");
+    }
+}

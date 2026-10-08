@@ -1,0 +1,50 @@
+@page "/qr/{Token}"
+@attribute [AllowAnonymous]
+@attribute [ExcludeFromInteractiveRouting]
+@layout LayoutPublico
+@inject IFabricaSistema Sistema
+
+<PageTitle>Verificação de cópia · QualyHub</PageTitle>
+<div class="portal portal-estreito">
+    @if (_c is null)
+    {
+        <div class="caixa"><h2>Cópia não encontrada</h2><p>Este QR não corresponde a uma cópia controlada.</p></div>
+    }
+    else
+    {
+        var vigente = _c.Status == StatusCopia.EmUso && _c.Revisao.Status is StatusRevisao.Vigente or StatusRevisao.VigenteComRessalvas;
+        <div class="alerta alerta-grande @(vigente ? "ok" : "erro")">
+            <Icone Nome="@(vigente ? "check" : "x-circulo")" Tam="28" />
+            <b>@(vigente ? "CÓPIA VIGENTE — pode usar" : "CÓPIA OBSOLETA — não use, devolva à Qualidade")</b>
+        </div>
+        <table class="itens">
+            <tr><th>Cópia</th><td>@_c.NumeroCopia</td></tr>
+            <tr><th>Documento</th><td>@_c.Revisao.Documento.Codigo – @_c.Revisao.Documento.Titulo</td></tr>
+            <tr><th>Revisão desta cópia</th><td>@_c.Revisao.Rotulo (@Rotulos.De(_c.Revisao.Status))</td></tr>
+            <tr><th>Revisão vigente</th><td>@(_vigente ?? "—")</td></tr>
+            <tr><th>Destinatário</th><td>@_c.Destinatario</td></tr>
+            <tr><th>Situação da cópia</th><td>@Rotulos.De(_c.Status)</td></tr>
+        </table>
+        <p class="mudo">Consulta em @DateTime.Now.ToString("dd/MM/yyyy HH:mm").</p>
+    }
+</div>
+
+@code {
+    [Parameter] public string Token { get; set; } = "";
+    private CopiaControlada? _c;
+    private string? _vigente;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = Sistema.Criar(Guid.Empty, "QR");
+        _c = await db.Copias.IgnoreQueryFilters().AsNoTracking().Include(c => c.Revisao).ThenInclude(r => r.Documento)
+            .FirstOrDefaultAsync(c => c.QrToken == Token && !c.Excluido);
+        if (_c is not null)
+        {
+            var docId = _c.Revisao.DocumentoId;
+            var vig = await db.Revisoes.IgnoreQueryFilters().AsNoTracking()
+                .Where(r => r.DocumentoId == docId && (r.Status == StatusRevisao.Vigente || r.Status == StatusRevisao.VigenteComRessalvas)).Select(r => (int?)r.Revisao).FirstOrDefaultAsync();
+            _vigente = vig is null ? null : $"R{vig:00}";
+        }
+    }
+}

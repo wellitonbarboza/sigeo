@@ -1,0 +1,287 @@
+@page "/engenharia/mao-de-obra"
+@inherits PaginaBase
+@inject MaoObraServico Mo
+
+<Pagina Titulo="Mão de obra própria e apropriação" AoAtualizar="Atualizar">
+    <ChildContent>
+        <div class="pagina toque">
+            <div class="barra-filtro">
+                <SeletorObra Id="mo-obra" Valor="_obraId" ValorChanged="TrocarObra" Inicial="ObraQuery" />
+                <label>Competência <input id="mo-mes" @key="_versaoFiltro" type="month" value="@_mes.ToString("yyyy-MM")" @onchange="TrocarMes" /></label>
+            </div>
+            @if (_obraId is null) { <div class="alerta info"><Icone Nome="info" /> Escolha a obra.</div> }
+            else
+            {
+                <Abas Itens="_abas" @bind-Ativa="_aba" />
+                @if (Sujo) { <div class="alerta aviso"><Icone Nome="alerta" /> Há alterações nos custos do mês ainda não salvas.</div> }
+                <Erros Lista="ErrosForm" />
+                @if (_aba == "eq")
+                {
+                    <div class="my-6"><button class="btn sec" id="eq-nova" @onclick="NovaEquipe"><Icone Nome="mais" Tam="14" /> Nova equipe</button></div>
+                    <div class="tabela-rolavel"><table class="itens" id="equipes">
+                        <thead><tr><th>Código</th><th>Equipe</th><th>Encarregado</th><th class="num">Membros</th><th>Ativa</th><th></th></tr></thead>
+                        <tbody>
+                            @foreach (var eq in _equipes)
+                            {
+                                <tr><td><b>@eq.Codigo</b></td><td>@eq.Nome</td><td>@eq.Encarregado</td><td class="num">@eq.Membros.Count(m => m.Ate == null)</td><td>@(eq.Ativa ? "Sim" : "Não")</td><td><button class="btn sec pq" @onclick="() => { _e = eq; ErrosForm = null; _abertoEq = true; }">Editar</button></td></tr>
+                            }
+                            @if (_equipes.Count == 0) { <tr><td colspan="6" class="mudo">Cadastre as equipes próprias (ex.: Alvenaria 1, Acabamento 2). Os membros são os colaboradores próprios (Segurança e Pessoas › Colaboradores).</td></tr> }
+                        </tbody>
+                    </table></div>
+                }
+                else if (_aba == "custo" && _veCustos)
+                {
+                    <div class="barra-botoes">
+                        <button class="btn sec" id="custo-add" @onclick="AddCusto"><Icone Nome="mais" Tam="14" /> Linha</button>
+                        <button class="btn sec" id="custo-replicar" disabled="@Ocupado" @onclick="Replicar"><Icone Nome="atualizar" Tam="14" /> Replicar de @_mes.AddMonths(-1).ToString("MM/yyyy")</button>
+                        <button class="btn prim" id="custo-salvar" disabled="@Ocupado" @onclick="SalvarCustos"><Icone Nome="check" Tam="14" /> Salvar custos do mês</button>
+                    </div>
+                    <div class="tabela-rolavel"><table class="itens" id="custos">
+                        <thead><tr><th>Equipe</th><th>Colaborador / função / descrição</th><th class="num">Pessoas</th><th class="num">Salário (R$/pessoa)</th><th class="num">Encargos %</th><th class="num">Benefícios (R$/pessoa)</th><th class="num">Outros (R$)</th><th class="num">Horas/mês</th><th class="num">Total</th><th class="num">R$/h</th><th></th></tr></thead>
+                        <tbody>
+                            @foreach (var c in _custos)
+                            {
+                                <tr @key="c"><td><select @bind="c.EquipeId"><option value="">—</option>@foreach (var eq in _equipes) { <option value="@eq.Id">@eq.Codigo</option> }</select></td>
+                                    <td><select @bind="c.ColaboradorId"><option value="">(colaborador)</option>@foreach (var p in _colabs) { <option value="@p.Id">@p.Texto</option> }</select>
+                                        <select class="mt-3" @bind="c.FuncaoObraId"><option value="">(função)</option>@foreach (var f in _funcoes) { <option value="@f.Id">@f.Texto</option> }</select>
+                                        <input class="mt-3" @bind="c.Descricao" placeholder="Descrição (opcional)" /></td>
+                                    <td class="larg-70"><input type="number" min="1" @bind="c.Pessoas" /></td>
+                                    <td class="larg-110"><input type="number" step="0.01" @bind="c.Salario" /></td>
+                                    <td class="larg-80"><input type="number" step="0.01" @bind="c.EncargosPerc" /></td>
+                                    <td class="larg-100"><input type="number" step="0.01" @bind="c.Beneficios" /></td>
+                                    <td class="larg-100"><input type="number" step="0.01" @bind="c.Outros" /></td>
+                                    <td class="larg-80"><input type="number" step="1" @bind="c.HorasMes" /></td>
+                                    <td class="num">@c.Total.ToString("N2", Br)</td><td class="num">@c.CustoHora.ToString("N2", Br)</td>
+                                    <td><button class="icone-btn" title="Remover linha" @onclick="() => RemoverCusto(c)"><Icone Nome="lixeira" Tam="16" /></button></td></tr>
+                            }
+                            @if (_custos.Count == 0) { <tr><td colspan="11" class="mudo">Sem custos em @_mes.ToString("MM/yyyy"). Lance por equipe/colaborador ou replique o mês anterior e ajuste.</td></tr> }
+                        </tbody>
+                        <tfoot><tr><td colspan="8" class="texto-dir">Total do mês</td><td class="num"><b>@_custos.Sum(c => c.Total).ToString("N2", Br)</b></td><td colspan="2"></td></tr></tfoot>
+                    </table></div>
+                }
+                else if (_aba == "apr")
+                {
+                    <div class="grade-2">
+                        <div>
+                            <div class="form">
+                                <Campo Rotulo="Data" Obrigatorio Classe="s4"><input id="apr-data" type="date" @bind="_aData" /></Campo>
+                                <Campo Rotulo="Equipe" Classe="s8"><select id="apr-equipe" @bind="_aEquipe"><option value="">—</option>@foreach (var eq in _equipes.Where(x => x.Ativa)) { <option value="@eq.Id">@eq.Codigo – @eq.Nome</option> }</select></Campo>
+                                <Campo Rotulo="ou colaborador" Classe="s12"><select @bind="_aColab"><option value="">—</option>@foreach (var p in _colabs) { <option value="@p.Id">@p.Texto</option> }</select></Campo>
+                                <Campo Rotulo="Serviço" Obrigatorio Classe="s12"><select id="apr-serv" @bind="_aComp"><option value="">Selecione…</option>@foreach (var c in _comps) { <option value="@c.Id">@c.Texto</option> }</select></Campo>
+                                <Campo Rotulo="Horas trabalhadas (total)" Obrigatorio Classe="s4"><input id="apr-horas" type="number" step="0.5" @bind="_aHoras" /></Campo>
+                                <Campo Rotulo="Quantidade executada" Classe="s4"><input type="number" step="0.01" @bind="_aQtd" /></Campo>
+                                <Campo Rotulo="Observação" Classe="s12"><input @bind="_aObs" /></Campo>
+                            </div>
+                            <button class="btn prim cheio-cel" id="apr-lancar" disabled="@(Ocupado || _aLocais.Count == 0)" @onclick="Apropriar"><Icone Nome="check" Tam="14" /> Lançar em @_aLocais.Count local(is)</button>
+                            <p class="mudo">As horas são rateadas entre os locais pelas quantidades orçadas do serviço.</p>
+                        </div>
+                        <div>
+                            <div class="secao"><Icone Nome="predio" /> Locais (pavimentos, apartamentos…)</div>
+                            <SeletorLocais Locais="_locaisSel" Selecionados="_aLocais" SelecionadosChanged="StateHasChanged" />
+                        </div>
+                    </div>
+                    <div class="secao"><Icone Nome="lista" /> Lançamentos de @_mes.ToString("MM/yyyy")</div>
+                    <div class="tabela-rolavel"><table class="itens" id="apropriacoes">
+                        <thead><tr><th>Data</th><th>Equipe / colaborador</th><th>Serviço</th><th>Locais</th><th class="num">Horas</th><th class="num">Qtd. exec.</th><th></th></tr></thead>
+                        <tbody>
+                            @foreach (var g in _aps.GroupBy(a => a.Lancamento).OrderByDescending(g => g.First().Data))
+                            {
+                                var a = g.First();
+                                <tr @key="g.Key"><td>@a.Data.ToString("dd/MM")</td><td>@(_equipes.FirstOrDefault(x => x.Id == a.EquipeId)?.Codigo ?? _colabs.FirstOrDefault(c => c.Id == a.ColaboradorId)?.Texto ?? "(sem equipe)")</td>
+                                    <td>@_comps.FirstOrDefault(c => c.Id == a.ComposicaoId)?.Texto</td><td>@string.Join(", ", g.Select(x => _porId.GetValueOrDefault(x.LocalId)?.Codigo).Take(4))@(g.Count() > 4 ? $" +{g.Count() - 4}" : "")</td>
+                                    <td class="num">@g.Sum(x => x.Horas).ToString("N1", Br)</td><td class="num">@g.Sum(x => x.QuantidadeExecutada ?? 0).ToString("N2", Br)</td>
+                                    <td><button class="icone-btn" title="Excluir lançamento" disabled="@Ocupado" @onclick="() => Excluir(g.Key, g.Count())"><Icone Nome="lixeira" Tam="16" /></button></td></tr>
+                            }
+                            @if (_aps.Count == 0) { <tr><td colspan="7" class="mudo">Nenhum lançamento no mês.</td></tr> }
+                        </tbody>
+                    </table></div>
+                }
+                else if (_aba == "fech" && _veCustos && _fech is not null)
+                {
+                    <div class="kpis">
+                        <Kpi Rotulo="Custo da mão de obra no mês" Valor="@_fech.CustoTotal.ToString("C2", Br)" />
+                        <Kpi Rotulo="Horas apropriadas" Valor="@_fech.HorasApropriadas.ToString("N1", Br)" Tom="info" />
+                        <Kpi Rotulo="Custo-hora médio real" Valor="@(_fech.HorasApropriadas == 0 ? "—" : (_fech.CustoTotal / _fech.HorasApropriadas).ToString("N2", Br))" Tom="info" />
+                        <Kpi Rotulo="Custo sem apropriação" Valor="@_fech.CustoSemApropriacao.ToString("C2", Br)" Sub="lance as horas dessas equipes" Tom="@(_fech.CustoSemApropriacao > 0 ? "aviso" : "ok")" />
+                    </div>
+                    <div class="tabela-rolavel"><table class="itens" id="fech-equipes">
+                        <thead><tr><th>Equipe</th><th class="num">Custo do mês</th><th class="num">Horas apropriadas</th><th class="num">Custo-hora real</th></tr></thead>
+                        <tbody>@foreach (var eq in _fech.Equipes) { <tr><td>@(eq.EquipeId is null ? "(sem equipe)" : _equipes.FirstOrDefault(x => x.Id == eq.EquipeId)?.Nome)</td><td class="num">@eq.CustoMes.ToString("N2", Br)</td><td class="num">@eq.HorasApropriadas.ToString("N1", Br)</td><td class="num">@eq.CustoHoraReal.ToString("N2", Br)</td></tr> }</tbody>
+                    </table></div>
+                    <div class="secao"><Icone Nome="tabela" /> Realizado × orçado (mão de obra própria) por serviço</div>
+                    <div class="tabela-rolavel"><table class="itens" id="fech-servicos">
+                        <thead><tr><th>Serviço</th><th class="num">Horas</th><th class="num">Custo real</th><th class="num">Qtd. executada</th><th class="num">R$/un real</th><th class="num">R$/un orçado (M.O. própria)</th></tr></thead>
+                        <tbody>
+                            @foreach (var g in _fech.Celulas.GroupBy(c => c.ComposicaoId))
+                            {
+                                var comp = _compsObj.GetValueOrDefault(g.Key);
+                                var qtd = _aps.Where(a => a.ComposicaoId == g.Key).Sum(a => a.QuantidadeExecutada ?? 0);
+                                <tr><td>@(comp is null ? "?" : $"{comp.Codigo} – {comp.Descricao}")</td><td class="num">@g.Sum(x => x.Horas).ToString("N1", Br)</td><td class="num">@g.Sum(x => x.Custo).ToString("N2", Br)</td>
+                                    <td class="num">@qtd.ToString("N2", Br)</td><td class="num">@(qtd == 0 ? "—" : (g.Sum(x => x.Custo) / qtd).ToString("N2", Br))</td><td class="num">@comp?.Custo(TipoInsumo.MaoObraPropria).ToString("N2", Br)</td></tr>
+                            }
+                        </tbody>
+                    </table></div>
+                }
+            }
+        </div>
+    </ChildContent>
+    <Faixa><b>Mão de obra própria</b><span>Equipes · custo mensal (replicável) · horas por serviço × local</span><span>Fechamento: custo-hora real e realizado × orçado</span></Faixa>
+</Pagina>
+
+<Modal @bind-Aberto="_abertoEq" Titulo="Equipe" Tamanho="media toque">
+    <ChildContent>
+        @if (_e is not null)
+        {
+            <Erros Lista="ErrosForm" />
+            <div class="form">
+                <Campo Rotulo="Código" Obrigatorio Classe="s3"><input id="eq-cod" @bind="_e.Codigo" placeholder="ALV1" /></Campo>
+                <Campo Rotulo="Nome" Obrigatorio Classe="s6"><input id="eq-nome" @bind="_e.Nome" placeholder="Alvenaria 1" /></Campo>
+                <Campo Rotulo="" Classe="s3"><label><input type="checkbox" @bind="_e.Ativa" /> Ativa</label></Campo>
+                <Campo Rotulo="Encarregado" Classe="s12"><input @bind="_e.Encarregado" /></Campo>
+            </div>
+            <div class="secao"><Icone Nome="pessoa" /> Membros <span class="acao"><button class="btn sec pq" @onclick="() => _e.Membros.Add(new EquipeMembro { EquipeId = _e.Id, Desde = Hoje })"><Icone Nome="mais" Tam="14" /> Membro</button></span></div>
+            <div class="tabela-rolavel"><table class="itens"><thead><tr><th>Colaborador</th><th>Desde</th><th>Até</th><th></th></tr></thead>
+                <tbody>@foreach (var m in _e.Membros)
+                {
+                    <tr @key="m"><td><select @bind="m.ColaboradorId"><option value="@Guid.Empty">—</option>@foreach (var p in _colabs) { <option value="@p.Id">@p.Texto</option> }</select></td><td><input type="date" @bind="m.Desde" /></td><td><input type="date" @bind="m.Ate" /></td>
+                        <td><button class="icone-btn" title="Remover membro" @onclick="() => _e.Membros.Remove(m)"><Icone Nome="lixeira" Tam="16" /></button></td></tr>
+                }</tbody></table></div>
+            @if (_colabs.Count == 0) { <div class="alerta aviso"><Icone Nome="alerta" /> Nenhum colaborador próprio nesta obra. Cadastre em Segurança e Pessoas › Colaboradores (vínculo próprio).</div> }
+        }
+    </ChildContent>
+    <Rodape><button class="btn prim" id="eq-salvar" disabled="@Ocupado" @onclick="SalvarEquipe"><Icone Nome="check" Tam="16" /> Salvar</button></Rodape>
+</Modal>
+
+<Confirmacao Pergunta="@PerguntaConfirmacao" AoSim="ConfirmacaoSim" AoNao="ConfirmacaoNao" />
+
+@code {
+    [SupplyParameterFromQuery(Name = "obra")] public Guid? ObraQuery { get; set; }
+    private List<Opcao> _funcoes = [], _colabs = [], _comps = [];
+    private Guid? _obraId, _aEquipe, _aColab, _aComp;
+    private DateOnly _mes;
+    private string _aba = "eq";
+    private List<Equipe> _equipes = [];
+    private List<CustoMaoObraMes> _custos = [];
+    private readonly List<Guid> _removidos = [];
+    private List<Apropriacao> _aps = [];
+    private List<Local> _locais = [];
+    private List<LocalOrcamento> _locaisSel = [];
+    private Dictionary<Guid, Local> _porId = [];
+    private Dictionary<Guid, Composicao> _compsObj = [];
+    private FechamentoMes? _fech;
+    private Equipe? _e;
+    private bool _abertoEq;
+    private DateOnly _aData;
+    private decimal _aHoras;
+    private decimal? _aQtd;
+    private string? _aObs;
+    private HashSet<Guid> _aLocais = [];
+    private List<(string, string)> _abas = [];
+    private bool _veCustos;
+    private int _versaoFiltro;
+    private string _instantaneo = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        _mes = new DateOnly(Hoje.Year, Hoje.Month, 1); _aData = Hoje;
+        _veCustos = Perfil(PerfilUsuario.Engenharia, PerfilUsuario.Financeiro, PerfilUsuario.Diretoria);
+        _abas = _veCustos
+            ? [("eq", "Equipes"), ("custo", "Custos do mês"), ("apr", "Apropriação de horas"), ("fech", "Fechamento do mês")]
+            : [("eq", "Equipes"), ("apr", "Apropriação de horas")];
+        // A obra inicial (?obra= ou a única permitida) vem do SeletorObra, que chama TrocarObra.
+        _funcoes = await Cat.FuncoesAsync();
+    }
+
+    /// <summary>Custos do mês alterados e não salvos (compara com o que veio do banco).</summary>
+    private bool Sujo => _veCustos && _obraId is not null && Instantaneo() != _instantaneo;
+    private string Instantaneo() => string.Join("|", _custos.Select(c => $"{c.Id};{c.EquipeId};{c.ColaboradorId};{c.FuncaoObraId};{c.Descricao};{c.Pessoas};{c.Salario};{c.EncargosPerc};{c.Beneficios};{c.Outros};{c.HorasMes}")) + "#" + _removidos.Count;
+
+    /// <summary>Roda a troca (obra/mês/replicar) só depois de confirmar o descarte dos custos não salvos.</summary>
+    private async Task DescartarSeConfirmar(Func<Task> acao, string oQue)
+    {
+        if (!Sujo) { await acao(); return; }
+        Confirmar($"Os custos do mês têm alterações não salvas. {oQue} descarta essas alterações. Continuar?", acao,
+            () => { _versaoFiltro++; return Task.CompletedTask; }); // recria os filtros para voltarem ao valor atual
+    }
+
+    private Task Atualizar() => DescartarSeConfirmar(Carregar, "Atualizar a tela");
+
+    // Se o usuário recusar o descarte, _obraId não muda e o SeletorObra volta a mostrar a obra atual.
+    private async Task TrocarObra(Guid? nova)
+    {
+        await DescartarSeConfirmar(async () =>
+        {
+            _obraId = nova;
+            _aLocais = []; _aEquipe = null; _aColab = null; _aComp = null; _aHoras = 0; _aQtd = null; _aObs = null;
+            _equipes = []; _custos = []; _aps = []; _locais = []; _locaisSel = []; _porId = []; _fech = null; _e = null; _abertoEq = false;
+            _removidos.Clear(); _instantaneo = Instantaneo();
+            await Carregar();
+        }, "Trocar de obra");
+    }
+
+    private async Task Carregar()
+    {
+        if (_obraId is not { } o) return;
+        _removidos.Clear();
+        await using var db = Fabrica.CriarLeitura();
+        _equipes = await db.Equipes.AsNoTracking().Include(e => e.Membros).Where(e => e.ObraId == o).OrderBy(e => e.Codigo).ToListAsync(Cancelamento);
+        _colabs = await db.Colaboradores.AsNoTracking().Where(c => c.ObraId == o && c.Vinculo == VinculoColaborador.Proprio && c.DataSaida == null).OrderBy(c => c.Nome).Select(c => new Opcao(c.Id, c.Nome)).ToListAsync(Cancelamento);
+        _custos = await db.CustosMaoObra.AsNoTracking().Where(c => c.ObraId == o && c.Competencia == _mes).ToListAsync(Cancelamento);
+        var fim = _mes.AddMonths(1);
+        _aps = await db.Apropriacoes.AsNoTracking().Where(a => a.ObraId == o && a.Data >= _mes && a.Data < fim).ToListAsync(Cancelamento);
+        _locais = await db.Locais.AsNoTracking().Where(l => l.ObraId == o).ToListAsync(Cancelamento);
+        _porId = _locais.ToDictionary(l => l.Id);
+        _locaisSel = _locais.Select(LocalOrcamento.De).ToList();
+        var usados = await db.ServicosLocais.AsNoTracking().Where(s => s.ObraId == o).Select(s => s.ComposicaoId).Distinct().ToListAsync(Cancelamento);
+        _compsObj = await db.Composicoes.AsNoTracking().Include(c => c.Itens).ToDictionaryAsync(c => c.Id, Cancelamento);
+        _comps = _compsObj.Values.Where(c => c.Ativa && (usados.Contains(c.Id) || usados.Count == 0)).OrderBy(c => c.Codigo).Select(c => new Opcao(c.Id, $"{c.Codigo} – {c.Descricao}", c.Unidade)).ToList();
+        _fech = _veCustos ? await Mo.FechamentoAsync(o, _mes, ct: Cancelamento) : null;
+        _instantaneo = Instantaneo();
+    }
+
+    private async Task TrocarMes(ChangeEventArgs e)
+    {
+        if (LerMes(e.Value) is not { } d) { _versaoFiltro++; return; }
+        await DescartarSeConfirmar(async () => { _mes = d; await Carregar(); }, "Trocar de competência");
+    }
+
+    private void NovaEquipe() { _e = new Equipe { ObraId = _obraId!.Value }; ErrosForm = null; _abertoEq = true; }
+    private async Task SalvarEquipe()
+    {
+        _e!.Membros = _e.Membros.Where(m => m.ColaboradorId != Guid.Empty).ToList();
+        if (await Executar(() => Mo.SalvarEquipeAsync(_e, ct: Cancelamento), "Equipe salva.")) { _abertoEq = false; await Carregar(); }
+    }
+
+    private void AddCusto() => _custos.Add(new CustoMaoObraMes { ObraId = _obraId!.Value, Competencia = _mes, EncargosPerc = 80, HorasMes = 220 });
+    private void RemoverCusto(CustoMaoObraMes c) { _custos.Remove(c); if (c.CriadoEm != default) _removidos.Add(c.Id); }
+
+    private async Task SalvarCustos()
+    {
+        if (!_veCustos) return;
+        if (await Executar(() => Mo.SalvarCustosMesAsync(_obraId!.Value, _mes, _custos, _removidos.ToList(), ct: Cancelamento), "Custos do mês salvos.")) await Carregar();
+    }
+
+    private Task Replicar() => DescartarSeConfirmar(ReplicarConfirmado, "Replicar o mês anterior");
+
+    private async Task ReplicarConfirmado()
+    {
+        int n = 0;
+        if (await Executar(async () => n = await Mo.ReplicarAsync(_obraId!.Value, _mes.AddMonths(-1), _mes, ct: Cancelamento)))
+        { Notif.Sucesso($"{n} linha(s) replicada(s) de {_mes.AddMonths(-1):MM/yyyy}. Ajuste e salve."); await Carregar(); }
+    }
+
+    private async Task Apropriar()
+    {
+        int n = 0;
+        if (await Executar(async () => n = await Mo.ApropriarAsync(_obraId!.Value, _aData, _aEquipe, _aColab, _aComp ?? Guid.Empty, _aLocais, _aHoras, _aQtd, _aObs, ct: Cancelamento)))
+        { Notif.Sucesso($"Horas lançadas em {n} local(is)."); _aLocais = []; _aHoras = 0; _aQtd = null; _aObs = null; await Carregar(); }
+    }
+
+    private void Excluir(Guid lanc, int locais) =>
+        Confirmar($"Excluir este lançamento de horas ({locais} local(is))?", () => ExcluirConfirmado(lanc));
+
+    private async Task ExcluirConfirmado(Guid lanc)
+    {
+        if (await Executar(() => Mo.ExcluirLancamentoAsync(lanc, ct: Cancelamento), "Lançamento excluído.")) await Carregar();
+    }
+}

@@ -1,0 +1,2 @@
+/* Ícone (componente filho, por isso ::deep) alinhado ao texto sem mexer no tamanho do selo definido no app.css. */
+.selo ::deep svg { vertical-align: -1px; margin-right: 3px; }

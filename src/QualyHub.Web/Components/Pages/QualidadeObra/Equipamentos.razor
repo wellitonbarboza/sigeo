@@ -1,0 +1,130 @@
+@page "/obra/equipamentos"
+@inherits PaginaBase
+@inject QualidadeObraServico Qob
+
+<Pagina Titulo="Equipamentos de medição" Grade="_grade" AoNovo="Novo" AoAtualizar="Carregar">
+    <ChildContent>
+        <div class="pagina">
+            <div class="kpis">
+                <Kpi Rotulo="Equipamentos" Valor="@_itens?.Count(e => !e.Baixado)" />
+                <Kpi Rotulo="Calibrados / verificados" Valor="@_itens?.Count(e => St(e) is StatusEquipamento.EmUso or StatusEquipamento.VenceEmBreve)" Tom="ok" />
+                <Kpi Rotulo="@($"Vencem em {_alerta} dias")" Valor="@_itens?.Count(e => St(e) == StatusEquipamento.VenceEmBreve)" Tom="aviso" />
+                <Kpi Rotulo="Bloqueados" Valor="@_itens?.Count(e => St(e) == StatusEquipamento.Bloqueado)" Sub="não podem ser usados em FVS" Tom="erro" />
+            </div>
+            <Grade T="EquipamentoMedicao" @ref="_grade" Itens="_itens" AoClicar="Abrir" NomeExportacao="equipamentos" CriadoPor="e => e.CriadoPor">
+                <Colunas>
+                    <Coluna T="EquipamentoMedicao" Titulo="Código" Valor="e => e.Codigo" Largura="90px" />
+                    <Coluna T="EquipamentoMedicao" Titulo="Equipamento" Valor="e => e.Descricao" />
+                    <Coluna T="EquipamentoMedicao" Titulo="Local / responsável" Valor="e => e.Responsavel" />
+                    <Coluna T="EquipamentoMedicao" Titulo="Tipo de controle" Valor="e => e.TipoControle" />
+                    <Coluna T="EquipamentoMedicao" Titulo="Última" Valor="e => e.UltimaData" />
+                    <Coluna T="EquipamentoMedicao" Titulo="Próxima" Valor="e => e.Proxima" />
+                    <Coluna T="EquipamentoMedicao" Titulo="Resultado" Valor="e => e.UltimoResultado" />
+                    <Coluna T="EquipamentoMedicao" Titulo="Status" Valor="e => St(e)"><Modelo><Selo Texto="@De(St(context))" Tom="@Tom(St(context))" /></Modelo></Coluna>
+                </Colunas>
+            </Grade>
+        </div>
+    </ChildContent>
+    <Faixa><b>Tela 38 · Equipamentos</b><span>SiAC 7.1.5 · vencido ou reprovado bloqueia uso na FVS</span><span>Reprovação lista as FVS feitas desde a última aprovação</span></Faixa>
+</Pagina>
+
+<Modal @bind-Aberto="_aberto" Titulo="@($"Equipamento {_e?.Codigo} — {_e?.Descricao}")" Tamanho="media">
+    <ChildContent>
+        @if (_e is not null)
+        {
+            <Erros Lista="ErrosForm" />
+            <div class="form">
+                <Campo Rotulo="Código (etiqueta)" Obrigatorio Classe="s3"><input @bind="_e.Codigo" /></Campo>
+                <Campo Rotulo="Descrição / modelo / nº de série" Obrigatorio Classe="s9"><input @bind="_e.Descricao" /></Campo>
+                <Campo Rotulo="Tipo" Classe="s3"><select @bind="_e.Tipo">@foreach (var t in Enum.GetValues<TipoEquipamento>()) { <option value="@t">@De(t)</option> }</select></Campo>
+                <Campo Rotulo="Tipo de controle" Classe="s5"><select @bind="_e.TipoControle">@foreach (var t in Enum.GetValues<TipoControleEquipamento>()) { <option value="@t">@De(t)</option> }</select></Campo>
+                <Campo Rotulo="Periodicidade (meses)" Classe="s4"><input type="number" @bind="_e.PeriodicidadeMeses" /></Campo>
+                @if (_e.TipoControle == TipoControleEquipamento.VerificacaoInterna)
+                {
+                    <Campo Rotulo="Padrão usado na verificação" Obrigatorio Classe="s6"><select @bind="_e.PadraoId"><option value="">Selecione…</option>@foreach (var p in _itens!.Where(x => x.TipoControle == TipoControleEquipamento.Padrao && x.Id != _e.Id)) { <option value="@p.Id">@p.Codigo – @p.Descricao</option> }</select></Campo>
+                }
+                <Campo Rotulo="Critério de aceitação" Obrigatorio Classe="s6"><input @bind="_e.Criterio" placeholder="ex.: erro ≤ 1 mm em 5 m" /></Campo>
+                <Campo Rotulo="Obra" Classe="s6"><select @bind="_e.ObraId"><option value="">—</option>@foreach (var o in _obras) { <option value="@o.Id">@o.Texto</option> }</select></Campo>
+                <Campo Rotulo="Local / responsável" Classe="s6"><input @bind="_e.Responsavel" /></Campo>
+                <Campo Rotulo="Situação" Classe="s12"><div class="checks"><label><input type="checkbox" @bind="_e.EmCalibracao" /> Em calibração (fora da obra)</label><label><input type="checkbox" @bind="_e.Baixado" /> Baixado</label></div></Campo>
+            </div>
+            @if (_e.CriadoEm != default)
+            {
+                <div class="secao"><Icone Nome="relogio" /> Calibrações e verificações</div>
+                <div class="tabela-rolavel">
+                <table class="itens">
+                    <thead><tr><th>Data</th><th>Tipo</th><th>Executante</th><th>Certificado</th><th>Erro</th><th>Resultado</th></tr></thead>
+                    <tbody>
+                        @foreach (var c in _cals) { <tr><td>@Data(c.Data)</td><td>@De(c.Tipo)</td><td>@c.Executante</td><td>@c.Certificado</td><td>@c.Erro</td><td><Selo Texto="@De(c.Resultado)" Tom="@(c.Resultado == ResultadoCalibracao.Aprovado ? "ok" : "erro")" /></td></tr> }
+                        <tr class="total">
+                            <td><input type="date" @bind="_nova.Data" /></td>
+                            <td><select @bind="_nova.Tipo"><option value="@TipoControleEquipamento.CalibracaoExterna">Calibração externa</option><option value="@TipoControleEquipamento.VerificacaoInterna">Verificação interna</option></select></td>
+                            <td><input @bind="_nova.Executante" placeholder="laboratório / executante" /></td>
+                            <td><input @bind="_nova.Certificado" /></td>
+                            <td><input @bind="_nova.Erro" /></td>
+                            <td><select @bind="_nova.Resultado"><option value="@ResultadoCalibracao.Aprovado">Aprovado</option><option value="@ResultadoCalibracao.Reprovado">Reprovado</option></select></td>
+                        </tr>
+                    </tbody>
+                </table>
+                </div>
+                @if (_nova.Resultado == ResultadoCalibracao.Reprovado) { <div class="form marg-topo-8"><Campo Rotulo="Avaliação de impacto (FVS feitas desde a última aprovação)" Obrigatorio Classe="s12"><textarea @bind="_nova.AvaliacaoImpacto"></textarea></Campo></div> }
+                @if (_afetadas.Count > 0) { <div class="alerta erro"><Icone Nome="alerta" /> FVS a avaliar: @string.Join(", ", _afetadas)</div> }
+                <div class="marg-topo-8"><button class="btn sec" disabled="@Ocupado" @onclick="Registrar"><Icone Nome="mais" Tam="14" /> Registrar calibração / verificação</button></div>
+                <Anexos Entidade="Equipamento" EntidadeId="_e.Id" Categoria="Certificado" Titulo="Certificados" />
+                <div class="alerta aviso"><Icone Nome="ampulheta" /> Vencido o prazo, o equipamento fica bloqueado e não aparece para escolha na FVS.</div>
+            }
+        }
+    </ChildContent>
+    <Rodape><button class="btn prim" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="16" /> Salvar</button></Rodape>
+</Modal>
+
+@code {
+    private Grade<EquipamentoMedicao>? _grade;
+    private List<EquipamentoMedicao>? _itens;
+    private EquipamentoMedicao? _e;
+    private List<Calibracao> _cals = [];
+    private Calibracao _nova = new();
+    private IReadOnlyList<string> _afetadas = [];
+    private bool _aberto;
+    private int _alerta = 30;
+    private ParametrosVigentes? _p;
+    private List<Opcao> _obras = [];
+    private StatusEquipamento St(EquipamentoMedicao e) => e.Status(Hoje, _alerta);
+
+    protected override async Task OnInitializedAsync()
+    {
+        _obras = await Cat.ObrasAsync();
+        await using (var db = Fabrica.CriarLeitura()) { _p = await ParametrosServico.CarregarAsync(db, Cancelamento); _alerta = _p.Int(Parametros.AlertaCalibracaoDias); }
+        await Carregar();
+    }
+
+    private async Task Carregar()
+    {
+        await using var db = Fabrica.CriarLeitura();
+        _itens = await db.Equipamentos.AsNoTracking().OrderBy(e => e.Codigo).ToListAsync(Cancelamento);
+    }
+
+    private void Novo() { _e = new EquipamentoMedicao { PeriodicidadeMeses = _p!.Int(Parametros.PeriodicidadeVerificacaoMeses), ObraId = _obras.Count == 1 ? _obras[0].Id : null }; _cals = []; ErrosForm = null; _aberto = true; }
+
+    private async Task Abrir(EquipamentoMedicao e)
+    {
+        await using var db = Fabrica.CriarLeitura();
+        _e = await db.Equipamentos.AsNoTracking().FirstAsync(x => x.Id == e.Id, Cancelamento);
+        _cals = await db.Calibracoes.AsNoTracking().Where(c => c.EquipamentoMedicaoId == e.Id).OrderByDescending(c => c.Data).ToListAsync(Cancelamento);
+        _nova = new Calibracao { Data = Hoje, Tipo = _e.TipoControle == TipoControleEquipamento.VerificacaoInterna ? TipoControleEquipamento.VerificacaoInterna : TipoControleEquipamento.CalibracaoExterna };
+        _afetadas = []; ErrosForm = null; _aberto = true;
+    }
+
+    private async Task Salvar()
+    {
+        Guid id = default;
+        if (await Executar(async () => id = await Qob.SalvarEquipamentoAsync(_e!, Cancelamento), "Equipamento salvo.")) { await Carregar(); await Abrir(_itens!.First(x => x.Id == id)); }
+    }
+
+    private async Task Registrar()
+    {
+        IReadOnlyList<string> af = [];
+        if (await Executar(async () => af = await Qob.RegistrarCalibracaoAsync(_e!.Id, _nova, Cancelamento), "Registro incluído."))
+        { await Carregar(); await Abrir(_e!); _afetadas = af; }
+    }
+}

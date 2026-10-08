@@ -1,0 +1,142 @@
+@page "/sst/documentos"
+@inherits PaginaBase
+@inject SstServico Sst
+@inject NavigationManager Nav
+
+<Pagina Titulo="Documentos do colaborador" Grade="_grade" AoNovo="Novo" AoAtualizar="Carregar">
+    <ChildContent>
+        <div class="pagina">
+            <Abas Itens="Abas" Ativa="@_aba" AtivaChanged="a => { _aba = a; Filtrar(); }" />
+            <Grade T="Linha" @ref="_grade" Itens="_itens" AoClicar="l => Abrir(l.Id)" NomeExportacao="documentos-colaborador">
+                <Colunas>
+                    <Coluna T="Linha" Titulo="Colaborador" Valor="l => l.Colaborador" />
+                    <Coluna T="Linha" Titulo="Empresa" Valor="l => l.Empresa" />
+                    <Coluna T="Linha" Titulo="Documento" Valor="l => l.Documento" />
+                    <Coluna T="Linha" Titulo="Origem" Valor="l => l.Origem" />
+                    <Coluna T="Linha" Titulo="Enviado em" Valor="l => l.Enviado" />
+                    <Coluna T="Linha" Titulo="Validade" Valor="l => l.Validade" />
+                    <Coluna T="Linha" Titulo="Validação" Valor="l => l.Validacao"><Modelo><Selo Texto="@De(context.Validacao)" Tom="@Tom(context.Validacao)" /></Modelo></Coluna>
+                </Colunas>
+            </Grade>
+        </div>
+    </ChildContent>
+    <Faixa><b>Tela 43 · Documentos do colaborador</b><span>Terceira envia pelo portal (aba Funcionários) · SST valida</span><span>ASO: só conclusão, aptidões e validade — nunca diagnóstico</span></Faixa>
+</Pagina>
+
+<Modal @bind-Aberto="_aberto" Titulo="@(_d?.CriadoEm == default ? "Lançar documento" : $"Validar documento — {Nome(_exig, _d!.ExigenciaId)} · {Nome(_colabs, _d.ColaboradorId)}")" Tamanho="media">
+    <ChildContent>
+        @if (_d is not null)
+        {
+            var ex = _exigs.FirstOrDefault(e => e.Id == _d.ExigenciaId);
+            <Erros Lista="ErrosForm" />
+            @if (_d.Origem == OrigemDocColaborador.PortalFornecedor) { <div class="alerta info"><Icone Nome="enviar" /> Enviado pelo portal do fornecedor em @DataHora(_d.CriadoEm).</div> }
+            <div class="form">
+                <Campo Rotulo="Colaborador" Obrigatorio Classe="s6"><select @bind="_d.ColaboradorId" disabled="@(_d.CriadoEm != default)"><option value="@Guid.Empty">Selecione…</option>@foreach (var c in _colabs) { <option value="@c.Id">@c.Texto</option> }</select></Campo>
+                <Campo Rotulo="Exigência / tipo" Obrigatorio Classe="s6"><select @bind="_d.ExigenciaId" disabled="@(_d.CriadoEm != default)"><option value="@Guid.Empty">Selecione…</option>@foreach (var e in _exigs.Where(e => e.Tipo is TipoExigencia.Documento or TipoExigencia.ExameAso or TipoExigencia.Treinamento)) { <option value="@e.Id">@e.Descricao</option> }</select></Campo>
+                <Campo Rotulo="Data de emissão / exame" Obrigatorio Classe="s4"><input type="date" @bind="_d.DataEmissao" /></Campo>
+                <Campo Rotulo="Validade" Classe="s4"><input type="date" @bind="_d.Validade" /></Campo>
+                @if (ex?.Tipo == TipoExigencia.ExameAso)
+                {
+                    <Campo Rotulo="Conclusão" Obrigatorio Classe="s4"><select @bind="_d.ConclusaoAso"><option value="">—</option><option value="@ConclusaoAso.Apto">Apto</option><option value="@ConclusaoAso.Inapto">Inapto</option></select></Campo>
+                    <Campo Rotulo="Apto para atividades de risco" Classe="s12"><div class="checks">@foreach (var a in new[] { AtividadeRisco.Altura, AtividadeRisco.EspacoConfinado, AtividadeRisco.Eletrico, AtividadeRisco.OperacaoEquipamento }) { <label><input type="checkbox" checked="@_d.AptoAtividades.HasFlag(a)" @onchange="x => _d.AptoAtividades = (bool)x.Value! ? _d.AptoAtividades | a : _d.AptoAtividades & ~a" /> @De(a)</label> }</div></Campo>
+                    <div class="campo s12"><div class="alerta erro"><Icone Nome="cadeado" /> Dado de saúde (LGPD): o sistema guarda só a conclusão (apto/inapto), a aptidão para atividades de risco e a validade. Diagnóstico nunca é digitado. Arquivo restrito ao perfil SST.</div></div>
+                }
+                <Campo Rotulo="Arquivo" Classe="s12">
+                    @if (_d.ArquivoNome is not null) { <span><Icone Nome="cadeado" Tam="14" /> @_d.ArquivoNome @(_d.ArquivoRestrito ? "· acesso restrito SST" : "")</span> }
+                    @if (_d.CriadoEm == default) { <InputFile OnChange="e => _arq = e.File" accept=".pdf,.jpg,.jpeg,.png" /> }
+                </Campo>
+                @if (_d.CriadoEm != default && _d.Validacao == ValidacaoDoc.Aguardando)
+                {
+                    <Campo Rotulo="Motivo da recusa (vai por e-mail à empresa)" Classe="s12"><input @bind="_motivo" /></Campo>
+                }
+            </div>
+        }
+    </ChildContent>
+    <Rodape>
+        @if (_d is not null)
+        {
+            @if (_d.CriadoEm == default) { <button class="btn prim" disabled="@Ocupado" @onclick="Lancar"><Icone Nome="check" Tam="16" /> Lançar e validar</button> }
+            else if (_d.Validacao == ValidacaoDoc.Aguardando)
+            {
+                <button class="btn perigo" disabled="@Ocupado" @onclick="() => Validar(false)">Recusar</button>
+                <button class="btn ok" disabled="@Ocupado" @onclick="() => Validar(true)"><Icone Nome="check" Tam="16" /> Validar</button>
+            }
+        }
+    </Rodape>
+</Modal>
+
+@code {
+    private sealed record Linha(Guid Id, string Colaborador, string? Empresa, string Documento, OrigemDocColaborador Origem, DateTimeOffset Enviado, DateOnly? Validade, ValidacaoDoc Validacao);
+    private Grade<Linha>? _grade;
+    private List<Linha> _todos = [];
+    private List<Linha>? _itens;
+    private DocumentoColaborador? _d;
+    private IBrowserFile? _arq;
+    private string? _motivo;
+    private bool _aberto;
+    private string _aba = "aguardando";
+    private List<Opcao> _colabs = [], _exig = [];
+    private List<Exigencia> _exigs = [];
+    private Guid? _filtroColab;
+    private List<(string, string)> Abas => [("aguardando", $"Aguardando validação ({_todos.Count(d => d.Validacao == ValidacaoDoc.Aguardando)})"),
+        ("vencendo", $"Vencendo em 30 dias ({_todos.Count(d => d.Validade >= Hoje && d.Validade <= Hoje.AddDays(30))})"),
+        ("vencidos", $"Vencidos ({_todos.Count(d => d.Validade < Hoje)})"), ("todos", "Todos")];
+    private static string Nome(List<Opcao> l, Guid id) => l.FirstOrDefault(x => x.Id == id)?.Texto ?? "—";
+
+    protected override async Task OnInitializedAsync()
+    {
+        _colabs = await Cat.ColaboradoresAsync();
+        await using (var db = Fabrica.CriarLeitura()) { _exigs = await db.Exigencias.AsNoTracking().OrderBy(e => e.Ordem).ToListAsync(Cancelamento); }
+        _exig = _exigs.Select(e => new Opcao(e.Id, e.Descricao)).ToList();
+        if (Nav.Uri.Contains("?colaborador=") && Guid.TryParse(Nav.Uri.Split("?colaborador=")[1], out var c)) { _filtroColab = c; _aba = "todos"; }
+        await Carregar();
+    }
+
+    private async Task Carregar()
+    {
+        await using var db = Fabrica.CriarLeitura();
+        var forn = await db.Fornecedores.AsNoTracking().ToDictionaryAsync(f => f.Id, f => f.NomeExibicao, Cancelamento);
+        var cols = await db.Colaboradores.AsNoTracking().Select(c => new { c.Id, c.Nome, c.FornecedorId }).ToDictionaryAsync(c => c.Id, Cancelamento);
+        var q = db.DocumentosColaborador.AsNoTracking();
+        if (_filtroColab is { } fc) q = q.Where(d => d.ColaboradorId == fc);
+        _todos = (await q.OrderByDescending(d => d.CriadoEm).ToListAsync(Cancelamento)).Select(d =>
+        {
+            var c = cols.GetValueOrDefault(d.ColaboradorId);
+            return new Linha(d.Id, c?.Nome ?? "?", c?.FornecedorId is { } f ? forn.GetValueOrDefault(f) : "Própria", Nome(_exig, d.ExigenciaId), d.Origem, d.CriadoEm, d.Validade, d.Validacao);
+        }).ToList();
+        Filtrar();
+    }
+
+    private void Filtrar() => _itens = _aba switch
+    {
+        "aguardando" => _todos.Where(d => d.Validacao == ValidacaoDoc.Aguardando).ToList(),
+        "vencendo" => _todos.Where(d => d.Validade >= Hoje && d.Validade <= Hoje.AddDays(30)).ToList(),
+        "vencidos" => _todos.Where(d => d.Validade < Hoje).ToList(),
+        _ => _todos
+    };
+
+    private void Novo() { _d = new DocumentoColaborador { DataEmissao = Hoje, ColaboradorId = _filtroColab ?? Guid.Empty }; _arq = null; ErrosForm = null; _aberto = true; }
+
+    private async Task Abrir(Guid id)
+    {
+        await using var db = Fabrica.CriarLeitura();
+        _d = await db.DocumentosColaborador.AsNoTracking().FirstAsync(x => x.Id == id, Cancelamento);
+        _motivo = _d.MotivoRecusa; ErrosForm = null; _aberto = true;
+    }
+
+    private async Task Lancar()
+    {
+        if (_d!.ColaboradorId == Guid.Empty || _d.ExigenciaId == Guid.Empty) { ErrosForm = ["Informe o colaborador e a exigência."]; return; }
+        if (await Executar(async () =>
+        {
+            await using var s = _arq?.OpenReadStream(15 * 1024 * 1024);
+            await Sst.SalvarDocumentoAsync(_d, s, _arq?.Name, _arq?.ContentType, validarJa: true, Cancelamento);
+        }, "Documento lançado e validado.")) { _aberto = false; await Carregar(); }
+    }
+
+    private async Task Validar(bool ok)
+    {
+        if (await Executar(() => Sst.ValidarDocumentoAsync(_d!.Id, ok, _motivo, _d.ConclusaoAso, _d.AptoAtividades, _d.Validade, Cancelamento), ok ? "Documento validado — situação recalculada." : "Documento recusado."))
+        { _aberto = false; await Carregar(); }
+    }
+}

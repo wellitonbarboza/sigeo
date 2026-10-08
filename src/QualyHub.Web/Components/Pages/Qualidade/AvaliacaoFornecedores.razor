@@ -1,0 +1,99 @@
+@page "/fornecedores/avaliacao"
+@inherits PaginaBase
+@inject AvaliacaoFornecedoresServico AvaliacaoSrv
+
+<Pagina Titulo="Avaliação consolidada de fornecedores" Grade="_grade" AoAtualizar="Carregar">
+    <ChildContent>
+        <div class="pagina">
+            <div class="barra-filtro">
+                <label>Período <select @bind="_periodo" @bind:after="Carregar">@foreach (var p in _periodos) { <option>@p</option> }</select></label>
+                <button class="btn sec" disabled="@Ocupado" @onclick="Consolidar"><Icone Nome="cubo" Tam="16" /> Consolidar período</button>
+            </div>
+            <div class="kpis">
+                <Kpi Rotulo="Fornecedores avaliados" Valor="@_itens?.Count" />
+                <Kpi Rotulo="Decisão pendente" Valor="@_itens?.Count(a => a.Decisao == null)" Tom="aviso" />
+                <Kpi Rotulo="@($"Nota média < {Num(_p?[Parametros.NotaPlanoCompleto])}")" Valor="@_itens?.Count(a => a.NotaMedia < _p?[Parametros.NotaPlanoCompleto])" Tom="erro" />
+                <Kpi Rotulo="Desqualificados" Valor="@_itens?.Count(a => a.Decisao == DecisaoSemestral.Desqualificar)" Tom="erro" />
+            </div>
+            <Grade T="AvaliacaoSemestral" @ref="_grade" Itens="_itens" AoClicar="a => { _a = a; _decidida = a.Decisao is not null; ErrosForm = null; _aberto = true; }" NomeExportacao="avaliacao-fornecedores">
+                <Colunas>
+                    <Coluna T="AvaliacaoSemestral" Titulo="Fornecedor" Valor="a => a.Fornecedor.RazaoSocial" />
+                    <Coluna T="AvaliacaoSemestral" Titulo="FVM" Valor="a => a.QtdFvm" Alinhar="num" />
+                    <Coluna T="AvaliacaoSemestral" Titulo="% FVM aprovadas" Valor="a => a.PercFvmAprovadas" Alinhar="num" />
+                    <Coluna T="AvaliacaoSemestral" Titulo="Medições" Valor="a => a.QtdMedicoes" Alinhar="num" />
+                    <Coluna T="AvaliacaoSemestral" Titulo="Nota média" Valor="a => a.NotaMedia" Alinhar="num"><Modelo><b class="@(context.NotaMedia < _p?[Parametros.NotaPlanoCompleto] ? "texto-erro" : "")">@Num(context.NotaMedia)</b></Modelo></Coluna>
+                    <Coluna T="AvaliacaoSemestral" Titulo="Planos abertos" Valor="a => a.PlanosAbertos" Alinhar="num" />
+                    <Coluna T="AvaliacaoSemestral" Titulo="Decisão" Valor="a => a.Decisao"><Modelo>@if (context.Decisao is { } d) { <Selo Texto="@De(d)" Tom="@Tom(d)" /> } else { <Selo Texto="Pendente" Tom="aviso" /> }</Modelo></Coluna>
+                    <Coluna T="AvaliacaoSemestral" Titulo="Reunião" Valor="a => a.DataReuniao" />
+                </Colunas>
+            </Grade>
+        </div>
+    </ChildContent>
+    <Faixa><b>Avaliação semestral</b><span>Consolida FVM (materiais) e notas de medição (serviços) do período</span><span>Decisão em reunião: manter · manter com plano · desqualificar (inativa o fornecedor)</span></Faixa>
+</Pagina>
+
+<Modal @bind-Aberto="_aberto" Titulo="@($"{_a?.Fornecedor.RazaoSocial} — {_a?.Periodo}")" Tamanho="media">
+    <ChildContent>
+        @if (_a is not null)
+        {
+            <Erros Lista="ErrosForm" />
+            <div class="kpis">
+                <Kpi Rotulo="% FVM aprovadas" Valor="@(_a.PercFvmAprovadas is null ? "—" : $"{_a.PercFvmAprovadas:0.#}%")" Sub="@($"{_a.QtdFvm} entregas")" />
+                <Kpi Rotulo="Nota média" Valor="@Num(_a.NotaMedia)" Sub="@($"{_a.QtdMedicoes} medições")" />
+                <Kpi Rotulo="Planos abertos" Valor="@_a.PlanosAbertos" />
+            </div>
+            <div class="form">
+                <Campo Rotulo="Decisão" Obrigatorio Classe="s6"><select @bind="_a.Decisao" disabled="@_decidida"><option value="">Selecione…</option>@foreach (var d in Enum.GetValues<DecisaoSemestral>()) { <option value="@d">@De(d)</option> }</select></Campo>
+                <Campo Rotulo="Data da reunião" Obrigatorio Classe="s3"><input type="date" @bind="_a.DataReuniao" disabled="@_decidida" /></Campo>
+                <Campo Rotulo="Comunicado enviado" Classe="s3"><input type="date" @bind="_a.DataComunicado" disabled="@_decidida" /></Campo>
+                <Campo Rotulo="Participantes" Obrigatorio Classe="s12"><input @bind="_a.Participantes" disabled="@_decidida" /></Campo>
+            </div>
+            @if (_a.Decisao == DecisaoSemestral.Desqualificar && !_decidida) { <div class="alerta erro"><Icone Nome="alerta" /> Desqualificar inativa o fornecedor e bloqueia novas compras.</div> }
+            <Anexos Entidade="AvaliacaoSemestral" EntidadeId="_a.Id" Categoria="Ata" Titulo="Ata da reunião / comunicado" SomenteLeitura="false" />
+        }
+    </ChildContent>
+    <Rodape>@if (_a is not null && !_decidida) { <button class="btn prim" disabled="@Ocupado" @onclick="Decidir"><Icone Nome="check" Tam="16" /> Registrar decisão</button> }</Rodape>
+</Modal>
+
+@code {
+    private Grade<AvaliacaoSemestral>? _grade;
+    private List<AvaliacaoSemestral>? _itens;
+    private AvaliacaoSemestral? _a;
+    private ParametrosVigentes? _p;
+    private bool _aberto;
+    private bool _decidida;
+    private string _periodo = "";
+    private List<string> _periodos = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using (var db = Fabrica.CriarLeitura()) _p = await ParametrosServico.CarregarAsync(db, Cancelamento);
+        var atual = AvaliacaoSemestral.PeriodoDe(Hoje);
+        var anterior = AvaliacaoSemestral.PeriodoDe(Hoje.AddMonths(-6));
+        var antigo = AvaliacaoSemestral.PeriodoDe(Hoje.AddMonths(-12));
+        _periodos = [atual, anterior, antigo];
+        _periodo = anterior;
+        await Carregar();
+    }
+
+    private async Task Carregar()
+    {
+        await using var db = Fabrica.CriarLeitura();
+        _itens = await db.AvaliacoesSemestrais.AsNoTracking().Include(a => a.Fornecedor).Where(a => a.Periodo == _periodo).OrderBy(a => a.NotaMedia).ToListAsync(Cancelamento);
+    }
+
+    private async Task Consolidar()
+    {
+        var n = 0;
+        if (await Executar(async () => n = await AvaliacaoSrv.ConsolidarSemestreAsync(_periodo, Cancelamento))) { Notif.Sucesso($"{n} fornecedor(es) consolidados em {_periodo}."); await Carregar(); }
+    }
+
+    private async Task Decidir()
+    {
+        var copia = _a!;
+        var f = copia.Fornecedor; copia.Fornecedor = null!;
+        var ok = await Executar(() => AvaliacaoSrv.DecidirSemestreAsync(copia, Cancelamento), "Decisão registrada.");
+        copia.Fornecedor = f;
+        if (ok) { _aberto = false; await Carregar(); }
+    }
+}

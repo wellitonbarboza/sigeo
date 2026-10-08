@@ -1,0 +1,58 @@
+@* Notas do registro: histórico de comentários (data/hora + usuário), imutável — padrão "NOTAS" do ExpertData. *@
+@inject ColaboracaoServico Colab
+@inject Notificacoes Notif
+@implements IDisposable
+
+<div class="secao"><Icone Nome="info" /> @Titulo <small class="mudo">(@_itens.Count)</small></div>
+@if (!SomenteLeitura)
+{
+    <div class="nota-nova">
+        <textarea @bind="_texto" @bind:event="oninput" placeholder="Escreva uma nota (fica registrada com seu nome e a data/hora — não pode ser editada)" rows="2" maxlength="4000"></textarea>
+        <button class="btn sec pq" disabled="@(_ocupado || string.IsNullOrWhiteSpace(_texto))" @onclick="Adicionar"><Icone Nome="check" Tam="14" /> Nova nota</button>
+    </div>
+}
+@if (_itens.Count == 0) { <div class="mudo vazio-curto">Nenhuma nota.</div> }
+else
+{
+    <ul class="notas">
+        @foreach (var n in _itens)
+        {
+            <li><div class="nota-cab"><b>@n.CriadoPor</b> <span class="mudo">@Rotulos.DataHora(n.CriadoEm)</span></div><div class="nota-txt">@n.Texto</div></li>
+        }
+    </ul>
+}
+@code {
+    [Parameter] public string Entidade { get; set; } = "";
+    [Parameter] public Guid EntidadeId { get; set; }
+    [Parameter] public string Titulo { get; set; } = "Notas";
+    [Parameter] public bool SomenteLeitura { get; set; }
+    private List<Nota> _itens = [];
+    private string? _texto;
+    private bool _ocupado;
+    private Guid _carregado;
+    // Cancela a consulta/gravação em andamento se o usuário sair da tela antes de terminar.
+    private readonly CancellationTokenSource _cts = new();
+
+    public void Dispose() => _cts.Cancel(); // não descarta a fonte: código que ainda está num await lê o token depois e precisa ver "cancelado", não ObjectDisposedException
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_carregado == EntidadeId) return;
+        _carregado = EntidadeId;
+        _itens = EntidadeId == Guid.Empty ? [] : await Colab.NotasAsync(Entidade, EntidadeId, _cts.Token);
+    }
+
+    private async Task Adicionar()
+    {
+        _ocupado = true;
+        try
+        {
+            await Colab.AdicionarNotaAsync(Entidade, EntidadeId, _texto ?? "", _cts.Token);
+            _texto = null;
+            _itens = await Colab.NotasAsync(Entidade, EntidadeId, _cts.Token);
+            Notif.Sucesso("Nota registrada.");
+        }
+        catch (RegraDeNegocioException e) { Notif.Erro(e.Message); }
+        finally { _ocupado = false; }
+    }
+}

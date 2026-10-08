@@ -1,0 +1,153 @@
+@page "/sst/epi"
+@inherits PaginaBase
+@inject SstServico Sst
+
+<Pagina Titulo="Entrega de EPI" Grade="GradeAtual" AoNovo="Novo" AoAtualizar="Carregar">
+    <ChildContent>
+        <div class="pagina">
+            <Abas Itens="_abas" @bind-Ativa="_aba" />
+            @if (_aba == "fichas")
+            {
+                <Grade T="Linha" @ref="_gF" Itens="_linhas" AoClicar="l => AbrirFicha(l.Id)" NomeExportacao="fichas-epi">
+                    <Colunas>
+                        <Coluna T="Linha" Titulo="Colaborador" Valor="l => l.Nome" />
+                        <Coluna T="Linha" Titulo="Empresa" Valor="l => l.Empresa" />
+                        <Coluna T="Linha" Titulo="Última entrega" Valor="l => l.Ultima" />
+                        <Coluna T="Linha" Titulo="Troca prevista" Valor="l => l.Troca" />
+                        <Coluna T="Linha" Titulo="CA vencido" Valor="l => l.CaVencido" />
+                        <Coluna T="Linha" Titulo="Situação" Valor="l => l.Situacao"><Modelo><Selo Texto="@context.Situacao" Tom="@(context.Situacao == "Em dia" ? "ok" : context.Situacao == "Sem entrega" || context.Situacao == "CA vencido" ? "erro" : "aviso")" /></Modelo></Coluna>
+                    </Colunas>
+                </Grade>
+            }
+            else
+            {
+                <Grade T="Epi" @ref="_gC" Itens="_epis" AoClicar="e => { _epi = e; ErrosForm = null; _abertoC = true; }" NomeExportacao="epi">
+                    <Colunas>
+                        <Coluna T="Epi" Titulo="EPI" Valor="e => e.Descricao" />
+                        <Coluna T="Epi" Titulo="CA" Valor="e => e.Ca" />
+                        <Coluna T="Epi" Titulo="Validade do CA" Valor="e => e.ValidadeCa"><Modelo><span class="@(context.ValidadeCa < Hoje ? "texto-erro" : context.ValidadeCa <= Hoje.AddDays(_alertaCa) ? "texto-aviso" : "")">@Data(context.ValidadeCa)</span></Modelo></Coluna>
+                        <Coluna T="Epi" Titulo="Vida útil (dias)" Valor="e => e.VidaUtilDias" Alinhar="num" />
+                    </Colunas>
+                </Grade>
+            }
+        </div>
+    </ChildContent>
+    <Faixa><b>Tela 45 · Entrega de EPI</b><span>NR-06 · CA válido, troca prevista e assinatura digital</span><span>CA vencido não pode ser entregue</span></Faixa>
+</Pagina>
+
+<Modal @bind-Aberto="_abertoF" Titulo="@($"Ficha de EPI — {_colab?.Nome}")">
+    <ChildContent>
+        @if (_colab is not null)
+        {
+            <Erros Lista="ErrosForm" />
+            <div class="tabela-rolavel">
+            <table class="itens">
+                <thead><tr><th>EPI</th><th>CA</th><th>Validade do CA</th><th>Qtd.</th><th>Entregue em</th><th>Troca prevista</th><th>Assinatura</th></tr></thead>
+                <tbody>
+                    @foreach (var e in _entregas)
+                    {
+                        var epi = _epis.FirstOrDefault(x => x.Id == e.EpiId);
+                        <tr><td>@epi?.Descricao</td><td>@epi?.Ca</td><td>@Data(epi?.ValidadeCa)</td><td>@Num(e.Quantidade, 0)</td><td>@Data(e.DataEntrega)</td><td>@Data(e.TrocaPrevista)</td><td><Icone Nome="editar" Tam="13" /> @e.Assinatura</td></tr>
+                    }
+                </tbody>
+            </table>
+            </div>
+            <div class="secao"><Icone Nome="mais" /> Nova entrega</div>
+            <div class="form">
+                <Campo Rotulo="EPI" Obrigatorio Classe="s5"><select @bind="_novoEpi"><option value="">Selecione…</option>@foreach (var e in _epis) { <option value="@e.Id">@e.Descricao · CA @e.Ca @(e.ValidadeCa < Hoje ? "(CA vencido)" : "")</option> }</select></Campo>
+                <Campo Rotulo="Qtd." Classe="s2"><input type="number" @bind="_qtd" /></Campo>
+                <Campo Rotulo="Motivo" Classe="s5"><select @bind="_motivo">@foreach (var m in Enum.GetValues<MotivoEntregaEpi>()) { <option value="@m">@De(m)</option> }</select></Campo>
+                <Campo Rotulo="Assinatura do colaborador (digite o nome completo no celular/tablet)" Obrigatorio Classe="s12"><input @bind="_assinatura" placeholder="@_colab.Nome" /></Campo>
+            </div>
+            <div class="alerta aviso"><Icone Nome="alerta" /> CA vencido não pode ser entregue. Assinatura do colaborador no celular/tablet com data, hora e usuário; ficha impressa só como cópia.</div>
+        }
+    </ChildContent>
+    <Rodape><button class="btn prim" disabled="@Ocupado" @onclick="Registrar"><Icone Nome="check" Tam="16" /> Registrar entrega</button></Rodape>
+</Modal>
+
+<Modal @bind-Aberto="_abertoC" Titulo="EPI (catálogo)" Tamanho="pequena">
+    <ChildContent>
+        @if (_epi is not null)
+        {
+            <Erros Lista="ErrosForm" />
+            <div class="form">
+                <Campo Rotulo="Descrição" Obrigatorio Classe="s12"><input @bind="_epi.Descricao" /></Campo>
+                <Campo Rotulo="CA" Obrigatorio Classe="s4"><input @bind="_epi.Ca" /></Campo>
+                <Campo Rotulo="Validade do CA" Obrigatorio Classe="s4"><input type="date" @bind="_epi.ValidadeCa" /></Campo>
+                <Campo Rotulo="Vida útil (dias)" Classe="s4"><input type="number" @bind="_epi.VidaUtilDias" /></Campo>
+                <Campo Rotulo="Produto no estoque" Classe="s12"><select @bind="_epi.ProdutoId"><option value="">—</option>@foreach (var p in _produtos) { <option value="@p.Id">@p.Texto</option> }</select></Campo>
+            </div>
+        }
+    </ChildContent>
+    <Rodape><button class="btn prim" disabled="@Ocupado" @onclick="SalvarEpi"><Icone Nome="check" Tam="16" /> Salvar</button></Rodape>
+</Modal>
+
+@code {
+    private sealed record Linha(Guid Id, string Nome, string? Empresa, DateOnly? Ultima, DateOnly? Troca, string? CaVencido, string Situacao);
+    private IGrade? GradeAtual => _aba == "fichas" ? _gF : _gC;
+    private Grade<Linha>? _gF;
+    private Grade<Epi>? _gC;
+    private List<Linha>? _linhas;
+    private List<Epi> _epis = [];
+    private List<EntregaEpi> _entregas = [];
+    private Colaborador? _colab;
+    private Epi? _epi;
+    private Guid? _novoEpi;
+    private decimal _qtd = 1;
+    private MotivoEntregaEpi _motivo;
+    private string? _assinatura;
+    private int _alertaCa = 60;
+    private bool _abertoF, _abertoC;
+    private string _aba = "fichas";
+    private List<Opcao> _produtos = [];
+    private static readonly List<(string, string)> _abas = [("fichas", "Fichas por colaborador"), ("cat", "Catálogo de EPI (CA)")];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _produtos = await Cat.ProdutosAsync();
+        await using (var db = Fabrica.CriarLeitura()) _alertaCa = (await ParametrosServico.CarregarAsync(db, Cancelamento)).Int(Parametros.AlertaCaDias);
+        await Carregar();
+    }
+
+    private async Task Carregar()
+    {
+        await using var db = Fabrica.CriarLeitura();
+        _epis = await db.Epis.AsNoTracking().Where(e => e.Ativo).OrderBy(e => e.Descricao).ToListAsync(Cancelamento);
+        var forn = await db.Fornecedores.AsNoTracking().ToDictionaryAsync(f => f.Id, f => f.NomeExibicao, Cancelamento);
+        var cols = await db.Colaboradores.AsNoTracking().Where(c => c.DataSaida == null).OrderBy(c => c.Nome)
+            .Select(c => new { c.Id, c.Nome, c.FornecedorId }).ToListAsync(Cancelamento);
+        // Só os campos usados no resumo: a tabela de entregas cresce a cada troca de EPI.
+        var ent = await db.EntregasEpi.AsNoTracking().Select(x => new { x.ColaboradorId, x.EpiId, x.DataEntrega, x.TrocaPrevista }).ToListAsync(Cancelamento);
+        _linhas = cols.Select(c =>
+        {
+            var e = ent.Where(x => x.ColaboradorId == c.Id).ToList();
+            var caV = e.Select(x => _epis.FirstOrDefault(p => p.Id == x.EpiId)).Where(p => p is not null && p.ValidadeCa < Hoje).Select(p => p!.Descricao).FirstOrDefault();
+            var troca = e.Where(x => x.TrocaPrevista is not null).Select(x => x.TrocaPrevista).Min();
+            var sit = e.Count == 0 ? "Sem entrega" : caV is not null ? "CA vencido" : troca <= Hoje ? "Troca hoje" : "Em dia";
+            return new Linha(c.Id, c.Nome, c.FornecedorId is { } f ? forn.GetValueOrDefault(f) : "Própria", e.Select(x => (DateOnly?)x.DataEntrega).Max(), troca, caV, sit);
+        }).ToList();
+    }
+
+    private void Novo() { ErrosForm = null; if (_aba == "cat") { _epi = new Epi { ValidadeCa = Hoje.AddYears(2) }; _abertoC = true; } else Notif.Aviso("Clique no colaborador para abrir a ficha de EPI."); }
+
+    private async Task AbrirFicha(Guid id)
+    {
+        await using var db = Fabrica.CriarLeitura();
+        _colab = await db.Colaboradores.AsNoTracking().FirstAsync(c => c.Id == id, Cancelamento);
+        _entregas = await db.EntregasEpi.AsNoTracking().Where(e => e.ColaboradorId == id).OrderByDescending(e => e.DataEntrega).ToListAsync(Cancelamento);
+        _novoEpi = null; _qtd = 1; _motivo = _entregas.Count == 0 ? MotivoEntregaEpi.PrimeiraEntrega : MotivoEntregaEpi.TrocaDesgaste; _assinatura = null; ErrosForm = null; _abertoF = true;
+    }
+
+    private async Task Registrar()
+    {
+        if (_novoEpi is null) { ErrosForm = ["Escolha o EPI."]; return; }
+        var ass = string.IsNullOrWhiteSpace(_assinatura) ? null : $"{_assinatura} · {DateTimeOffset.Now:dd/MM/yyyy HH:mm} · registrado por {Usuario.Nome}";
+        if (await Executar(() => Sst.RegistrarEntregaEpiAsync(_colab!.Id, _novoEpi.Value, _qtd, Hoje, _motivo, ass ?? "", Cancelamento), "Entrega registrada."))
+        { await Carregar(); await AbrirFicha(_colab!.Id); }
+    }
+
+    private async Task SalvarEpi()
+    {
+        if (await Executar(() => Sst.SalvarEpiAsync(_epi!, Cancelamento), "EPI salvo.")) { _abertoC = false; await Carregar(); }
+    }
+}

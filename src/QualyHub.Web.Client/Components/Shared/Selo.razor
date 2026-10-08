@@ -1,0 +1,16 @@
+@* Situação não depende só da cor (WCAG 1.4.1): cada tom ganha um ícone decorativo; o texto continua sendo o que o leitor lê. *@
+<span class="selo @Tom">@if (IconeDoTom(Tom) is { } icone) {<Icone Nome="@icone" Tam="12" Traco="2.4" />}<span>@Texto</span></span>
+@code {
+    [Parameter] public string Texto { get; set; } = "";
+    [Parameter] public string Tom { get; set; } = "neutro";
+
+    // Icone já sai com aria-hidden="true"; "aviso" é o nome usado no CSS, "alerta" aceito por equivalência.
+    private static string? IconeDoTom(string? tom) => tom switch
+    {
+        "ok" => "check",
+        "erro" => "x",
+        "aviso" or "alerta" => "exclamacao",
+        "info" => "info",
+        _ => null
+    };
+}

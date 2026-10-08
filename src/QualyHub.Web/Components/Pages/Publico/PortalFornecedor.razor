@@ -1,0 +1,209 @@
+@page "/portal/{Token}"
+@attribute [AllowAnonymous]
+@layout LayoutPublico
+@inject PortalServico Portal
+@inject IHttpContextAccessor Http
+
+<PageTitle>Portal do fornecedor · QualyHub</PageTitle>
+<div class="@(NaArea ? "portal-embutido" : "portal")">
+    @if (_carregando) { <p class="mudo">Carregando…</p> }
+    else if (_s is null)
+    {
+        <div class="caixa"><h2>@(NaArea ? "Sessão expirada" : "Link inválido ou expirado")</h2><p>@(NaArea ? "Saia e entre de novo com o CNPJ e o código." : "Entre pela Área do Fornecedor (CNPJ + código) ou solicite um novo link ao setor de Suprimentos.")</p></div>
+    }
+    else
+    {
+        <header class="portal-topo">
+            <div><small>Portal do fornecedor · @_s.EmpresaNome</small><h1>@_s.Fornecedor.RazaoSocial</h1><span class="mudo">@_s.Fornecedor.CpfCnpj@(NaArea ? "" : $" · solicitação {_s.Link.Codigo} · link válido até {_s.Link.ValidoAte.ToLocalTime():dd/MM/yyyy}")</span></div>
+        </header>
+        @if (_s.Alerta is not null) { <div class="alerta aviso"><Icone Nome="alerta" /> @_s.Alerta</div> }
+        @if (_msg is not null) { <div class="alerta @(_ok ? "ok" : "erro")">@_msg</div> }
+        <div class="abas mb-10">
+            @if (_s.Fornecedor.PreCadastro) { <button class="@(_aba == "dados" ? "on" : "")" id="aba-dados" @onclick='() => _aba = "dados"'>Dados cadastrais (completar)</button> }
+            <button class="@(_aba == "empresa" ? "on" : "")" @onclick='() => _aba = "empresa"'>Documentos da empresa</button>
+            <button class="@(_aba == "func" ? "on" : "")" @onclick='() => _aba = "func"'>Funcionários (@_s.Colaboradores.Count)</button>
+        </div>
+        @if (_aba == "dados")
+        {
+            <div class="form" id="form-dados">
+                <Campo Rotulo="Nome fantasia" Classe="s6"><input @bind="_d.NomeFantasia" /></Campo>
+                <Campo Rotulo="Inscrição estadual" Classe="s3"><input @bind="_d.InscricaoEstadual" /></Campo>
+                <Campo Rotulo="Inscrição municipal" Classe="s3"><input @bind="_d.InscricaoMunicipal" /></Campo>
+                <Campo Rotulo="CEP" Classe="s2"><input @bind="_d.Cep" /></Campo>
+                <Campo Rotulo="Endereço" Obrigatorio Classe="s6"><input id="pd-end" @bind="_d.Endereco" /></Campo>
+                <Campo Rotulo="Número" Classe="s2"><input @bind="_d.Numero" /></Campo>
+                <Campo Rotulo="Complemento" Classe="s2"><input @bind="_d.Complemento" /></Campo>
+                <Campo Rotulo="Bairro" Classe="s4"><input @bind="_d.Bairro" /></Campo>
+                <Campo Rotulo="Cidade" Obrigatorio Classe="s6"><input id="pd-cidade" @bind="_d.Cidade" /></Campo>
+                <Campo Rotulo="UF" Obrigatorio Classe="s2"><input id="pd-uf" @bind="_d.Uf" maxlength="2" /></Campo>
+                <Campo Rotulo="Telefones" Classe="s4"><input @bind="_d.Telefones" /></Campo>
+                <Campo Rotulo="E-mails (pedidos e cotações)" Obrigatorio Classe="s5"><input @bind="_d.Emails" /></Campo>
+                <Campo Rotulo="Site" Classe="s3"><input @bind="_d.Site" /></Campo>
+                <Campo Rotulo="Contato — nome" Obrigatorio Classe="s4"><input id="pd-contato" @bind="_d.ContatoNome" /></Campo>
+                <Campo Rotulo="Contato — e-mail" Classe="s4"><input @bind="_d.ContatoEmail" /></Campo>
+                <Campo Rotulo="Contato — telefone" Classe="s4"><input @bind="_d.ContatoTelefone" /></Campo>
+            </div>
+            <button class="btn prim" id="pd-salvar" disabled="@_enviando" @onclick="SalvarDados"><Icone Nome="check" Tam="16" /> Salvar dados</button>
+        }
+        else if (_aba == "func")
+        {
+            <div class="tabela-rolavel">
+                <table class="itens">
+                    <thead><tr><th>Funcionário</th><th>Função</th><th>Situação</th><th>Pendências</th><th></th></tr></thead>
+                    <tbody>
+                        @foreach (var c in _s.Colaboradores)
+                        {
+                            <tr><td><b>@c.Nome</b></td><td>@c.Funcao</td><td><Selo Texto="@(Enum.TryParse<SituacaoColaborador>(c.Situacao, out var sc) ? Rotulos.De(sc) : c.Situacao)" Tom="@(Enum.TryParse<SituacaoColaborador>(c.Situacao, out var sc2) ? Rotulos.Tom(sc2) : "neutro")" /></td>
+                                <td><small>@c.Pendencias</small></td><td><button class="btn sec pq" @onclick="() => { _colab = c; _exig = null; _tipo = null; _msg = null; }">Enviar documento</button></td></tr>
+                        }
+                        @if (_s.Colaboradores.Count == 0) { <tr><td colspan="5" class="mudo">Nenhum funcionário cadastrado para esta empresa na obra. Informe a construtora.</td></tr> }
+                    </tbody>
+                </table>
+            </div>
+            @if (_colab is not null)
+            {
+                <div class="caixa-envio">
+                    <h3>@_colab.Nome — enviar documento</h3>
+                    <div class="form">
+                        <Campo Rotulo="Documento" Obrigatorio Classe="s6"><select @bind="_exig"><option value="">Selecione…</option>@foreach (var e in _s.Exigencias) { <option value="@e.Id">@e.Nome</option> }</select></Campo>
+                        <Campo Rotulo="Emissão / exame" Obrigatorio Classe="s3"><input type="date" @bind="_emissaoC" /></Campo>
+                        <Campo Rotulo="Validade" Classe="s3"><input type="date" @bind="_validade" /></Campo>
+                        <Campo Rotulo="Seu nome (responsável)" Obrigatorio Classe="s6"><input @bind="_responsavel" /></Campo>
+                        <Campo Rotulo="Arquivo (PDF, JPG ou PNG)" Obrigatorio Classe="s6"><InputFile OnChange="e => _arquivo = e.File" accept=".pdf,.jpg,.jpeg,.png" /></Campo>
+                    </div>
+                    <p class="mudo">ASO: envie só o atestado (apto/inapto e aptidões). Não envie exames ou diagnósticos. O documento vale após validação do SST da construtora.</p>
+                    <button class="btn prim" disabled="@_enviando" @onclick="EnviarColab"><Icone Nome="enviar" Tam="16" /> Enviar para validação</button>
+                    <button class="btn sec" @onclick="() => _colab = null">Cancelar</button>
+                </div>
+            }
+        }
+        else
+        {
+        <div class="tabela-rolavel">
+            <table class="itens">
+                <thead><tr><th>Documento</th><th>Situação</th><th>Detalhe</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var d in _s.Documentos)
+                    {
+                        <tr>
+                            <td><b>@d.Nome</b>@if (d.Obrigatorio) { <small class="mudo"> · obrigatório</small> }</td>
+                            <td><Selo Texto="@Rotulos.De(d.Situacao)" Tom="@Rotulos.Tom(d.Situacao)" /></td>
+                            <td>@d.Detalhe</td>
+                            <td>@if (!d.PorEntrega && d.Situacao != StatusDocumento.EmValidacao) { <button class="btn sec pq" @onclick="() => Escolher(d)">Enviar</button> }</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        @if (_tipo is not null)
+        {
+            <div class="caixa-envio">
+                <h3>Enviar: @_tipo.Nome</h3>
+                <div class="form">
+                    @if (_tipo.Frequencia == FrequenciaDocumento.Mensal) { <Campo Rotulo="Competência" Obrigatorio Classe="s4"><input type="month" value="@_comp?.ToString("yyyy-MM")" @onchange="DefinirComp" /></Campo> }
+                    <Campo Rotulo="Número do documento" Classe="s4"><input @bind="_numero" /></Campo>
+                    <Campo Rotulo="Emissão" Classe="s4"><input type="date" @bind="_emissao" /></Campo>
+                    <Campo Rotulo="Validade" Classe="s4"><input type="date" @bind="_validade" /></Campo>
+                    <Campo Rotulo="Seu nome (responsável pelo envio)" Obrigatorio Classe="s6"><input @bind="_responsavel" /></Campo>
+                    <Campo Rotulo="Arquivo (PDF, JPG ou PNG, até 15 MB)" Obrigatorio Classe="s6"><InputFile OnChange="e => _arquivo = e.File" accept=".pdf,.jpg,.jpeg,.png" /></Campo>
+                </div>
+                <button class="btn prim" disabled="@_enviando" @onclick="Enviar"><Icone Nome="enviar" Tam="16" /> Enviar para validação</button>
+                <button class="btn sec" @onclick="() => _tipo = null">Cancelar</button>
+            </div>
+        }
+        }
+        <p class="mudo mt-18">Os documentos enviados entram em validação pela construtora. Acesso registrado (data e IP). Não compartilhe este link.</p>
+    }
+</div>
+
+@code {
+    [Parameter] public string Token { get; set; } = "";
+    /// <summary>Dentro da Área do Fornecedor (sessão por código): sem a moldura e os dados do link.</summary>
+    [Parameter] public bool NaArea { get; set; }
+    private SessaoPortal? _s;
+    private bool _carregando = true, _enviando, _ok;
+    private DocumentoSolicitado? _tipo;
+    private string? _numero, _responsavel, _msg;
+    private DateOnly? _emissao, _validade;
+    private IBrowserFile? _arquivo;
+    private string? _ip;
+    private string _aba = "empresa";
+    private ColaboradorPortal? _colab;
+    private Guid? _exig;
+    private DateOnly _emissaoC = DateOnly.FromDateTime(DateTime.Today);
+
+    private async Task EnviarColab()
+    {
+        if (_arquivo is null || _exig is null) { _ok = false; _msg = "Escolha o documento e o arquivo."; return; }
+        _enviando = true;
+        try
+        {
+            await using var s = _arquivo.OpenReadStream(15 * 1024 * 1024);
+            await Portal.ReceberDocColaboradorAsync(Token, _colab!.Id, _exig.Value, _emissaoC, _validade, _responsavel ?? "", s, _arquivo.Name, _arquivo.ContentType);
+            _ok = true; _msg = $"Documento de {_colab.Nome} enviado. Aguarde a validação do SST."; _colab = null;
+            await Abrir();
+        }
+        catch (RegraDeNegocioException e) { _ok = false; _msg = e.Message; }
+        catch (IOException) { _ok = false; _msg = "Arquivo acima de 15 MB."; }
+        finally { _enviando = false; }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _ip = Http.HttpContext?.Connection.RemoteIpAddress?.ToString();
+        await Abrir();
+    }
+
+    private async Task Abrir()
+    {
+        _s = await Portal.AbrirAsync(Token, _ip); _carregando = false;
+        if (_s is null) return;
+        var f = _s.Fornecedor;
+        var c = f.Contatos.FirstOrDefault(x => x.Principal) ?? f.Contatos.FirstOrDefault();
+        _d = new DadosPortal
+        {
+            NomeFantasia = f.NomeFantasia, InscricaoEstadual = f.InscricaoEstadual, InscricaoMunicipal = f.InscricaoMunicipal, Cep = f.Cep, Endereco = f.Endereco, Numero = f.Numero,
+            Complemento = f.Complemento, Bairro = f.Bairro, Cidade = f.Cidade, Uf = f.Uf, Telefones = f.Telefones, Emails = f.Emails, Site = f.Site,
+            ContatoNome = c?.Nome, ContatoEmail = c?.Email, ContatoTelefone = c?.Telefone
+        };
+        if (f.PreCadastro && _aba == "empresa" && string.IsNullOrWhiteSpace(f.Endereco)) _aba = "dados";
+    }
+
+    private void Escolher(DocumentoSolicitado d) { _tipo = d; _numero = null; _emissao = null; _validade = null; _arquivo = null; _msg = null; _comp = d.Competencia; }
+
+    private DateOnly? _comp;
+    private DadosPortal _d = new();
+
+    private void DefinirComp(ChangeEventArgs e) => _comp = LerMes(e.Value);
+
+    private async Task SalvarDados()
+    {
+        _enviando = true;
+        try
+        {
+            await Portal.AtualizarDadosAsync(Token, _d);
+            _ok = true; _msg = "Dados salvos. Agora envie os documentos na aba Documentos da empresa."; _aba = "empresa";
+            await Abrir();
+        }
+        catch (ValidacaoException v) { _ok = false; _msg = string.Join(" ", v.Erros); }
+        catch (RegraDeNegocioException e) { _ok = false; _msg = e.Message; }
+        finally { _enviando = false; }
+    }
+
+    private async Task Enviar()
+    {
+        if (_arquivo is null) { _ok = false; _msg = "Selecione o arquivo."; return; }
+        _enviando = true;
+        try
+        {
+            await using var s = _arquivo.OpenReadStream(15 * 1024 * 1024);
+            await Portal.ReceberAsync(Token, _tipo!.TipoId, _numero, _emissao, _validade, _responsavel ?? "", s, _arquivo.Name, _arquivo.ContentType, default, _comp);
+            _ok = true; _msg = $"'{_tipo.Nome}' enviado. Aguarde a validação."; _tipo = null;
+            await Abrir();
+        }
+        catch (RegraDeNegocioException e) { _ok = false; _msg = e.Message; }
+        catch (IOException) { _ok = false; _msg = "Arquivo acima de 15 MB."; }
+        finally { _enviando = false; }
+    }
+}

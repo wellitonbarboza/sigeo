@@ -1,0 +1,86 @@
+@page "/campo/fvs/{Id:guid}"
+@layout LayoutCampo
+@inherits PaginaBase
+@inject QualidadeObraServico Qob
+
+<PageTitle>@_f?.Numero · FVS no celular</PageTitle>
+@if (_f is null) { <p class="mudo" style="padding:20px">Carregando…</p> }
+else
+{
+    <header class="campo-topo">
+        <a href="obra/fvs?id=@_f.Id" class="voltar">‹</a>
+        <div><b>FVS · @_f.Modelo?.Titulo</b><small>@_f.Local?.Nome · @_prestador</small></div>
+    </header>
+    <div class="campo-corpo">
+        <div class="campo-status"><Selo Texto="@De(_f.Status)" Tom="@Tom(_f.Status)" /> <span>@_f.Numero</span> <span class="mudo">item @(_f.Itens.Count(i => i.Resultado != ResultadoItem.NaoAvaliado)) de @_f.Itens.Count</span></div>
+        <Erros Lista="ErrosForm" />
+        @if (EmInspecao && _f.Itens.Any(i => i.ExigeEquipamento))
+        {
+            <div class="campo-card"><b>Equipamento de medição</b>
+                <select @bind="_f.EquipamentoId"><option value="">Selecione…</option>@foreach (var e in _equipamentos) { <option value="@e.Id">@e.Texto</option> }</select>
+            </div>
+        }
+        @foreach (var i in _f.Itens.OrderBy(i => i.Ordem))
+        {
+            <div class="campo-card @(i.Resultado == ResultadoItem.NaoConforme ? "nc" : "")">
+                <b>@i.Ordem. @i.Descricao</b>
+                <small>@i.Metodo · @i.Criterio</small>
+                @if (i.ValorMin is not null || i.ValorMax is not null) { <input type="number" inputmode="decimal" step="0.01" placeholder="valor medido" @bind="i.ValorMedido" @bind:after="i.AplicarValor" disabled="@(!EmInspecao)" /> }
+                <div class="campo-botoes">
+                    <button class="@(i.Resultado == ResultadoItem.Conforme ? "on ok" : "")" disabled="@(!EmInspecao)" @onclick="() => i.Resultado = ResultadoItem.Conforme">Conforme</button>
+                    <button class="@(i.Resultado == ResultadoItem.NaoConforme ? "on erro" : "")" disabled="@(!EmInspecao)" @onclick="() => i.Resultado = ResultadoItem.NaoConforme">Não conf.</button>
+                    <button class="@(i.Resultado == ResultadoItem.NaoAplica ? "on" : "")" disabled="@(!EmInspecao)" @onclick="() => i.Resultado = ResultadoItem.NaoAplica">N/A</button>
+                </div>
+                @if (i.Resultado is ResultadoItem.NaoConforme or ResultadoItem.NaoAplica) { <input placeholder="Observação (obrigatória)" @bind="i.Observacao" disabled="@(!EmInspecao)" /> }
+                <Fotos EntidadeId="i.Id" SomenteLeitura="!EmInspecao" Obrigatoria="i.Foto == FotoItem.Obrigatoria || (i.Foto == FotoItem.SoEmNaoConformidade && i.Resultado == ResultadoItem.NaoConforme)" />
+            </div>
+        }
+        @if (EmInspecao && _f.Itens.Any(i => i.Resultado == ResultadoItem.NaoConforme))
+        {
+            <div class="campo-card nc"><b>Não conformidade</b>
+                <select @bind="_f.Disposicao"><option value="">Disposição…</option>@foreach (var d in QualyHub.Web.Components.Pages.QualidadeObra.Fvss.Disposicoes) { <option>@d</option> }</select>
+                <input type="date" @bind="_f.PrazoCorrecao" />
+            </div>
+        }
+    </div>
+    @if (EmInspecao)
+    {
+        <footer class="campo-rodape">
+            <button class="sec" disabled="@Ocupado" @onclick="Salvar">Salvar</button>
+            <button class="prim" disabled="@Ocupado" @onclick="Concluir">Concluir inspeção</button>
+        </footer>
+    }
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+    private Fvs? _f;
+    private string? _prestador;
+    private List<Opcao> _equipamentos = [];
+    private bool EmInspecao => _f?.Status == StatusFvs.EmInspecao;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = Fabrica.CriarLeitura();
+        _equipamentos = (await db.Equipamentos.AsNoTracking().ToListAsync()).Where(e => e.UsavelEm(Hoje)).Select(e => new Opcao(e.Id, $"{e.Codigo} – {e.Descricao}")).ToList();
+        await Carregar();
+    }
+
+    private async Task Carregar()
+    {
+        await using var db = Fabrica.CriarLeitura();
+        _f = await db.Fvss.AsNoTracking().Include(f => f.Itens).Include(f => f.Modelo).Include(f => f.Local).FirstAsync(f => f.Id == Id);
+        _prestador = await db.Fornecedores.Where(x => x.Id == _f.FornecedorId).Select(x => x.RazaoSocial).FirstOrDefaultAsync();
+    }
+
+    private async Task Salvar() { if (await Executar(async () => { _f!.Origem = OrigemRegistro.CelularOnline; await Qob.SalvarFvsAsync(_f); }, "Salvo.")) await Carregar(); }
+
+    private async Task Concluir()
+    {
+        if (await Executar(() => Qob.ConcluirFvsAsync(_f!)))
+        {
+            await Carregar();
+            if (_f!.Status == StatusFvs.Reprovada) Notif.Aviso("Reprovada: RNC aberta e engenheiro avisado."); else Notif.Sucesso("Aprovada — aguarda liberação do engenheiro.");
+        }
+    }
+}

@@ -1,0 +1,2 @@
+/* O input de arquivo fica oculto (so-leitor) dentro do rótulo: o foco do teclado aparece no rótulo-botão. */
+.anexar:focus-within { outline: 2px solid var(--primaria, #4f46e5); outline-offset: 2px; }

@@ -1,0 +1,33 @@
+@* Seletor de obra das telas do navegador (mesma regra do SeletorObra do servidor: só as obras permitidas ao usuário,
+   ?obra= aplicado se permitido, obra única escolhida sozinha quando não há "Todas"). *@
+@inject Api Api
+
+<label>@Rotulo <select id="@Id" value="@Valor" @onchange="Trocar">
+    <option value="">@(PermitirTodas ? "Todas" : "Selecione…")</option>
+    @foreach (var o in _obras) { <option @key="o.Id" value="@o.Id">@o.Texto</option> }
+</select></label>
+
+@code {
+    [Parameter] public Guid? Valor { get; set; }
+    [Parameter] public EventCallback<Guid?> ValorChanged { get; set; }
+    [Parameter] public string? Id { get; set; }
+    [Parameter] public string Rotulo { get; set; } = "Obra";
+    [Parameter] public bool PermitirTodas { get; set; }
+    [Parameter] public Guid? Inicial { get; set; }
+
+    private List<Opcao> _obras = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { _obras = await Api.ObterAsync<List<Opcao>>("api/telas/obras"); }
+        catch (Exception) { _obras = []; }
+        if (Valor is not null) return;
+        Guid? escolhida = null;
+        if (Inicial is { } q && _obras.Any(o => o.Id == q)) escolhida = q;
+        else if (!PermitirTodas && _obras.Count == 1) escolhida = _obras[0].Id;
+        if (escolhida is not null) await ValorChanged.InvokeAsync(escolhida);
+    }
+
+    private Task Trocar(ChangeEventArgs e) =>
+        ValorChanged.InvokeAsync(Guid.TryParse(e.Value?.ToString(), out var g) ? g : null);
+}

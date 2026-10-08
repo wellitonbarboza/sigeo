@@ -1,0 +1,12 @@
+<div class="abas" role="tablist">
+    @foreach (var (id, rotulo) in Itens)
+    {
+        <button type="button" role="tab" class="@(Ativa == id ? "on" : "")" @onclick="() => Mudar(id)">@rotulo</button>
+    }
+</div>
+@code {
+    [Parameter] public IReadOnlyList<(string Id, string Rotulo)> Itens { get; set; } = [];
+    [Parameter] public string Ativa { get; set; } = "";
+    [Parameter] public EventCallback<string> AtivaChanged { get; set; }
+    private Task Mudar(string id) { Ativa = id; return AtivaChanged.InvokeAsync(id); }
+}

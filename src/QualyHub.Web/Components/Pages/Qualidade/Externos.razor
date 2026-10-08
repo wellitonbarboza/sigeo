@@ -1,0 +1,78 @@
+@page "/sgq/externos"
+@inherits PaginaBase
+@inject DocumentosServico Docs
+
+<Pagina Titulo="Documentos externos (normas e legislação)" Grade="_grade" AoNovo="Novo" AoAtualizar="Carregar">
+    <ChildContent>
+        <div class="pagina">
+            <div class="kpis">
+                <Kpi Rotulo="Vigentes" Valor="@_itens?.Count(e => e.Situacao == SituacaoDocExterno.Vigente)" Tom="ok" />
+                <Kpi Rotulo="Verificação vencida" Valor="@_itens?.Count(e => e.Situacao == SituacaoDocExterno.Vigente && e.ProximaVerificacao(_meses) < Hoje)" Sub="@($"a cada {_meses} meses")" Tom="erro" />
+                <Kpi Rotulo="Substituídas" Valor="@_itens?.Count(e => e.Situacao == SituacaoDocExterno.Substituida)" />
+            </div>
+            <Grade T="DocumentoExterno" @ref="_grade" Itens="_itens" AoClicar="e => { _e = e; ErrosForm = null; _aberto = true; }" NomeExportacao="documentos-externos" CriadoPor="e => e.CriadoPor">
+                <Colunas>
+                    <Coluna T="DocumentoExterno" Titulo="Identificação" Valor="e => e.Identificacao" />
+                    <Coluna T="DocumentoExterno" Titulo="Título" Valor="e => e.Titulo" />
+                    <Coluna T="DocumentoExterno" Titulo="Edição" Valor="e => e.Edicao" />
+                    <Coluna T="DocumentoExterno" Titulo="Emissor" Valor="e => e.Emissor" />
+                    <Coluna T="DocumentoExterno" Titulo="Verificado em" Valor="e => e.DataVerificacao" />
+                    <Coluna T="DocumentoExterno" Titulo="Próx. verificação" Valor="e => e.ProximaVerificacao(_meses)"><Modelo><span class="@(context.ProximaVerificacao(_meses) < Hoje ? "texto-erro" : "")">@Data(context.ProximaVerificacao(_meses))</span></Modelo></Coluna>
+                    <Coluna T="DocumentoExterno" Titulo="Situação" Valor="e => e.Situacao"><Modelo><Selo Texto="@De(context.Situacao)" Tom="@Tom(context.Situacao)" /></Modelo></Coluna>
+                    <Coluna T="DocumentoExterno" Titulo="Documentos relacionados" Valor="e => e.Relacionados" />
+                </Colunas>
+            </Grade>
+        </div>
+    </ChildContent>
+    <Faixa><b>Externos</b><span>ABNT, NR, legislação, manuais de fabricante</span><span>Verificação periódica de vigência · substituída = mantida para histórico</span></Faixa>
+</Pagina>
+
+<Modal @bind-Aberto="_aberto" Titulo="Documento externo" Tamanho="media">
+    <ChildContent>
+        @if (_e is not null)
+        {
+            <Erros Lista="ErrosForm" />
+            <div class="form">
+                <Campo Rotulo="Identificação" Obrigatorio Classe="s6"><input @bind="_e.Identificacao" placeholder="ABNT NBR 15575-1" /></Campo>
+                <Campo Rotulo="Edição" Obrigatorio Classe="s3"><input @bind="_e.Edicao" /></Campo>
+                <Campo Rotulo="Emissor" Obrigatorio Classe="s3"><select @bind="_e.Emissor"><option value="">…</option>@foreach (var x in _emissores) { <option>@x</option> }</select></Campo>
+                <Campo Rotulo="Título" Obrigatorio Classe="s12"><input @bind="_e.Titulo" /></Campo>
+                <Campo Rotulo="Data da verificação" Classe="s4"><input type="date" @bind="_e.DataVerificacao" /></Campo>
+                <Campo Rotulo="Situação" Classe="s4"><select @bind="_e.Situacao">@foreach (var s in Enum.GetValues<SituacaoDocExterno>()) { <option value="@s">@De(s)</option> }</select></Campo>
+                <Campo Rotulo="Substitui (edição anterior)" Classe="s4"><input @bind="_e.Substitui" /></Campo>
+                <Campo Rotulo="Documentos internos relacionados" Classe="s12"><input @bind="_e.Relacionados" placeholder="ex.: PES-05; ITS-12" /></Campo>
+                <Campo Rotulo="Arquivo ou link de acesso" Classe="s12"><input @bind="_e.ArquivoOuLink" /></Campo>
+            </div>
+        }
+    </ChildContent>
+    <Rodape><button class="btn prim" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="16" /> Salvar</button></Rodape>
+</Modal>
+
+@code {
+    private Grade<DocumentoExterno>? _grade;
+    private List<DocumentoExterno>? _itens;
+    private DocumentoExterno? _e;
+    private bool _aberto;
+    private int _meses = 12;
+    private List<string> _emissores = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _emissores = await Cat.ListaAsync(TipoLista.EmissorExterno);
+        await using (var db = Fabrica.CriarLeitura()) _meses = (await ParametrosServico.CarregarAsync(db, Cancelamento)).Int(Parametros.VerificacaoExternosMeses);
+        await Carregar();
+    }
+
+    private async Task Carregar()
+    {
+        await using var db = Fabrica.CriarLeitura();
+        _itens = await db.DocumentosExternos.OrderBy(e => e.Identificacao).ToListAsync(Cancelamento);
+    }
+
+    private void Novo() { _e = new DocumentoExterno { DataVerificacao = Hoje }; ErrosForm = null; _aberto = true; }
+
+    private async Task Salvar()
+    {
+        if (await Executar(() => Docs.SalvarExternoAsync(_e!, Cancelamento), "Documento externo salvo.")) { _aberto = false; await Carregar(); }
+    }
+}

@@ -1,0 +1,53 @@
+@* Seletor de obra padrão das telas por obra. As opções vêm do catálogo (que já filtra as obras permitidas ao usuário).
+   Na abertura: usa o valor inicial (?obra= da página) se for permitido; senão, havendo uma obra só, já a escolhe. *@
+@inject Catalogos Cat
+
+<label>@Rotulo <select id="@Id" @key="_versao" value="@Valor" disabled="@Desabilitado" @onchange="Trocar">
+    <option value="">@(PermitirTodas ? TextoTodas : "Selecione…")</option>
+    @foreach (var o in _obras) { <option value="@o.Id">@o.Texto</option> }
+</select></label>
+
+@code {
+    [Parameter] public Guid? Valor { get; set; }
+    [Parameter] public EventCallback<Guid?> ValorChanged { get; set; }
+    /// <summary>Id do select — cada tela mantém o seu, usado pelos testes automatizados (#sel-obra, #orc-obra…).</summary>
+    [Parameter] public string? Id { get; set; }
+    [Parameter] public string Rotulo { get; set; } = "Obra";
+    /// <summary>A opção vazia vira "Todas" (filtro) e não há auto-seleção.</summary>
+    [Parameter] public bool PermitirTodas { get; set; }
+    [Parameter] public string TextoTodas { get; set; } = "Todas";
+    /// <summary>Valor vindo da query string (?obra=), aplicado uma vez na abertura se a obra for permitida ao usuário.</summary>
+    [Parameter] public Guid? Inicial { get; set; }
+    /// <summary>Opções próprias da tela (ex.: cadastro de obras lista também as inativas). Sem isso, usa o catálogo.</summary>
+    [Parameter] public IReadOnlyList<Opcao>? Opcoes { get; set; }
+    [Parameter] public bool Desabilitado { get; set; }
+
+    private IReadOnlyList<Opcao> _obras = [];
+    private List<Opcao> _permitidas = [];
+    private int _versao;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _permitidas = await Cat.ObrasAsync();
+        _obras = Opcoes ?? _permitidas;
+        // A tela pode já ter um valor (ex.: voltou com estado); só decide a obra quando ainda não há nenhuma.
+        if (Valor is not null) return;
+        Guid? escolhida = null;
+        if (Inicial is { } q && _permitidas.Any(o => o.Id == q)) escolhida = q;
+        // A auto-seleção olha as obras permitidas: quem só enxerga uma obra não precisa escolher.
+        else if (!PermitirTodas && _permitidas.Count == 1) escolhida = _permitidas[0].Id;
+        if (escolhida is not null) await ValorChanged.InvokeAsync(escolhida);
+    }
+
+    protected override void OnParametersSet() { if (Opcoes is not null) _obras = Opcoes; }
+
+    private async Task Trocar(ChangeEventArgs e)
+    {
+        Guid? nova = Guid.TryParse(e.Value?.ToString(), out var g) ? g : null;
+        if (nova == Valor) return;
+        await ValorChanged.InvokeAsync(nova);
+        // Se a tela não aceitou a troca (ex.: pediu confirmação de descarte), o valor não mudou e o diff não
+        // repintaria o select: recria-o para voltar a mostrar a obra que vale.
+        if (Valor != nova) _versao++;
+    }
+}

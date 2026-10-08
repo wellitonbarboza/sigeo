@@ -1,0 +1,233 @@
+@page "/cotacoes/mapa"
+@inherits PaginaBase
+@inject CotacoesServico CotacoesSrv
+@inject IJSRuntime JS
+@using QualyHub.Application.Comum
+@* Mapa comparativo em tela própria (aberto da cotação, em nova janela): fornecedores por coluna com o que cada um
+   preencheu no portal (prazo, pagamento, validade, frete, entrega por item, atende especificação), preços de
+   referência / último / ofertado / negociado, economia gerada e análise por IA. Preços editáveis enquanto a cotação
+   está em análise; condições do fornecedor são editadas na tela da cotação. *@
+
+<Pagina Titulo="@(_c is null ? "Mapa comparativo" : $"Mapa comparativo · cotação {_c.Numero}")" AoAtualizar="Carregar">
+    <Direita>
+        @if (_c is not null)
+        {
+            <a class="btn sec pq" href="@($"cotacoes?id={_c.Id}")"><Icone Nome="calculadora" Tam="14" /> Cotação</a>
+            <button class="btn sec pq" id="mapa-excel" @onclick="Excel"><Icone Nome="excel" Tam="14" /> Excel</button>
+            <button class="btn sec pq" @onclick="Imprimir2"><Icone Nome="impressora" Tam="14" /> Imprimir / PDF</button>
+            @if (Editavel) { <button class="btn prim pq" id="mapa-salvar" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="14" /> Salvar preços</button> }
+        }
+    </Direita>
+    <ChildContent>
+        <div class="pagina mapa-cotacao">
+            <Erros Lista="ErrosForm" />
+            @if (_c is null) { <p class="mudo">@(_naoEncontrada ? "Cotação não encontrada." : "Carregando…")</p> }
+            else
+            {
+                var forns = _c.Fornecedores.ToList();
+                var econ = Econ;
+                <p class="fonte-13"><b>@_c.Nome</b> · @_obra · @De(_c.Tipo) · frete @De(_c.Frete) · <Selo Texto="@De(_c.Status)" Tom="@Tom(_c.Status)" />
+                    @if (!Editavel) { <span class="mudo">· somente leitura (cotação @De(_c.Status).ToLowerInvariant())</span> }</p>
+                <div class="kpis">
+                    <Kpi Rotulo="@(_c.FornecedorVencedorId is null ? "Menor total (1 fornecedor)" : "Total do vencedor")" Valor="@Moeda(_c.FornecedorVencedorId is { } v ? Total(v) : MenorTotal?.Total)" Sub="@(_c.FornecedorVencedorId is { } v2 ? Nome(v2) : MenorTotal is { } m ? Nome(m.Id) : "sem preços")" Tom="info" />
+                    <Kpi Rotulo="Melhor preço por item" Valor="@Moeda(MelhorPorItem)" Sub="@(MenorTotal is { } mt && mt.Total > MelhorPorItem ? $"dividir economiza {Moeda(mt.Total - MelhorPorItem)}" : "sem ganho em dividir")" />
+                    <Kpi Rotulo="Economia negociada" Valor="@Moeda(econ.Negociada)" Sub="@($"{econ.NegociadaPerc:0.0}% vs. ofertado")" Tom="ok" />
+                    <Kpi Rotulo="Economia vs. último preço" Valor="@(econ.VsUltimo is { } u ? Moeda(u) : "—")" Sub="@(econ.VsUltimoPerc is { } up ? $"{up:0.0}%" : "sem compra anterior")" Tom="@(econ.VsUltimo is < 0 ? "erro" : "ok")" />
+                    <Kpi Rotulo="Economia vs. referência" Valor="@(econ.VsReferencia is { } r ? Moeda(r) : "—")" Sub="@(econ.VsReferenciaPerc is { } rp ? $"{rp:0.0}%" : "sem preço de referência")" Tom="@(econ.VsReferencia is < 0 ? "erro" : "ok")" />
+                </div>
+                @if (_c.FornecedorVencedorId is null) { <p class="mudo">Economias sobre o menor preço de cada item até a escolha do vencedor (na tela da cotação).</p> }
+
+                <div class="secao"><Icone Nome="predio" /> Propostas dos fornecedores</div>
+                <div class="tabela-rolavel">
+                    <table class="itens mapa" id="mapa-fornecedores">
+                        <thead><tr><th>Condição</th>@foreach (var f in forns) { <th class="texto-centro @(f.FornecedorId == _c.FornecedorVencedorId ? "destaque" : "")">@Nome(f.FornecedorId)@if (f.FornecedorId == _c.FornecedorVencedorId) { <br /><Selo Texto="vencedor" Tom="ok" /> }</th> }</tr></thead>
+                        <tbody>
+                            <tr><td>Qualificação</td>@foreach (var f in forns) { <td class="texto-centro"><Selo Texto="@De(f.QualificacaoNaData)" Tom="@Tom(f.QualificacaoNaData)" /></td> }</tr>
+                            <tr><td>Situação / resposta</td>@foreach (var f in forns) { <td class="texto-centro">@De(f.Status) @(f.DataResposta is { } d ? $"· {d:dd/MM}" : "")</td> }</tr>
+                            <tr><td>Prazo de entrega ofertado</td>@foreach (var f in forns) { <td class="texto-centro @(f.PrazoEntregaOfertado is { } p && p == MelhorPrazo ? "melhor" : "")">@Data(f.PrazoEntregaOfertado)</td> }</tr>
+                            <tr><td>Condição de pagamento</td>@foreach (var f in forns) { <td class="texto-centro">@(f.CondicaoPagamento ?? "—")</td> }</tr>
+                            <tr><td>Validade da proposta</td>@foreach (var f in forns) { <td class="texto-centro @(f.ValidadeProposta < Hoje ? "texto-erro" : "")">@Data(f.ValidadeProposta)</td> }</tr>
+                            <tr><td>Frete</td>@foreach (var f in forns) { <td class="num">@(_c.Frete == TipoFrete.NaoSeAplica ? "N/A" : Moeda(f.ValorFrete ?? 0))</td> }</tr>
+                            <tr><td>Proposta anexada</td>@foreach (var f in forns) { <td class="texto-centro">@(f.TemAnexoProposta ? "sim" : "—")</td> }</tr>
+                            <tr><td>Itens com preço</td>@foreach (var f in forns) { <td class="texto-centro">@ComPreco(f.FornecedorId) de @_grupos.Count</td> }</tr>
+                            <tr class="peso-600"><td>Total (itens + frete)</td>@foreach (var f in forns) { var t = Total(f.FornecedorId); <td class="num @(MenorTotal is { } mn && mn.Id == f.FornecedorId ? "melhor" : "")">@Moeda(t)<br /><small class="mudo">@Diferenca(t)</small></td> }</tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="secao"><Icone Nome="tabela" /> Itens × fornecedores (valor unitário)</div>
+                <div class="tabela-rolavel">
+                    <table class="itens mapa" id="mapa-itens">
+                        <thead>
+                            <tr><th rowspan="2">Item</th><th rowspan="2">UN</th><th rowspan="2" class="num">Quant.</th><th rowspan="2" class="num" title="Último preço unitário pago pelo mesmo produto">Último</th><th rowspan="2" class="num" title="Preço de referência do cadastro do produto">Ref.</th>
+                                @foreach (var f in forns) { <th colspan="3" class="texto-centro">@Nome(f.FornecedorId)</th> }<th rowspan="2" class="num">Melhor</th></tr>
+                            <tr>@foreach (var _ in forns) { <th>Ofertado</th><th>Negociado</th><th class="num">Total</th> }</tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var g in _grupos)
+                            {
+                                var primeiro = g.First();
+                                var precos = g.Where(i => i.ValorUnitarioFinal > 0).ToList();
+                                var menor = precos.Count == 0 ? 0 : precos.Min(i => i.ValorUnitarioFinal);
+                                var locaisItem = primeiro.RequisicaoItemId is { } rid && _locaisItem.TryGetValue(rid, out var ls) ? ls : null;
+                                var aberto = locaisItem is not null && _abertos.Contains(primeiro.RequisicaoItemId!.Value);
+                                <tr @key="primeiro.Id">
+                                    <td><b>@primeiro.Descricao</b> @if (primeiro.MaterialControlado) { <Selo Texto="controlado" Tom="info" /> }
+                                        @if (locaisItem is not null) { <br /><button type="button" class="pl-toggle" aria-expanded="@(aberto ? "true" : "false")" @onclick="() => AlternarLocais(primeiro.RequisicaoItemId!.Value)">@(aberto ? "▾" : "▸") <span class="pl-ico">▦</span> Locais: @QuadroLocais.Resumo(locaisItem, primeiro.Unidade)</button> }</td>
+                                    <td>@primeiro.Unidade</td><td class="num">@Num(primeiro.Quantidade, 3)</td>
+                                    <td class="num mudo">@(primeiro.PrecoUltimo is { } pu ? Moeda(pu) : "—")</td>
+                                    <td class="num mudo">@(primeiro.PrecoReferencia is { } pr ? Moeda(pr) : "—")</td>
+                                    @foreach (var f in forns)
+                                    {
+                                        var it = g.FirstOrDefault(i => i.FornecedorId == f.FornecedorId);
+                                        if (it is null) { <td></td><td></td><td></td> continue; }
+                                        var melhor = it.ValorUnitarioFinal > 0 && it.ValorUnitarioFinal == menor;
+                                        <td class="larg-110 @(melhor ? "melhor" : "")"><input type="number" step="0.01" aria-label="@($"Ofertado {Nome(f.FornecedorId)} – {primeiro.Descricao}")" @bind="it.ValorOfertado" @bind:after="Recalcular" disabled="@(!Editavel)" />
+                                            @if (it.Entrega is { } en) { <small class="mudo">entrega @en.ToString("dd/MM")</small> }
+                                            @if (it.MaterialControlado) { <small class="@(it.AtendeEspecificacao == true ? "" : "texto-erro")">@(it.AtendeEspecificacao switch { true => "atende espec.", false => "não atende espec.", _ => "espec. não avaliada" })</small> }</td>
+                                        <td class="larg-110"><input type="number" step="0.01" aria-label="@($"Negociado {Nome(f.FornecedorId)} – {primeiro.Descricao}")" @bind="it.ValorNegociado" @bind:after="Recalcular" disabled="@(!Editavel)" />
+                                            @if (it.Economia > 0) { <small class="econ pos">−@Moeda(it.Economia)</small> }</td>
+                                        <td class="num @(melhor ? "melhor" : "")">@(it.ValorUnitarioFinal > 0 ? Moeda(it.ValorTotal) : "—")</td>
+                                    }
+                                    <td class="num">@(menor > 0 ? Moeda(menor) : "—")</td>
+                                </tr>
+                                @if (aberto) { <tr class="linha-locais" @key="(primeiro.Id, 1)"><td colspan="@(6 + 3 * forns.Count)"><PainelLocais Linhas="locaisItem!" Unidade="@primeiro.Unidade" /></td></tr> }
+                            }
+                        </tbody>
+                        <tfoot>
+                            <tr class="peso-600"><td colspan="5">Total dos itens</td>
+                                @foreach (var f in forns) { <td colspan="2"></td><td class="num">@Moeda(_c.Itens.Where(i => i.FornecedorId == f.FornecedorId).Sum(i => i.ValorTotal))</td> }<td class="num">@Moeda(MelhorPorItem)</td></tr>
+                        </tfoot>
+                    </table>
+                </div>
+                <p class="mudo">Verde = menor valor do item (negociado, se houver). Valores preenchidos pelo fornecedor na Área do Fornecedor entram aqui sozinhos; os demais são lançados nesta tela.</p>
+
+                <AnaliseIaCotacao Cotacao="_c" AntesDeAnalisar="SalvarAntesDaIa" AoConcluir="Carregar" />
+            }
+        </div>
+    </ChildContent>
+    <Faixa><b>Mapa comparativo</b><span>Referência · último · ofertado · negociado</span><span>Economia e análise por IA</span><span>Excel e impressão/PDF pelo navegador</span></Faixa>
+</Pagina>
+
+@code {
+    [SupplyParameterFromQuery(Name = "id")] public Guid? Id { get; set; }
+    private Cotacao? _c;
+    private ParametrosVigentes? _p;
+    private string _obra = "";
+    private bool _naoEncontrada;
+    private Dictionary<Guid, string> _nomes = [];
+    private List<IGrouping<Guid?, CotacaoItem>> _grupos = [];
+    private Dictionary<Guid, List<LocalQuantidade>> _locaisItem = [];
+    private readonly HashSet<Guid> _abertos = [];
+
+    private bool Editavel => _c is { Status: StatusCotacao.Aberto or StatusCotacao.AguardandoPropostas or StatusCotacao.EmAnalise or StatusCotacao.ReprovadoVoltaCotacao };
+    private string Nome(Guid id) => _nomes.GetValueOrDefault(id, "?");
+    private decimal Total(Guid f) => _c!.Itens.Where(i => i.FornecedorId == f).Sum(i => i.ValorTotal) + (_c.Frete == TipoFrete.NaoSeAplica ? 0 : _c.Fornecedores.First(x => x.FornecedorId == f).ValorFrete ?? 0);
+    private int ComPreco(Guid f) => _c!.Itens.Count(i => i.FornecedorId == f && i.ValorUnitarioFinal > 0);
+    /// <summary>Menor total entre os fornecedores que cotaram todos os itens (com frete).</summary>
+    private (Guid Id, decimal Total)? MenorTotal => _c!.Fornecedores.Where(f => ComPreco(f.FornecedorId) == _grupos.Count && _grupos.Count > 0)
+        .Select(f => (f.FornecedorId, Total(f.FornecedorId))).OrderBy(x => x.Item2).Cast<(Guid, decimal)?>().FirstOrDefault();
+    private decimal MelhorPorItem => _grupos.Sum(g => g.Where(i => i.ValorUnitarioFinal > 0).Select(i => i.ValorTotal).DefaultIfEmpty(0).Min());
+    private DateOnly? MelhorPrazo => _c!.Fornecedores.Where(f => f.PrazoEntregaOfertado != null).Select(f => f.PrazoEntregaOfertado).Min();
+    private string Diferenca(decimal t) => MenorTotal is { } m && m.Total > 0 && t > 0 && t != m.Total ? $"+{(t - m.Total) / m.Total:P1} vs. menor" : "";
+    private void Recalcular() => _c!.Recalcular(_p!);
+    private void AlternarLocais(Guid id) { if (!_abertos.Remove(id)) _abertos.Add(id); }
+
+    private EconomiaCotacao Econ => EconomiaCotacao.Calcular(_c!.FornecedorVencedorId is { } v
+        ? _c.Itens.Where(i => i.FornecedorId == v)
+        : _grupos.Select(g => g.Where(i => i.ValorUnitarioFinal > 0).OrderBy(i => i.ValorTotal).FirstOrDefault()).OfType<CotacaoItem>());
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using (var db = Fabrica.CriarLeitura()) _p = await ParametrosServico.CarregarAsync(db, Cancelamento);
+        await Carregar();
+    }
+
+    private async Task Carregar()
+    {
+        if (Id is not { } id) { _naoEncontrada = true; return; }
+        await CotacoesSrv.AtualizarQualificacoesAsync(id, Cancelamento);
+        await using var db = Fabrica.CriarLeitura();
+        _c = await db.Cotacoes.AsNoTracking().Include(c => c.Fornecedores).Include(c => c.Itens).FirstOrDefaultAsync(c => c.Id == id, Cancelamento);
+        if (_c is null) { _naoEncontrada = true; return; }
+        _obra = await db.Obras.Where(o => o.Id == _c.ObraId).Select(o => o.Nome).FirstOrDefaultAsync(Cancelamento) ?? "";
+        var ids = _c.Fornecedores.Select(f => f.FornecedorId).ToList();
+        _nomes = await db.Fornecedores.AsNoTracking().Where(f => ids.Contains(f.Id)).ToDictionaryAsync(f => f.Id, f => f.NomeFantasia ?? f.RazaoSocial, Cancelamento);
+        var rids = _c.Itens.Where(i => i.RequisicaoItemId != null).Select(i => i.RequisicaoItemId!.Value).Distinct().ToList();
+        _locaisItem = await QuadroLocais.CarregarAsync(db, rids, Cancelamento);
+        _c.Recalcular(_p!);
+        await CotacoesServico.PrecosReferenciaAsync(db, _c, Cancelamento);
+        _grupos = _c.Itens.GroupBy(i => i.RequisicaoItemId).ToList();
+    }
+
+    private async Task Salvar()
+    {
+        if (_c!.Status == StatusCotacao.AguardandoPropostas && _c.Fornecedores.Any(f => f.Status != StatusConvite.Convidado)) _c.Status = StatusCotacao.EmAnalise;
+        if (await Executar(() => CotacoesSrv.SalvarCotacaoAsync(_c!, Cancelamento), "Preços salvos.")) await Carregar();
+    }
+
+    private Task<bool> SalvarAntesDaIa() => Editavel ? Executar(() => CotacoesSrv.SalvarCotacaoAsync(_c!, Cancelamento)) : Task.FromResult(true);
+
+    private async Task Imprimir2() => await JS.InvokeVoidAsync("print");
+
+    /// <summary>Planilha do mapa: aba "Propostas" (condições por fornecedor) e aba "Itens" (preços por fornecedor, último, referência e economia).</summary>
+    private async Task Excel()
+    {
+        var c = _c!;
+        var forns = c.Fornecedores.ToList();
+        using var wb = new ClosedXML.Excel.XLWorkbook();
+        var ws = wb.AddWorksheet("Propostas");
+        ws.Cell(1, 1).Value = $"Cotação {c.Numero} – {c.Nome} ({_obra})"; ws.Cell(1, 1).Style.Font.Bold = true;
+        string[] linhas = ["Qualificação", "Situação", "Prazo de entrega", "Condição de pagamento", "Validade", "Frete", "Total (itens + frete)"];
+        for (var l = 0; l < linhas.Length; l++) ws.Cell(l + 3, 1).Value = linhas[l];
+        for (var k = 0; k < forns.Count; k++)
+        {
+            var f = forns[k]; var col = k + 2;
+            ws.Cell(2, col).Value = Nome(f.FornecedorId); ws.Cell(2, col).Style.Font.Bold = true;
+            ws.Cell(3, col).Value = De(f.QualificacaoNaData); ws.Cell(4, col).Value = De(f.Status);
+            ws.Cell(5, col).Value = f.PrazoEntregaOfertado?.ToString("dd/MM/yyyy"); ws.Cell(6, col).Value = f.CondicaoPagamento;
+            ws.Cell(7, col).Value = f.ValidadeProposta?.ToString("dd/MM/yyyy"); ws.Cell(8, col).Value = f.ValorFrete ?? 0;
+            ws.Cell(9, col).Value = Total(f.FornecedorId);
+            ws.Cell(8, col).Style.NumberFormat.Format = ws.Cell(9, col).Style.NumberFormat.Format = "#,##0.00";
+        }
+        ws.Columns().AdjustToContents();
+
+        var wi = wb.AddWorksheet("Itens");
+        string[] fixos = ["Item", "UN", "Quantidade", "Último", "Referência"];
+        for (var k = 0; k < fixos.Length; k++) wi.Cell(1, k + 1).Value = fixos[k];
+        for (var k = 0; k < forns.Count; k++)
+        {
+            var b = fixos.Length + 1 + k * 3;
+            wi.Cell(1, b).Value = $"{Nome(forns[k].FornecedorId)} – ofertado"; wi.Cell(1, b + 1).Value = "negociado"; wi.Cell(1, b + 2).Value = "total";
+        }
+        wi.Row(1).Style.Font.Bold = true;
+        var r = 2;
+        foreach (var g in _grupos)
+        {
+            var p = g.First();
+            wi.Cell(r, 1).Value = p.Descricao; wi.Cell(r, 2).Value = p.Unidade; wi.Cell(r, 3).Value = p.Quantidade;
+            if (p.PrecoUltimo is { } u) wi.Cell(r, 4).Value = u;
+            if (p.PrecoReferencia is { } rf) wi.Cell(r, 5).Value = rf;
+            for (var k = 0; k < forns.Count; k++)
+            {
+                var it = g.FirstOrDefault(i => i.FornecedorId == forns[k].FornecedorId);
+                if (it is null) continue;
+                var b = fixos.Length + 1 + k * 3;
+                wi.Cell(r, b).Value = it.ValorOfertado;
+                if (it.ValorNegociado is { } n) wi.Cell(r, b + 1).Value = n;
+                wi.Cell(r, b + 2).Value = it.ValorTotal;
+            }
+            r++;
+        }
+        wi.Range(2, 3, r, fixos.Length + forns.Count * 3).Style.NumberFormat.Format = "#,##0.00";
+        wi.Columns().AdjustToContents();
+        if (!string.IsNullOrWhiteSpace(c.AnaliseIa))
+        {
+            var wa = wb.AddWorksheet("Análise IA");
+            wa.Cell(1, 1).Value = c.AnaliseIa; wa.Column(1).Width = 120; wa.Cell(1, 1).Style.Alignment.WrapText = true;
+        }
+        using var ms = new MemoryStream();
+        wb.SaveAs(ms);
+        await JS.InvokeVoidAsync("qh.baixar", $"mapa-cotacao-{c.Numero}.xlsx", Convert.ToBase64String(ms.ToArray()), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    }
+}

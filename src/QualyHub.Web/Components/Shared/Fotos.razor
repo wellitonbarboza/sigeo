@@ -1,0 +1,65 @@
+@* Fotos compactas de um item (FVS, FVM, inspeção). Câmera do celular via accept=image/* capture. Hash SHA-256 no anexo. *@
+@inject IFabricaDb Fabrica
+@inject AnexosServico Servico
+@inject Notificacoes Notif
+@implements IDisposable
+
+<span class="fotos">
+    @foreach (var a in _itens)
+    {
+        <a @key="a.Id" href="arquivos/anexo/@a.Id" target="_blank" title="@a.NomeOriginal · @a.CriadoPor · @Rotulos.DataHora(a.CriadoEm)" aria-label="@($"Foto {a.NomeOriginal}")" class="foto-mini"><Icone Nome="camera" Tam="14" /></a>
+    }
+    @if (!SomenteLeitura)
+    {
+        @* O input fica visualmente oculto, mas focável: Tab chega nele e Enter/Espaço abre a câmera/galeria. *@
+        <label class="foto-add" title="Foto" for="@_idInput"><Icone Nome="mais" Tam="12" /><Icone Nome="camera" Tam="14" /><span class="so-leitor">Adicionar foto</span><InputFile id="@_idInput" class="so-leitor" OnChange="Enviar" accept="image/*" capture="environment" multiple disabled="@_ocupado" /></label>
+    }
+    @if (Obrigatoria && _itens.Count == 0) { <small class="texto-erro">foto obrigatória</small> }
+</span>
+
+@code {
+    [Parameter] public string Entidade { get; set; } = "FvsItem";
+    [Parameter] public Guid EntidadeId { get; set; }
+    [Parameter] public bool SomenteLeitura { get; set; }
+    [Parameter] public bool Obrigatoria { get; set; }
+
+    private sealed record Linha(Guid Id, string NomeOriginal, string CriadoPor, DateTimeOffset CriadoEm);
+    private List<Linha> _itens = [];
+    private Guid _carregado;
+    private bool _ocupado;
+    private readonly string _idInput = $"foto-{Guid.NewGuid():N}";
+    // Cancelado quando o item sai da tela: upload/consulta não seguem ocupando recursos.
+    private readonly CancellationTokenSource _cts = new();
+
+    public void Dispose() => _cts.Cancel(); // não descarta a fonte: código que ainda está num await lê o token depois e precisa ver "cancelado", não ObjectDisposedException
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_carregado == EntidadeId) return;
+        _carregado = EntidadeId;
+        await Carregar();
+    }
+
+    private async Task Carregar()
+    {
+        await using var db = Fabrica.CriarLeitura();
+        _itens = await db.Anexos.Where(a => a.Entidade == Entidade && a.EntidadeId == EntidadeId).OrderBy(a => a.CriadoEm)
+                                .Select(a => new Linha(a.Id, a.NomeOriginal, a.CriadoPor, a.CriadoEm)).ToListAsync(_cts.Token);
+    }
+
+    private async Task Enviar(InputFileChangeEventArgs e)
+    {
+        var arquivos = e.GetMultipleFiles(6).Select(f => new ArquivoEnviado(f.Name, f.Size, f.ContentType, max => f.OpenReadStream(max))).ToList();
+        _ocupado = true;
+        try
+        {
+            var recusados = await Servico.AnexarAsync(Entidade, EntidadeId, "Foto", "fotos", AnexosServico.LimiteFotoBytes, arquivos, _cts.Token);
+            foreach (var r in recusados) Notif.Erro(r);
+            await Carregar();
+        }
+        catch (RegraDeNegocioException ex) { Notif.Erro(ex.Message); }
+        catch (ValidacaoException ex) { Notif.Erro(string.Join(" ", ex.Erros)); }
+        catch (OperationCanceledException) { }
+        finally { _ocupado = false; }
+    }
+}

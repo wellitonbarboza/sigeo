@@ -1,0 +1,9 @@
+@inject NavigationManager Nav
+@code {
+    // Sessão expirada ou sem login numa tela do navegador → login interno, voltando para a mesma tela.
+    protected override void OnInitialized()
+    {
+        var caminho = "/" + Nav.ToBaseRelativePath(Nav.Uri);
+        Nav.NavigateTo($"login?retorno={Uri.EscapeDataString(caminho)}", forceLoad: true);
+    }
+}

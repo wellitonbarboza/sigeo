@@ -1,0 +1,82 @@
+@page "/cadastros/categorias"
+@inherits PaginaBase
+@inject CodigosProdutoServico Codigos
+@inject CadastrosServico Cad
+
+<PageTitle>Categorias de produto · QualyHub</PageTitle>
+<div class="tela">
+    <div class="topo"><h1>Categorias de produto e siglas</h1>
+        <div class="direita"><button class="btn sec pq" disabled="@Ocupado" @onclick="GerarDosProdutos" title="Cria os grupos/subgrupos que aparecem nos produtos, com sigla sugerida (não altera códigos)"><Icone Nome="mais" Tam="14" /> Gerar a partir dos produtos</button></div></div>
+    <div class="miolo"><div class="pagina">
+        <div class="alerta info"><Icone Nome="info" /> Código do produto = <b>SIGLA DO GRUPO</b>-<b>SIGLA DO SUBGRUPO</b>-<b>0000</b> (ex.: HID-CNX-0001). Ao mudar uma sigla, os produtos ainda não usados são recodificados; os já usados mantêm o código (fica o anterior guardado). Subgrupos duplicados por grafia podem ser mesclados.</div>
+        <Erros Lista="ErrosForm" />
+        <table class="itens">
+            <thead><tr><th class="larg-90">Sigla</th><th>Grupo › Subgrupo</th><th class="num">Produtos</th><th>Ações</th></tr></thead>
+            <tbody>
+                @foreach (var g in _cats.Where(c => c.PaiId == null).OrderBy(c => c.Nome))
+                {
+                    <tr @key="g.Id" class="fundo-sup2">
+                        <td><input value="@g.Sigla" maxlength="3" class="larg-64 maiusc peso-700" @onchange="e => Sigla(g, e.Value?.ToString())" /></td>
+                        <td><b>@g.Nome</b></td><td class="num"><b>@_qtd.Where(q => q.Key.Grupo == g.Nome).Sum(q => q.Value)</b></td><td></td>
+                    </tr>
+                    @foreach (var s in _cats.Where(c => c.PaiId == g.Id).OrderBy(c => c.Nome))
+                    {
+                        <tr @key="s.Id">
+                            <td class="pl-18"><input value="@s.Sigla" maxlength="3" class="larg-64 maiusc" @onchange="e => Sigla(s, e.Value?.ToString())" /></td>
+                            <td class="pl-18">› @s.Nome <span class="mudo">(@g.Sigla-@s.Sigla-0001)</span></td>
+                            <td class="num">@_qtd.GetValueOrDefault((g.Nome, s.Nome))</td>
+                            <td><select @key="(s.Id, _versao)" aria-label="@($"Mesclar {s.Nome} em outro subgrupo")" @onchange="e => Mesclar(s, e.Value?.ToString())"><option value="">Mesclar em…</option>@foreach (var d in _cats.Where(c => c.PaiId == g.Id && c.Id != s.Id).OrderBy(c => c.Nome)) { <option value="@d.Id">@d.Nome</option> }</select></td>
+                        </tr>
+                    }
+                }
+                @if (_cats.Count == 0) { <tr><td colspan="4" class="mudo">Nenhuma categoria. Importe produtos ou clique em "Gerar a partir dos produtos".</td></tr> }
+            </tbody>
+        </table>
+    </div></div>
+</div>
+<Confirmacao Pergunta="@PerguntaConfirmacao" AoSim="ConfirmacaoSim" AoNao="ConfirmacaoNao" />
+
+@code {
+    private List<CategoriaProduto> _cats = [];
+    private Dictionary<(string? Grupo, string? Sub), int> _qtd = [];
+    private int _versao; // muda a cada recarga: recria os seletores de mesclagem (voltam ao texto inicial)
+
+    protected override Task OnInitializedAsync() => Carregar();
+
+    private async Task Carregar()
+    {
+        _versao++;
+        await using var db = Fabrica.CriarLeitura();
+        _cats = await db.CategoriasProduto.Where(c => c.Ativo).ToListAsync(Cancelamento);
+        _qtd = (await db.Produtos.GroupBy(p => new { p.Grupo, p.SubGrupo }).Select(g => new { g.Key.Grupo, g.Key.SubGrupo, N = g.Count() }).ToListAsync(Cancelamento))
+               .ToDictionary(x => (x.Grupo, x.SubGrupo), x => x.N);
+    }
+
+    private async Task Sigla(CategoriaProduto c, string? nova)
+    {
+        int n = 0;
+        if (await Executar(async () => n = await Codigos.AlterarSiglaAsync(c.Id, nova ?? "", Cancelamento), null))
+            Notif.Sucesso($"Sigla alterada. {n} produto(s) recodificado(s).");
+        await Carregar();
+    }
+
+    private void Mesclar(CategoriaProduto origem, string? destino)
+    {
+        if (!Guid.TryParse(destino, out var d)) return;
+        var nomeDestino = _cats.FirstOrDefault(c => c.Id == d)?.Nome ?? "?";
+        Confirmar($"Mesclar o subgrupo \"{origem.Nome}\" em \"{nomeDestino}\"? Os produtos são movidos e o subgrupo de origem é excluído.", async () =>
+        {
+            int n = 0;
+            if (await Executar(async () => n = await Codigos.MesclarAsync(origem.Id, d, Cancelamento), null)) Notif.Sucesso($"Subgrupo mesclado: {n} produto(s) movido(s).");
+            await Carregar();
+        }, Carregar); // recusou: recarrega para o seletor voltar a "Mesclar em…"
+    }
+
+    private async Task GerarDosProdutos()
+    {
+        int n = 0;
+        if (await Executar(async () => n = await Cad.GerarCategoriasDosProdutosAsync(Cancelamento)))
+            Notif.Sucesso(n == 0 ? "Nenhuma categoria nova: todas as dos produtos já existem." : $"{n} categoria(s) gerada(s) com sigla sugerida — revise e ajuste.");
+        await Carregar();
+    }
+}

@@ -1,0 +1,91 @@
+@page "/obra/mapa"
+@inherits PaginaBase
+@inject NavigationManager Nav
+
+<Pagina Titulo="Mapa de inspeções" AoAtualizar="Carregar">
+    <ChildContent>
+        <div class="pagina">
+            <div class="barra-filtro">
+                <SeletorObra Valor="_obra" ValorChanged="TrocarObra" />
+                <label>Bloco / torre <select value="@_torre" @onchange="async e => { _torre = Guid.TryParse(e.Value?.ToString(), out var g) ? g : null; await Carregar(); }"><option value="">Todos</option>@foreach (var t in _torres) { <option value="@t.Id">@t.Nome</option> }</select></label>
+                <label>Prestador <select value="@_prestador" @onchange="async e => { _prestador = Guid.TryParse(e.Value?.ToString(), out var g) ? g : null; await Carregar(); }"><option value="">Todos</option>@foreach (var f in _fornecedores) { <option value="@f.Id">@f.Texto</option> }</select></label>
+            </div>
+            <div class="kpis">
+                <Kpi Rotulo="FVS no mês" Valor="@_fvs.Count(f => f.DataInspecao >= new DateTimeOffset(Hoje.Year, Hoje.Month, 1, 0, 0, 0, TimeSpan.Zero))" />
+                <Kpi Rotulo="Aprovadas na 1ª inspeção" Valor="@Pct()" Sub="@($"meta ≥ {_meta:0}%")" Tom="info" />
+                <Kpi Rotulo="Reprovadas abertas" Valor="@_fvs.Count(f => f.Status == StatusFvs.Reprovada)" Sub="@($"{_fvs.Count(f => f.Status == StatusFvs.Reprovada && f.RncId != null)} com RNC")" Tom="erro" />
+                <Kpi Rotulo="Liberadas p/ medição" Valor="@_fvs.Count(f => f.Status == StatusFvs.Liberada)" Tom="ok" />
+            </div>
+            @if (_obra is null) { <div class="alerta info"><Icone Nome="info" /> Escolha a obra. Os locais (torres e pavimentos) são cadastrados em Cadastro › Obras › Locais.</div> }
+            else if (_linhas.Count == 0) { <div class="alerta aviso"><Icone Nome="alerta" /> Obra sem locais cadastrados. Cadastre a árvore em Cadastro › Obras › Locais.</div> }
+            else
+            {
+                <div class="quadro-rolavel">
+                    <table class="mapa-insp">
+                        <thead><tr><th class="loc">Local</th>@foreach (var m in _modelos) { <th title="@m.Texto">@m.Texto.Split(" – ").Last()</th> }</tr></thead>
+                        <tbody>
+                            @foreach (var l in _linhas)
+                            {
+                                <tr><th class="loc">@l.Nome</th>
+                                    @foreach (var m in _modelos)
+                                    {
+                                        var f = Celula(l.Id, m);
+                                        <td class="@(f?.Status.ToString())" title="@(f is null ? "Não iniciada — clique para abrir FVS" : $"{f.Numero} · {De(f.Status)}")" @onclick="() => Clicar(l.Id, m, f)">
+                                            @(f is null ? "—" : f.Status == StatusFvs.Liberada ? "✓ liberado" : De(f.Status).ToLowerInvariant())
+                                        </td>
+                                    }
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                    <div class="legenda"><span><i class="cor-liberada"></i>Liberado p/ medição</span><span><i class="cor-aprovada"></i>Aprovada</span><span><i class="cor-reprovada"></i>Reprovada</span><span><i class="cor-reinspecao"></i>Reinspeção</span><span><i class="cor-em-inspecao"></i>Em inspeção</span><span><i class="cor-nao-iniciada"></i>Não iniciada</span></div>
+                </div>
+                <div class="alerta info"><Icone Nome="info" /> Clique numa célula para abrir a FVS daquele local e serviço (ou iniciar uma nova). Só local com FVS <b>&nbsp;liberada&nbsp;</b> entra na medição do prestador.</div>
+            }
+        </div>
+    </ChildContent>
+    <Faixa><b>Tela 32 · Mapa de inspeções</b><span>Local × serviço com a situação da FVS</span><span>Base da liberação para medição</span></Faixa>
+</Pagina>
+
+@code {
+    private Guid? _obra, _torre, _prestador;
+    private decimal _meta = 85;
+    private List<Opcao> _fornecedores = [], _modelos = [];
+    private List<Local> _torres = [], _linhas = [];
+    private List<Fvs> _fvs = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        // A obra (a única permitida, se for o caso) vem do SeletorObra, que chama TrocarObra.
+        _fornecedores = await Cat.FornecedoresAsync(); _modelos = await Cat.ModelosAsync(TipoModelo.FVS);
+        await using (var db = Fabrica.CriarLeitura()) _meta = (await ParametrosServico.CarregarAsync(db, Cancelamento))[Parametros.MetaFvs1aInspecaoPerc];
+    }
+
+    private async Task TrocarObra(Guid? obra) { _obra = obra; _torre = null; await Carregar(); }
+
+    private async Task Carregar()
+    {
+        if (_obra is not { } o) { _linhas = []; _fvs = []; return; }
+        await using var db = Fabrica.CriarLeitura();
+        var locais = await db.Locais.AsNoTracking().Where(l => l.ObraId == o).ToListAsync(Cancelamento);
+        _torres = locais.Where(l => l.LocalPaiId == null).OrderBy(l => l.Ordem).ToList();
+        var raizes = _torre is { } t ? [t] : _torres.Select(x => x.Id).ToList();
+        _linhas = locais.Where(l => l.LocalPaiId is { } p && raizes.Contains(p)).OrderBy(l => l.LocalPaiId).ThenByDescending(l => l.Ordem).ToList();
+        if (_linhas.Count == 0) _linhas = locais.Where(l => raizes.Contains(l.Id)).ToList();
+        var q = db.Fvss.AsNoTracking().Include(f => f.Itens).Where(f => f.ObraId == o && f.Status != StatusFvs.Cancelada);
+        if (_prestador is { } pr) q = q.Where(f => f.FornecedorId == pr);
+        _fvs = await q.OrderByDescending(f => f.DataInspecao).ToListAsync(Cancelamento);
+    }
+
+    private Fvs? Celula(Guid local, Opcao modelo) =>
+        _fvs.FirstOrDefault(f => f.LocalId == local && (f.ModeloInspecaoId == modelo.Id || f.ServicoControladoId.ToString() == modelo.Extra));
+
+    private string Pct()
+    {
+        var c = _fvs.Where(f => f.Status is not StatusFvs.EmInspecao).ToList();
+        return c.Count == 0 ? "—" : $"{100m * c.Count(f => f.Aprovada1aInspecao) / c.Count:0}%";
+    }
+
+    private void Clicar(Guid local, Opcao modelo, Fvs? f) =>
+        Nav.NavigateTo(f is null ? $"obra/fvs?local={local}&servico={modelo.Extra}" : $"obra/fvs?id={f.Id}");
+}

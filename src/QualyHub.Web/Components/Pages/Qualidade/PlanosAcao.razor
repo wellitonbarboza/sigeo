@@ -1,0 +1,97 @@
+@page "/fornecedores/planos"
+@inherits PaginaBase
+@inject PlanosAcaoServico Planos
+
+<Pagina Titulo="Planos de ação de fornecedores" Grade="_grade" AoNovo="Novo" AoAtualizar="Carregar">
+    <ChildContent>
+        <div class="pagina">
+            <div class="kpis">
+                <Kpi Rotulo="Abertos" Valor="@_itens?.Count(p => p.Status != StatusPlanoAcao.Concluida)" Tom="info" />
+                <Kpi Rotulo="Prazo vencido" Valor="@_itens?.Count(p => p.Status != StatusPlanoAcao.Concluida && p.Prazo < Hoje)" Tom="erro" />
+                <Kpi Rotulo="Concluídos eficazes" Valor="@_itens?.Count(p => p.Eficacia == Eficacia.Eficaz)" Tom="ok" />
+                <Kpi Rotulo="Não eficazes" Valor="@_itens?.Count(p => p.Eficacia == Eficacia.NaoEficaz)" Tom="aviso" />
+            </div>
+            <Grade T="PlanoAcaoFornecedor" @ref="_grade" Itens="_itens" AoClicar="Abrir" NomeExportacao="planos-acao" CriadoPor="p => p.CriadoPor">
+                <Colunas>
+                    <Coluna T="PlanoAcaoFornecedor" Titulo="Número" Valor="p => p.Numero" Largura="90px" />
+                    <Coluna T="PlanoAcaoFornecedor" Titulo="Fornecedor" Valor="p => p.Fornecedor.RazaoSocial" />
+                    <Coluna T="PlanoAcaoFornecedor" Titulo="Origem" Valor="p => p.Origem" />
+                    <Coluna T="PlanoAcaoFornecedor" Titulo="Tipo" Valor="p => p.TipoPlano" />
+                    <Coluna T="PlanoAcaoFornecedor" Titulo="Problema" Valor="p => p.Problema" />
+                    <Coluna T="PlanoAcaoFornecedor" Titulo="Responsável" Valor="p => p.Responsavel" />
+                    <Coluna T="PlanoAcaoFornecedor" Titulo="Prazo" Valor="p => p.Prazo"><Modelo><span class="@(context.Prazo < Hoje && context.Status != StatusPlanoAcao.Concluida ? "texto-erro" : "")">@Data(context.Prazo)</span></Modelo></Coluna>
+                    <Coluna T="PlanoAcaoFornecedor" Titulo="Status" Valor="p => p.Status"><Modelo><Selo Texto="@De(context.Status)" Tom="@Tom(context.Status)" /></Modelo></Coluna>
+                    <Coluna T="PlanoAcaoFornecedor" Titulo="Eficácia" Valor="p => p.Eficacia" />
+                </Colunas>
+            </Grade>
+        </div>
+    </ChildContent>
+    <Faixa><b>Planos de ação</b><span>Gerados automaticamente: nota de medição abaixo do limite, FVM reprovada, avaliação semestral</span><span>Concluir exige verificação de eficácia</span></Faixa>
+</Pagina>
+
+<Modal @bind-Aberto="_aberto" Titulo="@(string.IsNullOrEmpty(_p?.Numero) ? "Novo plano de ação" : $"Plano {_p.Numero}")" Tamanho="media">
+    <ChildContent>
+        @if (_p is not null)
+        {
+            <Erros Lista="ErrosForm" />
+            <div class="form">
+                <Campo Rotulo="Fornecedor" Obrigatorio Classe="s8"><select @bind="_p.FornecedorId" disabled="@(!string.IsNullOrEmpty(_p.Numero))"><option value="@Guid.Empty">Selecione…</option>@foreach (var f in _fornecedores) { <option value="@f.Id">@f.Texto</option> }</select></Campo>
+                <Campo Rotulo="Tipo" Classe="s4"><select @bind="_p.TipoPlano" disabled="@Concluido">@foreach (var t in Enum.GetValues<TipoPlanoAcao>()) { <option value="@t">@De(t)</option> }</select></Campo>
+                <Campo Rotulo="Origem" Classe="s4"><select @bind="_p.Origem" disabled="@(!string.IsNullOrEmpty(_p.Numero))">@foreach (var o in Enum.GetValues<OrigemPlanoAcao>()) { <option value="@o">@De(o)</option> }</select></Campo>
+                <Campo Rotulo="Responsável" Obrigatorio Classe="s5"><input @bind="_p.Responsavel" disabled="@Concluido" /></Campo>
+                <Campo Rotulo="Prazo" Obrigatorio Classe="s3"><input type="date" @bind="_p.Prazo" disabled="@Concluido" /></Campo>
+                <Campo Rotulo="Problema" Obrigatorio Classe="s12"><textarea @bind="_p.Problema" disabled="@Concluido"></textarea></Campo>
+                <Campo Rotulo="Ação" Obrigatorio Classe="s12"><textarea @bind="_p.Acao" disabled="@Concluido"></textarea></Campo>
+                <Campo Rotulo="Status" Classe="s4"><select @bind="_p.Status" disabled="@Concluido">@foreach (var s in Enum.GetValues<StatusPlanoAcao>().Where(s => s != StatusPlanoAcao.Concluida || Concluido)) { <option value="@s">@De(s)</option> }</select></Campo>
+            </div>
+            @if (!string.IsNullOrEmpty(_p.Numero))
+            {
+                <div class="secao"><Icone Nome="alvo" /> Verificação de eficácia</div>
+                <div class="form">
+                    <Campo Rotulo="Eficácia" Classe="s4"><select @bind="_eficacia" disabled="@Concluido">@foreach (var e in Enum.GetValues<Eficacia>()) { <option value="@e">@De(e)</option> }</select></Campo>
+                    <Campo Rotulo="Comentário" Classe="s8"><input @bind="_comentario" disabled="@Concluido" /></Campo>
+                </div>
+                <Anexos Entidade="PlanoAcao" EntidadeId="_p.Id" Categoria="Evidencia" Titulo="Evidências" SomenteLeitura="Concluido" />
+                @if (_p.CriadoEm != default) { <Notas Entidade="PlanoAcao" EntidadeId="_p.Id" /> }
+            }
+        }
+    </ChildContent>
+    <Rodape>
+        @if (_p is not null && !Concluido)
+        {
+            @* Concluído com eficácia verificada é registro fechado: só leitura (o serviço também recusa alterar). *@
+            @if (!Concluido)
+            {
+                @if (!string.IsNullOrEmpty(_p.Numero)) { <button class="btn ok" disabled="@Ocupado" @onclick="Concluir"><Icone Nome="check" Tam="16" /> Concluir</button> }
+                <button class="btn prim" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="16" /> Salvar</button>
+            }
+        }
+    </Rodape>
+</Modal>
+
+@code {
+    private Grade<PlanoAcaoFornecedor>? _grade;
+    private List<PlanoAcaoFornecedor>? _itens;
+    private PlanoAcaoFornecedor? _p;
+    private bool _aberto;
+    private Eficacia _eficacia;
+    private string? _comentario;
+    private List<Opcao> _fornecedores = [];
+    private bool Concluido => _p?.Status == StatusPlanoAcao.Concluida && _itens?.Any(x => x.Id == _p.Id && x.Status == StatusPlanoAcao.Concluida) == true && _p.Eficacia != Eficacia.NaoVerificada;
+
+    protected override async Task OnInitializedAsync() { _fornecedores = await Cat.FornecedoresAsync(); await Carregar(); }
+
+    private async Task Carregar()
+    {
+        await using var db = Fabrica.CriarLeitura();
+        _itens = await db.PlanosAcao.Include(p => p.Fornecedor).OrderByDescending(p => p.Numero).ToListAsync(Cancelamento);
+    }
+
+    private void Novo() { _p = new PlanoAcaoFornecedor { Prazo = Hoje.AddDays(30), Origem = OrigemPlanoAcao.Reclamacao, TipoPlano = TipoPlanoAcao.Pontual }; ErrosForm = null; _aberto = true; }
+
+    private void Abrir(PlanoAcaoFornecedor p) { _p = p; _eficacia = p.Eficacia; _comentario = p.EficaciaComentario; ErrosForm = null; _aberto = true; }
+
+    private async Task Salvar() { if (await Executar(() => Planos.SalvarAsync(_p!, Cancelamento), "Plano salvo.")) { _aberto = false; await Carregar(); } }
+
+    private async Task Concluir() { if (await Executar(() => Planos.ConcluirAsync(_p!, _eficacia, _comentario, Cancelamento), "Plano concluído.")) { _aberto = false; await Carregar(); } }
+}

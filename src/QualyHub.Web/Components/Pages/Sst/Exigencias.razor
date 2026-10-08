@@ -1,0 +1,122 @@
+@page "/sst/exigencias"
+@inherits PaginaBase
+@inject SstServico Sst
+
+<Pagina Titulo="Exigências por função" AoAtualizar="Carregar">
+    <ChildContent>
+        <div class="pagina">
+            <div class="alerta info"><Icone Nome="info" /> <span><b>Matriz inicial</b> para validação do SST: substitua pelas funções e riscos do PGR/PCMSO da obra. <b>O</b> = obrigatório · <b>C</b> = conforme a atividade (só de quem executa) · — = não se aplica. Clique na célula para alternar.</span></div>
+            <div class="barra-botoes-sst">
+                <button class="btn sec pq" @onclick="() => { _f = new FuncaoObra(); ErrosForm = null; _abertoF = true; }"><Icone Nome="mais" Tam="14" /> Função</button>
+                <button class="btn sec pq" @onclick="() => { _e = new Exigencia { Tipo = TipoExigencia.Treinamento, Ordem = _exig.Count + 1 }; ErrosForm = null; _abertoE = true; }"><Icone Nome="mais" Tam="14" /> Exigência</button>
+                @if (_alterado) { <button class="btn prim pq" disabled="@Ocupado" @onclick="SalvarMatriz"><Icone Nome="check" Tam="14" /> Salvar matriz</button> }
+            </div>
+            <div class="quadro-rolavel justo">
+                <table class="itens matriz">
+                    <thead><tr><th>Função</th>@foreach (var e in _exig) { <th @key="e.Id" class="ponteiro texto-centro" title="Editar exigência" @onclick="() => { _e = e; ErrosForm = null; _abertoE = true; }">@e.Descricao</th> }</tr></thead>
+                    <tbody>
+                        @foreach (var f in _funcoes)
+                        {
+                            <tr @key="f.Id"><td class="ponteiro" @onclick="() => { _f = f; ErrosForm = null; _abertoF = true; }"><Icone Nome="editar" Tam="13" /> @f.Descricao</td>
+                                @foreach (var e in _exig)
+                                {
+                                    var v = f.Exigencias.FirstOrDefault(x => x.ExigenciaId == e.Id);
+                                    <td @key="e.Id" class="texto-centro ponteiro" @onclick="() => Alternar(f, e)">
+                                        @if (v is null) { <span class="mudo">—</span> } else { <span class="pilula @(v.Obrigatoriedade == Obrigatoriedade.Obrigatorio ? "ok" : "info")">@(v.Obrigatoriedade == Obrigatoriedade.Obrigatorio ? "O" : "C")</span> }
+                                    </td>
+                                }
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </ChildContent>
+    <Faixa><b>Tela 42 · Exigências por função</b><span>Base do bloqueio automático · validar com PGR/PCMSO</span></Faixa>
+</Pagina>
+
+<Modal @bind-Aberto="_abertoE" Titulo="@($"Exigência — {_e?.Descricao}")" Tamanho="media">
+    <ChildContent>
+        @if (_e is not null)
+        {
+            <Erros Lista="ErrosForm" />
+            <div class="form">
+                <Campo Rotulo="Exigência" Obrigatorio Classe="s8"><input @bind="_e.Descricao" /></Campo>
+                <Campo Rotulo="Tipo" Classe="s4"><select @bind="_e.Tipo">@foreach (var t in Enum.GetValues<TipoExigencia>()) { <option value="@t">@De(t)</option> }</select></Campo>
+                @if (_e.Tipo == TipoExigencia.Treinamento)
+                {
+                    <Campo Rotulo="Treinamento" Classe="s6"><select @bind="_e.TreinamentoId"><option value="">—</option>@foreach (var t in _treinamentos) { <option value="@t.Id">@t.Texto</option> }</select></Campo>
+                    <Campo Rotulo="Carga horária inicial" Classe="s3"><input @bind="_e.CargaInicial" /></Campo>
+                }
+                <Campo Rotulo="Reciclagem (meses)" Classe="s3"><input type="number" @bind="_e.ValidadeMeses" /></Campo>
+                <Campo Rotulo="Se vencer" Classe="s6"><select @bind="_e.EfeitoVencimento">@foreach (var t in Enum.GetValues<EfeitoVencimento>()) { <option value="@t">@De(t)</option> }</select></Campo>
+                <Campo Rotulo="Fonte" Obrigatorio Classe="s6"><input @bind="_e.Fonte" placeholder="NR-35 · PGR da obra" /></Campo>
+                <Campo Rotulo="Atividades que exigem" Classe="s12">
+                    <div class="checks">@foreach (var a in Enum.GetValues<AtividadeRisco>().Where(a => a != AtividadeRisco.Nenhuma)) { <label><input type="checkbox" checked="@_e.Atividades.HasFlag(a)" @onchange="x => _e.Atividades = (bool)x.Value! ? _e.Atividades | a : _e.Atividades & ~a" /> @De(a)</label> }</div>
+                </Campo>
+            </div>
+        }
+    </ChildContent>
+    <Rodape><button class="btn prim" disabled="@Ocupado" @onclick="SalvarExigencia"><Icone Nome="check" Tam="16" /> Salvar</button></Rodape>
+</Modal>
+
+<Modal @bind-Aberto="_abertoF" Titulo="Função" Tamanho="pequena">
+    <ChildContent>
+        @if (_f is not null)
+        {
+            <Erros Lista="ErrosForm" />
+            <div class="form">
+                <Campo Rotulo="Função" Obrigatorio Classe="s8"><input @bind="_f.Descricao" /></Campo>
+                <Campo Rotulo="CBO" Classe="s4"><input @bind="_f.Cbo" /></Campo>
+                <Campo Rotulo="Riscos principais (PGR)" Classe="s12"><textarea @bind="_f.Riscos"></textarea></Campo>
+                <Campo Rotulo="" Classe="s12"><label><input type="checkbox" @bind="_f.Ativa" /> Ativa</label></Campo>
+            </div>
+        }
+    </ChildContent>
+    <Rodape><button class="btn prim" disabled="@Ocupado" @onclick="SalvarFuncao"><Icone Nome="check" Tam="16" /> Salvar</button></Rodape>
+</Modal>
+
+@code {
+    private List<FuncaoObra> _funcoes = [];
+    private List<Exigencia> _exig = [];
+    private List<Opcao> _treinamentos = [];
+    private FuncaoObra? _f;
+    private Exigencia? _e;
+    private bool _abertoE, _abertoF, _alterado;
+
+    protected override Task OnInitializedAsync() => Carregar();
+
+    private async Task Carregar()
+    {
+        await using var db = Fabrica.CriarLeitura();
+        _funcoes = await db.Funcoes.AsNoTracking().Include(f => f.Exigencias).Where(f => f.Ativa).OrderBy(f => f.Descricao).ToListAsync(Cancelamento);
+        _exig = await db.Exigencias.AsNoTracking().OrderBy(e => e.Ordem).ToListAsync(Cancelamento);
+        _treinamentos = await db.Treinamentos.AsNoTracking().Select(t => new Opcao(t.Id, t.Descricao)).ToListAsync(Cancelamento);
+        _alterado = false;
+    }
+
+    private void Alternar(FuncaoObra f, Exigencia e)
+    {
+        var v = f.Exigencias.FirstOrDefault(x => x.ExigenciaId == e.Id);
+        if (v is null) f.Exigencias.Add(new FuncaoExigencia { FuncaoObraId = f.Id, ExigenciaId = e.Id, Obrigatoriedade = Obrigatoriedade.Obrigatorio });
+        else if (v.Obrigatoriedade == Obrigatoriedade.Obrigatorio) v.Obrigatoriedade = Obrigatoriedade.ConformeAtividade;
+        else f.Exigencias.Remove(v);
+        _alterado = true;
+    }
+
+    private async Task SalvarMatriz()
+    {
+        if (await Executar(() => Sst.SalvarMatrizAsync(_funcoes, Cancelamento), "Matriz salva — situação dos colaboradores recalculada."))
+            await Carregar();
+    }
+
+    private async Task SalvarExigencia()
+    {
+        if (await Executar(() => Sst.SalvarExigenciaAsync(_e!, Cancelamento), "Exigência salva.")) { _abertoE = false; await Carregar(); }
+    }
+
+    private async Task SalvarFuncao()
+    {
+        if (await Executar(() => Sst.SalvarFuncaoAsync(_f!, Cancelamento), "Função salva.")) { _abertoF = false; await Carregar(); }
+    }
+}
