@@ -1,3 +1,4 @@
+using Syncfusion.Blazor;
 ﻿using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.EntityFrameworkCore;
 using QualyHub.Domain.Common;
@@ -28,6 +29,14 @@ builder.Services.AddRazorComponents().AddInteractiveServerComponents(o =>
     o.DisconnectedCircuitRetentionPeriod = TimeSpan.FromMinutes(2);
     o.DisconnectedCircuitMaxRetained = 50;
 }).AddInteractiveWebAssemblyComponents().AddAuthenticationStateSerialization(o => o.SerializeAllClaims = true);
+
+// Planejamento: Gantt da Syncfusion (licença Community no Key Vault: Syncfusion--ChaveLicenca). Sem chave aparece o aviso de avaliação.
+// A telemetria do fornecedor fica desligada (nenhum dado de uso sai para terceiros).
+Syncfusion.Telemetry.Telemetry.Disable();
+if (builder.Configuration["Syncfusion:ChaveLicenca"] is { Length: > 0 } chaveSyncfusion)
+    Syncfusion.Licensing.SyncfusionLicenseProvider.RegisterLicense(chaveSyncfusion);
+builder.Services.AddSyncfusionBlazor();
+builder.Services.AddSingleton(typeof(Syncfusion.Blazor.ISyncfusionStringLocalizer), typeof(QualyHub.Web.Servicos.LocalizadorSyncfusion));
 
 // Telemetria (Application Insights via OpenTelemetry): só liga com a cadeia de conexão do App Service.
 // Amostragem de 25% e sem o /saude (verificação a cada minuto) para ficar dentro dos 5 GB/mês gratuitos do Log Analytics.

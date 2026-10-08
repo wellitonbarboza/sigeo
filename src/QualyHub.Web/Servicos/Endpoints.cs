@@ -38,6 +38,23 @@ public static class Endpoints
                 : Results.File(await arm.AbrirAsync(n.ArquivoXml), "application/xml", $"NFe{n.Chave}.xml");
         }).RequireAuthorization();
 
+        // Planejamento: cronograma em Excel e no XML do MS Project (MSPDI).
+        app.MapGet("/arquivos/cronograma/{id:guid}/{tipo}", async (Guid id, string tipo, IFabricaDb fabrica) =>
+        {
+            await using var db = fabrica.CriarLeitura();
+            var v = await db.VersoesCronograma.AsNoTracking().Include(x => x.Atividades).Include(x => x.Vinculos).AsSplitQuery().FirstOrDefaultAsync(x => x.Id == id);
+            if (v is null) return Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "Cronograma não encontrado");
+            var obra = await db.Obras.AsNoTracking().Where(o => o.Id == v.ObraId).Select(o => new { o.Codigo, o.Nome }).FirstAsync();
+            var nome = $"Cronograma-{obra.Codigo}-{v.Codigo}";
+            var cal = await PlanejamentoServico.CalendarioAsync(db, v.ObraId);
+            return tipo switch
+            {
+                "excel" => Results.File(ExcelCronograma.Gerar($"{obra.Codigo} – {obra.Nome}", v, cal), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", nome + ".xlsx"),
+                "msproject" => Results.File(System.Text.Encoding.UTF8.GetBytes(QualyHub.Application.Planejamento.MsProjectXml.Escrever($"{obra.Codigo} - {obra.Nome} ({v.Codigo})", v.InicioProjeto, v.Atividades.ToList(), v.Vinculos.ToList())), "application/xml", nome + ".xml"),
+                _ => Results.Problem(statusCode: StatusCodes.Status400BadRequest, title: "Formato inválido (excel ou msproject)")
+            };
+        }).RequireAuthorization();
+
         app.MapGet("/arquivos/fornecedor/{id:guid}", async (Guid id, IFabricaDb fabrica, IArmazenamento arm) =>
         {
             await using var db = fabrica.Criar();

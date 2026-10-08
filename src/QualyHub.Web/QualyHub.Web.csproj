@@ -9,6 +9,7 @@
     <PackageReference Include="Azure.Extensions.AspNetCore.Configuration.Secrets" Version="1.5.2" />
     <PackageReference Include="Azure.Monitor.OpenTelemetry.AspNetCore" Version="1.6.0" />
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" Version="10.0.12" />
+    <PackageReference Include="Syncfusion.Blazor.Gantt" Version="34.2.9" />
   </ItemGroup>
 
   <PropertyGroup>
@@ -23,4 +24,7 @@
     <Using Include="QualyHub.Contratos" />
   </ItemGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="Recursos\syncfusion-pt-BR.json" LogicalName="syncfusion-pt-BR.json" />
+  </ItemGroup>
 </Project>

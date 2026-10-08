@@ -172,7 +172,7 @@ public static class CargaPadrao
     /// Versão da carga padrão. Suba quando incluir itens novos nas listas/cadastros padrão: empresas existentes recebem a carga
     /// uma vez por versão (itens que o usuário renomeou ou excluiu não voltam a cada reinício do app).
     /// </summary>
-    public const int Versao = 2;
+    public const int Versao = 3;
     private const string ChaveVersao = "Sistema:CargaPadrao";
 
     /// <summary>Aplica a carga só se a empresa ainda não recebeu esta versão (usado na inicialização do app).</summary>
@@ -275,6 +275,8 @@ public static class CargaPadrao
         Alc(EntidadeAprovavel.Aditivo, 1, PerfilUsuario.Diretoria, "Aprov. Diretoria");
         Alc(EntidadeAprovavel.Medicao, 1, PerfilUsuario.Diretoria, "Aprov. Diretor Técnico");
         Alc(EntidadeAprovavel.Pagamento, 1, PerfilUsuario.Diretoria, "Liberação Diretor Técnico");
+        Alc(EntidadeAprovavel.Cronograma, 1, PerfilUsuario.Engenharia, "Aprov. Engenheiro responsável", engObra: true);
+        Alc(EntidadeAprovavel.Cronograma, 2, PerfilUsuario.Diretoria, "Aprov. Diretor Técnico");
 
         await AplicarSstAsync(db, empresaId, ct);
         await AplicarNotificacoesAsync(db, empresaId, ct);

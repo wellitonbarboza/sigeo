@@ -200,6 +200,14 @@ public static partial class Rotulos
         [Domain.Fiscal.SituacaoNota.Cancelada] = "Cancelada (SEFAZ)", [Domain.Fiscal.SituacaoNota.Ignorada] = "Ignorada",
         [Domain.Fiscal.OrigemVinculo.Regra] = "automático", [Domain.Fiscal.OrigemVinculo.Ia] = "sugestão IA", [Domain.Fiscal.OrigemVinculo.Manual] = "manual",
         [Domain.Fiscal.OrigemNota.Manual] = "Arquivo XML", [Domain.Fiscal.OrigemNota.Sieg] = "SIEG",
+        [EntidadeAprovavel.Cronograma] = "Cronograma (reprogramação)",
+        [Domain.Planejamento.StatusVersao.EmElaboracao] = "Em elaboração", [Domain.Planejamento.StatusVersao.EmAprovacao] = "Em aprovação",
+        [Domain.Planejamento.StatusVersao.Vigente] = "Vigente", [Domain.Planejamento.StatusVersao.Substituida] = "Substituída",
+        [Domain.Planejamento.TipoRede.PorApartamento] = "Por apartamento", [Domain.Planejamento.TipoRede.PorPavimento] = "Por pavimento",
+        [Domain.Planejamento.TipoRede.PorLocal] = "Por local (área comum)",
+        [Domain.Planejamento.ModoVinculoRede.PorPavimento] = "Por pavimento (N + deslocamento)", [Domain.Planejamento.ModoVinculoRede.AposFimDaRede] = "Após o último local da origem",
+        [Domain.Planejamento.TipoVinculo.TerminoInicio] = "TI", [Domain.Planejamento.TipoVinculo.InicioInicio] = "II",
+        [Domain.Planejamento.TipoVinculo.TerminoTermino] = "TT", [Domain.Planejamento.TipoVinculo.InicioTermino] = "IT",
     };
 
     public static string De(Enum e)
@@ -237,6 +245,9 @@ public static partial class Rotulos
     /// <summary>Tom do selo pela semântica do status.</summary>
     public static string Tom(Enum e) => e switch
     {
+        Domain.Planejamento.StatusVersao.Vigente => "ok",
+        Domain.Planejamento.StatusVersao.EmAprovacao => "aviso",
+        Domain.Planejamento.StatusVersao.Substituida => "neutro",
         StatusRequisicao.Autorizada or StatusRequisicao.PedidoEmitido or StatusRequisicao.Concluida => "ok",
         StatusRequisicao.NaoAutorizada or StatusRequisicao.Cancelada => "erro",
         StatusRequisicao.DevolvidaAjuste or StatusRequisicao.AguardandoEngenheiro or StatusRequisicao.AguardandoDiretorTecnico => "aviso",

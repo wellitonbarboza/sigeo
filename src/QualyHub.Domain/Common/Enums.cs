@@ -11,7 +11,7 @@ public enum DecisaoAprovacao { Pendente = 0, Aprovado = 1, Reprovado = 2, Devolv
 public enum EntidadeAprovavel
 {
     Pedido = 1, Medicao = 2, DocumentoSgq = 3, AvaliacaoFornecedor = 4,
-    Requisicao = 5, Cotacao = 6, Contrato = 7, Pagamento = 8, Aditivo = 9
+    Requisicao = 5, Cotacao = 6, Contrato = 7, Pagamento = 8, Aditivo = 9, Cronograma = 10
 }
 
 // ───────── Cadastros / fornecedores ─────────
