@@ -4,7 +4,7 @@
 @inject Notificacoes Notif
 @inject TimeProvider Relogio
 
-@if (_s is null) { <p class="mudo">Carregando…</p> }
+@if (_s is null) { <Esqueleto Indicadores="5" Linhas="6" /> }
 else
 {
     var p = _s.Plano;

@@ -78,7 +78,7 @@
             }
             @if (Itens is null)
             {
-                <tr><td class="vazio" colspan="@nCols">Carregando…</td></tr>
+                @for (var i = 0; i < 6; i++) { <tr class="esq-linha"><td colspan="@nCols"><span class="esq-barra"></span></td></tr> }
             }
             else if (linhas.Count == 0)
             {

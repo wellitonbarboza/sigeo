@@ -21,7 +21,7 @@
     <ChildContent>
         <div class="pagina mapa-cotacao">
             <Erros Lista="ErrosForm" />
-            @if (_c is null) { <p class="mudo">@(_naoEncontrada ? "Cotação não encontrada." : "Carregando…")</p> }
+            @if (_c is null) { @if (_naoEncontrada) { <p class="mudo">Cotação não encontrada.</p> } else { <Esqueleto Indicadores="3" Linhas="8" /> } }
             else
             {
                 var forns = _c.Fornecedores.ToList();

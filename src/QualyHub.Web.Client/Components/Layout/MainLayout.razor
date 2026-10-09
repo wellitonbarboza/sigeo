@@ -52,12 +52,15 @@
         </div>
     </main>
 </div>
-<Toasts />
-
-<div id="blazor-error-ui" data-nosnippet>
-    Ocorreu um erro inesperado. <a href="." class="reload">Recarregar</a>
-    <span class="dismiss">🗙</span>
-</div>
+@* Na "casca" estática (desenhada pelo servidor enquanto a tela conecta) não há avisos nem a faixa de erro do Blazor. *@
+@if (RendererInfo.IsInteractive)
+{
+    <Toasts />
+    <div id="blazor-error-ui" data-nosnippet>
+        Ocorreu um erro inesperado. <a href="." class="reload">Recarregar</a>
+        <span class="dismiss">🗙</span>
+    </div>
+}
 
 @code {
     private ErrorBoundary? _limiteErro;
@@ -116,6 +119,21 @@
         if (!primeira) return;
         _tema = await JS.InvokeAsync<string>("qh.temaAtual");
         Contador.Mudou += AoMudar;
+        // Troca entre tela do servidor e tela do navegador: recarrega direto, sem desenhar a "página não encontrada"
+        // no meio (era o que deixava a tela vazia antes de recarregar). A página atual fica visível até a nova chegar.
+        _troca = Nav.RegisterLocationChangingHandler(ctx =>
+        {
+            if (_forcando) return ValueTask.CompletedTask;
+            var caminho = Nav.ToAbsoluteUri(ctx.TargetLocation).AbsolutePath;
+            var aquiNavegador = RendererInfo.Name == "WebAssembly";
+            if (QualyHub.Web.Client.RotasNavegador.Atende(caminho) != aquiNavegador && Nav.ToAbsoluteUri(ctx.TargetLocation).Host == new Uri(Nav.BaseUri).Host)
+            {
+                ctx.PreventNavigation();
+                _forcando = true;
+                Nav.NavigateTo(ctx.TargetLocation, forceLoad: true);
+            }
+            return ValueTask.CompletedTask;
+        });
         await AtualizarContador();
         _ = ConsultarDeTemposEmTemposAsync();
     }
@@ -140,8 +158,12 @@
         catch (OperationCanceledException) { }
     }
 
+    private IDisposable? _troca;
+    private bool _forcando;
+
     public void Dispose()
     {
+        _troca?.Dispose();
         Contador.Mudou -= AoMudar;
         _cts.Cancel();
     }

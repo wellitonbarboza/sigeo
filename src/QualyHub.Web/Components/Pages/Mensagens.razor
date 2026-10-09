@@ -23,7 +23,7 @@
             <section class="lista-msg" aria-label="Conversas">
                 <div class="busca-msg"><input type="search" placeholder="Procurar por assunto, pessoa, registro ou texto" aria-label="Procurar" @bind="_busca" @bind:event="oninput" @bind:after="Buscar" /></div>
                 <div class="itens-msg">
-                    @if (_lista is null) { <p class="mudo pad">Carregando…</p> }
+                    @if (_lista is null) { <Esqueleto Linhas="6" /> }
                     else if (_lista.Count == 0) { <p class="mudo pad">@(string.IsNullOrWhiteSpace(_busca) ? "Nenhuma conversa nesta pasta." : "Nada encontrado.")</p> }
                     else
                     {

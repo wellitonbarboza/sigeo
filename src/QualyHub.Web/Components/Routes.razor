@@ -2,7 +2,7 @@
     <Found Context="routeData">
         <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)">
             <NotAuthorized><RedirecionarLogin /></NotAuthorized>
-            <Authorizing><div style="padding:40px">Carregando…</div></Authorizing>
+            <Authorizing><Esqueleto Tela Indicadores="4" Linhas="8" /></Authorizing>
         </AuthorizeRouteView>
         <FocusOnNavigate RouteData="routeData" Selector="h1" />
     </Found>
