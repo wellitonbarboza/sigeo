@@ -20,7 +20,7 @@
             </div>
             <AvisoFalha Mensagem="@Falha" Tecnica="FalhaTecnica" AoTentar="Carregar" />
             @if (_obraId is null) { <div class="alerta info"><Icone Nome="info" /> Escolha a obra.</div> }
-            else if (_dados is null) { @if (Carregando) { <p class="mudo" aria-busy="true">Carregando o orçamento…</p> } }
+            else if (_dados is null) { @if (Carregando) { <Esqueleto Indicadores="4" Linhas="10" /> } }
             else
             {
                 <div class="kpis">

@@ -19,6 +19,15 @@
     <HeadOutlet @rendermode="ModoPagina" />
 </head>
 <body>
+    @if (ComCasca)
+    {
+        @* Casca: menu + esqueleto desenhados pelo servidor no HTML inicial. Cobre o instante em que a tela conecta
+           (servidor) ou o navegador inicia (WebAssembly) — inclusive na troca entre os dois —, sem página em branco.
+           O app.js remove a casca assim que a tela interativa aparece. *@
+        <div class="casca" aria-hidden="true">
+            <CascadingAuthenticationState><MainLayout Body="Esqueleto" /></CascadingAuthenticationState>
+        </div>
+    }
     @if (NoNavegador)
     {
         <QualyHub.Web.Client.RotasNavegador @rendermode="ModoPagina" />
@@ -43,5 +52,10 @@
     // (e vice-versa) recarrega a página: o roteador de cada lado só conhece as suas rotas e entrega a outra ao servidor.
     private static readonly IComponentRenderMode Navegador = new InteractiveWebAssemblyRenderMode(prerender: false);
     private bool NoNavegador => QualyHub.Web.Client.RotasNavegador.Atende(HttpContext.Request.Path);
+    // Telas com outra moldura (login, portal do fornecedor, campo, impressão) não usam a casca do menu.
+    private static readonly string[] SemCasca = ["/login", "/conta", "/qr", "/cotacao", "/portal", "/configuracao-inicial", "/plataforma", "/fornecedor", "/grd", "/campo", "/engenharia/planejamento/imprimir", "/arquivos", "/api"];
+    private bool ComCasca => ModoPagina is not null && HttpContext.User.Identity?.IsAuthenticated == true
+        && !SemCasca.Any(p => HttpContext.Request.Path.StartsWithSegments(p, StringComparison.OrdinalIgnoreCase));
+    private static readonly RenderFragment Esqueleto = @<Esqueleto Tela Indicadores="4" Linhas="8" />;
     private IComponentRenderMode? ModoPagina => !HttpContext.AcceptsInteractiveRouting() ? null : NoNavegador ? Navegador : Interativo;
 }

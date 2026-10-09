@@ -26,6 +26,15 @@ window.qh = {
         return novo;
     },
     // Carrega um script uma única vez (ex.: Gantt da Syncfusion só na tela de planejamento).
+    // Folha de estilo sob demanda: só resolve quando o CSS terminou de carregar (o componente já abre formatado).
+    carregarCss(href) {
+        window.qh._css ??= {};
+        return window.qh._css[href] ??= new Promise((ok, erro) => {
+            const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = href;
+            l.onload = () => ok(true); l.onerror = () => { delete window.qh._css[href]; erro(new Error('Falha ao carregar ' + href)); };
+            document.head.appendChild(l);
+        });
+    },
     carregarScript(src) {
         window.qh._scripts ??= {};
         return window.qh._scripts[src] ??= new Promise((ok, erro) => {
@@ -60,4 +69,17 @@ window.qh = {
             .observe(document.body, { childList: true, subtree: true });
     };
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', iniciar); else iniciar();
+})();
+
+// Casca do HTML inicial (menu + esqueleto): sai quando a tela interativa desenha a moldura dela (.app fora da casca).
+// Reserva: some em 20 s (tela sem a moldura do menu, erro de conexão).
+(() => {
+    const casca = document.querySelector('.casca');
+    if (!casca) return;
+    const pronta = () => [...document.querySelectorAll('.app')].some(a => !casca.contains(a));
+    const tirar = () => { if (casca.isConnected) casca.remove(); };
+    if (pronta()) return tirar();
+    const o = new MutationObserver(() => { if (pronta()) { o.disconnect(); tirar(); } });
+    o.observe(document.body, { childList: true, subtree: true });
+    setTimeout(() => { o.disconnect(); tirar(); }, 20000);
 })();

@@ -1,0 +1,16 @@
+@* Esqueleto de carregamento: ocupa o lugar do conteúdo com a forma final (não empurra a tela quando os dados chegam). *@
+<div class="esq @(Tela ? "tela" : "")" role="status" aria-live="polite">
+    <span class="so-leitor">Carregando…</span>
+    @if (Tela) { <div class="topo"><span class="esq-barra titulo"></span></div> }
+    <div class="@(Tela ? "miolo" : "")"><div class="@(Tela ? "pagina" : "")">
+        @if (Indicadores > 0) { <div class="kpis">@for (var i = 0; i < Indicadores; i++) { <div class="esq-cartao"></div> }</div> }
+        @if (Tela) { <span class="esq-barra filtro"></span> }
+        @for (var i = 0; i < Linhas; i++) { <span class="esq-barra linha"></span> }
+    </div></div>
+</div>
+@code {
+    /// <summary>Tela inteira (título, indicadores, filtro e linhas) ou só um bloco de linhas.</summary>
+    [Parameter] public bool Tela { get; set; }
+    [Parameter] public int Indicadores { get; set; }
+    [Parameter] public int Linhas { get; set; } = 5;
+}

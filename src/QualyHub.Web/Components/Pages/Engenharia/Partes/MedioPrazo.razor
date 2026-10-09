@@ -5,7 +5,7 @@
 @inject Notificacoes Notif
 @inject TimeProvider Relogio
 
-@if (_h is null) { <p class="mudo">Carregando…</p> }
+@if (_h is null) { <Esqueleto Indicadores="4" Linhas="8" /> }
 else if (_h.VersaoId is null) { <div class="alerta info"><Icone Nome="info" /> A obra ainda não tem cronograma. Gere pelas redes e aprove a LB0 para planejar o médio prazo.</div> }
 else
 {

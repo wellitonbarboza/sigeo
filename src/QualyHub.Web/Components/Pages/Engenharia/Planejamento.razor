@@ -6,7 +6,6 @@
 @inject PlanejamentoServico Plan
 @inject IJSRuntime JS
 
-<HeadContent><link rel="stylesheet" href="@Assets["lib/syncfusion/tailwind3-lite-34.2.9.css"]" /></HeadContent>
 
 <Pagina Titulo="Planejamento da obra" AoAtualizar="Recarregar">
     <ChildContent>
@@ -79,7 +78,7 @@
                     }
                     else if (!_scriptGantt)
                     {
-                        <div class="alerta info"><Icone Nome="relogio" /> Carregando o Gantt…</div>
+                        <Esqueleto Linhas="12" />
                     }
                     else
                     {
@@ -352,7 +351,10 @@
         if (!firstRender || _scriptGantt) return;
         try
         {
-            await JS.InvokeVoidAsync("qh.carregarScript", "_content/Syncfusion.Blazor.Core/scripts/syncfusion-blazor.min.js");
+            // Estilo e script do Gantt juntos; o Gantt só aparece com os dois prontos (não abre sem formatação).
+            await Task.WhenAll(
+                JS.InvokeVoidAsync("qh.carregarCss", Assets["lib/syncfusion/tailwind3-lite-34.2.9.css"]).AsTask(),
+                JS.InvokeVoidAsync("qh.carregarScript", "_content/Syncfusion.Blazor.Core/scripts/syncfusion-blazor.min.js").AsTask());
             _scriptGantt = true; StateHasChanged();
         }
         catch (JSException) { ErrosForm = ["Não foi possível carregar o componente do Gantt. Recarregue a página."]; StateHasChanged(); }

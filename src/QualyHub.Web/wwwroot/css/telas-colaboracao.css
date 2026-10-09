@@ -105,3 +105,18 @@ a.vinculo-reg:hover { border-color: var(--primaria); }
 @media (max-width: 700px) { .lp-pareto li { grid-template-columns: 100px 1fr 26px; } }
 .nowrap { white-space: nowrap; }
 h4 .check-linha { display: inline-flex; min-height: 0; margin-left: 12px; font-weight: 500; }
+
+/* ───── Casca do carregamento (menu + esqueleto) — evita a página em branco ao abrir e na troca servidor ↔ navegador ───── */
+.casca { position: fixed; inset: 0; z-index: 900; background: var(--fundo); overflow: hidden; pointer-events: none; }
+.esq-barra, .esq-cartao { display: block; border-radius: 8px; background: linear-gradient(90deg, var(--neutro-suave) 0%, var(--superficie-2) 50%, var(--neutro-suave) 100%); background-size: 200% 100%; }
+.esq-barra.titulo { width: 260px; height: 26px; }
+.esq-barra.filtro { width: 40%; height: 36px; margin: 14px 0; }
+.esq-barra.linha { width: 100%; height: 34px; margin-bottom: 8px; }
+.esq-cartao { height: 92px; border-radius: var(--raio); }
+.esq .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+@media (prefers-reduced-motion: no-preference) {
+    .esq-barra, .esq-cartao { animation: esq-brilho 1.2s ease-in-out infinite; }
+    @keyframes esq-brilho { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+}
+tr.esq-linha td { padding: 7px 10px; }
+tr.esq-linha .esq-barra { height: 18px; width: 100%; }
