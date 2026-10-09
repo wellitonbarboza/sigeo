@@ -8,6 +8,23 @@ window.qh = {
     },
     tema(t) { document.documentElement.dataset.tema = t; try { localStorage.setItem('qh.tema', t); } catch { } },
     temaAtual() { return document.documentElement.dataset.tema || 'claro'; },
+    // Formatação do texto das mensagens (sem HTML): envolve a seleção com **…** / _…_ ou começa linhas com "- ".
+    // Devolve o texto novo para o Blazor (o campo continua controlado pelo @bind).
+    formatar(id, tipo) {
+        const t = document.getElementById(id); if (!t) return null;
+        const [a, b] = [t.selectionStart, t.selectionEnd], v = t.value, sel = v.slice(a, b);
+        let novo, cursor;
+        if (tipo === 'lista') {
+            const ini = v.lastIndexOf('\n', a - 1) + 1;
+            const bloco = v.slice(ini, b).split('\n').map(l => l.startsWith('- ') ? l : '- ' + l).join('\n');
+            novo = v.slice(0, ini) + bloco + v.slice(b); cursor = ini + bloco.length;
+        } else {
+            const m = tipo === 'negrito' ? '**' : '_';
+            novo = v.slice(0, a) + m + (sel || 'texto') + m + v.slice(b); cursor = a + m.length + (sel || 'texto').length + m.length;
+        }
+        t.value = novo; t.focus(); t.setSelectionRange(cursor, cursor);
+        return novo;
+    },
     // Carrega um script uma única vez (ex.: Gantt da Syncfusion só na tela de planejamento).
     carregarScript(src) {
         window.qh._scripts ??= {};

@@ -1,0 +1,29 @@
+@* Texto da mensagem com formatação simples (negrito, itálico, lista) sem HTML: o que for digitado nunca vira código na tela. *@
+@inject IJSRuntime JS
+
+<div class="editor-msg">
+    <div class="barra-ed" role="toolbar" aria-label="Formatação">
+        <button type="button" title="Negrito (**texto**)" aria-label="Negrito" @onclick='() => Formatar("negrito")'><b>B</b></button>
+        <button type="button" title="Itálico (_texto_)" aria-label="Itálico" @onclick='() => Formatar("italico")'><i>I</i></button>
+        <button type="button" title="Lista (linhas com - )" aria-label="Lista" @onclick='() => Formatar("lista")'>•</button>
+        <span class="mudo dica">**negrito** · _itálico_ · "- " lista</span>
+    </div>
+    <textarea id="@_id" rows="@Linhas" maxlength="20000" placeholder="@Placeholder" aria-label="@Placeholder"
+              value="@Valor" @oninput="e => Mudar(e.Value?.ToString())"></textarea>
+</div>
+
+@code {
+    [Parameter] public string? Valor { get; set; }
+    [Parameter] public EventCallback<string?> ValorChanged { get; set; }
+    [Parameter] public string Placeholder { get; set; } = "Escreva a mensagem…";
+    [Parameter] public int Linhas { get; set; } = 5;
+    private readonly string _id = "ed-" + Guid.NewGuid().ToString("N")[..8];
+
+    private Task Mudar(string? v) { Valor = v; return ValorChanged.InvokeAsync(v); }
+
+    private async Task Formatar(string tipo)
+    {
+        var novo = await JS.InvokeAsync<string?>("qh.formatar", _id, tipo);
+        if (novo is not null) await Mudar(novo);
+    }
+}

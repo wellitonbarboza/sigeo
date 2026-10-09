@@ -151,13 +151,7 @@
         }).OrderBy(t => t.Encerrada).ThenBy(t => t.Prazo).ToList();
     }
 
-    private static string? LinkOrigem(Tarefa t) => t.OrigemId is not { } id ? null : t.OrigemEntidade switch
-    {
-        "Rnc" => $"obra/rnc?id={id}", "AcaoCorretiva" => $"obra/acoes?id={id}", "Auditoria" => $"obra/auditorias?id={id}",
-        "PlanoAcao" => $"fornecedores/planos?id={id}", "Requisicao" => $"requisicoes?id={id}", "Cotacao" => $"cotacoes?id={id}",
-        "Pedido" => $"pedidos?id={id}", "Contrato" => $"contratos?id={id}", "Medicao" => $"medicoes?id={id}", "Fvs" => $"obra/fvs?id={id}",
-        _ => null
-    };
+    private static string? LinkOrigem(Tarefa t) => QualyHub.Application.Comum.RotasRegistro.Link(t.OrigemEntidade, t.OrigemId);
 
     private void Nova()
     {

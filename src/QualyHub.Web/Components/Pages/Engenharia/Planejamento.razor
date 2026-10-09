@@ -165,6 +165,14 @@
                     else { <div class="alerta info"><Icone Nome="info" /> Gere o cronograma pelas redes para ver a linha de balanço.</div> }
                     <div class="legenda">@foreach (var s in _lobSeries) { <span><i style="background:@s.Cor"></i>@s.Pacote</span> }</div>
                 }
+                else if (_aba == "medio")
+                {
+                    <MedioPrazo ObraId="_obraId!.Value" PodeEditar="_podeApontar" Destacar="RestricaoQuery" />
+                }
+                else if (_aba == "curto")
+                {
+                    <CurtoPrazo ObraId="_obraId!.Value" PodeEditar="_podeApontar" />
+                }
                 else if (_aba == "desemb")
                 {
                     var atual = Desembolso.PorMes(v.Atividades, _cal);
@@ -296,9 +304,11 @@
 @code {
     [SupplyParameterFromQuery(Name = "obra")] public Guid? ObraQuery { get; set; }
     [SupplyParameterFromQuery(Name = "aba")] public string? AbaQuery { get; set; }
+    [SupplyParameterFromQuery(Name = "restricao")] public Guid? RestricaoQuery { get; set; }
+    private bool _podeApontar;
 
     private static readonly string[] Motivos = ["Planejamento inicial", "Atraso de fornecedor", "Chuvas acima da média", "Mão de obra / produtividade", "Mudança de projeto", "Antecipação de etapa", "Ajuste de ritmo (linha de balanço)", "Outro"];
-    private readonly List<(string, string)> _abas = [("crono", "Cronograma"), ("redes", "Redes"), ("lob", "Linha de balanço"), ("desemb", "Desembolso e curva S"), ("versoes", "Versões e aprovação"), ("cal", "Calendário")];
+    private readonly List<(string, string)> _abas = [("crono", "Cronograma"), ("redes", "Redes"), ("lob", "Linha de balanço"), ("medio", "Médio prazo · restrições"), ("curto", "Curto prazo · PPC"), ("desemb", "Desembolso e curva S"), ("versoes", "Versões e aprovação"), ("cal", "Calendário")];
     private readonly List<string> _toolbar = ["ExpandAll", "CollapseAll", "ZoomIn", "ZoomOut", "ZoomToFit", "PrevTimeSpan", "NextTimeSpan", "Search"];
 
     private SfGantt<LinhaGantt>? _gantt;
@@ -351,6 +361,7 @@
     protected override void OnInitialized()
     {
         _podeEditar = Perfil(PerfilUsuario.Engenharia, PerfilUsuario.Diretoria);
+        _podeApontar = Perfil(PerfilUsuario.Engenharia, PerfilUsuario.Diretoria, PerfilUsuario.Campo);
         if (AbaQuery is { } a && _abas.Any(x => x.Item1 == a)) _aba = a;
     }
 

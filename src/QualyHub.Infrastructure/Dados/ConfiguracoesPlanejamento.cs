@@ -134,3 +134,48 @@ internal sealed class VinculoRedeCfg : IEntityTypeConfiguration<VinculoRede>
         b.HasOne<RedePacote>().WithMany().HasForeignKey(x => x.PacoteDestinoId).OnDelete(DeleteBehavior.Restrict);
     }
 }
+
+internal sealed class RestricaoCfg : IEntityTypeConfiguration<Restricao>
+{
+    public void Configure(EntityTypeBuilder<Restricao> b)
+    {
+        b.ToTable("Restricoes");
+        b.Property(x => x.AtividadeChave).HasMaxLength(80);
+        b.Property(x => x.AtividadeNome).HasMaxLength(250);
+        b.Property(x => x.ResponsavelNome).HasMaxLength(150);
+        b.Property(x => x.RemovidaPor).HasMaxLength(150);
+        b.HasIndex(x => new { x.ObraId, x.Status, x.DataLimite });
+        b.HasIndex(x => new { x.ObraId, x.AtividadeChave });
+        b.HasOne<Obra>().WithMany().HasForeignKey(x => x.ObraId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne<QualyHub.Domain.Estrutura.Usuario>().WithMany().HasForeignKey(x => x.ResponsavelId).OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
+internal sealed class PlanoSemanalCfg : IEntityTypeConfiguration<PlanoSemanal>
+{
+    public void Configure(EntityTypeBuilder<PlanoSemanal> b)
+    {
+        b.ToTable("PlanosSemanais");
+        b.Property(x => x.FechadoPor).HasMaxLength(150);
+        b.Property(x => x.Ppc).HasPrecision(5, 1);
+        b.Ignore(x => x.Fim);
+        b.Ignore(x => x.Editavel);
+        b.HasIndex(x => new { x.ObraId, x.Semana }).IsUnique().HasFilter("[Excluido] = 0");
+        b.HasOne<Obra>().WithMany().HasForeignKey(x => x.ObraId).OnDelete(DeleteBehavior.Restrict);
+        b.HasMany(x => x.Compromissos).WithOne().HasForeignKey(c => c.PlanoId);
+    }
+}
+
+internal sealed class CompromissoSemanalCfg : IEntityTypeConfiguration<CompromissoSemanal>
+{
+    public void Configure(EntityTypeBuilder<CompromissoSemanal> b)
+    {
+        b.ToTable("CompromissosSemanais");
+        b.Property(x => x.AtividadeChave).HasMaxLength(80);
+        b.Property(x => x.Descricao).HasMaxLength(300).HasAnnotation(QualyHubDbContext.TamanhoFixo, true);
+        b.Property(x => x.Meta).HasMaxLength(150);
+        b.Property(x => x.Responsavel).HasMaxLength(150);
+        b.Property(x => x.ObservacaoCausa).HasMaxLength(500);
+        b.HasIndex(x => new { x.PlanoId, x.Ordem });
+    }
+}

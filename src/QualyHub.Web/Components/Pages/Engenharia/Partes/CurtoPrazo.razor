@@ -1,0 +1,225 @@
+@* Curto prazo (Last Planner): plano semanal, apontamento, fechamento com PPC, série e causas de não cumprimento. *@
+@using QualyHub.Domain.Planejamento
+@inject CurtoPrazoServico Servico
+@inject Notificacoes Notif
+@inject TimeProvider Relogio
+
+@if (_s is null) { <p class="mudo">Carregando…</p> }
+else
+{
+    var p = _s.Plano;
+    var (pl, ok, fora, ppc) = p is null ? (0, 0, 0, (decimal?)null) : PlanoSemanal.Apurar(p.Compromissos);
+    <div class="kpis">
+        <Kpi Rotulo="PPC da semana" Valor="@(ppc is { } x ? $"{x:0}%" : "—")" Sub="@($"{ok} de {pl} compromissos")" Tom="@TomPpc(ppc)" />
+        <Kpi Rotulo="PPC acumulado" Valor="@(_ind?.PpcAcumulado is { } acum ? $"{acum:0}%" : "—")" Sub="semanas fechadas (12 sem.)" Tom="@TomPpc(_ind?.PpcAcumulado)" />
+        <Kpi Rotulo="Feito fora da meta" Valor="@fora" Sub="não conta no PPC" />
+        <Kpi Rotulo="Restrições abertas" Valor="@(_ind?.RestricoesAbertas ?? 0)" Sub="@($"{_ind?.RestricoesVencidas ?? 0} vencida(s)")" Tom="@((_ind?.RestricoesVencidas ?? 0) > 0 ? "erro" : "")" />
+        <Kpi Rotulo="Removidas no prazo" Valor="@(_ind?.RemovidasNoPrazo is { } r ? $"{r:0}%" : "—")" Sub="@($"{_ind?.RestricoesRemovidas ?? 0} removida(s)")" />
+    </div>
+    <Erros Lista="_erros" />
+    <div class="lp-barra">
+        <button class="btn sec pq" id="cp-anterior" title="Semana anterior" @onclick="() => Ir(-7)">‹</button>
+        <span class="lp-semana" id="cp-semana">Semana @Data(_s.Semana) a @Data(_s.Semana.AddDays(6))</span>
+        <button class="btn sec pq" id="cp-proxima" title="Próxima semana" @onclick="() => Ir(7)">›</button>
+        @if (_s.Semana != PlanoSemanal.SegundaDe(Hoje)) { <button class="btn sec pq" @onclick="() => IrPara(Hoje)">Esta semana</button> }
+        @if (p is not null) { <Selo Texto="@De(p.Status)" Tom="@Tom(p.Status)" /> }
+        <span class="direita">
+            @if (p is null && PodeEditar) { <button class="btn prim" id="cp-montar" disabled="@_ocupado" @onclick="Montar"><Icone Nome="mais" Tam="14" /> Montar o plano desta semana</button> }
+            @if (p is { Editavel: true } && PodeEditar) { <button class="btn ok" id="cp-fechar" disabled="@_ocupado" @onclick="() => _abertoFechar = true"><Icone Nome="check" Tam="14" /> Fechar a semana</button> }
+        </span>
+    </div>
+
+    @if (p is null)
+    {
+        <div class="alerta info"><Icone Nome="info" /> Sem plano para esta semana. Monte o plano até a segunda-feira com as atividades livres de restrição (o que entrar depois conta como "fora da meta").</div>
+    }
+    else
+    {
+        <div class="tabela-rolavel"><table class="itens" id="cp-compromissos">
+            <thead><tr><th>Compromisso</th><th>Meta da semana</th><th>Responsável / equipe</th><th>Apontamento</th><th>Causa (se não concluído)</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var c in p.Compromissos)
+                {
+                    <tr @key="c.Id">
+                        <td>@c.Descricao @if (c.ForaDaMeta) { <Selo Texto="fora da meta" Tom="neutro" /> }</td>
+                        <td>@if (p.Editavel && PodeEditar) { <input class="lp-meta" value="@c.Meta" maxlength="150" placeholder="ex.: pav. 3 e 4" @onchange="e => Editar(c, e.Value?.ToString(), c.Responsavel)" /> } else { @c.Meta }</td>
+                        <td>@if (p.Editavel && PodeEditar) { <input class="lp-meta" value="@c.Responsavel" maxlength="150" placeholder="equipe / empreiteiro" @onchange="e => Editar(c, c.Meta, e.Value?.ToString())" /> } else { @c.Responsavel }</td>
+                        <td>
+                            <span class="lp-sit" role="group" aria-label="Apontamento">
+                                <button class="@(c.Situacao == SituacaoCompromisso.Concluido ? "on ok" : "")" disabled="@(!p.Editavel || !PodeEditar)" @onclick="() => Apontar(c, SituacaoCompromisso.Concluido, null)">✓ Concluído</button>
+                                <button class="@(c.Situacao == SituacaoCompromisso.NaoConcluido ? "on erro" : "")" disabled="@(!p.Editavel || !PodeEditar)" @onclick="() => Apontar(c, SituacaoCompromisso.NaoConcluido, c.Causa ?? CausaNaoCumprimento.Outra)">✕ Não</button>
+                            </span>
+                        </td>
+                        <td>@if (c.Situacao == SituacaoCompromisso.NaoConcluido)
+                            {
+                                @if (p.Editavel && PodeEditar)
+                                {
+                                    <select value="@c.Causa" @onchange="e => Apontar(c, SituacaoCompromisso.NaoConcluido, Enum.Parse<CausaNaoCumprimento>(e.Value!.ToString()!))">
+                                        @foreach (var k in Enum.GetValues<CausaNaoCumprimento>()) { <option value="@k">@De(k)</option> }
+                                    </select>
+                                }
+                                else { @(c.Causa is { } k ? De(k) : "") }
+                            }</td>
+                        <td>@if (p.Editavel && PodeEditar && (c.ForaDaMeta || Hoje <= p.Semana)) { <button class="icone-btn" title="Retirar do plano" @onclick="() => Retirar(c)"><Icone Nome="lixeira" Tam="15" /></button> }</td>
+                    </tr>
+                }
+                @if (p.Compromissos.Count == 0) { <tr><td colspan="6" class="mudo">Nenhum compromisso ainda. Inclua abaixo as atividades livres desta semana.</td></tr> }
+            </tbody>
+        </table></div>
+        @if (p.Status == StatusPlanoSemanal.Fechado) { <p class="mudo fonte-13">Fechada por @p.FechadoPor em @DataHora(p.FechadoEm) · PPC @(p.Ppc is { } fp ? $"{fp:0.0}%" : "—")@(p.Observacao is { Length: > 0 } ob ? $" · {ob}" : "")</p> }
+
+        @if (p.Editavel && PodeEditar)
+        {
+            <h4 class="mt-12">Atividades do cronograma nesta semana</h4>
+            @if (Hoje > p.Semana) { <div class="alerta aviso pq"><Icone Nome="alerta" Tam="14" /> A semana já começou: o que for incluído agora entra como "fora da meta".</div> }
+            <div class="tabela-rolavel"><table class="itens lp-lookahead" id="cp-candidatas">
+                <thead><tr><th></th><th>Atividade</th><th>Grupo</th><th>Início</th><th>Término</th><th>Situação</th></tr></thead>
+                <tbody>
+                    @foreach (var a in _s.Candidatas.Where(a => p.Compromissos.All(c => c.AtividadeChave != a.Chave)))
+                    {
+                        <tr class="@(a.Livre ? "livre" : "bloq")" @key="a.Chave">
+                            <td><input type="checkbox" aria-label="@($"Incluir {a.Nome}")" disabled="@(!a.Livre)" checked="@_marcadas.Contains(a.Chave)" @onchange="e => Marcar(a.Chave, (bool)e.Value!)" /></td>
+                            <td>@a.Eap @a.Nome @if (a.Critica) { <Selo Texto="crítica" Tom="erro" /> }</td><td class="mudo">@a.Grupo</td><td>@Data(a.Inicio)</td><td>@Data(a.Termino)</td>
+                            <td>@if (a.Livre) { <span class="lp-livre">✓ livre</span> } else { <span class="lp-bloq">✕ @a.RestricoesAbertas restrição(ões) — remova no médio prazo</span> }</td>
+                        </tr>
+                    }
+                    @if (!_s.Candidatas.Any()) { <tr><td colspan="6" class="mudo">O cronograma não tem atividades nesta semana.</td></tr> }
+                </tbody>
+            </table></div>
+            <div class="barra-botoes mt-6">
+                <button class="btn prim" id="cp-incluir" disabled="@(_ocupado || _marcadas.Count == 0)" @onclick="Incluir"><Icone Nome="mais" Tam="14" /> Incluir @(_marcadas.Count > 0 ? $"{_marcadas.Count} " : "")selecionada(s)</button>
+            </div>
+            <div class="form mt-6">
+                <Campo Rotulo="Compromisso avulso (fora do cronograma)" Classe="s6"><input id="cp-avulso" @bind="_avulso" maxlength="300" placeholder="ex.: limpeza do 2º pavimento" /></Campo>
+                <Campo Rotulo="Meta" Classe="s3"><input @bind="_avulsoMeta" maxlength="150" /></Campo>
+                <Campo Rotulo="Responsável" Classe="s3"><input @bind="_avulsoResp" maxlength="150" /></Campo>
+            </div>
+            <button class="btn sec" id="cp-avulso-add" disabled="@(_ocupado || string.IsNullOrWhiteSpace(_avulso))" @onclick="IncluirAvulso"><Icone Nome="mais" Tam="14" /> Incluir avulso</button>
+        }
+    }
+
+    @if (_ind is not null)
+    {
+        <div class="grade-2 mt-12">
+            <div>
+                <h4>PPC por semana <small class="mudo">(últimas 12)</small></h4>
+                @if (_ind.Serie.Count == 0) { <p class="mudo">Sem semanas planejadas ainda.</p> }
+                else
+                {
+                    <div class="lp-ppc" id="cp-serie" role="img" aria-label="PPC por semana">
+                        @foreach (var sp in _ind.Serie)
+                        {
+                            <div class="col" title="@($"{Data(sp.Semana)}: {sp.Concluidos} de {sp.Planejados} · fora da meta {sp.ForaDaMeta}{(sp.Fechada ? "" : " · semana aberta")}")">
+                                <span class="val">@(sp.Ppc is { } v ? $"{v:0}" : "—")</span>
+                                <span class="bar @(sp.Fechada ? "" : "aberta")" style="height:@(Altura(sp.Ppc))px"></span>
+                                <span>@sp.Semana.ToString("dd/MM")</span>
+                            </div>
+                        }
+                    </div>
+                    <p class="mudo fonte-13">Barra cheia = semana fechada; tracejada = semana em andamento.</p>
+                }
+            </div>
+            <div>
+                <h4>Causas de não cumprimento</h4>
+                @if (_ind.Causas.Count == 0) { <p class="mudo">Nenhuma causa registrada no período.</p> }
+                else
+                {
+                    var max = _ind.Causas.Max(c => c.Qtd);
+                    <ul class="lp-pareto" id="cp-causas">
+                        @foreach (var (causa, qtd) in _ind.Causas)
+                        {
+                            <li><span>@De(causa)</span><span class="trilho"><i style="width:@(100 * qtd / max)%"></i></span><b>@qtd</b></li>
+                        }
+                    </ul>
+                }
+            </div>
+        </div>
+    }
+}
+
+<Modal @bind-Aberto="_abertoFechar" Titulo="Fechar a semana" Tamanho="pequena">
+    <ChildContent>
+        <Erros Lista="_errosModal" />
+        <p>Fechada, a semana não muda mais e o PPC entra na série. Todo compromisso planejado precisa estar apontado; não concluído precisa de causa.</p>
+        <Campo Rotulo="Observação (opcional)"><textarea id="cp-obs" rows="3" @bind="_obs"></textarea></Campo>
+    </ChildContent>
+    <Rodape><button class="btn ok" id="cp-fechar-ok" disabled="@_ocupado" @onclick="Fechar"><Icone Nome="check" Tam="16" /> Fechar e apurar o PPC</button></Rodape>
+</Modal>
+
+@code {
+    [Parameter] public Guid ObraId { get; set; }
+    [Parameter] public bool PodeEditar { get; set; }
+
+    private CurtoPrazoServico.SemanaVista? _s;
+    private CurtoPrazoServico.Indicadores? _ind;
+    private DateOnly _dia;
+    private Guid _carregada;
+    private readonly HashSet<string> _marcadas = [];
+    private string? _avulso, _avulsoMeta, _avulsoResp, _obs;
+    private bool _ocupado, _abertoFechar;
+    private IReadOnlyList<string>? _erros, _errosModal;
+    private DateOnly Hoje => DateOnly.FromDateTime(Relogio.GetLocalNow().Date);
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_carregada == ObraId) return;
+        _carregada = ObraId;
+        _dia = Hoje;
+        await Carregar();
+    }
+
+    private async Task Carregar()
+    {
+        _s = await Servico.SemanaAsync(ObraId, _dia);
+        _ind = await Servico.IndicadoresAsync(ObraId);
+        _marcadas.Clear();
+    }
+
+    private Task Ir(int dias) => IrPara(_s!.Semana.AddDays(dias));
+    private async Task IrPara(DateOnly d) { _dia = d; _erros = null; await Carregar(); }
+    private void Marcar(string k, bool sim) { if (sim) _marcadas.Add(k); else _marcadas.Remove(k); }
+
+    private Task Montar() => Rodar(() => Servico.CriarPlanoAsync(ObraId, _dia), "Plano da semana criado. Inclua as atividades livres.");
+    private Task Incluir() => Rodar(async () => { var n = await Servico.AdicionarAtividadesAsync(_s!.Plano!.Id, _marcadas.ToList()); }, "Atividades incluídas no plano.");
+    private async Task IncluirAvulso()
+    {
+        if (await Rodar(() => Servico.AdicionarAvulsoAsync(_s!.Plano!.Id, _avulso ?? "", _avulsoMeta, _avulsoResp), "Compromisso incluído."))
+            _avulso = _avulsoMeta = _avulsoResp = null;
+    }
+    private Task Editar(CompromissoSemanal c, string? meta, string? resp) => Rodar(() => Servico.EditarCompromissoAsync(c.Id, meta, resp), null);
+    private Task Apontar(CompromissoSemanal c, SituacaoCompromisso s, CausaNaoCumprimento? causa) => Rodar(() => Servico.ApontarAsync(c.Id, s, causa, c.ObservacaoCausa), null);
+    private Task Retirar(CompromissoSemanal c) => Rodar(() => Servico.RetirarCompromissoAsync(c.Id), "Retirado do plano.");
+
+    private async Task Fechar()
+    {
+        _errosModal = null; _ocupado = true;
+        try
+        {
+            await Servico.FecharSemanaAsync(_s!.Plano!.Id, _obs);
+            _abertoFechar = false; _obs = null;
+            Notif.Sucesso("Semana fechada. PPC apurado.");
+            await Carregar();
+        }
+        catch (RegraDeNegocioException r) { _errosModal = [r.Message]; }
+        finally { _ocupado = false; }
+    }
+
+    private async Task<bool> Rodar(Func<Task> acao, string? ok)
+    {
+        _ocupado = true; _erros = null;
+        try
+        {
+            await acao();
+            if (ok is not null) Notif.Sucesso(ok);
+            await Carregar();
+            return true;
+        }
+        catch (ValidacaoException v) { _erros = v.Erros; }
+        catch (RegraDeNegocioException r) { _erros = [r.Message]; Notif.Erro(r.Message); }
+        finally { _ocupado = false; }
+        return false;
+    }
+
+    private static int Altura(decimal? ppc) => ppc is { } v ? Math.Max(2, (int)Math.Round(v)) : 2;
+    private static string TomPpc(decimal? v) => v is null ? "" : v >= 80 ? "ok" : v >= 60 ? "aviso" : "erro";
+}

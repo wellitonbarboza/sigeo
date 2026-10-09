@@ -1,0 +1,69 @@
+@* Janela "Nova mensagem": para/cópia (pessoas, perfis, obras), assunto, texto formatado e registro ligado. *@
+@inject MensagensServico Mensagens
+@inject Notificacoes Notif
+
+<Modal Aberto="Aberto" AbertoChanged="AbertoChanged" Titulo="Nova mensagem" Tamanho="media toque">
+    <ChildContent>
+        <Erros Lista="_erros" />
+        <div class="form">
+            <Campo Rotulo="Para" Obrigatorio Classe="s12"><SeletorDestinatarios Rotulo="Para" Opcoes="_opcoes" Selecionados="_para" /></Campo>
+            @if (_comCopia) { <Campo Rotulo="Cópia" Classe="s12"><SeletorDestinatarios Rotulo="Cópia" Opcoes="_opcoes" Selecionados="_copia" /></Campo> }
+            else { <Campo Rotulo="Cópia" Classe="s12"><div><button type="button" class="btn sec pq" @onclick="() => _comCopia = true">+ Incluir cópia</button></div></Campo> }
+            <Campo Rotulo="Assunto" Obrigatorio Classe="s12"><input @bind="_assunto" maxlength="200" placeholder="Ex.: Entrega do cimento do pedido 57" /></Campo>
+            @if (RegistroId is not null)
+            {
+                <Campo Rotulo="Registro" Classe="s12"><span class="vinculo-reg"><Icone Nome="corrente" Tam="14" /> Ligada a: <b>@(RegistroDescricao ?? QualyHub.Application.Comum.RotasRegistro.Rotulo(RegistroEntidade))</b></span></Campo>
+            }
+            <Campo Rotulo="Mensagem" Obrigatorio Classe="s12"><EditorMensagem @bind-Valor="_texto" /></Campo>
+        </div>
+        <p class="mudo fonte-13">Só quem está na conversa vê. Quem estiver no QualyHub recebe na hora; fora dele, o aviso vai por e-mail se a regra "Nova mensagem interna" estiver ligada. Anexos: depois de enviar, na própria conversa.</p>
+    </ChildContent>
+    <Rodape>
+        <button class="btn sec" @onclick="() => AbertoChanged.InvokeAsync(false)">Cancelar</button>
+        <button class="btn prim" disabled="@_ocupado" @onclick="Enviar"><Icone Nome="enviar" Tam="16" /> Enviar</button>
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter] public bool Aberto { get; set; }
+    [Parameter] public EventCallback<bool> AbertoChanged { get; set; }
+    [Parameter] public string? RegistroEntidade { get; set; }
+    [Parameter] public Guid? RegistroId { get; set; }
+    [Parameter] public string? RegistroDescricao { get; set; }
+    [Parameter] public string? AssuntoInicial { get; set; }
+    [Parameter] public IReadOnlyList<string>? ParaInicial { get; set; }
+    [Parameter] public EventCallback<Guid> AoEnviar { get; set; }
+
+    private List<MensagensServico.Destinatario> _opcoes = [];
+    private List<string> _para = [], _copia = [];
+    private string? _assunto, _texto;
+    private bool _comCopia, _ocupado, _estavaAberto;
+    private IReadOnlyList<string>? _erros;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Aberto && !_estavaAberto)
+        {
+            _erros = null; _texto = null; _comCopia = false; _copia = [];
+            _para = ParaInicial?.ToList() ?? [];
+            _assunto = AssuntoInicial;
+            if (_opcoes.Count == 0) _opcoes = await Mensagens.DestinatariosAsync();
+        }
+        _estavaAberto = Aberto;
+    }
+
+    private async Task Enviar()
+    {
+        _ocupado = true; _erros = null;
+        try
+        {
+            var id = await Mensagens.EnviarAsync(new MensagensServico.NovaMensagem(_assunto ?? "", _texto ?? "", _para, _copia, null, RegistroEntidade, RegistroId));
+            Notif.Sucesso("Mensagem enviada.");
+            await AbertoChanged.InvokeAsync(false);
+            await AoEnviar.InvokeAsync(id);
+        }
+        catch (RegraDeNegocioException e) { _erros = [e.Message]; }
+        catch (ValidacaoException e) { _erros = e.Erros; }
+        finally { _ocupado = false; }
+    }
+}

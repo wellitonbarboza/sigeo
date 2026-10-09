@@ -43,7 +43,20 @@
                         <Coluna T="RegraNotificacao" Titulo="Ativa" Valor="n => n.Ativa" />
                     </Colunas>
                 </Grade>
-                <div class="alerta info"><Icone Nome="info" /> Pendências (tela inicial) já funcionam. E-mail e WhatsApp dependem de habilitar o serviço de mensagens no Azure (próxima etapa: Azure Functions).</div>
+                <div class="alerta info"><Icone Nome="info" /> Com o canal E-mail ligado, a regra manda aviso a cada 15 min no expediente (seg–sáb, 6h–21h); mensagem interna sai na hora. Campos no texto: {documento}, {tarefa}, {rnc}, {restricao}, {data}, {remetente}, {mensagem}, {link}. Sem a comunicação do Azure configurada, os avisos ficam na fila e saem quando ela for ligada. WhatsApp: só código de acesso e convite.</div>
+                <h4 class="mt-12">Últimos avisos por e-mail <small class="mudo">(@_avisos.Count(a => a.Situacao == SituacaoAviso.Pendente) na fila · @_avisos.Count(a => a.Situacao == SituacaoAviso.Falhou) com falha)</small></h4>
+                <div class="tabela-rolavel"><table class="itens" id="avisos-fila">
+                    <thead><tr><th>Criado</th><th>Evento</th><th>Para</th><th>Assunto</th><th>Situação</th><th>Enviado</th><th>Detalhe</th></tr></thead>
+                    <tbody>
+                        @foreach (var a in _avisos)
+                        {
+                            <tr @key="a.Id"><td>@DataHora(a.CriadoEm)</td><td>@a.Evento</td><td>@a.NomeDestinatario</td><td>@a.Assunto</td>
+                                <td><Selo Texto="@De(a.Situacao)" Tom="@(a.Situacao switch { SituacaoAviso.Enviado => "ok", SituacaoAviso.Falhou => "erro", SituacaoAviso.Pendente => "aviso", _ => "neutro" })" /></td>
+                                <td>@(a.EnviadoEm is { } e ? DataHora(e) : (a.Tentativas > 0 ? $"{a.Tentativas} tentativa(s)" : "—"))</td><td class="mudo fonte-13">@a.Detalhe</td></tr>
+                        }
+                        @if (_avisos.Count == 0) { <tr><td colspan="7" class="mudo">Nenhum aviso gerado ainda.</td></tr> }
+                    </tbody>
+                </table></div>
             }
             else
             {
@@ -186,7 +199,9 @@
         _listas = await db.Listas.OrderBy(l => l.Tipo).ThenBy(l => l.Ordem).ThenBy(l => l.Nome).ToListAsync(Cancelamento);
         _tipos = await db.TiposDocumento.OrderBy(t => t.AplicaA).ThenBy(t => t.Nome).ToListAsync(Cancelamento);
         _notifs = await db.RegrasNotificacao.OrderBy(n => n.Evento).ToListAsync(Cancelamento);
+        _avisos = await db.AvisosEmail.OrderByDescending(a => a.CriadoEm).Take(100).ToListAsync(Cancelamento);
     }
+    private List<AvisoEmail> _avisos = [];
 
     private void Novo()
     {

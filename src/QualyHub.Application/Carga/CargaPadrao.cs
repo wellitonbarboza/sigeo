@@ -172,7 +172,7 @@ public static class CargaPadrao
     /// Versão da carga padrão. Suba quando incluir itens novos nas listas/cadastros padrão: empresas existentes recebem a carga
     /// uma vez por versão (itens que o usuário renomeou ou excluiu não voltam a cada reinício do app).
     /// </summary>
-    public const int Versao = 3;
+    public const int Versao = 4;
     private const string ChaveVersao = "Sistema:CargaPadrao";
 
     /// <summary>Aplica a carga só se a empresa ainda não recebeu esta versão (usado na inicialização do app).</summary>
@@ -360,9 +360,13 @@ public static class CargaPadrao
 
     private static async Task AplicarNotificacoesAsync(IQualyHubDb db, Guid empresaId, CancellationToken ct)
     {
-        if (await db.RegrasNotificacao.IgnoreQueryFilters().AnyAsync(x => x.EmpresaId == empresaId, ct)) return;
-        void N(string evento, string? antec, string? rep, string dest, CanalNotificacao canal, string modelo) =>
-            db.RegrasNotificacao.Add(new RegraNotificacao { EmpresaId = empresaId, Evento = evento, Antecedencia = antec, Repeticao = rep, Destinatarios = dest, Canal = canal, ModeloMensagem = modelo });
+        // Por evento: empresa que já tem regras recebe só os eventos novos de cada versão (as que ela editou ficam como estão).
+        var existentes = (await db.RegrasNotificacao.IgnoreQueryFilters().Where(x => x.EmpresaId == empresaId && !x.Excluido).Select(x => x.Evento).ToListAsync(ct)).ToHashSet();
+        void N(string evento, string? antec, string? rep, string dest, CanalNotificacao canal, string modelo)
+        {
+            if (existentes.Add(evento))
+                db.RegrasNotificacao.Add(new RegraNotificacao { EmpresaId = empresaId, Evento = evento, Antecedencia = antec, Repeticao = rep, Destinatarios = dest, Canal = canal, ModeloMensagem = modelo });
+        }
         N("Aprovação pendente", null, "a cada 24 h", "Aprovador da etapa", CanalNotificacao.Pendencias | CanalNotificacao.Email, "{documento} aguarda sua aprovação: {link}");
         N("Prazo de aprovação estourado", null, null, "Aprovador + escalonamento", CanalNotificacao.Pendencias | CanalNotificacao.Email, "{documento} está atrasado na sua alçada.");
         N("Documento do fornecedor vencendo", "30 dias", "a cada 7 dias até renovar", "Fornecedor (link do portal) · Comprador", CanalNotificacao.Email, "Seu documento {documento} vence em {data}. Envie a renovação: {link}");
@@ -373,5 +377,10 @@ public static class CargaPadrao
         N("Calibração a vencer", "30 dias", null, "Responsável do equipamento", CanalNotificacao.Pendencias, "{equipamento} vence em {data}.");
         N("ASO / treinamento vencendo", "30 dias", "semanal", "Empresa terceira · SST", CanalNotificacao.Pendencias | CanalNotificacao.Email, "{colaborador}: {exigencia} vence em {data}.");
         N("PT sem encerramento", null, "fim do turno", "Emitente da PT", CanalNotificacao.Pendencias, "{pt} ainda não foi encerrada.");
+        // v4: mensagens internas, tarefas e restrições do planejamento (médio prazo).
+        N(Domain.Colaboracao.EventosAviso.NovaMensagem, null, null, "Participantes da conversa", CanalNotificacao.Pendencias | CanalNotificacao.Email, "{remetente} enviou uma mensagem: {titulo}\n{mensagem}");
+        N(Domain.Colaboracao.EventosAviso.TarefaAtribuida, null, null, "Responsável da tarefa", CanalNotificacao.Pendencias | CanalNotificacao.Email, "{solicitante} atribuiu a você a tarefa {tarefa}, prazo {data}.");
+        N(Domain.Colaboracao.EventosAviso.TarefaAtrasada, null, "diária", "Responsável da tarefa", CanalNotificacao.Pendencias | CanalNotificacao.Email, "A tarefa {tarefa} venceu em {data}.");
+        N(Domain.Colaboracao.EventosAviso.RestricaoVencendo, "2 dias", "diária", "Responsável da restrição", CanalNotificacao.Pendencias | CanalNotificacao.Email, "Restrição {restricao} da atividade {atividade} precisa ser removida até {data}.");
     }
 }

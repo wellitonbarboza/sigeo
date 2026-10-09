@@ -1,0 +1,208 @@
+@page "/mensagens"
+@inherits PaginaBase
+@inject MensagensServico Caixa
+@inject NavigationManager Nav
+@inject QualyHub.Application.Comum.CanalAvisos Canal
+
+<PageTitle>Mensagens · QualyHub</PageTitle>
+<div class="tela">
+    <div class="topo"><h1>Mensagens</h1>
+        <div class="direita"><button class="btn prim" id="msg-nova" @onclick="() => _nova = true"><Icone Nome="mais" Tam="16" /> Nova mensagem</button></div>
+    </div>
+    <div class="miolo">
+        <div class="caixa-msg @(_aberta is not null ? "lendo" : "")">
+            <nav class="pastas-msg" aria-label="Pastas">
+                @foreach (var (p, texto, icone) in Pastas)
+                {
+                    <button class="pasta-msg" aria-pressed="@(_pasta == p)" @onclick="() => TrocarPasta(p)">
+                        <Icone Nome="@icone" Tam="16" /> @texto
+                        @if (p == MensagensServico.Pasta.Entrada && _naoLidas > 0) { <b class="cont">@_naoLidas</b> }
+                    </button>
+                }
+            </nav>
+            <section class="lista-msg" aria-label="Conversas">
+                <div class="busca-msg"><input type="search" placeholder="Procurar por assunto, pessoa, registro ou texto" aria-label="Procurar" @bind="_busca" @bind:event="oninput" @bind:after="Buscar" /></div>
+                <div class="itens-msg">
+                    @if (_lista is null) { <p class="mudo pad">Carregando…</p> }
+                    else if (_lista.Count == 0) { <p class="mudo pad">@(string.IsNullOrWhiteSpace(_busca) ? "Nenhuma conversa nesta pasta." : "Nada encontrado.")</p> }
+                    else
+                    {
+                        @foreach (var c in _lista)
+                        {
+                            <button class="item-msg @(c.NaoLidas > 0 ? "nlida" : "")" @key="c.Id" aria-current="@(_aberta?.Id == c.Id)" @onclick="() => Abrir(c.Id)">
+                                <span class="av" style="--cor:@Cor(c.UltimoAutor)">@Iniciais(c.UltimoAutor)</span>
+                                <span class="de">@(_pasta == MensagensServico.Pasta.Enviadas ? $"Para: {c.Participantes}" : c.UltimoAutor)</span>
+                                <span class="hora">@Quando(c.UltimaEm)</span>
+                                <span class="ass">@if (c.NaoLidas > 0) { <b class="cont">@c.NaoLidas</b> } @c.Assunto</span>
+                                <span class="prev">@if (c.RegistroDescricao is not null) { <span class="selo-reg">@c.RegistroDescricao</span> } @c.Previa</span>
+                            </button>
+                        }
+                        @if (_lista.Count >= 200) { <p class="mudo pad">Exibindo as 200 mais recentes — use a busca para achar as antigas.</p> }
+                    }
+                </div>
+            </section>
+            <section class="leitura-msg" aria-label="Conversa aberta" aria-live="polite">
+                @if (_aberta is null)
+                {
+                    <div class="vazio-msg"><Icone Nome="mensagem" Tam="40" /><p>Escolha uma conversa ou escreva uma nova mensagem.</p></div>
+                }
+                else
+                {
+                    var c = _aberta;
+                    <div class="cab-msg">
+                        <button class="btn sec pq voltar-msg" @onclick="() => _aberta = null">← Voltar</button>
+                        <h2>@c.Assunto <small class="mudo">nº @c.Numero</small></h2>
+                        <div class="meta-msg">
+                            @foreach (var p in c.Participantes) { <span class="part @(p.Papel.ToString().ToLowerInvariant())">@p.Nome@(p.Papel == PapelParticipante.Copia ? " (cópia)" : "")</span> }
+                        </div>
+                        @if (c.RegistroLink is not null) { <a class="vinculo-reg" href="@c.RegistroLink"><Icone Nome="corrente" Tam="14" /> @c.RegistroDescricao · abrir</a> }
+                    </div>
+                    <div class="fio-msg">
+                        @foreach (var m in c.Mensagens)
+                        {
+                            <article class="msg @(m.AutorId == Usuario.UsuarioId ? "minha" : "")" @key="m.Id">
+                                <div class="linha"><b>@m.Autor</b><span class="mudo">@DataHora(m.EnviadaEm)</span></div>
+                                <div class="corpo">@((MarkupString)m.Html)</div>
+                                <div class="lidos mudo">
+                                    @string.Join(" · ", new[] { m.Lidos.Count > 0 ? "Lido por: " + string.Join(", ", m.Lidos.Select(l => $"{l.Nome} {l.LidaEm.ToLocalTime():dd/MM HH:mm}")) : null,
+                                        m.NaoLeram.Count > 0 ? "Ainda não leram: " + string.Join(", ", m.NaoLeram) : null }.Where(x => x is not null))
+                                </div>
+                            </article>
+                        }
+                        <details class="anexos-msg"><summary><Icone Nome="clipe" Tam="14" /> Anexos da conversa</summary>
+                            <Anexos Entidade="Conversa" EntidadeId="c.Id" />
+                        </details>
+                    </div>
+                    <div class="resposta-msg">
+                        <Erros Lista="ErrosForm" />
+                        <EditorMensagem @bind-Valor="_resposta" Placeholder="Responder a todos…" Linhas="3" />
+                        @if (_incluindo) { <SeletorDestinatarios Rotulo="Incluir na conversa" Opcoes="_opcoes" Selecionados="_incluir" /> }
+                        <div class="acoes-msg">
+                            <span class="grupo-btn">
+                                <button class="btn sec pq" @onclick="Arquivar"><Icone Nome="arquivar" Tam="14" /> @(c.Arquivada ? "Voltar para a entrada" : "Arquivar")</button>
+                                <button class="btn sec pq" @onclick="IncluirPessoas"><Icone Nome="pessoa" Tam="14" /> Incluir pessoas</button>
+                                <a class="btn sec pq" href="@LinkTarefa(c)"><Icone Nome="lista" Tam="14" /> Criar tarefa</a>
+                            </span>
+                            <button class="btn prim" id="msg-responder" disabled="@(Ocupado || string.IsNullOrWhiteSpace(_resposta))" @onclick="Responder"><Icone Nome="responder" Tam="16" /> Responder</button>
+                        </div>
+                    </div>
+                }
+            </section>
+        </div>
+    </div>
+    <div class="faixa"><b>Mensagens internas</b><span>Só entre usuários · cada um vê as suas conversas</span><span>Ligada a registro = evidência</span><span>Nada é apagado</span></div>
+</div>
+
+<NovaMensagem @bind-Aberto="_nova" AoEnviar="AoEnviar" />
+
+@code {
+    private static readonly (MensagensServico.Pasta, string, string)[] Pastas =
+    [
+        (MensagensServico.Pasta.Entrada, "Entrada", "mensagem"), (MensagensServico.Pasta.Enviadas, "Enviadas", "enviar"),
+        (MensagensServico.Pasta.Arquivadas, "Arquivadas", "arquivar"), (MensagensServico.Pasta.Registros, "Ligadas a registro", "corrente")
+    ];
+    private MensagensServico.Pasta _pasta = MensagensServico.Pasta.Entrada;
+    private List<MensagensServico.ResumoConversa>? _lista;
+    private MensagensServico.ConversaVista? _aberta;
+    private List<MensagensServico.Destinatario> _opcoes = [];
+    private List<string> _incluir = [];
+    private string? _busca, _resposta;
+    private bool _nova, _incluindo;
+    private int _naoLidas;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Canal.Novidade += AoNovidade;
+        await Carregar();
+        var args = System.Web.HttpUtility.ParseQueryString(new Uri(Nav.Uri).Query);
+        if (Guid.TryParse(args["id"], out var id)) await Abrir(id);
+    }
+
+    private async Task Carregar()
+    {
+        _lista = await Caixa.CaixaAsync(_pasta, _busca, ct: Cancelamento);
+        _naoLidas = await Caixa.NaoLidasAsync(Cancelamento);
+    }
+
+    private async Task TrocarPasta(MensagensServico.Pasta p) { _pasta = p; _aberta = null; await Carregar(); }
+    private Task Buscar() => Carregar();
+
+    private async Task Abrir(Guid id)
+    {
+        ErrosForm = null; _resposta = null; _incluindo = false; _incluir = [];
+        await Executar(async () => { _aberta = await Caixa.AbrirAsync(id, Cancelamento); });
+        await Carregar();
+    }
+
+    private async Task Responder()
+    {
+        if (_aberta is null) return;
+        var id = _aberta.Id;
+        if (await Executar(() => Caixa.ResponderAsync(id, _resposta ?? "", _incluir, Cancelamento), "Resposta enviada."))
+        {
+            _resposta = null; _incluindo = false; _incluir = [];
+            _aberta = await Caixa.AbrirAsync(id, Cancelamento);
+            await Carregar();
+        }
+    }
+
+    private async Task Arquivar()
+    {
+        if (_aberta is null) return;
+        var arquivar = !_aberta.Arquivada;
+        if (await Executar(() => Caixa.ArquivarAsync(_aberta.Id, arquivar, Cancelamento), arquivar ? "Arquivada (continua no histórico)." : "Voltou para a entrada."))
+        {
+            _aberta = null;
+            await Carregar();
+        }
+    }
+
+    private async Task IncluirPessoas()
+    {
+        _incluindo = !_incluindo;
+        if (_incluindo && _opcoes.Count == 0) _opcoes = await Caixa.DestinatariosAsync(Cancelamento);
+    }
+
+    private async Task AoEnviar(Guid id)
+    {
+        _pasta = MensagensServico.Pasta.Enviadas;
+        await Abrir(id);
+    }
+
+    private void AoNovidade(Guid empresa, IReadOnlyCollection<Guid> usuarios)
+    {
+        if (empresa != Usuario.EmpresaId || Usuario.UsuarioId is not { } eu || !usuarios.Contains(eu)) return;
+        _ = InvokeAsync(async () =>
+        {
+            try
+            {
+                await Carregar();
+                if (_aberta is { } a && _lista?.FirstOrDefault(x => x.Id == a.Id) is { NaoLidas: > 0 }) _aberta = await Caixa.AbrirAsync(a.Id, Cancelamento);
+                StateHasChanged();
+            }
+            catch (OperationCanceledException) { }
+        });
+    }
+
+    public override void Dispose()
+    {
+        Canal.Novidade -= AoNovidade;
+        base.Dispose();
+    }
+
+    private string LinkTarefa(MensagensServico.ConversaVista c) =>
+        c.RegistroEntidade is { } e && c.RegistroId is { } r
+            ? $"tarefas?origem={Uri.EscapeDataString(e)}&origemId={r}&desc={Uri.EscapeDataString(c.RegistroDescricao ?? e)}&titulo={Uri.EscapeDataString(c.Assunto)}"
+            : $"tarefas?origem=Conversa&origemId={c.Id}&desc={Uri.EscapeDataString($"Mensagem nº {c.Numero}")}&titulo={Uri.EscapeDataString(c.Assunto)}";
+
+    private static string Quando(DateTimeOffset d)
+    {
+        var l = d.ToLocalTime();
+        return l.Date == DateTime.Today ? l.ToString("HH:mm") : l.Date == DateTime.Today.AddDays(-1) ? "ontem" : l.ToString("dd/MM");
+    }
+
+    private static string Iniciais(string nome) => string.Concat(nome.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(2).Select(p => char.ToUpperInvariant(p[0])));
+
+    private static readonly string[] Cores = ["#4f46e5", "#0f8a6b", "#b45309", "#7c3aed", "#be185d", "#0369a1", "#4d7c0f", "#9f1239"];
+    private static string Cor(string nome) => Cores[(int)((uint)nome.Aggregate(17, (h, ch) => h * 31 + ch) % (uint)Cores.Length)];
+}

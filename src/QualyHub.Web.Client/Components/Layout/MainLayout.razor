@@ -1,5 +1,7 @@
 @inherits LayoutComponentBase
 @inject IJSRuntime JS
+@inject IContadorMensagens Contador
+@implements IDisposable
 @* Layout único das telas internas: serve às páginas do servidor (Blazor Server) e às do navegador (WebAssembly).
    Por isso não injeta serviço do servidor — o usuário vem do estado de autenticação em cascata (claims do cookie). *@
 
@@ -13,6 +15,7 @@
         <nav>
             <ul class="menu">
                 <li class="grupo"><NavLink href="" Match="NavLinkMatch.All"><Icone Nome="casa" /> Minhas pendências</NavLink></li>
+                <li class="grupo"><NavLink href="mensagens"><Icone Nome="mensagem" /> Mensagens @if (_naoLidas > 0) { <span class="cont-menu" title="@($"{_naoLidas} conversa(s) com mensagem não lida")">@(_naoLidas > 99 ? "99+" : _naoLidas)</span> }</NavLink></li>
                 <li class="grupo"><NavLink href="tarefas"><Icone Nome="lista" /> Tarefas</NavLink></li>
                 <li class="grupo"><NavLink href="painel"><Icone Nome="grafico" /> Painel de indicadores</NavLink></li>
                 @foreach (var g in _grupos)
@@ -112,7 +115,35 @@
     {
         if (!primeira) return;
         _tema = await JS.InvokeAsync<string>("qh.temaAtual");
+        Contador.Mudou += AoMudar;
+        await AtualizarContador();
+        _ = ConsultarDeTemposEmTemposAsync();
+    }
+
+    // ───── Contador de mensagens não lidas (acende na hora no servidor; consulta a cada minuto como reserva) ─────
+    private int _naoLidas;
+    private readonly CancellationTokenSource _cts = new();
+
+    private async Task AtualizarContador()
+    {
+        try { _naoLidas = await Contador.NaoLidasAsync(_cts.Token); } catch (Exception) { return; }
         StateHasChanged();
+    }
+
+    private void AoMudar() => _ = InvokeAsync(AtualizarContador);
+
+    private async Task ConsultarDeTemposEmTemposAsync()
+    {
+        // Só no expediente: aba esquecida aberta à noite não acorda o banco (Azure SQL serverless pausa).
+        using var t = new PeriodicTimer(TimeSpan.FromSeconds(90));
+        try { while (await t.WaitForNextTickAsync(_cts.Token)) if (DateTime.Now.Hour is >= 6 and < 21) await InvokeAsync(AtualizarContador); }
+        catch (OperationCanceledException) { }
+    }
+
+    public void Dispose()
+    {
+        Contador.Mudou -= AoMudar;
+        _cts.Cancel();
     }
 
     private async Task Tema(string t) { _tema = t; await JS.InvokeVoidAsync("qh.tema", t); }

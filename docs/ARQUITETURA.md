@@ -69,3 +69,25 @@ QualyHub.Web (Blazor Server + API)  ──►  QualyHub.Application (casos de us
 - **Aprovação** (`EntidadeAprovavel.Cronograma`): engenheiro responsável → diretor técnico (carga padrão v3). Aprovada: vira vigente, a anterior fica substituída, a 1ª aprovação congela a linha de base e o desembolso mensal (atual × base) é gravado. Devolvida volta para elaboração com o motivo.
 - **Tela**: Gantt da Syncfusion (Blazor, modo manual — o cálculo é sempre o nosso; script e tema carregados só nesta tela, `wwwroot/lib/syncfusion`), textos em português (`LocalizadorSyncfusion`), telemetria do fornecedor desligada, licença em `Syncfusion:ChaveLicenca` (Key Vault `Syncfusion--ChaveLicenca`). Abas: cronograma (edição lateral), redes, linha de balanço (SVG), desembolso e curva S (SVG), versões e aprovação (`Autorizacoes`), calendário.
 - **Exportações**: Excel (`/arquivos/cronograma/{versao}/excel`, ClosedXML, níveis agrupados + desembolso), MS Project XML (`.../msproject`, MSPDI com EAP, vínculos, folga e custo; importação na versão em elaboração), PDF/impressão A0–A4 em `engenharia/planejamento/imprimir` (SVG no tamanho da folha, salvar como PDF pelo navegador).
+
+### Médio e curto prazo (Last Planner)
+- Abas **Médio prazo · restrições** e **Curto prazo · PPC** (`CurtoPrazoServico`). Usam a versão vigente do cronograma (sem aprovação, a mais recente, com aviso).
+- Restrição (`Restricao`, temporal): tipo, atividade (chave estável `Chave` do gerador; manual = `N:<nome>`), responsável e data-limite. Aberta = a atividade não entra no plano.
+- Plano semanal (`PlanoSemanal` + `CompromissoSemanal`): compromissos tirados do cronograma (só livres) ou avulsos. Depois da segunda-feira entram como "fora da meta" (não contam no PPC) e o planejado não sai do plano.
+- Fechamento a partir de sexta: todo planejado apontado; não concluído com causa. PPC gravado no fechamento (série não muda). Indicadores: PPC por semana, acumulado, Pareto das causas e restrições removidas no prazo.
+- Perfis: Engenharia, Diretoria e Campo.
+
+## Mensagens internas (`/mensagens`)
+- `MensagensServico`: conversa (`Conversa`, temporal) com participantes (`ParticipanteConversa`: arquivada, lida até), mensagens imutáveis (`MensagemConversa`) e leitura por mensagem (`LeituraMensagem` = "lido por quem e quando").
+- Cada usuário vê só as conversas de que participa. Destinatários: pessoa (`u:`), perfil (`p:`) ou obra (`o:` = quem tem acesso); grupo vira pessoas no envio.
+- Ligação a registro (`RegistroEntidade/Id/Descricao`, rotas em `RotasRegistro`): o componente `Notas` mostra "Mensagens deste registro" em todas as telas que já têm notas.
+- Texto com formatação simples sem HTML (`TextoFormatado`: **negrito**, _itálico_, lista "- "), codificado antes de virar HTML.
+- Tempo real no mesmo servidor: `CanalAvisos` (singleton) acende o contador do menu (`IContadorMensagens`: servidor lê direto; WebAssembly usa `/api/telas/mensagens/nao-lidas`) e acorda o envio de e-mail. Reserva: consulta a cada 90 s no expediente.
+- Anexos da conversa pelo componente `Anexos` (entidade "Conversa").
+
+## Avisos por e-mail (regras de notificação)
+- `AvisosServico` + tabela `AvisosEmail` (fila com chave única por empresa: não repete). A regra (Sistema › Parâmetros e Notificações) decide: ativa + canal E-mail + texto com `{campos}`.
+- `RotinaAvisos` (BackgroundService): a cada 15 min no expediente (seg–sáb, 6h–21h) gera lembretes (aprovação pendente 1×/dia, prazo de aprovação estourado, leitura obrigatória nova, tarefa atribuída e atrasada, RNC vencida, restrição vencendo) e envia a fila; mensagem nova acorda na hora. Fora do expediente só envia quando acordada (Azure SQL pausa).
+- Falha de envio: nova tentativa com espera crescente (1, 4, 9, 16 min), depois "Falhou". Sem ACS configurado a fila espera.
+- Link dos e-mails: `QualyHub:EnderecoSite` ou `https://$WEBSITE_HOSTNAME/` (App Service).
+- Carga padrão v4: regras novas (Nova mensagem interna, Tarefa atribuída, Tarefa atrasada, Restrição do planejamento vencendo); empresas existentes recebem só os eventos que faltam.

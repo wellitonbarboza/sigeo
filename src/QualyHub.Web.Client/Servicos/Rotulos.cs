@@ -208,6 +208,22 @@ public static partial class Rotulos
         [Domain.Planejamento.ModoVinculoRede.PorPavimento] = "Por pavimento (N + deslocamento)", [Domain.Planejamento.ModoVinculoRede.AposFimDaRede] = "Após o último local da origem",
         [Domain.Planejamento.TipoVinculo.TerminoInicio] = "TI", [Domain.Planejamento.TipoVinculo.InicioInicio] = "II",
         [Domain.Planejamento.TipoVinculo.TerminoTermino] = "TT", [Domain.Planejamento.TipoVinculo.InicioTermino] = "IT",
+        [Domain.Planejamento.TipoRestricao.Projeto] = "Projeto", [Domain.Planejamento.TipoRestricao.Material] = "Material",
+        [Domain.Planejamento.TipoRestricao.MaoDeObra] = "Mão de obra", [Domain.Planejamento.TipoRestricao.Equipamento] = "Equipamento",
+        [Domain.Planejamento.TipoRestricao.Contrato] = "Contrato / fornecedor", [Domain.Planejamento.TipoRestricao.Financeiro] = "Financeiro",
+        [Domain.Planejamento.TipoRestricao.Documentacao] = "Licença / documentação", [Domain.Planejamento.TipoRestricao.ServicoAnterior] = "Serviço anterior",
+        [Domain.Planejamento.TipoRestricao.Outro] = "Outro",
+        [Domain.Planejamento.StatusRestricao.Aberta] = "Aberta", [Domain.Planejamento.StatusRestricao.Removida] = "Removida", [Domain.Planejamento.StatusRestricao.Cancelada] = "Cancelada",
+        [Domain.Planejamento.StatusPlanoSemanal.Aberto] = "Aberta", [Domain.Planejamento.StatusPlanoSemanal.Fechado] = "Fechada",
+        [Domain.Planejamento.SituacaoCompromisso.Pendente] = "Pendente", [Domain.Planejamento.SituacaoCompromisso.Concluido] = "Concluído",
+        [Domain.Planejamento.SituacaoCompromisso.NaoConcluido] = "Não concluído",
+        [Domain.Planejamento.CausaNaoCumprimento.Material] = "Falta de material", [Domain.Planejamento.CausaNaoCumprimento.MaoDeObra] = "Mão de obra",
+        [Domain.Planejamento.CausaNaoCumprimento.Projeto] = "Projeto / definição", [Domain.Planejamento.CausaNaoCumprimento.Equipamento] = "Equipamento",
+        [Domain.Planejamento.CausaNaoCumprimento.Clima] = "Chuva / clima", [Domain.Planejamento.CausaNaoCumprimento.ServicoAnterior] = "Serviço anterior não liberado",
+        [Domain.Planejamento.CausaNaoCumprimento.Fornecedor] = "Fornecedor / empreiteiro", [Domain.Planejamento.CausaNaoCumprimento.Planejamento] = "Planejamento (meta irreal)",
+        [Domain.Planejamento.CausaNaoCumprimento.Qualidade] = "Retrabalho / qualidade", [Domain.Planejamento.CausaNaoCumprimento.Seguranca] = "Segurança",
+        [Domain.Planejamento.CausaNaoCumprimento.Outra] = "Outra",
+        [Domain.Colaboracao.PapelParticipante.Remetente] = "Remetente", [Domain.Colaboracao.PapelParticipante.Para] = "Para", [Domain.Colaboracao.PapelParticipante.Copia] = "Cópia",
     };
 
     public static string De(Enum e)
@@ -246,6 +262,9 @@ public static partial class Rotulos
     public static string Tom(Enum e) => e switch
     {
         Domain.Planejamento.StatusVersao.Vigente => "ok",
+        Domain.Planejamento.StatusRestricao.Aberta => "aviso", Domain.Planejamento.StatusRestricao.Removida => "ok", Domain.Planejamento.StatusRestricao.Cancelada => "neutro",
+        Domain.Planejamento.StatusPlanoSemanal.Aberto => "info", Domain.Planejamento.StatusPlanoSemanal.Fechado => "ok",
+        Domain.Planejamento.SituacaoCompromisso.Concluido => "ok", Domain.Planejamento.SituacaoCompromisso.NaoConcluido => "erro", Domain.Planejamento.SituacaoCompromisso.Pendente => "aviso",
         Domain.Planejamento.StatusVersao.EmAprovacao => "aviso",
         Domain.Planejamento.StatusVersao.Substituida => "neutro",
         StatusRequisicao.Autorizada or StatusRequisicao.PedidoEmitido or StatusRequisicao.Concluida => "ok",

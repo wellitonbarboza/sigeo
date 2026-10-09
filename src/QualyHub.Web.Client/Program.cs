@@ -11,4 +11,5 @@ builder.Services.AddAuthenticationStateDeserialization();
 builder.Services.AddScoped(_ => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });
 builder.Services.AddScoped<Api>();
 builder.Services.AddScoped<Notificacoes>();
+builder.Services.AddScoped<IContadorMensagens, ContadorMensagensApi>();
 await builder.Build().RunAsync();
