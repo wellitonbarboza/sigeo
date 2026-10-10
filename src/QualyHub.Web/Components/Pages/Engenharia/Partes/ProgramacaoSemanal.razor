@@ -1,0 +1,47 @@
+@* Programação semanal para imprimir: escolhe as datas (gera uma folha por semana), a SPE e o agrupamento; pré-visualiza e abre a impressão. *@
+@inherits PaginaBase
+@inject AcompanhamentoServico Acomp
+
+<div class="barra-filtro">
+    <label>De <input type="date" id="pg-de" value="@_de.ToString("yyyy-MM-dd")" @onchange="e => Mudar(e, true)" /></label>
+    <label>Até <input type="date" id="pg-ate" value="@_ate.ToString("yyyy-MM-dd")" @onchange="e => Mudar(e, false)" /></label>
+    <label>SPE <select @bind="_spe" @bind:after="Gerar"><option value="">Todas</option>@foreach (var (id, nome) in _spes) { <option value="@id">@nome</option> }</select></label>
+    <label>Folha <select @bind="_folha"><option value="A4-paisagem">A4 paisagem</option><option value="A4-retrato">A4 retrato</option><option value="A3-paisagem">A3 paisagem</option></select></label>
+    <label>Agrupar por <select @bind="_agrupar"><option value="local">Local</option><option value="macro">Macroetapa</option></select></label>
+    <a class="btn prim" id="pg-imprimir" target="_blank" href="@LinkImpressao"><Icone Nome="impressora" Tam="14" /> Imprimir / PDF</a>
+</div>
+<div class="alerta info pq"><Icone Nome="info" /> Uma folha por semana (segunda a sábado): local, atividade/serviço, avanço previsto na semana (de → até) e os dias programados pintados. Usa o plano semanal (curto prazo) quando existe; senão, as atividades do cronograma na semana. Restrição aberta em vermelho.</div>
+@if (_p is null) { <Esqueleto Linhas="8" /> }
+else { <div class="tabela-rolavel"><FolhasProgramacao Dados="_p" Agrupar="@_agrupar" Emissor="@Usuario.Nome" /></div> }
+
+@code {
+    [Parameter] public Guid ObraId { get; set; }
+    private AcompanhamentoServico.Programacao? _p;
+    private DateOnly _de, _ate;
+    private string? _spe;
+    private string _folha = "A4-paisagem", _agrupar = "local";
+    private List<(Guid Id, string Nome)> _spes = [];
+    private Guid _carregada;
+
+    private string LinkImpressao => $"engenharia/planejamento/imprimir-programacao?obra={ObraId}&de={_de:yyyy-MM-dd}&ate={_ate:yyyy-MM-dd}&spe={_spe}&folha={_folha}&agrupar={_agrupar}";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_carregada == ObraId) return;
+        _carregada = ObraId;
+        _de = Hoje.AddDays(7 - (((int)Hoje.DayOfWeek + 6) % 7)); _ate = _de.AddDays(5); // próxima semana
+        await using (var db = Fabrica.CriarLeitura())
+            _spes = (await db.Spes.AsNoTracking().Where(s => s.ObraId == ObraId).OrderBy(s => s.Codigo).Select(s => new { s.Id, Nome = s.NomeFantasia ?? s.RazaoSocial }).ToListAsync(Cancelamento))
+                .Select(s => (s.Id, s.Nome)).ToList();
+        await Gerar();
+    }
+
+    private async Task Mudar(ChangeEventArgs e, bool inicio)
+    {
+        if (!DateOnly.TryParse(e.Value?.ToString(), out var d)) return;
+        if (inicio) { _de = d; if (_ate < _de) _ate = _de.AddDays(5); } else _ate = d < _de ? _de : d;
+        await Gerar();
+    }
+
+    private async Task Gerar() => _p = await Acomp.ProgramacaoAsync(ObraId, Guid.TryParse(_spe, out var s) ? s : null, _de, _ate, Cancelamento);
+}

@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using QualyHub.Application.Planejamento;
 using QualyHub.Domain.Aprovacoes;
 using QualyHub.Domain.Common;
@@ -145,7 +145,7 @@ public sealed class PlanejamentoServico(IFabricaDb fabrica, IUsuarioAtual usuari
         return v;
     }
 
-    private static async Task RecalcularAsync(IQualyHubDb db, VersaoCronograma v, CancellationToken ct)
+    internal static async Task RecalcularAsync(IQualyHubDb db, VersaoCronograma v, CancellationToken ct)
     {
         var cal = await CalendarioAsync(db, v.ObraId, ct);
         var ats = v.Atividades.ToList();
@@ -226,6 +226,73 @@ public sealed class PlanejamentoServico(IFabricaDb fabrica, IUsuarioAtual usuari
         if (novoTermino is { } fim && !a.Resumo && a.Duracao > 0)
             a.Duracao = Math.Max(1, cal.DiasUteisEntre(cal.ProximoUtil(novoInicio), fim) + (cal.EhUtil(fim) ? 1 : 0));
         if (novoInicio != a.Inicio) MotorCronograma.Mover(a, novoInicio, v.Atividades.ToList(), v.Vinculos.ToList(), cal);
+        await RecalcularAsync(db, v, ct);
+        await db.SaveChangesAsync(ct);
+    }
+
+    // ───────── Ligações (editor por rede) ─────────
+
+    /// <summary>Liga duas atividades (predecessora → sucessora). Recusa repetida, agrupador e ciclo (o motor acusa).</summary>
+    public async Task<Guid> LigarAsync(Guid versaoId, Guid predecessoraId, Guid sucessoraId, TipoVinculo tipo, int lag, CancellationToken ct = default)
+    {
+        if (predecessoraId == sucessoraId) throw new RegraDeNegocioException("A atividade não pode ser predecessora dela mesma.");
+        if (lag is < -400 or > 400) throw new ValidacaoException(["Folga entre -400 e 400 dias úteis."]);
+        await using var db = fabrica.Criar();
+        var v = await EditavelAsync(db, versaoId, ct);
+        var p = v.Atividades.FirstOrDefault(a => a.Id == predecessoraId) ?? throw new RegraDeNegocioException("Predecessora não encontrada.");
+        var s = v.Atividades.FirstOrDefault(a => a.Id == sucessoraId) ?? throw new RegraDeNegocioException("Sucessora não encontrada.");
+        if (p.Resumo || s.Resumo) throw new RegraDeNegocioException("Ligue as atividades, não os agrupadores.");
+        if (v.Vinculos.Any(x => x.PredecessoraId == p.Id && x.SucessoraId == s.Id)) throw new RegraDeNegocioException("Essas atividades já estão ligadas.");
+        var l = new VinculoAtividade { VersaoId = v.Id, PredecessoraId = p.Id, SucessoraId = s.Id, Tipo = tipo, Lag = lag };
+        v.Vinculos.Add(l); db.VinculosAtividade.Add(l);
+        await RecalcularAsync(db, v, ct); // ciclo → RegraDeNegocioException do motor, nada é gravado
+        await db.SaveChangesAsync(ct);
+        return l.Id;
+    }
+
+    public async Task AlterarVinculoAsync(Guid versaoId, Guid vinculoId, TipoVinculo tipo, int lag, CancellationToken ct = default)
+    {
+        if (lag is < -400 or > 400) throw new ValidacaoException(["Folga entre -400 e 400 dias úteis."]);
+        await using var db = fabrica.Criar();
+        var v = await EditavelAsync(db, versaoId, ct);
+        var l = v.Vinculos.FirstOrDefault(x => x.Id == vinculoId) ?? throw new RegraDeNegocioException("Ligação não encontrada.");
+        l.Tipo = tipo; l.Lag = lag;
+        await RecalcularAsync(db, v, ct);
+        await db.SaveChangesAsync(ct);
+    }
+
+    public async Task ExcluirVinculoAsync(Guid versaoId, Guid vinculoId, CancellationToken ct = default)
+    {
+        await using var db = fabrica.Criar();
+        var v = await EditavelAsync(db, versaoId, ct);
+        var l = v.Vinculos.FirstOrDefault(x => x.Id == vinculoId) ?? throw new RegraDeNegocioException("Ligação não encontrada.");
+        v.Vinculos.Remove(l); db.VinculosAtividade.Remove(l);
+        await RecalcularAsync(db, v, ct);
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>Muda só a duração (puxar a ponta da barra no editor por rede).</summary>
+    public async Task DuracaoAsync(Guid versaoId, Guid atividadeId, int duracao, CancellationToken ct = default)
+    {
+        if (duracao is < 0 or > 2000) throw new ValidacaoException(["Duração entre 0 e 2000 dias úteis."]);
+        await using var db = fabrica.Criar();
+        var v = await EditavelAsync(db, versaoId, ct);
+        var a = v.Atividades.FirstOrDefault(x => x.Id == atividadeId && !x.Resumo) ?? throw new RegraDeNegocioException("Atividade não encontrada.");
+        a.Duracao = duracao;
+        await RecalcularAsync(db, v, ct);
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>Move a atividade N dias úteis (arrastar no editor por rede): vira folga no vínculo que a segura, como no Gantt.</summary>
+    public async Task MoverDiasAsync(Guid versaoId, Guid atividadeId, int diasUteis, CancellationToken ct = default)
+    {
+        if (diasUteis == 0) return;
+        await using var db = fabrica.Criar();
+        var v = await EditavelAsync(db, versaoId, ct);
+        var a = v.Atividades.FirstOrDefault(x => x.Id == atividadeId) ?? throw new RegraDeNegocioException("Atividade não encontrada.");
+        var cal = await CalendarioAsync(db, v.ObraId, ct);
+        var alvo = cal.Data(Math.Max(cal.Indice(v.InicioProjeto), cal.Indice(cal.ProximoUtil(a.Inicio)) + diasUteis));
+        MotorCronograma.Mover(a, alvo, v.Atividades.ToList(), v.Vinculos.ToList(), cal);
         await RecalcularAsync(db, v, ct);
         await db.SaveChangesAsync(ct);
     }

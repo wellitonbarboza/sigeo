@@ -52,6 +52,7 @@
                     {
                         <button class="btn prim" id="plan-reprogramar" disabled="@Ocupado" @onclick="NovaReprogramacao"><Icone Nome="editar" Tam="14" /> Nova reprogramação</button>
                     }
+                    <button class="btn sec" id="plan-medicao" @onclick="() => _abertoMedicao = true"><Icone Nome="check" Tam="14" /> Medição semanal</button>
                     <button class="btn sec" id="plan-excel" @onclick="@(() => Baixar("excel"))"><Icone Nome="excel" Tam="14" /> Excel</button>
                     <button class="btn sec" id="plan-msp" @onclick="@(() => Baixar("msproject"))"><Icone Nome="baixar" Tam="14" /> MS Project</button>
                     @if (_editavel)
@@ -64,8 +65,33 @@
                 <Erros Lista="ErrosForm" />
                 <Abas Itens="_abas" Ativa="@_aba" AtivaChanged="TrocarAba" />
 
-                @if (_aba == "crono")
+                @if (_aba == "painel")
                 {
+                    <PainelPlanejamento ObraId="_obraId!.Value" Versao="_ganttChave" />
+                }
+                else if (_aba == "acao")
+                {
+                    <PlanoAcaoPlanejamento ObraId="_obraId!.Value" Versoes="_versoes" PodeEditar="_podeEditar" />
+                }
+                else if (_aba == "prog")
+                {
+                    <ProgramacaoSemanal ObraId="_obraId!.Value" />
+                }
+                else if (_aba == "crono")
+                {
+                    <div class="crono-modos">
+                        <span class="grupo-btn" role="tablist" aria-label="Modo do cronograma">
+                            <button class="btn @(_modoCrono == "ver" ? "prim" : "sec") pq" id="crono-ver" @onclick='() => _modoCrono = "ver"'>Gantt por local</button>
+                            <button class="btn @(_modoCrono == "editar" ? "prim" : "sec") pq" id="crono-editar" @onclick='() => _modoCrono = "editar"'>Editar cronograma (redes e ligações)</button>
+                            <button class="btn @(_modoCrono == "tabela" ? "prim" : "sec") pq" id="crono-tabela" @onclick='() => _modoCrono = "tabela"'>Tabela e Gantt detalhado</button>
+                        </span>
+                    </div>
+                    @if (_modoCrono != "tabela")
+                    {
+                        <GanttPorLocal ObraId="_obraId!.Value" VersaoId="v.Id" Modo="@_modoCrono" PodeEditar="_podeEditar" Versao="_ganttChave"
+                                       AoMudar="AoMudarGantt" AoSequencia="IrParaRedes" />
+                    }
+                    else {
                     <div class="barra-filtro plan-opcoes">
                         <label><input type="checkbox" @bind="_mostrarBase" /> Linha de base</label>
                         <label>Início do projeto <input type="date" id="plan-inicio" value="@v.InicioProjeto.ToString("yyyy-MM-dd")" disabled="@(!_editavel)" @onchange="e => MudarInicio(e.Value?.ToString(), null)" /></label>
@@ -144,6 +170,7 @@
                             </div>
                         }
                     </div>
+                    }
                 }
                 else if (_aba == "redes")
                 {
@@ -152,17 +179,6 @@
                     {
                         <div class="alerta info mt-12"><Icone Nome="info" /> Redes alteradas. <button class="btn prim pq" id="plan-gerar2" disabled="@Ocupado" @onclick="Gerar">Gerar o cronograma de @v.Codigo pelas redes</button> (mantém avanço, linha de base e folgas ajustadas).</div>
                     }
-                }
-                else if (_aba == "lob")
-                {
-                    <div class="barra-filtro">
-                        <label>Rede <select id="lob-rede" @bind="_lobRede">@foreach (var r in _redesVersao) { <option value="@r.Id">@r.Nome</option> }</select></label>
-                        <label><input type="checkbox" @bind="_mostrarBase" /> Base (tracejado)</label>
-                        <span class="mudo">Cada linha é um pacote avançando pelos locais; inclinação = ritmo. Barras com borda vermelha estão no caminho crítico.</span>
-                    </div>
-                    @if (Lob() is { Length: > 0 } svg) { <div class="cartao plan-svg" id="lob">@((MarkupString)svg)</div> }
-                    else { <div class="alerta info"><Icone Nome="info" /> Gere o cronograma pelas redes para ver a linha de balanço.</div> }
-                    <div class="legenda">@foreach (var s in _lobSeries) { <span><i style="background:@s.Cor"></i>@s.Pacote</span> }</div>
                 }
                 else if (_aba == "medio")
                 {
@@ -298,6 +314,12 @@
     <Rodape><a class="btn prim" id="imp-abrir" target="_blank" href="@($"engenharia/planejamento/imprimir?versao={_versaoId}&folha={_folha}&orientacao={_orientacao}&nivel={_nivel}&base={_impBase}")"><Icone Nome="impressora" Tam="14" /> Abrir para imprimir</a></Rodape>
 </Modal>
 
+<Modal Titulo="Medição semanal" @bind-Aberto="_abertoMedicao" Tamanho="grande">
+    <ChildContent>
+        @if (_obraId is { } om && _abertoMedicao) { <MedicaoSemanalMapa ObraId="om" AoGravar="AoGravarMedicao" /> }
+    </ChildContent>
+</Modal>
+
 <Confirmacao Pergunta="@PerguntaConfirmacao" AoSim="ConfirmacaoSim" AoNao="ConfirmacaoNao" />
 
 @code {
@@ -307,7 +329,7 @@
     private bool _podeApontar;
 
     private static readonly string[] Motivos = ["Planejamento inicial", "Atraso de fornecedor", "Chuvas acima da média", "Mão de obra / produtividade", "Mudança de projeto", "Antecipação de etapa", "Ajuste de ritmo (linha de balanço)", "Outro"];
-    private readonly List<(string, string)> _abas = [("crono", "Cronograma"), ("redes", "Redes"), ("lob", "Linha de balanço"), ("medio", "Médio prazo · restrições"), ("curto", "Curto prazo · PPC"), ("desemb", "Desembolso e curva S"), ("versoes", "Versões e aprovação"), ("cal", "Calendário")];
+    private readonly List<(string, string)> _abas = [("painel", "Painel"), ("crono", "Cronograma"), ("acao", "Plano de ação"), ("prog", "Programação semanal"), ("medio", "Médio prazo · restrições"), ("curto", "Curto prazo · PPC"), ("desemb", "Desembolso e curva S"), ("redes", "Redes"), ("versoes", "Versões e aprovação"), ("cal", "Calendário")];
     private readonly List<string> _toolbar = ["ExpandAll", "CollapseAll", "ZoomIn", "ZoomOut", "ZoomToFit", "PrevTimeSpan", "NextTimeSpan", "Search"];
 
     private SfGantt<LinhaGantt>? _gantt;
@@ -316,7 +338,10 @@
     private readonly RenderFragment<GanttTimelineFormatter> _fmtMes = f => @<text>@(MesesCurtos[f.Date.Month - 1])/@(f.Date.Year)</text>;
     private readonly RenderFragment<GanttTimelineFormatter> _fmtDia = f => @<text>@f.Date.ToString("dd")</text>;
     private Guid? _obraId, _versaoId;
-    private string _aba = "crono";
+    private string _aba = "painel";
+    private string _modoCrono = "ver";
+    private int _ganttChave;
+    private bool _abertoMedicao, _mudouNoGantt;
     private List<VersaoCronograma> _versoes = [];
     private VersaoCronograma? _versao;
     private Calendario _cal = new();
@@ -340,9 +365,7 @@
     private string _motivo = Motivos[0];
     private string? _descricao, _fFerNome;
     private DateOnly? _fFerData;
-    private Guid? _lobRede;
     private string _folha = "A1", _orientacao = "paisagem", _nivel = "9";
-    private List<CronogramaVisao.SerieLob> _lobSeries = [];
 
     private bool _scriptGantt;
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -412,8 +435,9 @@
         _feriadosVisiveis = Enumerable.Range(ini.Year, fim.Year - ini.Year + 1).SelectMany(Calendario.FeriadosNacionais)
             .Concat(_feriados.Select(f => (f.Data, f.Nome))).Where(f => f.Item1 >= ini && f.Item1 <= fim)
             .Select(f => (CronogramaVisao.Ini(f.Item1), f.Item2)).ToList();
-        _lobRede ??= _redesVersao.FirstOrDefault()?.Id;
         _versaoChave++;
+        if (!_mudouNoGantt) _ganttChave++;
+        _mudouNoGantt = false;
         if (_sel is not null) Selecionar(v.Atividades.FirstOrDefault(a => a.Id == _sel.Id)); else NovaAtividade(false);
     }
 
@@ -424,7 +448,14 @@
         await CarregarVersao(db);
     }
 
-    private void TrocarAba(string a) { _aba = a; if (a == "lob") Lob(); }
+    private void TrocarAba(string a) => _aba = a;
+
+    /// <summary>Mudança gravada no Gantt por local: atualiza indicadores e a versão sem redesenhar o Gantt (ele já se atualizou).</summary>
+    private async Task AoMudarGantt() { _mudouNoGantt = true; await Recarregar(); }
+
+    private async Task AoGravarMedicao() => await Recarregar();
+
+    private void IrParaRedes(Guid? rede) => _aba = "redes";
 
     private async Task CriarLb0()
     {
@@ -570,23 +601,4 @@
         if (await Executar(() => Plan.ExcluirFeriadoAsync(id, Cancelamento), "Feriado excluído.")) await Recarregar();
     }
 
-    private string Lob()
-    {
-        _lobSeries = [];
-        if (_versao is not { } v || _redesVersao.FirstOrDefault(r => r.Id == _lobRede) is not { } rede) return "";
-        var locais = rede.Locais.OrderBy(l => l.Ordem).Select(l => l.LocalId).ToList();
-        var linhaDe = locais.Select((id, i) => (id, i)).ToDictionary(x => x.id, x => x.i);
-        var nomes = v.Atividades.Where(a => a.RedeId == rede.Id && !a.Resumo && a.LocalId != null)
-            .GroupBy(a => a.LocalId!.Value).ToDictionary(g => g.Key, g => g.First().Nome.Split(" · ").Last());
-        var cores = new[] { "#4f52d6", "#d4691e", "#0f8a6b", "#a23ea8", "#b42318", "#1d7fb8", "#7a6a00", "#5b6b7b", "#c2185b", "#2e7d32", "#6d4c41", "#00838f" };
-        var i = 0;
-        foreach (var p in rede.Pacotes.OrderBy(p => p.Ordem))
-        {
-            var pts = v.Atividades.Where(a => a.PacoteId == p.Id && !a.Resumo && a.LocalId is { } l && linhaDe.ContainsKey(l))
-                .Select(a => (linhaDe[a.LocalId!.Value], a.Inicio, a.Termino, a.InicioBase, a.TerminoBase, a.Critica)).ToList();
-            if (pts.Count > 0) _lobSeries.Add(new CronogramaVisao.SerieLob(p.Nome, cores[i++ % cores.Length], pts));
-        }
-        var rotulos = locais.Select(id => nomes.GetValueOrDefault(id) ?? "—").ToList();
-        return CronogramaVisao.LinhaBalancoSvg(rotulos, _lobSeries, v.DataStatus, 1100, _mostrarBase);
-    }
 }

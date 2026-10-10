@@ -1,0 +1,59 @@
+@* Fotos de um registro (ex.: atividade do diário de obra): miniaturas clicáveis e envio pelo celular ou computador. Usa os anexos (hash SHA-256). *@
+@inject IFabricaDb Fabrica
+@inject AnexosServico Servico
+@inject Notificacoes Notif
+@implements IDisposable
+
+<div class="fotos-reg">
+    @foreach (var f in _itens)
+    {
+        <a @key="f.Id" href="arquivos/anexo/@f.Id" target="_blank" class="foto" title="@f.Nome"><img src="arquivos/anexo/@f.Id" alt="@f.Nome" loading="lazy" /></a>
+    }
+    @if (!SomenteLeitura)
+    {
+        <label class="foto nova cursor-mao" for="@_id" title="Adicionar fotos"><Icone Nome="camera" Tam="20" /><span>@(_ocupado ? "Enviando…" : "Fotos")</span>
+            <InputFile id="@_id" class="so-leitor" accept="image/*" capture="environment" multiple OnChange="Enviar" disabled="@_ocupado" /></label>
+    }
+    @if (SomenteLeitura && _itens.Count == 0) { <span class="mudo">Sem fotos.</span> }
+</div>
+
+@code {
+    [Parameter] public string Entidade { get; set; } = "";
+    [Parameter] public Guid EntidadeId { get; set; }
+    [Parameter] public bool SomenteLeitura { get; set; }
+    private sealed record Foto(Guid Id, string Nome);
+    private List<Foto> _itens = [];
+    private bool _ocupado;
+    private Guid _carregado;
+    private readonly string _id = $"foto-{Guid.NewGuid():N}";
+    private readonly CancellationTokenSource _cts = new();
+    public void Dispose() => _cts.Cancel();
+
+    protected override async Task OnParametersSetAsync() { if (_carregado != EntidadeId) { _carregado = EntidadeId; await Carregar(); } }
+
+    private async Task Carregar()
+    {
+        await using var db = Fabrica.CriarLeitura();
+        _itens = await db.Anexos.Where(a => a.Entidade == Entidade && a.EntidadeId == EntidadeId && a.Categoria == "Foto")
+            .OrderBy(a => a.CriadoEm).Select(a => new Foto(a.Id, a.NomeOriginal)).ToListAsync(_cts.Token);
+    }
+
+    private async Task Enviar(InputFileChangeEventArgs e)
+    {
+        var arquivos = e.GetMultipleFiles(20).Where(f => f.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+            .Select(f => new ArquivoEnviado(f.Name, f.Size, f.ContentType, max => f.OpenReadStream(max))).ToList();
+        if (arquivos.Count == 0) { Notif.Erro("Escolha arquivos de imagem."); return; }
+        _ocupado = true;
+        try
+        {
+            var recusados = await Servico.AnexarAsync(Entidade, EntidadeId, "Foto", Entidade.ToLowerInvariant(), AnexosServico.LimiteAnexoBytes, arquivos, _cts.Token);
+            foreach (var r in recusados) Notif.Erro(r);
+            if (recusados.Count < arquivos.Count) Notif.Sucesso($"{arquivos.Count - recusados.Count} foto(s) adicionada(s).");
+            await Carregar();
+        }
+        catch (RegraDeNegocioException ex) { Notif.Erro(ex.Message); }
+        catch (ValidacaoException ex) { Notif.Erro(string.Join(" ", ex.Erros)); }
+        catch (OperationCanceledException) { }
+        finally { _ocupado = false; }
+    }
+}

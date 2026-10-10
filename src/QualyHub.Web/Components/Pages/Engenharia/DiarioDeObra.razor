@@ -1,0 +1,250 @@
+@page "/engenharia/diario"
+@using QualyHub.Domain.Planejamento
+@inherits PaginaBase
+@inject DiarioObraServico Diario
+
+<Pagina Titulo="Diário de Obra (RDO)" AoAtualizar="Recarregar">
+    <ChildContent>
+        <div class="pagina toque">
+            <div class="barra-filtro">
+                <SeletorObra Id="rdo-obra" Valor="_obraId" ValorChanged="TrocarObra" Inicial="ObraQuery" />
+                @if (_d is { Numero: > 0 }) { <a class="btn sec" id="rdo-imprimir" target="_blank" href="@($"engenharia/diario/imprimir?id={_d.Id}")"><Icone Nome="impressora" Tam="14" /> Imprimir RDO</a> }
+            </div>
+            @if (_obraId is null) { <div class="alerta info"><Icone Nome="info" /> Escolha a obra.</div> }
+            else
+            {
+                <div class="rdo-grade">
+                    <div class="cartao">
+                        <div class="barra-botoes" style="justify-content:space-between">
+                            <button class="icone-btn" title="Mês anterior" aria-label="Mês anterior" @onclick="() => TrocarMes(-1)">‹</button>
+                            <b>@Meses[_mes.Month - 1]/@_mes.Year</b>
+                            <button class="icone-btn" title="Próximo mês" aria-label="Próximo mês" @onclick="() => TrocarMes(1)">›</button>
+                        </div>
+                        <div class="rdo-cal" id="rdo-cal">
+                            @foreach (var c in new[] { "S", "T", "Q", "Q", "S", "S", "D" }) { <span class="cab">@c</span> }
+                            @for (var i = 0; i < ((int)_mes.DayOfWeek + 6) % 7; i++) { <button class="vazio" tabindex="-1" aria-hidden="true"></button> }
+                            @for (var dia = 1; dia <= DateTime.DaysInMonth(_mes.Year, _mes.Month); dia++)
+                            {
+                                var data = new DateOnly(_mes.Year, _mes.Month, dia);
+                                var r = _dias.FirstOrDefault(x => x.Data == data);
+                                var cls = r is null ? (data.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday ? "fds" : "")
+                                    : r.Trabalhado != DiaTrabalhado.Sim ? (r.Trabalhado == DiaTrabalhado.NaoChuva ? "chuva" : "parado") + (r.Status == StatusDiario.Assinado ? "" : " rasc")
+                                    : r.Status == StatusDiario.Assinado ? "ass" : "rasc";
+                                <button class="@cls" aria-pressed="@(_data == data)" disabled="@(data > Hoje)" title="@Dica(r)" @onclick="() => Abrir(data)">@dia</button>
+                            }
+                        </div>
+                        <div class="legenda"><span><i style="background:var(--ok-suave)"></i>assinado</span><span><i style="background:var(--info-suave)"></i>chuva</span><span><i style="background:var(--erro-suave)"></i>não trabalhado</span><span><b style="color:var(--aviso)">•</b> rascunho</span></div>
+                        <p class="mudo">O diário alimenta o Planejamento: dias trabalhados × úteis, dias perdidos por chuva (evidência na reprogramação) e o efetivo médio.</p>
+                    </div>
+
+                    <div class="cartao" id="rdo-form">
+                        @if (_d is null) { <Esqueleto Linhas="10" /> }
+                        else
+                        {
+                            var d = _d; var ro = !d.Editavel || !_podePreencher;
+                            <div class="barra-botoes" style="justify-content:space-between;flex-wrap:wrap">
+                                <h3>@(d.Numero > 0 ? $"RDO nº {d.Numero:0000} · " : "Novo RDO · ")@d.Data.ToString("dddd, dd/MM/yyyy", Br)</h3>
+                                <Selo Texto="@(d.Status == StatusDiario.Assinado ? "Assinado" : d.Numero > 0 ? "Rascunho" : "Não iniciado")" Tom="@(d.Status == StatusDiario.Assinado ? "ok" : "aviso")" />
+                            </div>
+                            <Erros Lista="ErrosForm" />
+                            @if (!ro)
+                            {
+                                <div class="barra-botoes">
+                                    <button class="btn sec pq" id="rdo-copiar" @onclick="CopiarEfetivo"><Icone Nome="atualizar" Tam="14" /> Copiar efetivo do dia anterior</button>
+                                    <button class="btn sec pq" id="rdo-plano" @onclick="TrazerPlano"><Icone Nome="baixar" Tam="14" /> Trazer atividades do plano semanal</button>
+                                </div>
+                            }
+
+                            <div class="rdo-sec"><Icone Nome="sol" Tam="16" /> Condições do dia</div>
+                            <div class="form">
+                                <Campo Rotulo="Clima manhã" Classe="s3"><select @bind="d.ClimaManha" disabled="@ro">@foreach (var c in Enum.GetValues<ClimaDia>()) { <option value="@c">@Clima(c)</option> }</select></Campo>
+                                <Campo Rotulo="Clima tarde" Classe="s3"><select @bind="d.ClimaTarde" disabled="@ro">@foreach (var c in Enum.GetValues<ClimaDia>()) { <option value="@c">@Clima(c)</option> }</select></Campo>
+                                <Campo Rotulo="Condição" Classe="s3"><select @bind="d.Condicao" disabled="@ro"><option value="@CondicaoDia.Praticavel">Praticável</option><option value="@CondicaoDia.ParcialmentePraticavel">Parcialmente praticável</option><option value="@CondicaoDia.Impraticavel">Impraticável</option></select></Campo>
+                                <Campo Rotulo="Dia trabalhado" Classe="s3"><select id="rdo-trab" @bind="d.Trabalhado" disabled="@ro"><option value="@DiaTrabalhado.Sim">Sim</option><option value="@DiaTrabalhado.NaoChuva">Não — chuva</option><option value="@DiaTrabalhado.NaoFeriadoParalisacao">Não — feriado / paralisação</option></select></Campo>
+                                <Campo Rotulo="Início" Classe="s2"><input type="time" @bind="d.HoraInicio" disabled="@ro" /></Campo>
+                                <Campo Rotulo="Término" Classe="s2"><input type="time" @bind="d.HoraTermino" disabled="@ro" /></Campo>
+                                <Campo Rotulo="Observação do clima" Classe="s8"><input @bind="d.ObservacaoClima" disabled="@ro" /></Campo>
+                            </div>
+
+                            <div class="rdo-sec"><Icone Nome="pessoa" Tam="16" /> Efetivo</div>
+                            <div class="grade-2">
+                                <div>
+                                    <b>Próprio</b> <span class="mudo">(funções do controle de mão de obra)</span>
+                                    @foreach (var e in d.Efetivo.Where(x => !x.Terceiro).ToList())
+                                    {
+                                        <div class="rdo-lin" @key="e">
+                                            <select aria-label="Função" value="@e.FuncaoObraId" disabled="@ro" @onchange="ev => DefinirFuncao(e, ev)"><option value="">Função…</option>@foreach (var f in _funcoes) { <option value="@f.Id">@f.Texto</option> }</select>
+                                            <input type="number" min="0" aria-label="Quantidade" @bind="e.Quantidade" disabled="@ro" />
+                                            @if (!ro) { <button class="icone-btn" title="Remover" @onclick="() => d.Efetivo.Remove(e)"><Icone Nome="lixeira" Tam="15" /></button> }
+                                        </div>
+                                    }
+                                    @if (!ro) { <button class="btn sec pq" id="rdo-add-func" @onclick="() => d.Efetivo.Add(new DiarioEfetivo())"><Icone Nome="mais" Tam="14" /> Função</button> }
+                                    <div class="mudo mt-6">Total próprio: <b>@d.TotalProprio</b></div>
+                                </div>
+                                <div>
+                                    <b>Terceiros</b> <span class="mudo">(nome e quantidade)</span>
+                                    @foreach (var e in d.Efetivo.Where(x => x.Terceiro).ToList())
+                                    {
+                                        <div class="rdo-lin" @key="e">
+                                            <input list="rdo-terceiros" aria-label="Terceiro" placeholder="Empreiteiro" @bind="e.Nome" disabled="@ro" />
+                                            <input type="number" min="0" aria-label="Quantidade" @bind="e.Quantidade" disabled="@ro" />
+                                            @if (!ro) { <button class="icone-btn" title="Remover" @onclick="() => d.Efetivo.Remove(e)"><Icone Nome="lixeira" Tam="15" /></button> }
+                                        </div>
+                                    }
+                                    <datalist id="rdo-terceiros">@foreach (var f in _fornecedores) { <option value="@f.Texto"></option> }</datalist>
+                                    @if (!ro) { <button class="btn sec pq" id="rdo-add-terc" @onclick="() => d.Efetivo.Add(new DiarioEfetivo { Terceiro = true })"><Icone Nome="mais" Tam="14" /> Terceiro</button> }
+                                    <div class="mudo mt-6">Total terceiros: <b>@d.TotalTerceiros</b></div>
+                                </div>
+                            </div>
+
+                            <div class="rdo-sec"><Icone Nome="ferramenta" Tam="16" /> Atividades executadas @if (!ro) { <button class="btn sec pq" id="rdo-add-ativ" @onclick="AddAtividade"><Icone Nome="mais" Tam="14" /> Atividade</button> }</div>
+                            @foreach (var a in d.Atividades.ToList())
+                            {
+                                var n = d.Atividades.ToList().IndexOf(a) + 1;
+                                <div class="rdo-ativ" @key="a.Id">
+                                    <div class="topo-a">
+                                        <b>@n</b>
+                                        <textarea rows="2" aria-label="Descrição da atividade" placeholder="O que foi feito (serviço, equipe, quantidade)" @bind="a.Descricao" disabled="@ro"></textarea>
+                                        <select aria-label="Local (opcional)" value="@a.LocalId" disabled="@ro" @onchange="ev => DefinirLocal(a, ev)"><option value="">Local (opcional)</option>@foreach (var l in _locais) { <option value="@l.Id">@l.Texto</option> }</select>
+                                        @if (!ro) { <button class="icone-btn" title="Remover atividade" @onclick="() => d.Atividades.Remove(a)"><Icone Nome="lixeira" Tam="15" /></button> }
+                                    </div>
+                                    @if (_salvas.Contains(a.Id)) { <FotosRegistro Entidade="@DiarioObraServico.EntidadeAtividade" EntidadeId="a.Id" SomenteLeitura="@(!d.Editavel || !_podePreencher)" /> }
+                                    else { <div class="mudo mt-6"><Icone Nome="camera" Tam="14" /> Salve o rascunho para adicionar fotos nesta atividade.</div> }
+                                </div>
+                            }
+                            @if (d.Atividades.Count == 0) { <div class="mudo">Nenhuma atividade. @(ro ? "" : "Use \"+ Atividade\" ou traga do plano semanal.")</div> }
+
+                            <div class="rdo-sec"><Icone Nome="alerta" Tam="16" /> Ocorrências e registros</div>
+                            <div class="form">
+                                <Campo Rotulo="Ocorrências" Classe="s12"><textarea rows="2" @bind="d.Ocorrencias" disabled="@ro"></textarea></Campo>
+                                <Campo Rotulo="Visitas" Classe="s6"><textarea rows="2" @bind="d.Visitas" disabled="@ro"></textarea></Campo>
+                                <Campo Rotulo="Equipamentos no canteiro" Classe="s6"><textarea rows="2" @bind="d.Equipamentos" disabled="@ro"></textarea></Campo>
+                            </div>
+
+                            <div class="rdo-sec"><Icone Nome="editar" Tam="16" /> Responsável</div>
+                            <div class="form">
+                                <Campo Rotulo="Engenheiro(a) da obra — preenche e assina" Classe="s8"><input value="@(d.AssinadoPorNome ?? (_podeAssinar ? Usuario.Nome : "—"))" disabled /></Campo>
+                                <Campo Rotulo="Assinado em" Classe="s4"><input id="rdo-assinado-em" value="@(d.AssinadoEm is { } ae ? DataHora(ae) : "")" disabled /></Campo>
+                            </div>
+                            @if (!ro)
+                            {
+                                <div class="barra-botoes fim">
+                                    <button class="btn sec" id="rdo-salvar" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="14" /> Salvar rascunho</button>
+                                    @if (_podeAssinar) { <button class="btn prim" id="rdo-assinar" disabled="@Ocupado" @onclick='() => Confirmar("Assinar e fechar o diário? Depois de assinado ele não muda (correção vira observação no dia seguinte).", Assinar)'><Icone Nome="check-circulo" Tam="14" /> Assinar e fechar o dia</button> }
+                                </div>
+                                @if (!_podeAssinar) { <p class="mudo">Quem assina é o engenheiro(a) da obra (Obras › engenheiro da obra ou da SPE).</p> }
+                            }
+                            else if (!_podePreencher && d.Editavel) { <div class="alerta aviso pq">Só a Engenharia preenche o diário. Você pode consultar.</div> }
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    </ChildContent>
+    <Faixa><b>Engenharia · Diário de Obra</b><span>Um por dia · preenche e assina o engenheiro(a) da obra</span><span>Efetivo próprio por função e terceiros por nome</span><span>Fotos dentro de cada atividade · assinado não muda</span></Faixa>
+</Pagina>
+
+<Confirmacao Pergunta="@PerguntaConfirmacao" AoSim="ConfirmacaoSim" AoNao="ConfirmacaoNao" />
+
+@code {
+    [SupplyParameterFromQuery(Name = "obra")] public Guid? ObraQuery { get; set; }
+    [SupplyParameterFromQuery(Name = "data")] public string? DataQuery { get; set; }
+    private static readonly string[] Meses = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+    private Guid? _obraId;
+    private DateOnly _mes, _data;
+    private List<DiarioObraServico.DiaMes> _dias = [];
+    private QualyHub.Domain.Planejamento.DiarioObra? _d;
+    private HashSet<Guid> _salvas = [];
+    private List<Opcao> _funcoes = [], _fornecedores = [], _locais = [];
+    private bool _podeAssinar, _podePreencher;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _data = DateOnly.TryParse(DataQuery, out var d) && d <= Hoje ? d : Hoje;
+        _mes = new DateOnly(_data.Year, _data.Month, 1);
+        _podePreencher = Perfil(PerfilUsuario.Engenharia);
+        _funcoes = await Cat.FuncoesAsync();
+        _fornecedores = await Cat.FornecedoresAsync();
+    }
+
+    private async Task TrocarObra(Guid? obra)
+    {
+        _obraId = obra; _d = null;
+        if (obra is { } o)
+        {
+            _locais = await Cat.LocaisAsync(o);
+            _podeAssinar = await Diario.PodeAssinarAsync(o, Cancelamento);
+        }
+        await Recarregar();
+    }
+
+    private async Task Recarregar()
+    {
+        if (_obraId is not { } o) return;
+        _dias = await Diario.MesAsync(o, _mes.Year, _mes.Month, Cancelamento);
+        await Abrir(_data);
+    }
+
+    private async Task TrocarMes(int delta)
+    {
+        _mes = _mes.AddMonths(delta);
+        if (_obraId is { } o) _dias = await Diario.MesAsync(o, _mes.Year, _mes.Month, Cancelamento);
+    }
+
+    private async Task Abrir(DateOnly data)
+    {
+        if (_obraId is not { } o) return;
+        _data = data; ErrosForm = null;
+        _d = await Diario.AbrirAsync(o, data, Cancelamento);
+        _salvas = _d.Numero > 0 ? _d.Atividades.Select(a => a.Id).ToHashSet() : [];
+        _d.Atividades = _d.Atividades.OrderBy(a => a.Ordem).ToList();
+    }
+
+    private void AddAtividade() => _d!.Atividades.Add(new DiarioAtividade { Ordem = _d.Atividades.Count + 1 });
+
+    private void DefinirFuncao(DiarioEfetivo e, ChangeEventArgs ev)
+    {
+        e.FuncaoObraId = Guid.TryParse(ev.Value?.ToString(), out var g) ? g : null;
+        e.Nome = _funcoes.FirstOrDefault(f => f.Id == e.FuncaoObraId)?.Texto ?? "";
+    }
+
+    private static void DefinirLocal(DiarioAtividade a, ChangeEventArgs ev) => a.LocalId = Guid.TryParse(ev.Value?.ToString(), out var g) ? g : null;
+
+    private async Task CopiarEfetivo()
+    {
+        var ant = await Diario.EfetivoAnteriorAsync(_obraId!.Value, _data, Cancelamento);
+        if (ant.Count == 0) { Notif.Erro("Nenhum diário anterior com efetivo."); return; }
+        _d!.Efetivo = ant;
+        Notif.Sucesso($"Efetivo copiado ({ant.Sum(e => e.Quantidade)} pessoas). Ajuste as quantidades do dia.");
+    }
+
+    private async Task TrazerPlano()
+    {
+        var lista = await Diario.AtividadesDoPlanoAsync(_obraId!.Value, _data, Cancelamento);
+        var novas = lista.Where(n => _d!.Atividades.All(a => a.Descricao != n.Descricao)).ToList();
+        foreach (var n in novas) _d!.Atividades.Add(n);
+        if (novas.Count == 0) Notif.Erro("Sem compromissos novos no plano semanal desta semana.");
+        else Notif.Sucesso($"{novas.Count} atividade(s) do plano semanal. Descreva o que foi feito e adicione as fotos.");
+    }
+
+    private async Task Salvar()
+    {
+        Guid id = default;
+        if (await Executar(async () => id = await Diario.SalvarAsync(_d!, Cancelamento), "Rascunho salvo."))
+        {
+            _dias = await Diario.MesAsync(_obraId!.Value, _mes.Year, _mes.Month, Cancelamento);
+            await Abrir(_data);
+        }
+    }
+
+    private async Task Assinar()
+    {
+        var ok = await Executar(async () => { await Diario.SalvarAsync(_d!, Cancelamento); await Diario.AssinarAsync(_d!.Id, Cancelamento); }, "Diário assinado e fechado.");
+        if (ok) { _dias = await Diario.MesAsync(_obraId!.Value, _mes.Year, _mes.Month, Cancelamento); await Abrir(_data); }
+    }
+
+    private static string Clima(ClimaDia c) => c switch { ClimaDia.Bom => "Bom", ClimaDia.Nublado => "Nublado", ClimaDia.ChuvaFraca => "Chuva fraca", _ => "Chuva forte" };
+
+    private static string Dica(DiarioObraServico.DiaMes? r) => r is null ? "" :
+        (r.Status == StatusDiario.Assinado ? "Assinado" : "Rascunho") + (r.Trabalhado == DiaTrabalhado.Sim ? "" : r.Trabalhado == DiaTrabalhado.NaoChuva ? " · não trabalhado (chuva)" : " · não trabalhado") + (r.Chuva ? " · chuva" : "");
+}

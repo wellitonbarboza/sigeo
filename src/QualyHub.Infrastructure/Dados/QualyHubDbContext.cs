@@ -131,6 +131,9 @@ public class QualyHubDbContext(DbContextOptions<QualyHubDbContext> options, IUsu
     public DbSet<Domain.Planejamento.VinculoRede> VinculosRede => Set<Domain.Planejamento.VinculoRede>();
     public DbSet<Domain.Planejamento.Restricao> Restricoes => Set<Domain.Planejamento.Restricao>();
     public DbSet<Domain.Planejamento.PlanoSemanal> PlanosSemanais => Set<Domain.Planejamento.PlanoSemanal>();
+    public DbSet<Domain.Planejamento.MedicaoSemanal> MedicoesSemanais => Set<Domain.Planejamento.MedicaoSemanal>();
+    public DbSet<Domain.Planejamento.DiarioObra> DiariosObra => Set<Domain.Planejamento.DiarioObra>();
+    public DbSet<Domain.Planejamento.DiarioAtividade> DiariosObraAtividades => Set<Domain.Planejamento.DiarioAtividade>();
     public DbSet<Domain.Planejamento.CompromissoSemanal> CompromissosSemanais => Set<Domain.Planejamento.CompromissoSemanal>();
     public DbSet<Domain.Colaboracao.Conversa> Conversas => Set<Domain.Colaboracao.Conversa>();
     public DbSet<Domain.Colaboracao.ParticipanteConversa> ParticipantesConversa => Set<Domain.Colaboracao.ParticipanteConversa>();

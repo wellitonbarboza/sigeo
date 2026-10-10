@@ -177,6 +177,9 @@ public interface IQualyHubDb : IDisposable, IAsyncDisposable
     DbSet<Domain.Planejamento.VinculoRede> VinculosRede { get; }
     DbSet<Domain.Planejamento.Restricao> Restricoes { get; }
     DbSet<Domain.Planejamento.PlanoSemanal> PlanosSemanais { get; }
+    DbSet<Domain.Planejamento.MedicaoSemanal> MedicoesSemanais { get; }
+    DbSet<Domain.Planejamento.DiarioObra> DiariosObra { get; }
+    DbSet<Domain.Planejamento.DiarioAtividade> DiariosObraAtividades { get; }
     DbSet<Domain.Planejamento.CompromissoSemanal> CompromissosSemanais { get; }
     DbSet<Domain.Colaboracao.Conversa> Conversas { get; }
     DbSet<Domain.Colaboracao.ParticipanteConversa> ParticipantesConversa { get; }

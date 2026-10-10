@@ -5,3 +5,4 @@ obj/
 .idea/
 *.swp
 appsettings.*.local.json
+src/QualyHub.Web/App_Data/arquivos/

@@ -179,3 +179,59 @@ internal sealed class CompromissoSemanalCfg : IEntityTypeConfiguration<Compromis
         b.HasIndex(x => new { x.PlanoId, x.Ordem });
     }
 }
+
+internal sealed class MedicaoSemanalCfg : IEntityTypeConfiguration<MedicaoSemanal>
+{
+    public void Configure(EntityTypeBuilder<MedicaoSemanal> b)
+    {
+        b.ToTable("MedicoesSemanais");
+        b.Property(x => x.AtividadeChave).HasMaxLength(80);
+        b.Property(x => x.Servico).HasMaxLength(200);
+        b.Property(x => x.MedidoPor).HasMaxLength(150);
+        b.Property(x => x.Percentual).HasPrecision(5, 1);
+        b.Property(x => x.PercentualAnterior).HasPrecision(5, 1);
+        b.HasIndex(x => new { x.ObraId, x.AtividadeChave, x.Semana }).IsUnique().HasFilter("[Excluido] = 0");
+        b.HasIndex(x => new { x.ObraId, x.Semana });
+        b.HasOne<Obra>().WithMany().HasForeignKey(x => x.ObraId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne<Local>().WithMany().HasForeignKey(x => x.LocalId).OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
+internal sealed class DiarioObraCfg : IEntityTypeConfiguration<DiarioObra>
+{
+    public void Configure(EntityTypeBuilder<DiarioObra> b)
+    {
+        b.ToTable("DiariosObra");
+        b.Property(x => x.AssinadoPorNome).HasMaxLength(150);
+        b.Property(x => x.Visitas).HasMaxLength(1000);
+        b.Property(x => x.Equipamentos).HasMaxLength(1000);
+        b.Ignore(x => x.Editavel); b.Ignore(x => x.TotalProprio); b.Ignore(x => x.TotalTerceiros);
+        b.HasIndex(x => new { x.ObraId, x.Data }).IsUnique().HasFilter("[Excluido] = 0");
+        b.HasIndex(x => new { x.ObraId, x.Numero });
+        b.HasOne<Obra>().WithMany().HasForeignKey(x => x.ObraId).OnDelete(DeleteBehavior.Restrict);
+        b.HasMany(x => x.Efetivo).WithOne().HasForeignKey(x => x.DiarioId).OnDelete(DeleteBehavior.Cascade);
+        b.HasMany(x => x.Atividades).WithOne().HasForeignKey(x => x.DiarioId).OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
+internal sealed class DiarioEfetivoCfg : IEntityTypeConfiguration<DiarioEfetivo>
+{
+    public void Configure(EntityTypeBuilder<DiarioEfetivo> b)
+    {
+        b.ToTable("DiariosObraEfetivo");
+        b.Property(x => x.Nome).HasMaxLength(200);
+        b.HasIndex(x => x.DiarioId);
+    }
+}
+
+internal sealed class DiarioAtividadeCfg : IEntityTypeConfiguration<DiarioAtividade>
+{
+    public void Configure(EntityTypeBuilder<DiarioAtividade> b)
+    {
+        b.ToTable("DiariosObraAtividades");
+        b.Property(x => x.Descricao).HasMaxLength(1000).HasAnnotation(QualyHubDbContext.TamanhoFixo, true);
+        b.Property(x => x.AtividadeChave).HasMaxLength(80);
+        b.HasIndex(x => x.DiarioId);
+        b.HasOne<Local>().WithMany().HasForeignKey(x => x.LocalId).OnDelete(DeleteBehavior.Restrict);
+    }
+}

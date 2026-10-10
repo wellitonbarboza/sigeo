@@ -60,6 +60,8 @@ public static class DependencyInjection
         services.AddScoped<OrcamentoServico>();
         services.AddScoped<PlanejamentoServico>();
         services.AddScoped<CurtoPrazoServico>();
+        services.AddScoped<AcompanhamentoServico>();
+        services.AddScoped<DiarioObraServico>();
         services.AddScoped<MensagensServico>();
         services.AddSingleton<QualyHub.Application.Comum.CanalAvisos>();
         services.AddScoped<MaoObraServico>();

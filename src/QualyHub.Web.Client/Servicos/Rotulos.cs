@@ -223,6 +223,10 @@ public static partial class Rotulos
         [Domain.Planejamento.CausaNaoCumprimento.Fornecedor] = "Fornecedor / empreiteiro", [Domain.Planejamento.CausaNaoCumprimento.Planejamento] = "Planejamento (meta irreal)",
         [Domain.Planejamento.CausaNaoCumprimento.Qualidade] = "Retrabalho / qualidade", [Domain.Planejamento.CausaNaoCumprimento.Seguranca] = "Segurança",
         [Domain.Planejamento.CausaNaoCumprimento.Outra] = "Outra",
+        [Domain.Planejamento.ClimaDia.Bom] = "Bom", [Domain.Planejamento.ClimaDia.Nublado] = "Nublado", [Domain.Planejamento.ClimaDia.ChuvaFraca] = "Chuva fraca", [Domain.Planejamento.ClimaDia.ChuvaForte] = "Chuva forte",
+        [Domain.Planejamento.CondicaoDia.Praticavel] = "Praticável", [Domain.Planejamento.CondicaoDia.ParcialmentePraticavel] = "Parcialmente praticável", [Domain.Planejamento.CondicaoDia.Impraticavel] = "Impraticável",
+        [Domain.Planejamento.DiaTrabalhado.Sim] = "Sim", [Domain.Planejamento.DiaTrabalhado.NaoChuva] = "Não — chuva", [Domain.Planejamento.DiaTrabalhado.NaoFeriadoParalisacao] = "Não — feriado / paralisação",
+        [Domain.Planejamento.StatusDiario.Rascunho] = "Rascunho", [Domain.Planejamento.StatusDiario.Assinado] = "Assinado",
         [Domain.Colaboracao.PapelParticipante.Remetente] = "Remetente", [Domain.Colaboracao.PapelParticipante.Para] = "Para", [Domain.Colaboracao.PapelParticipante.Copia] = "Cópia",
     };
 

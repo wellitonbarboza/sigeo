@@ -1,0 +1,92 @@
+@* Plano de ação das reprogramações: cada ação de recuperação é uma Tarefa (responsável, prazo, aviso por e-mail, pendências). *@
+@using QualyHub.Domain.Colaboracao
+@using QualyHub.Domain.Planejamento
+@inherits PaginaBase
+@inject AcompanhamentoServico Acomp
+@inject ColaboracaoServico Colab
+
+<div class="alerta info"><Icone Nome="info" /> Ações de recuperação registradas nas reprogramações. Cada ação é gravada como <b>Tarefa</b> (origem: cronograma da versão), com responsável, prazo e aviso por e-mail — aparece em Tarefas e nas pendências do responsável.</div>
+<div class="barra-filtro">
+    <label>Versão <select @bind="_fVersao"><option value="">Todas</option>@foreach (var v in Versoes) { <option value="@v.Id">@v.Codigo</option> }</select></label>
+    <label>Situação <select @bind="_fSit"><option value="">Todas</option><option value="abertas">Abertas</option><option value="atrasadas">Atrasadas</option><option value="concluidas">Concluídas</option></select></label>
+    @if (PodeEditar) { <button class="btn prim" id="pa-nova" @onclick="Nova"><Icone Nome="mais" Tam="14" /> Nova ação</button> }
+</div>
+@if (_lista is null) { <Esqueleto Linhas="6" /> }
+else
+{
+    var itens = _lista.Where(t => (string.IsNullOrEmpty(_fVersao) || t.OrigemId?.ToString() == _fVersao)
+        && (_fSit switch { "abertas" => !t.Encerrada, "atrasadas" => t.Atrasada(Hoje), "concluidas" => t.Status == StatusTarefa.Concluida, _ => true })).ToList();
+    <div class="tabela-rolavel"><table class="itens" id="plano-acao">
+        <thead><tr><th>Tarefa</th><th>Versão</th><th>Ação</th><th>Atividade / recuperação</th><th>Responsável</th><th>Prazo</th><th>Situação</th></tr></thead>
+        <tbody>
+            @foreach (var t in itens)
+            {
+                <tr @key="t.Id"><td><a href="@($"tarefas?id={t.Id}")">nº @t.Numero</a></td><td>@(t.OrigemDescricao?.Replace("Cronograma ", ""))</td><td>@t.Titulo</td><td class="mudo">@t.Descricao</td>
+                    <td>@t.ResponsavelNome</td><td>@Data(t.Prazo)</td>
+                    <td><Selo Texto="@(t.Atrasada(Hoje) ? "Atrasada" : De(t.Status))" Tom="@(t.Status == StatusTarefa.Concluida ? "ok" : t.Atrasada(Hoje) ? "erro" : t.Encerrada ? "" : "aviso")" /></td></tr>
+            }
+            @if (itens.Count == 0) { <tr><td colspan="7" class="mudo">Nenhuma ação. Registre as ações de recuperação ao reprogramar (motivo + o que será feito).</td></tr> }
+        </tbody>
+    </table></div>
+}
+
+<Modal Titulo="Ação de recuperação" @bind-Aberto="_aberto">
+    <ChildContent>
+        <Erros Lista="ErrosForm" />
+        <div class="form">
+            <Campo Rotulo="O que será feito" Obrigatorio Classe="s12"><input id="pa-acao" @bind="_acao" placeholder="ex.: segunda equipe de contrapiso na Torre 01" /></Campo>
+            <Campo Rotulo="Versão" Classe="s3"><select @bind="_versao">@foreach (var v in Versoes) { <option value="@v.Id">@v.Codigo · @De(v.Status)</option> }</select></Campo>
+            <Campo Rotulo="Atividade / macroetapa" Classe="s5"><input @bind="_atividade" placeholder="ex.: Contrapiso · Torre 01" /></Campo>
+            <Campo Rotulo="Recupera (dias úteis)" Classe="s4"><input type="number" min="0" @bind="_recupera" /></Campo>
+            <Campo Rotulo="Responsável" Obrigatorio Classe="s8"><select id="pa-resp" @bind="_resp"><option value="">Selecione…</option>@foreach (var u in _usuarios) { <option value="@u.Id">@u.Texto</option> }</select></Campo>
+            <Campo Rotulo="Prazo" Obrigatorio Classe="s4"><input type="date" id="pa-prazo" @bind="_prazo" /></Campo>
+        </div>
+    </ChildContent>
+    <Rodape><button class="btn prim" id="pa-salvar" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="14" /> Salvar e criar a tarefa</button></Rodape>
+</Modal>
+
+@code {
+    [Parameter] public Guid ObraId { get; set; }
+    [Parameter] public IReadOnlyList<VersaoCronograma> Versoes { get; set; } = [];
+    [Parameter] public bool PodeEditar { get; set; }
+    [Parameter] public EventCallback AoMudar { get; set; }
+    private List<Tarefa>? _lista;
+    private List<Opcao> _usuarios = [];
+    private string? _fVersao, _fSit = "abertas", _acao, _atividade;
+    private Guid? _versao, _resp;
+    private int? _recupera;
+    private DateOnly? _prazo;
+    private bool _aberto;
+    private Guid _carregada;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_carregada == ObraId) return;
+        _carregada = ObraId;
+        _usuarios = await Cat.UsuariosAsync();
+        await Carregar();
+    }
+
+    private async Task Carregar() => _lista = await Acomp.PlanoAcaoAsync(ObraId, Cancelamento);
+
+    private void Nova()
+    {
+        ErrosForm = null; _acao = null; _atividade = null; _recupera = null; _resp = Usuario.UsuarioId; _prazo = Hoje.AddDays(7);
+        _versao = (Versoes.FirstOrDefault(v => v.Status == StatusVersao.EmElaboracao) ?? Versoes.FirstOrDefault(v => v.Status == StatusVersao.Vigente) ?? Versoes.FirstOrDefault())?.Id;
+        _aberto = true;
+    }
+
+    private async Task Salvar()
+    {
+        var e = new List<string>();
+        if (string.IsNullOrWhiteSpace(_acao)) e.Add("Descreva a ação.");
+        if (_resp is null) e.Add("Escolha o responsável.");
+        if (_prazo is null) e.Add("Informe o prazo.");
+        var v = Versoes.FirstOrDefault(x => x.Id == _versao);
+        if (v is null) e.Add("Escolha a versão do cronograma.");
+        if (e.Count > 0) { ErrosForm = e; return; }
+        var t = AcompanhamentoServico.NovaAcao(ObraId, v!, _acao!, _atividade, _recupera, _resp!.Value, "", _prazo!.Value);
+        if (await Executar(() => Colab.SalvarTarefaAsync(t, Cancelamento), "Ação registrada e tarefa criada para o responsável."))
+        { _aberto = false; await Carregar(); await AoMudar.InvokeAsync(); }
+    }
+}
