@@ -219,7 +219,9 @@ public sealed class EngenhariaServico(IFabricaDb fabrica)
         ValidacaoException.Se(e);
         // Próximo número = maior já usado + 1 (torre excluída não libera o código, evita QA-T03 repetido).
         var ordem = cond is null ? 0 : await db.Locais.IgnoreQueryFilters([FiltrosNomes.Obra]).Where(l => l.LocalPaiId == cond.Id && l.Tipo == GeradorEmpreendimento.TipoTorre).MaxAsync(l => (int?)l.Ordem, ct) ?? 0;
-        var locais = GeradorEmpreendimento.Gerar(obraId, quadra, spe!.Id, impl, specs, tips, cond, ordem);
+        var emp = await db.Empresas.AsNoTracking().Where(x => x.Id == fabrica.Usuario.EmpresaId).Select(x => new { x.ModeloEstrutura, x.NomesNiveis }).FirstOrDefaultAsync(ct);
+        var estrutura = EstruturaLocais.De(emp?.ModeloEstrutura, emp?.NomesNiveis);
+        var locais = GeradorEmpreendimento.Gerar(obraId, quadra, spe!.Id, impl, specs, tips, cond, ordem, estrutura.PrefixoUnidade);
         if (cond is null) quadra.LocalId = locais[0].Id;
         var idQuadra = quadra.Id; var raiz = quadra.LocalId;
         await fabrica.EmTransacaoAsync(async tdb =>

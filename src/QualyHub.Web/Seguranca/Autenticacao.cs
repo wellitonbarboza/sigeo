@@ -101,7 +101,7 @@ public static class Autenticacao
         return Task.CompletedTask;
     }
 
-    public static IEnumerable<Claim> Claims(Usuario u, string empresaNome, bool trocarSenha = false)
+    public static IEnumerable<Claim> Claims(Usuario u, string empresaNome, bool trocarSenha = false, Guid? conta = null, bool plataforma = false, int acessos = 1)
     {
         var c = new List<Claim>
         {
@@ -117,13 +117,27 @@ public static class Autenticacao
             new(ClaimTypes.Role, u.Perfil.ToString()),
         };
         if (trocarSenha) c.Add(new(ClaimTrocarSenha, "1"));
+        c.Add(new(ClaimsQh.Conta, (conta ?? u.ContaId ?? u.Id).ToString()));
+        if (plataforma) c.Add(new(ClaimsQh.Plataforma, "1"));
+        if (acessos > 1) c.Add(new(ClaimsQh.VariasConstrutoras, acessos.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+        if (u.SuporteAte is { } ate) c.Add(new(ClaimsQh.Suporte, ate.ToString("O")));
         return c;
     }
 
-    public static async Task EntrarAsync(HttpContext http, Usuario u, string empresaNome, bool trocarSenha = false)
+    public static async Task EntrarAsync(HttpContext http, Usuario u, string empresaNome, bool trocarSenha = false, Guid? conta = null, bool plataforma = false, int acessos = 1)
     {
-        var id = new ClaimsIdentity(Claims(u, empresaNome, trocarSenha), CookieAuthenticationDefaults.AuthenticationScheme);
+        var id = new ClaimsIdentity(Claims(u, empresaNome, trocarSenha, conta, plataforma, acessos), CookieAuthenticationDefaults.AuthenticationScheme);
         await http.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(id));
+    }
+
+    /// <summary>Renova o cookie com os dados atuais do mesmo cadastro (perfil, plataforma, nº de construtoras).</summary>
+    private static async Task<IResult> Renovar(HttpContext http, ContaServico conta, string destino)
+    {
+        if (!Guid.TryParse(http.User.FindFirst(ClaimsQh.Conta)?.Value, out var contaId) || !Guid.TryParse(http.User.FindFirst(ClaimsQh.UsuarioId)?.Value, out var uid))
+            return Results.Redirect("/login");
+        if (await conta.AcessoAsync(contaId, uid) is not { } a) return Results.Redirect("/conta/sair");
+        await EntrarAsync(http, a.Usuario, a.Empresa, false, contaId, a.AdministradorPlataforma, a.Acessos);
+        return Results.Redirect(destino);
     }
 
     /// <summary>Retorno da Área do Fornecedor: só endereços dentro de /fornecedor (sem redirecionamento aberto).</summary>
@@ -141,15 +155,22 @@ public static class Autenticacao
             var r = await conta.EntrarAsync(f["login"], f["senha"]);
             if (r.Usuario is null)
                 return Results.Redirect($"/login?erro={(r.Erro == ContaServico.ErroGenerico ? "credencial" : "bloqueado")}&login={Uri.EscapeDataString(f["login"].ToString())}");
-            await EntrarAsync(http, r.Usuario, r.EmpresaNome!, r.TrocarSenha);
-            return Results.Redirect(r.TrocarSenha ? "/conta/trocar-senha" : Retorno(f["retorno"]));
+            // Construtoras da conta (principal + vínculos). Construtora suspensa não entra.
+            var acessos = await conta.AcessosAsync(r.Usuario.Id);
+            if (acessos.Count == 0) return Results.Redirect($"/login?erro=suspensa&login={Uri.EscapeDataString(f["login"].ToString())}");
+            var alvo = acessos.FirstOrDefault(a => a.Principal) ?? acessos[0];
+            var ac = (await conta.AcessoAsync(r.Usuario.Id, alvo.UsuarioId))!.Value;
+            await EntrarAsync(http, ac.Usuario, ac.Empresa, r.TrocarSenha, r.Usuario.Id, ac.AdministradorPlataforma, ac.Acessos);
+            if (r.TrocarSenha) return Results.Redirect("/conta/trocar-senha");
+            return Results.Redirect(acessos.Count > 1 ? "/conta/construtora?retorno=" + Uri.EscapeDataString(Retorno(f["retorno"])) : Retorno(f["retorno"]));
         }).DisableAntiforgery().RequireRateLimiting(PoliticaLogin);
 
         app.MapPost("/conta/trocar-senha/salvar", async (HttpContext http, IAntiforgery af, ContaServico conta, UsuarioAtualWeb atual) =>
         {
             if (!await af.IsRequestValidAsync(http)) return Results.Redirect("/conta/trocar-senha?erro=sessao");
             var f = await http.Request.ReadFormAsync();
-            if (atual.UsuarioId is not { } id) return Results.Redirect("/login");
+            // A senha é da conta (cadastro principal), mesmo entrando por uma construtora vinculada.
+            if ((Guid.TryParse(http.User.FindFirst(ClaimsQh.Conta)?.Value, out var contaId) ? contaId : atual.UsuarioId) is not { } id) return Results.Redirect("/login");
             try { await conta.AlterarSenhaAsync(id, f["atual"], f["nova"], f["confirmacao"]); }
             catch (ValidacaoException v) { return Results.Redirect("/conta/trocar-senha?erro=" + Uri.EscapeDataString(string.Join(" ", v.Erros))); }
             catch (Domain.Aprovacoes.RegraDeNegocioException e) { return Results.Redirect("/conta/trocar-senha?erro=" + Uri.EscapeDataString(e.Message)); }
@@ -159,6 +180,48 @@ public static class Autenticacao
             await http.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(new ClaimsIdentity(novas, ident.AuthenticationType)));
             return Results.Redirect("/?senha=alterada");
         }).DisableAntiforgery().RequireAuthorization().RequireRateLimiting(PoliticaLogin);
+
+        // Troca de construtora (conta com acesso a mais de uma): renova o cookie com o cadastro da construtora escolhida.
+        app.MapPost("/conta/construtora/trocar", async (HttpContext http, IAntiforgery af, ContaServico conta) =>
+        {
+            if (!await af.IsRequestValidAsync(http)) return Results.Redirect("/conta/construtora?erro=sessao");
+            var f = await http.Request.ReadFormAsync();
+            if (!Guid.TryParse(http.User.FindFirst(ClaimsQh.Conta)?.Value, out var contaId) || !Guid.TryParse(f["usuario"], out var usuarioId))
+                return Results.Redirect("/login");
+            var ac = await conta.AcessoAsync(contaId, usuarioId);
+            if (ac is not { } a) return Results.Redirect("/conta/construtora?erro=acesso");
+            await EntrarAsync(http, a.Usuario, a.Empresa, false, contaId, a.AdministradorPlataforma, a.Acessos);
+            return Results.Redirect(Retorno(f["retorno"]));
+        }).DisableAntiforgery().RequireAuthorization();
+
+        // Plataforma: ativa a conta logada como administradora (exige o código da plataforma do Key Vault).
+        app.MapPost("/plataforma/ativar/salvar", async (HttpContext http, IAntiforgery af, IConfiguration cfg, IWebHostEnvironment env, PlataformaServico plat, ContaServico conta) =>
+        {
+            if (!await af.IsRequestValidAsync(http)) return Results.Redirect("/plataforma/ativar?erro=sessao");
+            var f = await http.Request.ReadFormAsync();
+            var codigo = cfg["CodigoPlataforma"] ?? cfg["CodigoConfiguracaoInicial"];
+            if (string.IsNullOrWhiteSpace(codigo) && !env.IsDevelopment()) return Results.Redirect("/plataforma/ativar?erro=sem-codigo");
+            if (!string.IsNullOrWhiteSpace(codigo) && !System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(
+                    System.Text.Encoding.UTF8.GetBytes(f["codigo"].ToString()), System.Text.Encoding.UTF8.GetBytes(codigo)))
+                return Results.Redirect("/plataforma/ativar?erro=codigo");
+            await plat.AtivarAdministradorAsync();
+            return await Renovar(http, conta, "/plataforma/construtoras");
+        }).DisableAntiforgery().RequireAuthorization().RequireRateLimiting(PoliticaLogin);
+
+        // Suporte: vínculo temporário na construtora (motivo na auditoria) e troca para ela.
+        app.MapPost("/plataforma/suporte", async (HttpContext http, IAntiforgery af, PlataformaServico plat, ContaServico conta) =>
+        {
+            if (!await af.IsRequestValidAsync(http)) return Results.Redirect("/plataforma/construtoras?erro=sessao");
+            var f = await http.Request.ReadFormAsync();
+            if (!Guid.TryParse(f["empresa"], out var empresa) || !Guid.TryParse(http.User.FindFirst(ClaimsQh.Conta)?.Value, out var contaId)) return Results.Redirect("/plataforma/construtoras");
+            Guid id;
+            try { id = await plat.SuporteAsync(empresa, f["motivo"].ToString()); }
+            catch (ValidacaoException v) { return Results.Redirect("/plataforma/construtoras?erro=" + Uri.EscapeDataString(string.Join(" ", v.Erros))); }
+            catch (Domain.Aprovacoes.RegraDeNegocioException e) { return Results.Redirect("/plataforma/construtoras?erro=" + Uri.EscapeDataString(e.Message)); }
+            if (await conta.AcessoAsync(contaId, id) is not { } a) return Results.Redirect("/plataforma/construtoras?erro=" + Uri.EscapeDataString("Acesso de suporte indisponível."));
+            await EntrarAsync(http, a.Usuario, a.Empresa, false, contaId, a.AdministradorPlataforma, a.Acessos);
+            return Results.Redirect("/");
+        }).DisableAntiforgery().RequireAuthorization();
 
         app.MapPost("/conta/primeiro-acesso/salvar", async (HttpContext http, IAntiforgery af, ContaServico conta, IConfiguration cfg) =>
         {

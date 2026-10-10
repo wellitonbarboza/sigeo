@@ -123,7 +123,7 @@ public static class Endpoints
         if (senha != f["confirmacao"].ToString()) errosSenha.Add("A confirmação não confere com a senha.");
         if (errosSenha.Count > 0) return Results.Redirect($"{rota}?erro=senha&msg=" + Uri.EscapeDataString(string.Join(" ", errosSenha)));
 
-        var empresa = new Empresa { RazaoSocial = V("razao"), NomeFantasia = V("fantasia") is { Length: > 0 } nf ? nf : V("razao"), Cnpj = V("cnpj"), Codigo = V("codigo"), NivelSiac = V("nivel") is { Length: > 0 } n ? n : "B" };
+        var empresa = new Empresa { RazaoSocial = V("razao"), NomeFantasia = V("fantasia") is { Length: > 0 } nf ? nf : V("razao"), Cnpj = V("cnpj"), Codigo = V("codigo"), NivelSiac = V("nivel") is { Length: > 0 } n ? n : "B", CriadaEm = DateTimeOffset.UtcNow };
         await using var db = sistema.Criar(empresa.Id, "Setup");
         if (novaConstrutora)
         {
@@ -138,7 +138,9 @@ public static class Endpoints
         var admin = new Usuario
         {
             EmpresaId = empresa.Id, Nome = V("nome"), Email = V("email"), Perfil = PerfilUsuario.Administrador, Funcao = "Coordenador da Qualidade",
-            AcessoTodasObras = true, Login = login
+            AcessoTodasObras = true, Login = login,
+            // Quem faz a configuração inicial do sistema administra a plataforma (construtoras e acessos entre elas).
+            AdministradorPlataforma = !novaConstrutora
         };
         db.Usuarios.Add(admin);
         ContaServico.DefinirSenha(db, admin, senha, DateTimeOffset.UtcNow);

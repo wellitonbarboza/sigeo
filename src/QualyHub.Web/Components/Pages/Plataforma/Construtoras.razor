@@ -1,0 +1,240 @@
+@page "/plataforma/construtoras"
+@inherits PaginaBase
+@inject PlataformaServico Plat
+
+<Pagina Titulo="Plataforma · Construtoras" AoAtualizar="Carregar">
+    <ChildContent>
+        <div class="pagina">
+            @if (_negado) { <AcessoPlataforma /> }
+            else
+            {
+                @if (Erro is { Length: > 0 }) { <div class="alerta erro"><Icone Nome="alerta" /> @Erro</div> }
+                <div class="alerta aviso pq"><Icone Nome="escudo" Tam="14" /> Área da plataforma: só administradores da plataforma; cada ação fica na auditoria. Cada construtora é isolada (dados, obras, usuários e configurações).</div>
+                @if (_lista is null) { <Esqueleto Indicadores="4" Linhas="6" /> }
+                else
+                {
+                    <div class="kpis">
+                        <Kpi Rotulo="Construtoras ativas" Valor="@_lista.Count(c => c.Ativa)" Sub="@($"{_lista.Count(c => !c.Ativa)} suspensa(s)")" />
+                        <Kpi Rotulo="Obras" Valor="@_lista.Sum(c => c.Obras)" />
+                        <Kpi Rotulo="Usuários ativos" Valor="@_lista.Sum(c => c.Usuarios)" Sub="cadastros por construtora" />
+                        <Kpi Rotulo="Acessos nos últimos 7 dias" Valor="@_lista.Count(c => c.UltimoAcesso > DateTimeOffset.UtcNow.AddDays(-7))" Sub="construtoras com acesso" />
+                    </div>
+                    <div class="barra-filtro mt-12">
+                        <label>Procurar <input type="search" @bind="_busca" @bind:event="oninput" placeholder="nome, código ou CNPJ" /></label>
+                        <button class="btn prim" id="plat-nova" @onclick="Nova"><Icone Nome="mais" Tam="14" /> Nova construtora</button>
+                    </div>
+                    <div class="tabela-rolavel"><table class="itens" id="plat-construtoras">
+                        <thead><tr><th>Código</th><th>Construtora</th><th>CNPJ</th><th>SiAC</th><th>Estrutura de locais</th><th class="num">Obras</th><th class="num">Usuários</th><th>Administrador</th><th>Situação</th><th>Último acesso</th><th></th></tr></thead>
+                        <tbody>
+                            @foreach (var c in Filtradas)
+                            {
+                                <tr @key="c.Id">
+                                    <td><b>@c.Codigo</b></td><td><a href="javascript:void(0)" @onclick="() => Editar(c.Id)">@c.NomeFantasia</a><div class="mudo">@c.RazaoSocial</div></td>
+                                    <td>@c.Cnpj</td><td>@c.NivelSiac</td><td>@c.Modelo</td><td class="num">@c.Obras</td><td class="num">@c.Usuarios</td><td>@c.Administrador</td>
+                                    <td><Selo Texto="@(c.Ativa ? "Ativa" : "Suspensa")" Tom="@(c.Ativa ? "ok" : "erro")" /></td>
+                                    <td>@(c.UltimoAcesso is { } u ? DataHora(u) : "—")</td>
+                                    <td class="nowrap">
+                                        @if (c.Ativa && c.Id != Usuario.EmpresaId) { <button class="btn sec pq" @onclick="() => AbrirSuporte(c)">Entrar como suporte</button> }
+                                        @if (c.Id == Usuario.EmpresaId) { <Selo Texto="você está nela" /> }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table></div>
+                }
+            }
+        </div>
+    </ChildContent>
+    <Faixa><b>Plataforma</b><span>Construtoras isoladas</span><span>Nova construtora com carga padrão, administrador e estrutura de locais</span><span>Suporte com motivo e prazo</span></Faixa>
+</Pagina>
+
+<Modal Titulo="@(_novo ? "Nova construtora" : "Construtora")" @bind-Aberto="_aberto" Tamanho="grande">
+    <ChildContent>
+        @if (_e is not null)
+        {
+            <Erros Lista="ErrosForm" />
+            @if (_novo)
+            {
+                <div class="passos-plat">@for (var i = 0; i < Passos.Length; i++) { var k = i; <span class="passo-plat @(k == _passo ? "on" : k < _passo ? "ok" : "")"><b>@(k < _passo ? "✓" : (k + 1).ToString())</b> @Passos[k]</span> }</div>
+            }
+            @if (!_novo || _passo == 0)
+            {
+                <div class="form">
+                    <Campo Rotulo="Código" Classe="s2"><input id="pc-cod" @bind="_e.Codigo" /></Campo>
+                    <Campo Rotulo="Razão social" Obrigatorio Classe="s6"><input id="pc-razao" @bind="_e.RazaoSocial" /></Campo>
+                    <Campo Rotulo="Nome curto" Classe="s4"><input @bind="_e.NomeFantasia" /></Campo>
+                    <Campo Rotulo="CNPJ" Classe="s4"><input @bind="_e.Cnpj" placeholder="00.000.000/0000-00" /></Campo>
+                    <Campo Rotulo="Nível SiAC" Classe="s2"><select @bind="_e.NivelSiac"><option>B</option><option>A</option></select></Campo>
+                    <Campo Rotulo="Endereço de entrega padrão" Classe="s6"><input @bind="_e.EnderecoEntregaPadrao" /></Campo>
+                    @if (!_novo) { <Campo Rotulo="Situação" Classe="s4"><select id="pc-sit" value="@(_e.Ativa ? "1" : "0")" @onchange='e => _e.Ativa = e.Value?.ToString() == "1"'><option value="1">Ativa</option><option value="0">Suspensa (ninguém entra; dados guardados)</option></select></Campo> }
+                </div>
+            }
+            @if (_novo && _passo == 1)
+            {
+                <div class="form">
+                    <Campo Rotulo="Nome do administrador" Obrigatorio Classe="s4"><input id="pc-adm" @bind="_admNome" /></Campo>
+                    <Campo Rotulo="E-mail" Obrigatorio Classe="s4"><input id="pc-email" type="email" @bind="_admEmail" /></Campo>
+                    <Campo Rotulo="Login" Obrigatorio Classe="s4"><input id="pc-login" @bind="_admLogin" class="minusc" /></Campo>
+                </div>
+                <div class="alerta info pq"><Icone Nome="info" Tam="14" /> Login novo recebe uma <b>senha provisória</b> (mostrada uma vez, troca obrigatória no primeiro acesso). Se o login já existe em outra construtora, a pessoa recebe <b>acesso a esta</b> com a mesma senha.</div>
+            }
+            @if (!_novo || _passo == 2)
+            {
+                <div class="secao"><Icone Nome="predio" /> Estrutura de locais</div>
+                <div class="opcoes-estrutura">
+                    @foreach (var (m, titulo, uso) in EstruturaLocais.Modelos)
+                    {
+                        <button type="button" class="opcao-estrutura" aria-pressed="@(_est.Modelo == m.Modelo)" @onclick="() => Modelo(m)">
+                            <b>@titulo</b><span class="niveis">@string.Join(" › ", m.Niveis)</span><span class="mudo">@uso</span>
+                        </button>
+                    }
+                </div>
+                <div class="form mt-10">
+                    <Campo Rotulo="Dono do CNPJ (SPE)" Classe="s3"><input id="pc-n0" value="@_est.Condominio" @onchange='e => Nome(0, e)' /></Campo>
+                    <Campo Rotulo="Bloco / torre / quadra" Classe="s3"><input id="pc-n1" value="@_est.Torre" @onchange='e => Nome(1, e)' /></Campo>
+                    <Campo Rotulo="Pavimento / nível" Classe="s2"><input value="@_est.Pavimento" @onchange='e => Nome(2, e)' /></Campo>
+                    <Campo Rotulo="Unidade" Classe="s2"><input id="pc-n3" value="@_est.Unidade" @onchange='e => Nome(3, e)' /></Campo>
+                    <Campo Rotulo="Cômodo" Classe="s2"><input value="@_est.Comodo" @onchange='e => Nome(4, e)' /></Campo>
+                    <Campo Rotulo="Prefixo da unidade" Classe="s3" Ajuda="Nome gerado: prefixo + número (ex.: Apto 101, Casa 01)"><input id="pc-n5" value="@_est.PrefixoUnidade" @onchange='e => Nome(5, e)' /></Campo>
+                </div>
+                <p class="mudo">Os nomes aparecem nas telas da construtora (Obras, Tipologias, gerador). A geração continua por tipologias: o dono do CNPJ é a SPE; a unidade é a vendável.@(!_novo ? " Locais já gerados mantêm os nomes; novos usam o prefixo." : "")</p>
+            }
+            @if (_novo && _passo == 3)
+            {
+                <p class="mudo">Opcional: já cadastre a primeira obra. Depois ela segue o caminho normal dentro da construtora: Engenharia › Obras → @(_est.Condominio) (SPE) → Tipologias (ou kit de tipologia) → Gerador.</p>
+                <div class="form">
+                    <Campo Rotulo="Código da obra" Classe="s2"><input @bind="_obraCod" /></Campo>
+                    <Campo Rotulo="Nome" Classe="s5"><input @bind="_obraNome" /></Campo>
+                    <Campo Rotulo="Cidade" Classe="s3"><input @bind="_obraCidade" /></Campo>
+                    <Campo Rotulo="UF" Classe="s2"><input @bind="_obraUf" maxlength="2" class="maiusc" /></Campo>
+                    <Campo Rotulo="Endereço de entrega" Classe="s12"><input @bind="_obraEnd" /></Campo>
+                </div>
+            }
+            @if (_novo && _passo == 4)
+            {
+                <table class="itens"><tbody>
+                    <tr><th>Construtora</th><td>@_e.Codigo – @_e.RazaoSocial · SiAC @_e.NivelSiac</td></tr>
+                    <tr><th>Administrador</th><td>@_admNome · @_admLogin · @_admEmail</td></tr>
+                    <tr><th>Estrutura</th><td>@string.Join(" › ", _est.Niveis) (unidade "@_est.PrefixoUnidade 101")</td></tr>
+                    <tr><th>Configuração</th><td>Carga padrão (listas, perfis, permissões, regras de aviso, materiais e serviços controlados) — editável depois</td></tr>
+                    <tr><th>Primeira obra</th><td>@(string.IsNullOrWhiteSpace(_obraNome) ? "—" : $"{_obraCod} – {_obraNome}")</td></tr>
+                </tbody></table>
+            }
+            @if (_senha is not null)
+            {
+                <div class="alerta ok"><Icone Nome="cadeado" /> <div>Construtora criada. Senha provisória do administrador <b>@_admLogin</b>: <code id="pc-senha">@_senha</code><br /><span class="mudo">Mostrada só agora. Entregue ao administrador; no primeiro acesso ele define a dele.</span></div></div>
+            }
+        }
+    </ChildContent>
+    <Rodape>
+        @if (_novo && _senha is null)
+        {
+            <button class="btn sec" disabled="@(_passo == 0)" @onclick="() => _passo--">← Voltar</button>
+            @if (_passo < Passos.Length - 1) { <button class="btn prim" id="pc-avancar" @onclick="Avancar">Avançar →</button> }
+            else { <button class="btn prim" id="pc-criar" disabled="@Ocupado" @onclick="Criar"><Icone Nome="check" Tam="14" /> Criar construtora</button> }
+        }
+        else if (!_novo) { <button class="btn prim" id="pc-salvar" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="14" /> Salvar</button> }
+        else { <button class="btn prim" @onclick="() => _aberto = false">Fechar</button> }
+    </Rodape>
+</Modal>
+
+<Modal Titulo="Entrar como suporte" @bind-Aberto="_abertoSuporte">
+    <ChildContent>
+        @if (_sup is not null)
+        {
+            <p>Você entra em <b>@_sup.NomeFantasia</b> como Administrador por @PlataformaServico.DuracaoSuporte.TotalHours.ToString("0") horas. O motivo fica na auditoria e aparece uma faixa no topo enquanto durar.</p>
+            <form method="post" action="plataforma/suporte" data-enhance="false" id="form-suporte">
+                <AntiforgeryToken />
+                <input type="hidden" name="empresa" value="@_sup.Id" />
+                <div class="form"><Campo Rotulo="Motivo" Obrigatorio Classe="s12"><input name="motivo" id="sup-motivo" required minlength="5" placeholder="ex.: conferir torre duplicada a pedido do cliente" /></Campo></div>
+                <div class="barra-botoes fim"><button class="btn prim" type="submit" id="sup-entrar"><Icone Nome="escudo" Tam="14" /> Entrar como suporte</button></div>
+            </form>
+        }
+    </ChildContent>
+</Modal>
+
+@code {
+    [SupplyParameterFromQuery(Name = "erro")] public string? Erro { get; set; }
+    private static readonly string[] Passos = ["Dados", "Administrador", "Estrutura de locais", "Primeira obra", "Conferir"];
+    private List<PlataformaServico.LinhaConstrutora>? _lista;
+    private bool _negado, _aberto, _novo, _abertoSuporte;
+    private string? _busca, _admNome, _admEmail, _admLogin, _obraCod, _obraNome, _obraCidade, _obraUf, _obraEnd, _senha;
+    private Empresa? _e;
+    private EstruturaLocais _est = EstruturaLocais.Condominios;
+    private int _passo;
+    private PlataformaServico.LinhaConstrutora? _sup;
+
+    private IEnumerable<PlataformaServico.LinhaConstrutora> Filtradas => (_lista ?? []).Where(c => string.IsNullOrWhiteSpace(_busca)
+        || $"{c.Codigo} {c.NomeFantasia} {c.RazaoSocial} {c.Cnpj}".Contains(_busca.Trim(), StringComparison.OrdinalIgnoreCase));
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!await Plat.EhAdministradorAsync(Cancelamento)) { _negado = true; return; }
+        await Carregar();
+    }
+
+    private async Task Carregar() { if (!_negado) _lista = await Plat.ConstrutorasAsync(Cancelamento); }
+
+    private void Nova()
+    {
+        ErrosForm = null; _novo = true; _passo = 0; _senha = null;
+        _e = new Empresa { NivelSiac = "B" }; _est = EstruturaLocais.Condominios;
+        _admNome = _admEmail = _admLogin = _obraCod = _obraNome = _obraCidade = _obraUf = _obraEnd = null;
+        _aberto = true;
+    }
+
+    private async Task Editar(Guid id)
+    {
+        ErrosForm = null; _novo = false; _senha = null;
+        if (!await Executar(async () => _e = await Plat.ConstrutoraAsync(id, Cancelamento))) return;
+        _est = EstruturaLocais.De(_e!.ModeloEstrutura, _e.NomesNiveis);
+        _aberto = true;
+    }
+
+    private void Modelo(EstruturaLocais m) => _est = m;
+
+    private void Nome(int i, ChangeEventArgs e)
+    {
+        var v = e.Value?.ToString()?.Trim() ?? "";
+        _est = i switch
+        {
+            0 => _est with { Condominio = v, Modelo = "Personalizado" }, 1 => _est with { Torre = v, Modelo = "Personalizado" },
+            2 => _est with { Pavimento = v, Modelo = "Personalizado" }, 3 => _est with { Unidade = v, Modelo = "Personalizado" },
+            4 => _est with { Comodo = v, Modelo = "Personalizado" }, _ => _est with { PrefixoUnidade = v, Modelo = "Personalizado" }
+        };
+    }
+
+    private void Avancar()
+    {
+        var e = new List<string>();
+        if (_passo == 0 && string.IsNullOrWhiteSpace(_e!.RazaoSocial)) e.Add("Informe a razão social.");
+        if (_passo == 1)
+        {
+            if (string.IsNullOrWhiteSpace(_admNome)) e.Add("Informe o nome do administrador.");
+            if (string.IsNullOrWhiteSpace(_admEmail) || !_admEmail.Contains('@')) e.Add("Informe o e-mail do administrador.");
+            e.AddRange(PoliticaSenha.ValidarLogin(PoliticaSenha.NormalizarLogin(_admLogin)));
+        }
+        if (_passo == 2) e.AddRange(_est.Validar());
+        ErrosForm = e.Count > 0 ? e : null;
+        if (e.Count == 0) _passo++;
+    }
+
+    private async Task Criar()
+    {
+        PlataformaServico.ConstrutoraCriada? r = null;
+        var n = new PlataformaServico.NovaConstrutora(_e!, _est, _admNome ?? "", _admEmail ?? "", _admLogin ?? "", _obraCod, _obraNome, _obraCidade, _obraUf, _obraEnd);
+        if (await Executar(async () => r = await Plat.CriarConstrutoraAsync(n, Cancelamento)))
+        {
+            Notif.Sucesso(r!.Vinculado ? $"Construtora criada. {_admLogin} já tinha conta: recebeu acesso com a mesma senha." : "Construtora criada com a carga padrão.");
+            if (!r.Vinculado) _senha = r.SenhaProvisoria; else _aberto = false;
+            await Carregar();
+        }
+    }
+
+    private async Task Salvar()
+    {
+        if (await Executar(() => Plat.SalvarConstrutoraAsync(_e!, _est, Cancelamento), "Construtora salva.")) { _aberto = false; await Carregar(); }
+    }
+
+    private void AbrirSuporte(PlataformaServico.LinhaConstrutora c) { _sup = c; _abertoSuporte = true; }
+}

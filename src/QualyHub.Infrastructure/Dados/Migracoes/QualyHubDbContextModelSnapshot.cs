@@ -5182,9 +5182,16 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                         .HasMaxLength(400)
                         .HasColumnType("nvarchar(400)");
 
+                    b.Property<DateTimeOffset?>("CriadaEm")
+                        .HasColumnType("datetimeoffset");
+
                     b.Property<string>("EnderecoEntregaPadrao")
                         .HasMaxLength(400)
                         .HasColumnType("nvarchar(400)");
+
+                    b.Property<string>("ModeloEstrutura")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
 
                     b.Property<string>("NivelSiac")
                         .IsRequired()
@@ -5196,6 +5203,10 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                         .HasMaxLength(400)
                         .HasColumnType("nvarchar(400)");
 
+                    b.Property<string>("NomesNiveis")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
                     b.Property<string>("RazaoSocial")
                         .IsRequired()
                         .HasMaxLength(400)
@@ -5204,7 +5215,8 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                     b.HasKey("Id");
 
                     b.HasIndex("Cnpj")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("[Cnpj] <> ''");
 
                     b.ToTable("Empresas", "qh");
                 });
@@ -5830,6 +5842,43 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                             }));
                 });
 
+            modelBuilder.Entity("QualyHub.Domain.Estrutura.RegistroPlataforma", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Acao")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Detalhe")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)")
+                        .HasAnnotation("QualyHub:TamanhoFixo", true);
+
+                    b.Property<string>("Empresa")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<Guid?>("EmpresaId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("Quando")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Quem")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Quando");
+
+                    b.ToTable("RegistrosPlataforma", "qh");
+                });
+
             modelBuilder.Entity("QualyHub.Domain.Estrutura.RegraNotificacao", b =>
                 {
                     b.Property<Guid>("Id")
@@ -5915,6 +5964,9 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                     b.Property<bool>("AcessoTodasObras")
                         .HasColumnType("bit");
 
+                    b.Property<bool>("AdministradorPlataforma")
+                        .HasColumnType("bit");
+
                     b.Property<DateTimeOffset?>("AlteradoEm")
                         .HasColumnType("datetimeoffset");
 
@@ -5924,6 +5976,9 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
 
                     b.Property<bool>("Ativo")
                         .HasColumnType("bit");
+
+                    b.Property<Guid?>("ContaId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTimeOffset>("CriadoEm")
                         .HasColumnType("datetimeoffset");
@@ -5976,7 +6031,12 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("rowversion");
 
+                    b.Property<DateTimeOffset?>("SuporteAte")
+                        .HasColumnType("datetimeoffset");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("ContaId");
 
                     b.HasIndex("EmpresaId");
 

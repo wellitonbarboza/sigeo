@@ -55,7 +55,7 @@ public sealed class ContaServico(IFabricaSistema sistema, IFabricaDb fabrica, IU
         var l = PoliticaSenha.NormalizarLogin(login);
         await using var db = sistema.Criar(Guid.Empty, "Login");
         var u = l.Length == 0 ? null : await db.Usuarios.IgnoreQueryFilters().Include(x => x.Obras)
-            .FirstOrDefaultAsync(x => (x.Login == l || x.Email == l) && x.Ativo && !x.Excluido, ct);
+            .FirstOrDefaultAsync(x => (x.Login == l || x.Email == l) && x.ContaId == null && x.Ativo && !x.Excluido, ct);
         var c = u is null ? null : await db.Credenciais.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.UsuarioId == u.Id && !x.Excluido, ct);
         var agora = relogio.GetUtcNow();
         if (u is null || c is null) { Senhas.Verificar(senha ?? "", null); return new(null, null, false, ErroGenerico); }
@@ -72,6 +72,38 @@ public sealed class ContaServico(IFabricaSistema sistema, IFabricaDb fabrica, IU
         await db.SaveChangesAsync(ct);
         var emp = await db.Empresas.IgnoreQueryFilters().Where(e => e.Id == u.EmpresaId).Select(e => e.NomeFantasia).FirstAsync(ct);
         return new(u, emp, c.TrocarSenhaNoProximoAcesso, null);
+    }
+
+    public sealed record Acesso(Guid UsuarioId, Guid EmpresaId, string Empresa, Domain.Common.PerfilUsuario Perfil, bool Principal, DateTimeOffset? SuporteAte);
+
+    /// <summary>
+    /// Construtoras que a conta acessa: o cadastro principal e os vínculos em outras construtoras (ativos, construtora ativa,
+    /// suporte dentro do prazo). A principal vem primeiro.
+    /// </summary>
+    public async Task<List<Acesso>> AcessosAsync(Guid contaId, CancellationToken ct = default)
+    {
+        await using var db = sistema.Criar(Guid.Empty, "Login");
+        var agora = relogio.GetUtcNow();
+        var us = await db.Usuarios.IgnoreQueryFilters().AsNoTracking()
+            .Where(u => (u.Id == contaId || u.ContaId == contaId) && u.Ativo && !u.Excluido && (u.SuporteAte == null || u.SuporteAte > agora))
+            .Select(u => new { u.Id, u.EmpresaId, u.Perfil, u.ContaId, u.SuporteAte }).ToListAsync(ct);
+        var emp = us.Select(u => u.EmpresaId).Distinct().ToList();
+        var nomes = await db.Empresas.AsNoTracking().Where(e => emp.Contains(e.Id) && e.Ativa).ToDictionaryAsync(e => e.Id, e => e.NomeFantasia, ct);
+        return us.Where(u => nomes.ContainsKey(u.EmpresaId))
+            .Select(u => new Acesso(u.Id, u.EmpresaId, nomes[u.EmpresaId], u.Perfil, u.ContaId == null, u.SuporteAte))
+            .OrderByDescending(a => a.Principal).ThenBy(a => a.Empresa).ToList();
+    }
+
+    /// <summary>Cadastro (com obras) do acesso escolhido — só se pertencer à conta e estiver válido.</summary>
+    public async Task<(Usuario Usuario, string Empresa, bool AdministradorPlataforma, int Acessos)?> AcessoAsync(Guid contaId, Guid usuarioId, CancellationToken ct = default)
+    {
+        var acessos = await AcessosAsync(contaId, ct);
+        var a = acessos.FirstOrDefault(x => x.UsuarioId == usuarioId);
+        if (a is null) return null;
+        await using var db = sistema.Criar(Guid.Empty, "Login");
+        var u = await db.Usuarios.IgnoreQueryFilters().AsNoTracking().Include(x => x.Obras).FirstAsync(x => x.Id == usuarioId, ct);
+        var plataforma = await db.Usuarios.IgnoreQueryFilters().AsNoTracking().Where(x => x.Id == contaId).Select(x => x.AdministradorPlataforma).FirstOrDefaultAsync(ct);
+        return (u, a.Empresa, plataforma, acessos.Count);
     }
 
     /// <summary>O próprio usuário troca a senha (exige a atual).</summary>

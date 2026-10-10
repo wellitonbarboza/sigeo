@@ -9,7 +9,7 @@
         <div class="pagina">
             <div class="barra-filtro">
                 <SeletorObra Id="tip-obra" Valor="_obraId" ValorChanged="TrocarObra" Inicial="ObraQuery" />
-                <div class="filtros-rapidos">@foreach (var t in Enum.GetValues<TipoTipologia>()) { <label><input type="radio" name="ttip" checked="@(_tipo == t)" @onchange="() => _tipo = t" /> @De(t)</label> }</div>
+                <div class="filtros-rapidos">@foreach (var t in Enum.GetValues<TipoTipologia>()) { <label><input type="radio" name="ttip" checked="@(_tipo == t)" @onchange="() => _tipo = t" /> @NomeTipo(t)</label> }</div>
                 <a class="btn sec" href="@(_obraId is null ? "engenharia/obras" : $"engenharia/obras?obra={_obraId}")"><Icone Nome="predio" Tam="14" /> Estrutura e gerador</a>
                 @if (_obraId is not null && Perfil(PerfilUsuario.Engenharia))
                 {
@@ -40,7 +40,7 @@
     <Faixa><b>Tipologias</b><span>Apartamento, torre e implantação do condomínio</span><span>Base do gerador de locais, do orçamento e das FVS</span></Faixa>
 </Pagina>
 
-<Modal @bind-Aberto="_aberto" Titulo="@(_t is null ? "" : $"Tipologia de {De(_t.Tipo).ToLower()} {_t.Codigo}")" Tamanho="grande">
+<Modal @bind-Aberto="_aberto" Titulo="@(_t is null ? "" : $"Tipologia de {NomeTipo(_t.Tipo).ToLower()} {_t.Codigo}")" Tamanho="grande">
     <ChildContent>
         @if (_t is not null)
         {
@@ -89,7 +89,7 @@
                     <p class="mudo">Total: @Enumerable.Range(1, Math.Max(0, _t.Pavimentos)).Sum(p => _t.Mix.Where(m => p >= m.PavimentoDe && p <= m.PavimentoAte).Sum(m => m.Quantidade)) apartamentos por torre.</p>
                 }
 
-                <div class="secao"><Icone Nome="regua" /> @(_t.Tipo switch { TipoTipologia.Apartamento => "Cômodos", TipoTipologia.Torre => "Áreas comuns do pavimento e da torre", _ => "Áreas comuns do condomínio" })
+                <div class="secao"><Icone Nome="regua" /> @(_t.Tipo switch { TipoTipologia.Apartamento => $"{_n.Comodo}s", TipoTipologia.Torre => $"Áreas comuns do {_n.Pavimento.ToLower()} e da {_n.Torre.ToLower()}", _ => $"Áreas comuns do {_n.Condominio.ToLower()}" })
                     <span class="acao"><button class="btn sec pq" id="amb-add" @onclick="AddAmbiente"><Icone Nome="mais" Tam="14" /> Ambiente</button></span></div>
                 <table class="itens" id="ambientes">
                     <thead><tr><th>Nome</th><th>Sigla</th><th>Categoria</th>@if (_t.Tipo == TipoTipologia.Torre) { <th>Onde</th><th>Pav. de–até</th> }<th class="num">Piso (m²)</th><th class="num">Perímetro (m)</th><th class="num">Pé-dir. (m)</th><th class="num">Vãos (m²)</th><th class="num">Parede (m²)</th><th></th></tr></thead>
@@ -214,6 +214,12 @@
     private Grade<Tipologia>? _grade;
     private Guid? _obraId;
     private TipoTipologia _tipo = TipoTipologia.Apartamento;
+    private EstruturaLocais _n = EstruturaLocais.Condominios;
+    /// <summary>Nome do tipo de tipologia com os níveis da construtora (unidade, bloco/torre, implantação do condomínio).</summary>
+    private string NomeTipo(TipoTipologia t) => t switch
+    {
+        TipoTipologia.Apartamento => _n.Unidade, TipoTipologia.Torre => _n.Torre, _ => $"Implantação (áreas comuns do {_n.Condominio.ToLower()})"
+    };
     private List<Tipologia> _lista = [];
     private List<ServicoAplicacao> _aplic = [];
     private Dictionary<Guid, int> _usos = [];
@@ -235,6 +241,7 @@
     protected override async Task OnInitializedAsync()
     {
         // A obra inicial (?obra= ou a única permitida) vem do SeletorObra, que chama TrocarObra.
+        _n = await Cat.EstruturaAsync();
         _comodos = await Cat.ListaAsync(TipoLista.TipoComodo);
         _grupos = await Cat.ListaAsync(TipoLista.GrupoServico);
     }

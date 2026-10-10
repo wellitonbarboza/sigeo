@@ -1,0 +1,34 @@
+@page "/plataforma/auditoria"
+@inherits PaginaBase
+@inject PlataformaServico Plat
+
+<Pagina Titulo="Plataforma · Auditoria" AoAtualizar="Carregar">
+    <ChildContent>
+        <div class="pagina">
+            @if (_negado) { <AcessoPlataforma /> }
+            else if (_lista is null) { <Esqueleto Linhas="10" /> }
+            else
+            {
+                <div class="tabela-rolavel"><table class="itens" id="plat-auditoria">
+                    <thead><tr><th>Quando</th><th>Quem</th><th>Ação</th><th>Construtora</th><th>Detalhe</th></tr></thead>
+                    <tbody>
+                        @foreach (var r in _lista) { <tr @key="r.Id"><td class="nowrap">@DataHora(r.Quando)</td><td>@r.Quem</td><td>@r.Acao</td><td>@r.Empresa</td><td>@r.Detalhe</td></tr> }
+                        @if (_lista.Count == 0) { <tr><td colspan="5" class="mudo">Nenhum registro.</td></tr> }
+                    </tbody>
+                </table></div>
+                <p class="mudo">Últimos 500 registros. Alterações dentro de cada construtora continuam no Log de Auditoria dela (Sistema › Log).</p>
+            }
+        </div>
+    </ChildContent>
+</Pagina>
+
+@code {
+    private List<RegistroPlataforma>? _lista;
+    private bool _negado;
+    protected override async Task OnInitializedAsync()
+    {
+        if (!await Plat.EhAdministradorAsync(Cancelamento)) { _negado = true; return; }
+        await Carregar();
+    }
+    private async Task Carregar() { if (!_negado) _lista = await Plat.RegistrosAsync(500, Cancelamento); }
+}

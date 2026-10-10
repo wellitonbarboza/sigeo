@@ -22,7 +22,9 @@ internal sealed class EmpresaCfg : IEntityTypeConfiguration<Empresa>
     {
         b.Property(x => x.Cnpj).HasMaxLength(18);
         b.Property(x => x.NivelSiac).HasMaxLength(2);
-        b.HasIndex(x => x.Cnpj).IsUnique();
+        b.HasIndex(x => x.Cnpj).IsUnique().HasFilter("[Cnpj] <> ''"); // construtora sem CNPJ informado ainda não colide com outra
+        b.Property(x => x.ModeloEstrutura).HasMaxLength(30);
+        b.Property(x => x.NomesNiveis).HasMaxLength(300);
     }
 }
 
@@ -118,6 +120,20 @@ internal sealed class UsuarioCfg : IEntityTypeConfiguration<Usuario>
         b.Property(x => x.Email).HasMaxLength(200);
         b.HasMany(x => x.Obras).WithOne(x => x.Usuario).HasForeignKey(x => x.UsuarioId);
         b.HasMany(x => x.LimitesAprovacao).WithOne().HasForeignKey(x => x.UsuarioId);
+        b.HasIndex(x => x.ContaId);
+    }
+}
+
+internal sealed class RegistroPlataformaCfg : IEntityTypeConfiguration<RegistroPlataforma>
+{
+    public void Configure(EntityTypeBuilder<RegistroPlataforma> b)
+    {
+        b.ToTable("RegistrosPlataforma");
+        b.Property(x => x.Quem).HasMaxLength(150);
+        b.Property(x => x.Acao).HasMaxLength(100);
+        b.Property(x => x.Empresa).HasMaxLength(200);
+        b.Property(x => x.Detalhe).HasMaxLength(1000).HasAnnotation(QualyHubDbContext.TamanhoFixo, true);
+        b.HasIndex(x => x.Quando);
     }
 }
 

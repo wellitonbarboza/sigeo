@@ -14,6 +14,7 @@
             <div class="alerta erro" id="login-erro">@(Erro switch
             {
                 "bloqueado" => "Acesso bloqueado por excesso de tentativas. Aguarde 15 minutos ou peça ao administrador para desbloquear.",
+                "suspensa" => "Construtora suspensa ou sem acesso ativo. Fale com o administrador da plataforma.",
                 "sessao" => "A página ficou aberta por muito tempo. Tente de novo.",
                 "limite" => "Muitas tentativas a partir desta rede. Aguarde 1 minuto e tente de novo.",
                 _ => "Login ou senha inválidos."

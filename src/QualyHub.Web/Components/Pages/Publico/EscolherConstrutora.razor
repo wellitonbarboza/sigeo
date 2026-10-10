@@ -1,0 +1,42 @@
+@page "/conta/construtora"
+@attribute [Authorize]
+@attribute [ExcludeFromInteractiveRouting]
+@layout LayoutPublico
+@inject UsuarioAtualWeb Atual
+@inject ContaServico Conta
+
+<PageTitle>Escolher construtora · QualyHub</PageTitle>
+<div class="login">
+    <div class="caixa caixa-640">
+        <div class="login-marca"><Logo /></div>
+        <h1>Escolha a construtora</h1>
+        <p class="mudo">Olá, @Atual.Nome. Seu login acessa mais de uma construtora; cada uma tem perfil e obras próprios. Troque quando quiser pelo menu (abaixo do seu nome).</p>
+        @if (Erro is not null) { <div class="alerta erro">@(Erro == "sessao" ? "A página ficou aberta por muito tempo. Tente de novo." : "Esse acesso não está mais disponível.")</div> }
+        <div class="lista-construtoras mt-14">
+            @foreach (var a in _acessos)
+            {
+                <form method="post" action="conta/construtora/trocar">
+                    <AntiforgeryToken />
+                    <input type="hidden" name="usuario" value="@a.UsuarioId" />
+                    <input type="hidden" name="retorno" value="@(Retorno ?? "/")" />
+                    <button type="submit" class="opcao-construtora @(a.UsuarioId == Atual.UsuarioId ? "atual" : "")">
+                        <b>@a.Empresa</b>
+                        <span class="mudo">@Rotulos.De(a.Perfil)@(a.Principal ? " · cadastro principal" : "")@(a.SuporteAte is { } s ? $" · suporte até {s.ToLocalTime():dd/MM HH:mm}" : "")@(a.UsuarioId == Atual.UsuarioId ? " · atual" : "")</span>
+                    </button>
+                </form>
+            }
+        </div>
+        <div class="botoes-dir mt-14"><a class="btn sec" href="conta/sair">Sair</a></div>
+    </div>
+</div>
+
+@code {
+    [SupplyParameterFromQuery] public string? Erro { get; set; }
+    [SupplyParameterFromQuery] public string? Retorno { get; set; }
+    private List<ContaServico.Acesso> _acessos = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Atual.ContaId is { } c) _acessos = await Conta.AcessosAsync(c);
+    }
+}

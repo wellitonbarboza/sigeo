@@ -18,7 +18,7 @@
                 <li class="grupo"><NavLink href="mensagens"><Icone Nome="mensagem" /> Mensagens @if (_naoLidas > 0) { <span class="cont-menu" title="@($"{_naoLidas} conversa(s) com mensagem não lida")">@(_naoLidas > 99 ? "99+" : _naoLidas)</span> }</NavLink></li>
                 <li class="grupo"><NavLink href="tarefas"><Icone Nome="lista" /> Tarefas</NavLink></li>
                 <li class="grupo"><NavLink href="painel"><Icone Nome="grafico" /> Painel de indicadores</NavLink></li>
-                @foreach (var g in _grupos)
+                @foreach (var g in _plataforma ? _grupos.Append(_grupoPlataforma) : _grupos)
                 {
                     <li class="grupo"><a class="dobra @(Aberto(g.Id) ? "aberto" : "")" @onclick="() => Alternar(g.Id)"><Icone Nome="@g.Icone" /> @g.Titulo <span class="seta">›</span></a></li>
                     @if (Aberto(g.Id))
@@ -34,10 +34,11 @@
         <div class="usuario-box">
             <b>@_nome</b>
             @Rotulos.De(Enum.TryParse<PerfilUsuario>(_perfil, out var p) ? p : PerfilUsuario.Campo) · @_empresa
-            <div class="conta-links"><a href="conta/trocar-senha" data-enhance-nav="false"><Icone Nome="cadeado" Tam="14" /> Alterar senha</a><a href="conta/sair" data-enhance-nav="false"><Icone Nome="sair" Tam="14" /> Sair</a></div>
+            <div class="conta-links">@if (_variasConstrutoras) { <a href="conta/construtora" data-enhance-nav="false" id="trocar-construtora"><Icone Nome="predio" Tam="14" /> Trocar construtora</a> }<a href="conta/trocar-senha" data-enhance-nav="false"><Icone Nome="cadeado" Tam="14" /> Alterar senha</a><a href="conta/sair" data-enhance-nav="false"><Icone Nome="sair" Tam="14" /> Sair</a></div>
         </div>
     </aside>
     <main class="principal">
+        @if (_suporteAte is { } sa) { <div class="faixa-suporte" role="status"><Icone Nome="escudo" Tam="14" /> Suporte da plataforma em @_empresa — acesso registrado na auditoria, vale até @sa.ToLocalTime().ToString("dd/MM HH:mm").</div> }
         <div class="conteudo">
             @* Erro ao desenhar um componente fica contido aqui: menu e cabeçalho continuam e o usuário pode tentar de novo. *@
             <ErrorBoundary @ref="_limiteErro">
@@ -92,6 +93,10 @@
             ("sistema/permissoes", "escudo", "Permissões SGQ"), ("sistema/log", "relogio", "Log de Auditoria")]),
     ];
 
+    private static readonly Grupo _grupoPlataforma = new("plat", "Plataforma", "escudo", [("plataforma/construtoras", "predio", "Construtoras"), ("plataforma/usuarios", "pessoa", "Usuários e acessos"), ("plataforma/auditoria", "relogio", "Auditoria da plataforma")]);
+    private bool _plataforma, _variasConstrutoras;
+    private DateTimeOffset? _suporteAte;
+
     [Inject] private NavigationManager Nav { get; set; } = default!;
 
     [CascadingParameter] private Task<AuthenticationState>? Autenticacao { get; set; }
@@ -105,9 +110,12 @@
             _nome = u.Identity?.Name ?? "";
             _perfil = u.FindFirst("qh:perfil")?.Value ?? "";
             _empresa = u.FindFirst("qh:empresa_nome")?.Value ?? "";
+            _plataforma = u.FindFirst("qh:plataforma")?.Value == "1";
+            _variasConstrutoras = u.FindFirst("qh:construtoras") is not null;
+            _suporteAte = DateTimeOffset.TryParse(u.FindFirst("qh:suporte")?.Value, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var sa) ? sa : null;
         }
         var rel = Nav.ToBaseRelativePath(Nav.Uri).Split('?')[0];
-        foreach (var g in _grupos) if (g.Itens.Any(i => rel.StartsWith(i.Href))) _abertos.Add(g.Id);
+        foreach (var g in _grupos.Append(_grupoPlataforma)) if (g.Itens.Any(i => rel.StartsWith(i.Href))) _abertos.Add(g.Id);
         if (_abertos.Count == 0) _abertos.Add("sup");
     }
 

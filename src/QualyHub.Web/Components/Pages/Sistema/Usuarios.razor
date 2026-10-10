@@ -13,7 +13,7 @@
                 <Grade T="Usuario" @ref="_gU" Itens="_usuarios" AoClicar="AbrirUsuario" NomeExportacao="usuarios">
                     <Colunas>
                         <Coluna T="Usuario" Titulo="Nome" Valor="u => u.Nome" />
-                        <Coluna T="Usuario" Titulo="Login" Valor="u => u.Login" />
+                        <Coluna T="Usuario" Titulo="Login" Valor='u => u.ContaId != null ? (u.SuporteAte != null ? "(suporte da plataforma)" : "(conta de outra construtora)") : u.Login' />
                         <Coluna T="Usuario" Titulo="E-mail" Valor="u => u.Email" />
                         <Coluna T="Usuario" Titulo="Acesso" Valor="u => SituacaoAcesso(u.Id)" />
                         <Coluna T="Usuario" Titulo="Perfil" Valor="u => u.Perfil" />
@@ -69,7 +69,8 @@
             <Erros Lista="ErrosForm" />
             <div class="form">
                 <Campo Rotulo="Nome" Obrigatorio Classe="s5"><input id="usu-nome" @bind="_u.Nome" disabled="@(!Perfil())" /></Campo>
-                <Campo Rotulo="Login" Obrigatorio Classe="s3" Ajuda="Letras, números, ponto, hífen e sublinhado"><input id="usu-login" @bind="_u.Login" autocomplete="off" class="minusc" disabled="@(!Perfil())" /></Campo>
+                @if (_u.ContaId is not null) { <Campo Rotulo="Login" Classe="s3" Ajuda="Acesso vindo de outra construtora: entra com o login e a senha da conta principal (Plataforma)"><input value="(conta de outra construtora)" disabled /></Campo> }
+                else { <Campo Rotulo="Login" Obrigatorio Classe="s3" Ajuda="Letras, números, ponto, hífen e sublinhado"><input id="usu-login" @bind="_u.Login" autocomplete="off" class="minusc" disabled="@(!Perfil())" /></Campo> }
                 <Campo Rotulo="E-mail" Obrigatorio Classe="s4"><input id="usu-email" type="email" @bind="_u.Email" disabled="@(!Perfil())" /></Campo>
                 <Campo Rotulo="Perfil" Obrigatorio Classe="s4"><select @bind="_u.Perfil" disabled="@(!Perfil())">@foreach (var p in Enum.GetValues<PerfilUsuario>()) { <option value="@p">@De(p)</option> }</select></Campo>
                 <Campo Rotulo="Função (nome exibido nas aprovações)" Classe="s5"><select @bind="_u.Funcao" disabled="@(!Perfil())"><option value="">—</option>@foreach (var f in _funcoes) { <option>@f</option> }</select></Campo>

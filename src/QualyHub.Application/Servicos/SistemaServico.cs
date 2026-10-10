@@ -91,7 +91,7 @@ public sealed class SistemaServico(IFabricaDb fabrica, TimeProvider relogio)
         await Permissoes.ExigirAsync(db, Usuario, "alterar usuários");
         if (await db.Usuarios.AnyAsync(x => x.Email == u.Email && x.Id != u.Id, ct)) throw new RegraDeNegocioException("E-mail já cadastrado.");
         // O login entra por qualquer empresa (tela de login não sabe a empresa): por isso a unicidade ignora o filtro de empresa.
-        if (await db.Usuarios.IgnoreQueryFilters().AnyAsync(x => x.Login == u.Login && x.Id != u.Id && !x.Excluido, ct))
+        if (u.ContaId is null && await db.Usuarios.IgnoreQueryFilters().AnyAsync(x => x.Login == u.Login && x.Id != u.Id && !x.Excluido, ct))
             throw new RegraDeNegocioException("Login já está em uso.");
         foreach (var o in u.Obras) o.Obra = null!;
         if (u.AcessoTodasObras) u.Obras.Clear();
@@ -170,7 +170,9 @@ public sealed class SistemaServico(IFabricaDb fabrica, TimeProvider relogio)
         var e = new List<string>();
         if (string.IsNullOrWhiteSpace(u.Nome)) e.Add("Informe o nome.");
         if (string.IsNullOrWhiteSpace(u.Email) || !u.Email.Contains('@')) e.Add("Informe um e-mail válido.");
-        e.AddRange(PoliticaSenha.ValidarLogin(u.Login));
+        // Vínculo de outra construtora entra com o login da conta principal: não tem login próprio.
+        if (u.ContaId is null) e.AddRange(PoliticaSenha.ValidarLogin(u.Login));
+        else u.Login = "";
         if (u.LimitesAprovacao.Any(l => l.ValorMaximo < 0)) e.Add("Limite não pode ser negativo.");
         // Evita a empresa ficar sem administrador por engano do próprio administrador.
         if (u.Id == usuarioLogadoId && u.Perfil != PerfilUsuario.Administrador) e.Add("Você não pode remover o próprio perfil de Administrador.");

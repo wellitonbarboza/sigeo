@@ -30,6 +30,14 @@ public sealed class Catalogos(IFabricaDb fabrica, QualyHub.Web.Seguranca.Usuario
     /// <summary>Produto salvo/importado: a próxima busca de qualquer usuário da empresa relê o catálogo.</summary>
     public void InvalidarProdutos() { _cache.Clear(); compartilhado.Invalidar(usuario.EmpresaId, "prodbusca"); }
 
+    /// <summary>Nomes dos níveis de local da construtora (Condomínio/Torre/Pavimento/Unidade/Cômodo ou os que ela usa).</summary>
+    public Task<QualyHub.Domain.Estrutura.EstruturaLocais> EstruturaAsync() => Cache("estrutura", async () =>
+    {
+        await using var db = fabrica.CriarLeitura();
+        var e = await db.Empresas.AsNoTracking().Where(x => x.Id == usuario.EmpresaId).Select(x => new { x.ModeloEstrutura, x.NomesNiveis }).FirstOrDefaultAsync();
+        return QualyHub.Domain.Estrutura.EstruturaLocais.De(e?.ModeloEstrutura, e?.NomesNiveis);
+    });
+
     public Task<List<string>> ListaAsync(TipoLista tipo) => Cache($"lista:{tipo}", async () =>
     {
         await using var db = fabrica.CriarLeitura();

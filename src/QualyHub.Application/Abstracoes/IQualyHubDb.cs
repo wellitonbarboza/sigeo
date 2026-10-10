@@ -39,6 +39,7 @@ public interface IQualyHubDb : IDisposable, IAsyncDisposable
     Task<int> SaveChangesAsync(CancellationToken ct = default);
 
     DbSet<Empresa> Empresas { get; }
+    DbSet<RegistroPlataforma> RegistrosPlataforma { get; }
     DbSet<Obra> Obras { get; }
     DbSet<Local> Locais { get; }
     DbSet<CentroCusto> CentrosCusto { get; }

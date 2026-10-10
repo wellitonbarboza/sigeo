@@ -214,8 +214,9 @@ public static class GeradorEmpreendimento
     /// </summary>
     /// <param name="condominioExistente">Local do condomínio já gerado (acrescenta torres); nulo cria o condomínio e as áreas comuns dele.</param>
     public static List<Local> Gerar(Guid obraId, Quadra quadra, Guid speId, Tipologia? implantacao, IReadOnlyList<TorreGerar> torres,
-        IReadOnlyDictionary<Guid, Tipologia> aptos, Local? condominioExistente = null, int ordemTorreInicial = 0)
+        IReadOnlyDictionary<Guid, Tipologia> aptos, Local? condominioExistente = null, int ordemTorreInicial = 0, string prefixoUnidade = "Apto")
     {
+        prefixoUnidade = string.IsNullOrWhiteSpace(prefixoUnidade) ? "Apto" : prefixoUnidade.Trim();
         var lista = new List<Local>();
         var cond = condominioExistente;
         if (cond is null)
@@ -251,7 +252,7 @@ public static class GeradorEmpreendimento
                         var numero = NumeroApartamento(p, seq, tt.PrimeiroTerreo && tt.NumeracaoPorAndar);
                         var u = new Local
                         {
-                            ObraId = obraId, Tipo = TipoApartamento, Nome = $"Apto {numero}", Codigo = $"{pav.Codigo}-{numero}", Ordem = seq, LocalPaiId = pav.Id,
+                            ObraId = obraId, Tipo = TipoApartamento, Nome = $"{prefixoUnidade} {numero}", Codigo = $"{pav.Codigo}-{numero}", Ordem = seq, LocalPaiId = pav.Id,
                             SpeId = speId, TipologiaId = ap.Id, AreaPrivativa = ap.AreaPrivativa, Quantidade = ap.AreaPrivativa, Unidade = "m²"
                         };
                         lista.Add(u);

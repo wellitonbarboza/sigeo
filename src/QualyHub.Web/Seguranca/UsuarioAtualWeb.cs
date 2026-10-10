@@ -14,6 +14,11 @@ public static class ClaimsQh
     public const string Funcao = "qh:funcao";
     public const string TodasObras = "qh:todas_obras";
     public const string Obras = "qh:obras";
+    /// <summary>Conta (cadastro principal com login e senha) — igual ao usuário, ou a dona do vínculo em outra construtora.</summary>
+    public const string Conta = "qh:conta";
+    public const string Plataforma = "qh:plataforma";
+    public const string VariasConstrutoras = "qh:construtoras";
+    public const string Suporte = "qh:suporte";
 }
 
 /// <summary>Claims da sessão da Área do Fornecedor.</summary>
@@ -57,6 +62,8 @@ public sealed class UsuarioAtualWeb(IHttpContextAccessor http, AuthenticationSta
     private string? Claim(string tipo) => Principal.FindFirst(tipo)?.Value;
 
     public bool Autenticado => Principal.Identity?.IsAuthenticated == true;
+    public Guid? ContaId => Guid.TryParse(Claim(ClaimsQh.Conta), out var g) ? g : UsuarioId;
+    public bool AdministradorPlataforma => Claim(ClaimsQh.Plataforma) == "1";
     public Guid EmpresaId => Guid.TryParse(Claim(ClaimsQh.EmpresaId), out var g) ? g : Guid.Empty;
     public Guid? UsuarioId => Guid.TryParse(Claim(ClaimsQh.UsuarioId), out var g) ? g : null;
     public string Nome => Claim(ClaimTypes.Name) ?? Claim("name") ?? "anônimo";

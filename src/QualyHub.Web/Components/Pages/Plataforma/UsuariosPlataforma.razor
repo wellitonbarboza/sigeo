@@ -1,0 +1,130 @@
+@page "/plataforma/usuarios"
+@inherits PaginaBase
+@inject PlataformaServico Plat
+
+<Pagina Titulo="Plataforma · Usuários e acessos" AoAtualizar="Carregar">
+    <ChildContent>
+        <div class="pagina">
+            @if (_negado) { <AcessoPlataforma /> }
+            else
+            {
+                <div class="alerta info pq"><Icone Nome="info" Tam="14" /> Um login pode acessar mais de uma construtora, com perfil e obras próprios em cada uma (o administrador de cada construtora ajusta obras e alçadas em Sistema › Usuários). Quem tem mais de uma escolhe ao entrar e troca pelo menu. A senha é da pessoa (uma só).</div>
+                <div class="barra-filtro">
+                    <label>Procurar <input type="search" @bind="_busca" @bind:event="oninput" placeholder="nome, login ou e-mail" /></label>
+                    <label>Construtora <select @bind="_fEmp"><option value="">Todas</option>@foreach (var (id, nome) in _empresas) { <option value="@id">@nome</option> }</select></label>
+                    <label>Situação <select @bind="_fSit"><option value="">Todas</option><option value="ativo">Ativo</option><option value="bloqueado">Bloqueado/inativo</option></select></label>
+                </div>
+                @if (_lista is null) { <Esqueleto Linhas="8" /> }
+                else
+                {
+                    <div class="tabela-rolavel"><table class="itens" id="plat-usuarios">
+                        <thead><tr><th>Nome</th><th>Login</th><th>E-mail</th><th>Construtoras que acessa (perfil)</th><th>Último acesso</th><th>Situação</th><th></th></tr></thead>
+                        <tbody>
+                            @foreach (var c in Filtradas)
+                            {
+                                <tr @key="c.Id"><td><b>@c.Nome</b>@if (c.AdministradorPlataforma) { <Selo Texto="plataforma" Tom="aviso" /> }</td><td>@c.Login</td><td>@c.Email</td>
+                                    <td><div class="chips-acesso">@foreach (var a in c.Acessos) { <span class="selo-acesso @(a.Ativo ? "" : "off")" title="@(a.Principal ? "cadastro principal" : a.SuporteAte != null ? "suporte" : "vínculo")">@a.Empresa · @De(a.Perfil)@(a.SuporteAte != null ? " · suporte" : "")</span> }</div></td>
+                                    <td>@(c.UltimoAcesso is { } u ? DataHora(u) : "—")</td>
+                                    <td><Selo Texto="@(!c.Ativo ? "Inativo" : c.Bloqueado ? "Bloqueado" : "Ativo")" Tom="@(c.Ativo && !c.Bloqueado ? "ok" : "erro")" /></td>
+                                    <td><button class="btn sec pq" @onclick="() => Abrir(c)">Acessos</button></td></tr>
+                            }
+                        </tbody>
+                    </table></div>
+                }
+            }
+        </div>
+    </ChildContent>
+    <Faixa><b>Plataforma</b><span>Usuários de todas as construtoras</span><span>Acesso a outra construtora usa o mesmo login</span><span>Tudo na auditoria</span></Faixa>
+</Pagina>
+
+<Modal Titulo="@(_c?.Nome ?? "Usuário")" @bind-Aberto="_aberto" Tamanho="grande">
+    <ChildContent>
+        @if (_c is not null)
+        {
+            <Erros Lista="ErrosForm" />
+            <p class="mudo">Login <b>@_c.Login</b> · @_c.Email</p>
+            <table class="itens" id="plat-acessos">
+                <thead><tr><th>Construtora</th><th>Perfil</th><th>Obras</th><th>Ativo</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var a in _c.Acessos)
+                    {
+                        <tr @key="a.UsuarioId"><td>@a.Empresa@(a.Principal ? " (principal)" : a.SuporteAte != null ? " (suporte)" : "")</td><td>@De(a.Perfil)</td><td>@(a.TodasObras ? "Todas" : "Escolhidas")</td>
+                            <td>@(a.Ativo ? "Sim" : "Não")</td>
+                            <td>@if (a.SuporteAte is null && !a.Principal) { <button class="btn sec pq" disabled="@Ocupado" @onclick="() => Alternar(a)">@(a.Ativo ? "Retirar acesso" : "Reativar")</button> }</td></tr>
+                    }
+                </tbody>
+            </table>
+            <div class="secao mt-12"><Icone Nome="mais" /> Acesso a outra construtora (ou mudar o perfil)</div>
+            <div class="form">
+                <Campo Rotulo="Construtora" Classe="s6"><select id="pa-emp" @bind="_novaEmp"><option value="">Selecione…</option>@foreach (var (id, nome) in _empresas) { <option value="@id">@nome</option> }</select></Campo>
+                <Campo Rotulo="Perfil" Classe="s4"><select id="pa-perfil" @bind="_novoPerfil">@foreach (var p in Enum.GetValues<PerfilUsuario>()) { <option value="@p">@De(p)</option> }</select></Campo>
+                <Campo Rotulo="" Classe="s2"><button class="btn prim" id="pa-dar" disabled="@(Ocupado || _novaEmp is null)" @onclick="DarAcesso">Salvar acesso</button></Campo>
+            </div>
+            @if (_senha is not null) { <div class="alerta ok"><Icone Nome="cadeado" /> Senha provisória de <b>@_c.Login</b>: <code id="pa-senha">@_senha</code> <span class="mudo">— mostrada só agora; troca obrigatória no próximo acesso.</span></div> }
+        }
+    </ChildContent>
+    <Rodape>
+        @if (_c is not null)
+        {
+            <button class="btn sec" id="pa-senha-btn" disabled="@Ocupado" @onclick="Senha"><Icone Nome="cadeado" Tam="14" /> Gerar senha provisória</button>
+            <button class="btn sec @(_c.Ativo ? "perigo" : "")" disabled="@Ocupado" @onclick="Bloquear">@(_c.Ativo ? "Bloquear conta" : "Liberar conta")</button>
+        }
+    </Rodape>
+</Modal>
+
+@code {
+    private List<PlataformaServico.LinhaConta>? _lista;
+    private List<(Guid Id, string Nome)> _empresas = [];
+    private bool _negado, _aberto;
+    private string? _busca, _fEmp, _fSit, _senha;
+    private PlataformaServico.LinhaConta? _c;
+    private Guid? _novaEmp;
+    private PerfilUsuario _novoPerfil = PerfilUsuario.Engenharia;
+
+    private IEnumerable<PlataformaServico.LinhaConta> Filtradas => (_lista ?? []).Where(c =>
+        (string.IsNullOrWhiteSpace(_busca) || $"{c.Nome} {c.Login} {c.Email}".Contains(_busca.Trim(), StringComparison.OrdinalIgnoreCase))
+        && (string.IsNullOrEmpty(_fEmp) || c.Acessos.Any(a => a.EmpresaId.ToString() == _fEmp && a.Ativo))
+        && (_fSit switch { "ativo" => c.Ativo && !c.Bloqueado, "bloqueado" => !c.Ativo || c.Bloqueado, _ => true }));
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!await Plat.EhAdministradorAsync(Cancelamento)) { _negado = true; return; }
+        await Carregar();
+    }
+
+    private async Task Carregar()
+    {
+        if (_negado) return;
+        _lista = await Plat.ContasAsync(Cancelamento);
+        _empresas = (await Plat.ConstrutorasAsync(Cancelamento)).Select(c => (c.Id, c.NomeFantasia)).ToList();
+        if (_c is not null) _c = _lista.FirstOrDefault(x => x.Id == _c.Id);
+    }
+
+    private void Abrir(PlataformaServico.LinhaConta c) { _c = c; _senha = null; ErrosForm = null; _novaEmp = null; _aberto = true; }
+
+    private async Task DarAcesso()
+    {
+        if (_c is null || _novaEmp is not { } emp) return;
+        if (await Executar(() => Plat.SalvarAcessoAsync(_c.Id, emp, _novoPerfil, true, Cancelamento), "Acesso salvo.")) { _novaEmp = null; await Carregar(); }
+    }
+
+    private async Task Alternar(PlataformaServico.AcessoConta a)
+    {
+        if (_c is null) return;
+        if (await Executar(() => Plat.SalvarAcessoAsync(_c.Id, a.EmpresaId, a.Perfil, !a.Ativo, Cancelamento), a.Ativo ? "Acesso retirado." : "Acesso reativado.")) await Carregar();
+    }
+
+    private async Task Senha()
+    {
+        if (_c is null) return;
+        string? s = null;
+        if (await Executar(async () => s = await Plat.SenhaProvisoriaAsync(_c.Id, Cancelamento))) _senha = s;
+    }
+
+    private async Task Bloquear()
+    {
+        if (_c is null) return;
+        var bloquear = _c.Ativo;
+        if (await Executar(() => Plat.BloquearContaAsync(_c.Id, bloquear, Cancelamento), bloquear ? "Conta bloqueada: não entra em nenhuma construtora." : "Conta liberada.")) await Carregar();
+    }
+}

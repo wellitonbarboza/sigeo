@@ -13,7 +13,7 @@
                 <button class="btn sec" id="nova-obra" @onclick="NovaObra"><Icone Nome="mais" Tam="14" /> Nova obra</button>
                 @if (_obraId is not null) { <a class="btn sec" href="@($"engenharia/tipologias?obra={_obraId}")"><Icone Nome="lista" Tam="14" /> Tipologias</a><a class="btn sec" href="@($"engenharia/orcamento?obra={_obraId}")"><Icone Nome="calculadora" Tam="14" /> Orçamento</a> }
             </div>
-            @if (_obraId is null && _o is null) { <div class="alerta info"><Icone Nome="info" /> Escolha a obra ou cadastre uma nova. Estrutura: Obra › Condomínio (= SPE, 1 CNPJ) › Torre › Pavimento › Apartamento › Cômodo, com áreas comuns no condomínio, na torre e no pavimento.</div> }
+            @if (_obraId is null && _o is null) { <div class="alerta info"><Icone Nome="info" /> Escolha a obra ou cadastre uma nova. @($"Estrutura: Obra › {_n.Condominio} (= SPE, 1 CNPJ) › {_n.Torre} › {_n.Pavimento} › {_n.Unidade} › {_n.Comodo}, com áreas comuns nos três primeiros níveis.")</div> }
             else
             {
                 @if (_obraId is not null) { <Abas Itens="_abas" @bind-Ativa="_aba" /> }
@@ -45,16 +45,16 @@
                         </div>
                         @if (_obraId is not null)
                         {
-                            <div class="secao"><Icone Nome="predio" /> Condomínios (SPEs) desta obra</div>
+                            <div class="secao"><Icone Nome="predio" /> @Pl(_n.Condominio) (SPE) desta obra</div>
                             <ResumoCondominios Linhas="_resumo" />
                         }
                     }
                 }
                 else if (_aba == "cond")
                 {
-                    <div class="my-6"><button class="btn sec" id="novo-cond" @onclick="Novo"><Icone Nome="mais" Tam="14" /> Novo condomínio (SPE)</button></div>
+                    <div class="my-6"><button class="btn sec" id="novo-cond" @onclick="Novo"><Icone Nome="mais" Tam="14" /> @_n.Condominio (SPE)</button></div>
                     <table class="itens" id="condominios">
-                        <thead><tr><th>Sigla</th><th>Condomínio</th><th>Tipo</th><th>Registro do condomínio</th><th class="num">Terreno (m²)</th><th>SPE (CNPJ que é dono do custo)</th><th>Implantação</th><th class="num">Torres</th><th class="num">Aptos</th><th></th></tr></thead>
+                        <thead><tr><th>Sigla</th><th>@_n.Condominio</th><th>Tipo</th><th>Registro do condomínio</th><th class="num">Terreno (m²)</th><th>SPE (CNPJ que é dono do custo)</th><th>Implantação</th><th class="num">@Pl(_n.Torre)</th><th class="num">@Pl(_n.Unidade)</th><th></th></tr></thead>
                         <tbody>
                             @foreach (var q in _quadras)
                             {
@@ -75,7 +75,7 @@
 
                     <div class="secao"><Icone Nome="contrato" /> Todas as SPEs da obra</div>
                     <table class="itens" id="spes">
-                        <thead><tr><th>Sigla</th><th>Condomínio</th><th>Razão social</th><th>Nome curto</th><th>CNPJ</th><th>Engenheiro responsável</th><th>Afetação / RET</th><th>Ativa</th><th></th></tr></thead>
+                        <thead><tr><th>Sigla</th><th>@_n.Condominio</th><th>Razão social</th><th>Nome curto</th><th>CNPJ</th><th>Engenheiro responsável</th><th>Afetação / RET</th><th>Ativa</th><th></th></tr></thead>
                         <tbody>
                             @foreach (var sp in _spes)
                             {
@@ -91,12 +91,12 @@
                 }
                 else if (_aba == "ger")
                 {
-                    <div class="secao"><Icone Nome="tabela" /> Resumo por condomínio</div>
+                    <div class="secao"><Icone Nome="tabela" /> Resumo por @_n.Condominio.ToLower()</div>
                     <ResumoCondominios Linhas="_resumo" />
 
-                    <div class="secao"><Icone Nome="predio" /> Torres cadastradas</div>
+                    <div class="secao"><Icone Nome="predio" /> @Pl(_n.Torre) da obra</div>
                     <table class="itens" id="torres">
-                        <thead><tr><th>Código</th><th>Torre</th><th>Condomínio</th><th>Tipologia</th><th class="num">Pavimentos</th><th class="num">Aptos</th><th></th></tr></thead>
+                        <thead><tr><th>Código</th><th>@_n.Torre</th><th>@_n.Condominio</th><th>Tipologia</th><th class="num">@Pl(_n.Pavimento)</th><th class="num">@Pl(_n.Unidade)</th><th></th></tr></thead>
                         <tbody>
                             @foreach (var t in Torres)
                             {
@@ -108,20 +108,20 @@
                                     <td><span class="grupo-btn"><button class="btn sec pq" @onclick="() => RenomearTorre(t)">Editar</button>
                                         <button class="btn sec pq perigo" disabled="@Ocupado" @onclick="() => ExcluirTorre(t)">Excluir</button></span></td></tr>
                             }
-                            @if (!Torres.Any()) { <tr><td colspan="7" class="mudo">Nenhuma torre nesta obra.</td></tr> }
+                            @if (!Torres.Any()) { <tr><td colspan="7" class="mudo">Nada cadastrado nesta obra.</td></tr> }
                         </tbody>
                     </table>
                     <div class="alerta info"><Icone Nome="info" /> Editar muda o nome (o código fica, é a chave das FVS, requisições e QR). Excluir leva pavimentos, apartamentos, cômodos, áreas comuns, a distribuição do orçamento e os locais das redes de planejamento; é bloqueado se já houver FVS, RNC, requisição, contrato, medição, apropriação, SST ou cronograma nesses locais.</div>
 
-                    <div class="secao"><Icone Nome="mais" /> Gerar torres no condomínio</div>
+                    <div class="secao"><Icone Nome="mais" /> Gerar @Pl(_n.Torre).ToLower() · @_n.Condominio</div>
                     @if (_quadras.Count == 0 || !_tips.Any(t => t.Tipo == TipoTipologia.Torre)) { <div class="alerta aviso"><Icone Nome="info" /> Cadastre o condomínio (com a SPE) e as tipologias de apartamento e de torre antes de gerar.</div> }
                     else
                     {
                         <div class="form">
-                            <Campo Rotulo="Condomínio" Obrigatorio Classe="s6"><select id="g-cond" @bind="_gQuadraId"><option value="">Selecione…</option>@foreach (var q in _quadras.Where(q => q.Ativa)) { <option value="@q.Id">@q.Codigo – @q.Nome</option> }</select></Campo>
+                            <Campo Rotulo="@_n.Condominio" Obrigatorio Classe="s6"><select id="g-cond" @bind="_gQuadraId"><option value="">Selecione…</option>@foreach (var q in _quadras.Where(q => q.Ativa)) { <option value="@q.Id">@q.Codigo – @q.Nome</option> }</select></Campo>
                         </div>
                         <table class="itens" id="g-torres">
-                            <thead><tr><th>Torre</th><th>Tipologia da torre</th><th class="num">Pavimentos</th><th class="num">Aptos</th><th></th></tr></thead>
+                            <thead><tr><th>@_n.Torre</th><th>Tipologia (@_n.Torre.ToLower())</th><th class="num">@Pl(_n.Pavimento)</th><th class="num">@Pl(_n.Unidade)</th><th></th></tr></thead>
                             <tbody>
                                 @foreach (var t in _gTorres)
                                 {
@@ -134,7 +134,7 @@
                             </tbody>
                         </table>
                         <div class="barra-botoes mais-ar">
-                            <button class="btn sec" id="g-add" @onclick="AddTorre"><Icone Nome="mais" Tam="14" /> Torre</button>
+                            <button class="btn sec" id="g-add" @onclick="AddTorre"><Icone Nome="mais" Tam="14" /> @_n.Torre</button>
                             <button class="btn prim" id="g-gerar" disabled="@Ocupado" @onclick="Gerar"><Icone Nome="check" Tam="16" /> Gerar @_gTorres.Sum(t => _tips.FirstOrDefault(x => x.Id == t.TipologiaId) is { } tt ? AptosTorre(tt) : 0) apartamentos</button>
                             <button class="btn sec" id="g-sinc" disabled="@Ocupado" @onclick="Sincronizar" title="Atualiza as medidas dos cômodos/áreas comuns e cria os ambientes incluídos nas tipologias depois da geração"><Icone Nome="atualizar" Tam="14" /> Sincronizar com as tipologias</button>
                         </div>
@@ -154,7 +154,7 @@
                         <tbody>
                             @foreach (var (l, nivel) in ArvoreLista.Skip(_pagLoc * TamPag).Take(TamPag))
                             {
-                                <tr @key="l.Id"><td style="padding-left:@(8 + nivel * 16)px">@l.Codigo</td><td>@l.Nome</td><td>@l.Tipo</td><td>@l.Categoria</td>
+                                <tr @key="l.Id"><td style="padding-left:@(8 + nivel * 16)px">@l.Codigo</td><td>@l.Nome</td><td>@_n.Rotulo(l.Tipo)</td><td>@l.Categoria</td>
                                     <td class="num">@l.AreaPiso?.ToString("N2", Br)</td><td class="num">@l.Perimetro?.ToString("N2", Br)</td><td class="num">@l.AreaParede?.ToString("N2", Br)</td>
                                     <td class="num">@(l.Quantidade is null ? "" : $"{l.Quantidade.Value.ToString("0.##", Br)} {l.Unidade}")</td>
                                     <td><a title="QR do local (abre a FVS no celular)" href="campo/local/@l.QrToken" target="_blank" data-enhance-nav="false"><Icone Nome="qr" Tam="16" /></a></td>
@@ -168,13 +168,13 @@
                 else
                 {
                     <div class="barra-filtro">
-                        <label>Condomínio <select @bind="_fCond" @bind:after="() => { _unidFiltradas = null; _pagUni = 0; }"><option value="">Todos</option>@foreach (var q in _quadras) { <option value="@q.Id">@q.Codigo – @q.Nome</option> }</select></label>
+                        <label>@_n.Condominio <select @bind="_fCond" @bind:after="() => { _unidFiltradas = null; _pagUni = 0; }"><option value="">Todos</option>@foreach (var q in _quadras) { <option value="@q.Id">@q.Codigo – @q.Nome</option> }</select></label>
                         <button class="btn sec" disabled="@(Ocupado || _editadas.Count == 0)" @onclick="SalvarFracoes"><Icone Nome="check" Tam="14" /> Salvar frações (@_editadas.Count)</button>
                         @if (_fCond is { } fq) { <button class="btn sec" disabled="@Ocupado" @onclick="() => Recalcular(fq)">Recalcular pela área</button> }
                     </div>
                     <Paginacao Total="UnidadesFiltradas.Count" Pagina="_pagUni" Tamanho="TamPag" AoMudar="p => _pagUni = p" />
                     <table class="itens" id="unidades">
-                        <thead><tr><th>Código</th><th>Apartamento</th><th>Tipologia</th><th class="num">Área priv. (m²)</th><th class="num">Fração ideal no condomínio (%)</th></tr></thead>
+                        <thead><tr><th>Código</th><th>@_n.Unidade</th><th>Tipologia</th><th class="num">Área priv. (m²)</th><th class="num">Fração ideal no condomínio (%)</th></tr></thead>
                         <tbody>
                             @foreach (var u in UnidadesFiltradas.Skip(_pagUni * TamPag).Take(TamPag))
                             {
@@ -190,10 +190,10 @@
             }
         </div>
     </ChildContent>
-    <Faixa><b>Engenharia · Estrutura</b><span>1 condomínio = 1 SPE = 1 CNPJ · torres, pavimentos, apartamentos e cômodos gerados pelas tipologias</span><span>Fração ideal confere 100% por condomínio</span></Faixa>
+    <Faixa><b>Engenharia · Estrutura</b><span>@($"1 {_n.Condominio.ToLower()} = 1 SPE = 1 CNPJ · {string.Join(", ", new[] { _n.Torre, _n.Pavimento, _n.Unidade, _n.Comodo }.Select(x => Pl(x).ToLower()))} gerados pelas tipologias")</span><span>Fração ideal confere 100% por @_n.Condominio.ToLower()</span></Faixa>
 </Pagina>
 
-<Modal @bind-Aberto="_abertoCond" Titulo="Condomínio e SPE" Tamanho="grande">
+<Modal @bind-Aberto="_abertoCond" Titulo="@($"{_n.Condominio} e SPE")" Tamanho="grande">
     <ChildContent>
         @if (_q is not null && _s is not null)
         {
@@ -228,14 +228,14 @@
     <Rodape><button class="btn prim" id="loc-salvar" disabled="@Ocupado" @onclick="SalvarLocal"><Icone Nome="check" Tam="16" /> Salvar</button></Rodape>
 </Modal>
 
-<Modal @bind-Aberto="_abertoTorre" Titulo="Editar torre" Tamanho="pequena">
+<Modal @bind-Aberto="_abertoTorre" Titulo="@($"Editar {_n.Torre.ToLower()}")" Tamanho="pequena">
     <ChildContent>
         @if (_torre is not null)
         {
             <Erros Lista="ErrosForm" />
             <div class="form">
                 <Campo Rotulo="Código" Classe="s4"><input value="@_torre.Codigo" disabled /></Campo>
-                <Campo Rotulo="Nome da torre" Obrigatorio Classe="s8"><input id="torre-nome" @bind="_nomeTorre" /></Campo>
+                <Campo Rotulo="Nome" Obrigatorio Classe="s8"><input id="torre-nome" @bind="_nomeTorre" /></Campo>
             </div>
         }
     </ChildContent>
@@ -269,7 +269,10 @@
     private bool _abertoCond, _abertoLoc;
     private string _aba = "obra";
     private List<TorreForm> _gTorres = [];
-    private static readonly List<(string, string)> _abas = [("obra", "Dados da obra"), ("cond", "Condomínios (SPE)"), ("ger", "Gerador e resumo"), ("uni", "Apartamentos e fração ideal"), ("loc", "Locais")];
+    private List<(string, string)> _abas => [("obra", "Dados da obra"), ("cond", $"{Pl(_n.Condominio)} (SPE)"), ("ger", "Gerador e resumo"), ("uni", $"{Pl(_n.Unidade)} e fração ideal"), ("loc", "Locais")];
+    private EstruturaLocais _n = EstruturaLocais.Condominios;
+    /// <summary>Plural simples dos nomes de nível (Torre → Torres, Nível → Níveis, Casa → Casas).</summary>
+    private static string Pl(string s) => s.Length == 0 ? s : s.EndsWith('l') ? s[..^1] + "is" : s.EndsWith('m') ? s[..^1] + "ns" : s[^1] is 'r' or 'z' or 's' ? s + "es" : s + "s";
     private static readonly string[] TiposManuais = [GeradorEmpreendimento.TipoAreaComum, "Elemento", "Infraestrutura", "Canteiro"];
     private List<Obra> _todasObras = [];
     /// <summary>O cadastro lista todas as obras (inclusive inativas), não só as do catálogo.</summary>
@@ -355,6 +358,7 @@
 
     protected override async Task OnInitializedAsync()
     {
+        _n = await Cat.EstruturaAsync();
         _usuarios = await Cat.UsuariosAsync(); _docs = await Cat.DocumentosSgqAsync();
         _tiposAgrup = await Cat.ListaAsync(TipoLista.TipoAgrupamento);
         if (_tiposAgrup.Count == 0) _tiposAgrup = [.. CargaPadrao.TiposAgrupamento];
@@ -392,7 +396,7 @@
     private void AddTorre()
     {
         var n = _gQuadraId is { } q && _quadras.FirstOrDefault(x => x.Id == q)?.LocalId is { } raiz ? _locais.Count(l => l.LocalPaiId == raiz && l.Tipo == GeradorEmpreendimento.TipoTorre) : 0;
-        _gTorres.Add(new TorreForm { Nome = $"Torre {n + _gTorres.Count + 1:00}", TipologiaId = _tips.FirstOrDefault(t => t.Tipo == TipoTipologia.Torre)?.Id ?? Guid.Empty });
+        _gTorres.Add(new TorreForm { Nome = $"{_n.Torre} {n + _gTorres.Count + 1:00}", TipologiaId = _tips.FirstOrDefault(t => t.Tipo == TipoTipologia.Torre)?.Id ?? Guid.Empty });
     }
 
     private void Novo()
