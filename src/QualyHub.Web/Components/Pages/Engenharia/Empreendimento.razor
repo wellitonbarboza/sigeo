@@ -94,6 +94,25 @@
                     <div class="secao"><Icone Nome="tabela" /> Resumo por condomínio</div>
                     <ResumoCondominios Linhas="_resumo" />
 
+                    <div class="secao"><Icone Nome="predio" /> Torres cadastradas</div>
+                    <table class="itens" id="torres">
+                        <thead><tr><th>Código</th><th>Torre</th><th>Condomínio</th><th>Tipologia</th><th class="num">Pavimentos</th><th class="num">Aptos</th><th></th></tr></thead>
+                        <tbody>
+                            @foreach (var t in Torres)
+                            {
+                                var pai = t.LocalPaiId is { } pid ? _locais.FirstOrDefault(x => x.Id == pid) : null;
+                                var pavs = _locais.Where(x => x.LocalPaiId == t.Id && x.Tipo == GeradorEmpreendimento.TipoPavimento).Select(x => x.Id).ToHashSet();
+                                <tr @key="t.Id"><td>@t.Codigo</td><td><b>@t.Nome</b></td><td>@(pai is null ? "—" : $"{pai.Codigo} – {pai.Nome}")</td>
+                                    <td>@(t.TipologiaId is { } tid ? _nomeTip.GetValueOrDefault(tid) : null)</td>
+                                    <td class="num">@pavs.Count</td><td class="num">@_locais.Count(x => x.Tipo == GeradorEmpreendimento.TipoApartamento && x.LocalPaiId is { } lp && pavs.Contains(lp))</td>
+                                    <td><span class="grupo-btn"><button class="btn sec pq" @onclick="() => RenomearTorre(t)">Editar</button>
+                                        <button class="btn sec pq perigo" disabled="@Ocupado" @onclick="() => ExcluirTorre(t)">Excluir</button></span></td></tr>
+                            }
+                            @if (!Torres.Any()) { <tr><td colspan="7" class="mudo">Nenhuma torre nesta obra.</td></tr> }
+                        </tbody>
+                    </table>
+                    <div class="alerta info"><Icone Nome="info" /> Editar muda o nome (o código fica, é a chave das FVS, requisições e QR). Excluir leva pavimentos, apartamentos, cômodos, áreas comuns, a distribuição do orçamento e os locais das redes de planejamento; é bloqueado se já houver FVS, RNC, requisição, contrato, medição, apropriação, SST ou cronograma nesses locais.</div>
+
                     <div class="secao"><Icone Nome="mais" /> Gerar torres no condomínio</div>
                     @if (_quadras.Count == 0 || !_tips.Any(t => t.Tipo == TipoTipologia.Torre)) { <div class="alerta aviso"><Icone Nome="info" /> Cadastre o condomínio (com a SPE) e as tipologias de apartamento e de torre antes de gerar.</div> }
                     else
@@ -207,6 +226,20 @@
         }
     </ChildContent>
     <Rodape><button class="btn prim" id="loc-salvar" disabled="@Ocupado" @onclick="SalvarLocal"><Icone Nome="check" Tam="16" /> Salvar</button></Rodape>
+</Modal>
+
+<Modal @bind-Aberto="_abertoTorre" Titulo="Editar torre" Tamanho="pequena">
+    <ChildContent>
+        @if (_torre is not null)
+        {
+            <Erros Lista="ErrosForm" />
+            <div class="form">
+                <Campo Rotulo="Código" Classe="s4"><input value="@_torre.Codigo" disabled /></Campo>
+                <Campo Rotulo="Nome da torre" Obrigatorio Classe="s8"><input id="torre-nome" @bind="_nomeTorre" /></Campo>
+            </div>
+        }
+    </ChildContent>
+    <Rodape><button class="btn prim" id="torre-salvar" disabled="@Ocupado" @onclick="SalvarTorre"><Icone Nome="check" Tam="16" /> Salvar</button></Rodape>
 </Modal>
 
 <Modal @bind-Aberto="_abertoSpe" Titulo="SPE" Tamanho="media">
@@ -394,6 +427,30 @@
             await Eng.SalvarCondominioAsync(_q!, spe, ct: Cancelamento); // condomínio + SPE numa transação só
         }, "Condomínio salvo.");
         if (ok) { _abertoCond = false; Cat.Invalidar(); await Carregar(); }
+    }
+
+    private IEnumerable<Local> Torres => _locais.Where(l => l.Tipo == GeradorEmpreendimento.TipoTorre).OrderBy(l => l.Codigo);
+    private Local? _torre;
+    private string _nomeTorre = "";
+    private bool _abertoTorre;
+
+    private void RenomearTorre(Local t) { _torre = t; _nomeTorre = t.Nome; ErrosForm = null; _abertoTorre = true; }
+
+    private async Task SalvarTorre()
+    {
+        if (await Executar(() => Eng.RenomearTorreAsync(_torre!.Id, _nomeTorre, Cancelamento), "Torre renomeada.")) { _abertoTorre = false; Cat.Invalidar(); await Carregar(); }
+    }
+
+    private async Task ExcluirTorre(Local t)
+    {
+        List<string> uso = [];
+        if (!await Executar(async () => uso = await Eng.UsoDaTorreAsync(t.Id, Cancelamento))) return;
+        if (uso.Count > 0) { ErrosForm = [$"{t.Codigo} – {t.Nome} não pode ser excluída: {string.Join(", ", uso)}. Renomeie ou cancele esses registros antes."]; Notif.Erro(ErrosForm[0]); return; }
+        Confirmar($"Excluir {t.Codigo} – {t.Nome} com pavimentos, apartamentos, cômodos e áreas comuns? A distribuição do orçamento desses locais também sai. Fica no histórico de auditoria.", async () =>
+        {
+            var n = 0;
+            if (await Executar(async () => n = await Eng.ExcluirTorreAsync(t.Id, Cancelamento), null)) { Notif.Sucesso($"Torre excluída ({n} locais)."); Cat.Invalidar(); await Carregar(); }
+        });
     }
 
     private void EditarSpe(Spe s) { _sp = s; ErrosForm = null; _abertoSpe = true; }

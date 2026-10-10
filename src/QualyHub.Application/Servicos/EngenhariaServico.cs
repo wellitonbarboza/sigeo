@@ -323,6 +323,91 @@ public sealed class EngenhariaServico(IFabricaDb fabrica)
         await db.SaveChangesAsync(ct);
     }
 
+    /// <summary>Renomeia a torre (o código fica: é a chave usada nas FVS, requisições e QR dos locais).</summary>
+    public async Task RenomearTorreAsync(Guid torreId, string nome, CancellationToken ct = default)
+    {
+        nome = (nome ?? "").Trim();
+        if (nome.Length == 0) throw new RegraDeNegocioException("Informe o nome da torre.");
+        await using var db = fabrica.Criar();
+        var t = await db.Locais.FirstOrDefaultAsync(l => l.Id == torreId && l.Tipo == GeradorEmpreendimento.TipoTorre, ct) ?? throw new RegraDeNegocioException("Torre não encontrada.");
+        if (await db.Locais.AnyAsync(l => l.Id != t.Id && l.ObraId == t.ObraId && l.LocalPaiId == t.LocalPaiId && l.Tipo == GeradorEmpreendimento.TipoTorre && l.Nome == nome, ct))
+            throw new RegraDeNegocioException($"Já existe a torre \"{nome}\" neste condomínio.");
+        t.Nome = nome;
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// O que impede excluir a torre: registros de obra (FVS, RNC, requisição, contrato, medição, apropriação, SST, cronograma)
+    /// em qualquer local dela. Lista vazia = pode excluir.
+    /// </summary>
+    public async Task<List<string>> UsoDaTorreAsync(Guid torreId, CancellationToken ct = default)
+    {
+        await using var db = fabrica.Criar();
+        var (_, ids) = await SubarvoreTorreAsync(db, torreId, ct);
+        return await UsoAsync(db, ids, ct);
+    }
+
+    /// <summary>
+    /// Exclui a torre com pavimentos, apartamentos, cômodos e áreas comuns (exclusão lógica, fica na auditoria).
+    /// Leva junto a distribuição do orçamento e os locais das redes de planejamento; bloqueia se houver registro de obra.
+    /// </summary>
+    public async Task<int> ExcluirTorreAsync(Guid torreId, CancellationToken ct = default)
+    {
+        var n = 0;
+        await fabrica.EmTransacaoAsync(async db =>
+        {
+            var (torre, ids) = await SubarvoreTorreAsync(db, torreId, ct);
+            var uso = await UsoAsync(db, ids, ct);
+            if (uso.Count > 0)
+                throw new RegraDeNegocioException($"A torre {torre.Codigo} tem registros e não pode ser excluída: {string.Join(", ", uso)}. Renomeie a torre ou cancele esses registros antes.");
+            db.ServicosLocais.RemoveRange(await db.ServicosLocais.Where(x => ids.Contains(x.LocalId)).ToListAsync(ct));
+            db.RedeLocais.RemoveRange(await db.RedeLocais.Where(x => ids.Contains(x.LocalId)).ToListAsync(ct));
+            db.RedePacoteLocais.RemoveRange(await db.RedePacoteLocais.Where(x => ids.Contains(x.LocalId)).ToListAsync(ct));
+            var locais = await db.Locais.Where(l => ids.Contains(l.Id)).ToListAsync(ct);
+            db.Locais.RemoveRange(locais);
+            n = locais.Count;
+            await db.SaveChangesAsync(ct);
+            // A fração ideal do condomínio é redistribuída entre os apartamentos que ficaram.
+            if (await db.Quadras.FirstOrDefaultAsync(q => q.LocalId == torre.LocalPaiId, ct) is { } quadra)
+            {
+                await RecalcularFracaoAsync(db, quadra, ct);
+                await db.SaveChangesAsync(ct);
+            }
+        }, ct);
+        return n;
+    }
+
+    private static async Task<(Local Torre, List<Guid> Ids)> SubarvoreTorreAsync(IQualyHubDb db, Guid torreId, CancellationToken ct)
+    {
+        var torre = await db.Locais.AsNoTracking().FirstOrDefaultAsync(l => l.Id == torreId && l.Tipo == GeradorEmpreendimento.TipoTorre, ct)
+            ?? throw new RegraDeNegocioException("Torre não encontrada.");
+        var locais = await db.Locais.AsNoTracking().Where(l => l.ObraId == torre.ObraId).Select(l => new { l.Id, l.LocalPaiId }).ToListAsync(ct);
+        var filhos = locais.ToLookup(l => l.LocalPaiId, l => l.Id);
+        var ids = new List<Guid>();
+        var fila = new Queue<Guid>([torre.Id]);
+        while (fila.TryDequeue(out var id)) { ids.Add(id); foreach (var f in filhos[id]) fila.Enqueue(f); }
+        return (torre, ids);
+    }
+
+    private static async Task<List<string>> UsoAsync(IQualyHubDb db, List<Guid> ids, CancellationToken ct)
+    {
+        var uso = new List<string>();
+        async Task Conta(IQueryable<object> q, string nome) { var c = await q.CountAsync(ct); if (c > 0) uso.Add($"{c} {nome}"); }
+        await Conta(db.Fvss.Where(x => ids.Contains(x.LocalId)), "FVS");
+        await Conta(db.Rncs.Where(x => x.LocalId != null && ids.Contains(x.LocalId.Value)), "RNC");
+        await Conta(db.AplicacoesLote.Where(x => ids.Contains(x.LocalId)), "aplicação de lote (FVM)");
+        await Conta(db.RequisicaoItemLocais.Where(x => ids.Contains(x.LocalId)), "item de requisição");
+        await Conta(db.ContratoItemLocais.Where(x => ids.Contains(x.LocalId)), "item de contrato");
+        await Conta(db.MedicaoItens.Where(x => x.LocalId != null && ids.Contains(x.LocalId.Value)), "item de medição");
+        await Conta(db.TransferenciaItens.Where(x => x.LocalId != null && ids.Contains(x.LocalId.Value)), "item de transferência");
+        await Conta(db.Apropriacoes.Where(x => ids.Contains(x.LocalId)), "apropriação de mão de obra");
+        await Conta(db.InspecoesSeguranca.Where(x => ids.Contains(x.LocalId)), "inspeção de segurança");
+        await Conta(db.PermissoesTrabalho.Where(x => ids.Contains(x.LocalId)), "permissão de trabalho");
+        await Conta(db.Ocorrencias.Where(x => ids.Contains(x.LocalId)), "ocorrência de SST");
+        await Conta(db.AtividadesCronograma.Where(x => x.LocalId != null && ids.Contains(x.LocalId.Value)), "atividade de cronograma");
+        return uso;
+    }
+
     private static async Task RecalcularFracaoAsync(IQualyHubDb db, Quadra q, CancellationToken ct)
     {
         if (q.LocalId is not { } raiz) return;
