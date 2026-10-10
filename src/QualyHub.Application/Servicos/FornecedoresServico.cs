@@ -62,7 +62,7 @@ public sealed class FornecedoresServico(IFabricaDb fabrica, TimeProvider relogio
         t.PorEntrega = t.Frequencia == FrequenciaDocumento.PorEntrega;
         t.Momento = t.Frequencia switch { FrequenciaDocumento.PorEntrega => MomentoDocumento.PorEntrega, FrequenciaDocumento.PorContrato => MomentoDocumento.PorContrato, _ => MomentoDocumento.Cadastro };
         await using var db = fabrica.Criar();
-        await Permissoes.ExigirAsync(db, fabrica.Usuario, "alterar a matriz de documentos", Domain.Common.PerfilUsuario.Qualidade, Domain.Common.PerfilUsuario.Suprimentos);
+        await Permissoes.ExigirTelaAsync(db, fabrica.Usuario, "fornecedores/exigencias", Contratos.AcaoTela.Incluir, ct);
         if (await db.TiposDocumento.AnyAsync(x => x.Id != t.Id && x.AplicaA == t.AplicaA && x.Nome == t.Nome, ct)) throw new RegraDeNegocioException("Já existe documento com este nome.");
         await Grafo.SalvarAsync(db, t);
         await db.SaveChangesAsync(ct);

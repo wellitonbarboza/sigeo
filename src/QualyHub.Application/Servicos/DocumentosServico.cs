@@ -42,7 +42,7 @@ public sealed class DocumentosServico(IFabricaDb fabrica, IUsuarioAtual usuario,
         ValidacaoException.Se(ValidarPasta(p));
         await using var db = fabrica.Criar();
         // A tela só mostra "Nova pasta" para a gestão do SGQ; a regra vale também fora dela.
-        await Permissoes.ExigirAsync(db, usuario, "criar pastas do SGQ", PerfilUsuario.Qualidade, PerfilUsuario.Diretoria);
+        await Permissoes.ExigirTelaAsync(db, usuario, "sgq/documentos", Contratos.AcaoTela.Incluir);
         // Cópia limpa: a instância vem da tela e não deve arrastar estado de rastreamento para este contexto.
         var nova = new Pasta { Id = p.Id, Nome = p.Nome.Trim(), Ordem = p.Ordem, PastaPaiId = p.PastaPaiId };
         db.Pastas.Add(nova);

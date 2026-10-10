@@ -117,9 +117,24 @@ public sealed class PlataformaServico(IFabricaSistema sistema, IUsuarioAtual usu
         atual.Codigo = e.Codigo?.Trim(); atual.RazaoSocial = e.RazaoSocial.Trim(); atual.NomeFantasia = string.IsNullOrWhiteSpace(e.NomeFantasia) ? e.RazaoSocial.Trim() : e.NomeFantasia.Trim();
         atual.Cnpj = (e.Cnpj ?? "").Trim(); atual.NivelSiac = e.NivelSiac; atual.Ativa = e.Ativa; atual.EnderecoEntregaPadrao = e.EnderecoEntregaPadrao;
         atual.ModeloEstrutura = estrutura.Modelo; atual.NomesNiveis = estrutura.Serializar();
+        var bloqAntes = Bloqueadas(atual.TelasBloqueadas);
+        var bloq = Bloqueadas(e.TelasBloqueadas);
+        var bloqueou = bloq.Except(bloqAntes).ToList(); var liberou = bloqAntes.Except(bloq).ToList();
+        if (bloqueou.Count > 0) mudou.Add("bloqueou: " + string.Join(", ", bloqueou.Select(NomeTela)));
+        if (liberou.Count > 0) mudou.Add("liberou: " + string.Join(", ", liberou.Select(NomeTela)));
+        atual.TelasBloqueadas = bloq.Count > 0 ? string.Join(';', bloq.Order(StringComparer.Ordinal)) : null;
         Registrar(db, quem.Nome, e.Ativa ? "Alterou construtora" : "Suspendeu construtora", atual.Id, atual.NomeFantasia, mudou.Count > 0 ? string.Join("; ", mudou) : null);
         await db.SaveChangesAsync(ct);
+        AcessoServico.Invalidar();
     }
+
+    /// <summary>Telas bloqueadas válidas (do catálogo e de módulo que a plataforma pode desligar).</summary>
+    public static List<string> Bloqueadas(string? texto) =>
+        (texto ?? "").Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(r => Contratos.CatalogoTelas.Telas.TryGetValue(r, out var t) && !Contratos.CatalogoTelas.Modulos.First(m => m.Id == t.Modulo).Fixo)
+            .Select(r => Contratos.CatalogoTelas.Telas[r].Rota).Distinct().ToList();
+
+    private static string NomeTela(string rota) => Contratos.CatalogoTelas.Telas.TryGetValue(rota, out var t) ? t.Nome : rota;
 
     public sealed record NovaConstrutora(Empresa Empresa, EstruturaLocais Estrutura, string AdminNome, string AdminEmail, string AdminLogin,
         string? ObraCodigo, string? ObraNome, string? ObraCidade, string? ObraUf, string? ObraEndereco);

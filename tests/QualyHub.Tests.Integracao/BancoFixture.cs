@@ -81,5 +81,6 @@ public sealed class BancoFixture : IAsyncLifetime
     public ContratosServico Contratos => new(Fabrica, Aprovacoes, Relogio);
     public MedicoesServico Medicoes => new(Fabrica, Aprovacoes, Usuario, Relogio);
     public IFabricaSistema Sistema => new FabricaSistema(_cs);
+    public string ConnectionString => _cs;
     public AcessoFornecedorServico AcessoFornecedor(IEnvioMensagens envio) => new(Sistema, envio, Relogio);
 }

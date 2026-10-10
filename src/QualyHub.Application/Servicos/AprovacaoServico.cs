@@ -119,10 +119,14 @@ public sealed class AprovacaoServico(IUsuarioAtual usuario, TimeProvider relogio
         return (new Aprovador(u.Id, u.Nome, u.Perfil, u.LimitesAprovacao.ToList()), recebidas);
     }
 
+    private (Contratos.MapaAcesso Mapa, DateTimeOffset Em)? _mapa;
+
     /// <summary>O usuário logado pode decidir a etapa pendente? (para habilitar os botões na tela).</summary>
     public async Task<bool> PodeDecidirAsync(IQualyHubDb db, SolicitacaoAprovacao s, CancellationToken ct = default)
     {
-        if (s.Status != StatusAprovacao.EmAprovacao || s.Pendente is not { } etapa || usuario.UsuarioId is null) return false;
+        if (s.Status != StatusAprovacao.EmAprovacao || s.Pendente is not { } etapa || usuario.UsuarioId is not { } uid) return false;
+        if (_mapa is not { } m || m.Em < relogio.GetUtcNow().AddSeconds(-30)) _mapa = m = (await AcessoServico.CalcularAsync(db, uid, ct), relogio.GetUtcNow());
+        if (!m.Mapa.Pode(TelaDe(s.Entidade), Contratos.AcaoTela.Aprovar)) return false;
         var (ator, dels) = await AtorAsync(db, ct);
         return etapa.Autoriza(ator) || dels.Any(d => d.Delegacao.Vigente(relogio.GetUtcNow(), s.Entidade, s.ObraId) && etapa.Autoriza(d.Titular));
     }
@@ -130,6 +134,8 @@ public sealed class AprovacaoServico(IUsuarioAtual usuario, TimeProvider relogio
     public async Task<SolicitacaoAprovacao> DecidirAsync(IQualyHubDb db, Guid solicitacaoId, DecisaoAprovacao decisao, string? justificativa, CancellationToken ct = default)
     {
         var s = await db.SolicitacoesAprovacao.Include(x => x.Etapas).FirstAsync(x => x.Id == solicitacaoId, ct);
+        // Aprovar = permissão "Aprovar" na tela do documento (perfil de acesso) E a alçada de valor (abaixo).
+        await Permissoes.ExigirTelaAsync(db, usuario, TelaDe(s.Entidade), Contratos.AcaoTela.Aprovar, ct);
         var (ator, dels) = await AtorAsync(db, ct);
         var agora = relogio.GetUtcNow();
         var etapa = s.Pendente;
@@ -137,6 +143,15 @@ public sealed class AprovacaoServico(IUsuarioAtual usuario, TimeProvider relogio
         await RefletirAsync(db, s, etapa!, ator.Nome, agora, justificativa, ct);
         return s;
     }
+
+    /// <summary>Tela do documento em aprovação (onde vale a permissão "Aprovar").</summary>
+    public static string TelaDe(EntidadeAprovavel e) => e switch
+    {
+        EntidadeAprovavel.Pedido => "pedidos", EntidadeAprovavel.Medicao => "medicoes", EntidadeAprovavel.DocumentoSgq => "sgq/documentos",
+        EntidadeAprovavel.AvaliacaoFornecedor => "fornecedores/avaliacao", EntidadeAprovavel.Requisicao => "requisicoes", EntidadeAprovavel.Cotacao => "cotacoes",
+        EntidadeAprovavel.Contrato or EntidadeAprovavel.Aditivo => "contratos", EntidadeAprovavel.Pagamento => "pagamentos",
+        EntidadeAprovavel.Cronograma => "engenharia/planejamento", _ => throw new ArgumentOutOfRangeException(nameof(e))
+    };
 
     public static async Task<SolicitacaoAprovacao?> UltimaAsync(IQualyHubDb db, EntidadeAprovavel e, Guid id, CancellationToken ct = default) =>
         await db.SolicitacoesAprovacao.AsNoTracking().Include(x => x.Etapas).Where(x => x.Entidade == e && x.EntidadeId == id)

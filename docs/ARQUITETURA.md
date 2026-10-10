@@ -105,3 +105,21 @@ QualyHub.Web (Blazor Server + API)  ──►  QualyHub.Application (casos de us
 - **Administrador da plataforma**: `Usuario.AdministradorPlataforma` (na conta principal). Quem faz a configuração inicial já é; os demais ativam em `/plataforma/ativar` com o segredo `CodigoPlataforma` (ou `CodigoConfiguracaoInicial`).
 - `PlataformaServico` (IFabricaSistema, sem filtro de empresa): construtoras (lista com obras/usuários/último acesso; editar, suspender = `Empresa.Ativa` falsa, ninguém entra), nova construtora (carga padrão, administrador com senha provisória — ou vínculo se o login já existe —, estrutura de locais, primeira obra opcional), contas (dar/retirar acesso por construtora e perfil, bloquear, senha provisória), **suporte** (vínculo Administrador de 4 h com motivo, `SuporteAte`, faixa no topo) e `RegistroPlataforma` (auditoria da plataforma). Telas: Plataforma › Construtoras / Usuários e acessos / Auditoria.
 - **Estrutura de locais**: `Empresa.ModeloEstrutura` + `NomesNiveis` → `EstruturaLocais` (Condomínios com SPE, Edifício, Loteamento/casas ou personalizado): nomes dos níveis (dono do CNPJ, bloco/torre/quadra, pavimento/nível, unidade, cômodo) e prefixo da unidade gerada ("Apto 101", "Casa 01"). O gerador e os tipos internos seguem Condomínio › Torre › Pavimento › Apartamento › Cômodo; as telas de Obras e Tipologias mostram os nomes da construtora (`Catalogos.EstruturaAsync`).
+
+## Acesso por tela (módulos da construtora + perfis de acesso)
+- **Catálogo único** (`QualyHub.Contratos/Acesso.cs` → `CatalogoTelas`): módulos e telas com as ações que existem em cada uma
+  (V Ver, I Incluir/Editar, E Excluir/Cancelar, A Aprovar, X Exportar/Imprimir). Monta o menu, a aba de módulos da plataforma,
+  a matriz dos perfis e o bloqueio por endereço. Tela nova entra aqui. Pendências, Mensagens, Tarefas, Painel, Conta e Plataforma ficam fora (livres).
+- **Plataforma › Construtoras › editar › Módulos e telas liberados**: `Empresa.TelasBloqueadas` ("rota;rota"). Módulo Sistema é fixo.
+  Bloqueio/liberação vai para a auditoria da plataforma.
+- **Sistema › Perfis de Acesso** (`/sistema/perfis`, só Administrador altera): `PerfilAcesso` (Regras "rota=VIEX;…"); um padrão por
+  `PerfilUsuario` (`Base`, criado na 1ª abertura com `PerfisPadrao`), cópias livres. Aba "Por usuário": `Usuario.PerfilAcessoId`
+  (vazio = padrão do perfil dele) + `Usuario.ExcecoesAcesso` ("rota=+A-E"). Usuário em várias construtoras tem um cadastro (e perfil) em cada.
+  Administrador = tudo o que foi liberado (fixo, ninguém se tranca para fora).
+- **Mapa efetivo**: `AcessoServico.MapaAsync` (cache em memória de 5 min, invalidado a cada mudança → vale sem sair e entrar).
+- **Onde é aplicado**: menu e bloqueio "Módulo não contratado"/"Sem permissão" no `MainLayout` (servidor e WebAssembly via `IAcessoTelas`,
+  reavaliado a cada navegação); botões escondidos por CSS (`.conteudo[data-negar]` + `data-i` do ícone: mais/editar/upload = I, lixeira = E,
+  excel/json/impressora/baixar = X; impressão `/imprimir` exige X); **gravação** pelo `AcessoInterceptor` (tela atual via `IContextoTela`:
+  endereço do circuito ou `.Tela("rota")` nos endpoints da API) — gravar exige I, operação só de exclusão/cancelamento exige E;
+  **aprovação** no `AprovacaoServico` (A na tela do documento + alçada). Fora de tela (rotinas, portal, login) não há barreira.
+- Regras de negócio por função continuam (ex.: assinatura do RDO pelo engenheiro da obra, cronograma por Engenharia/Diretoria, medição semanal pela Engenharia).

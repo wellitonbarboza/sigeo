@@ -99,6 +99,26 @@
                 </div>
                 <p class="mudo">Os nomes aparecem nas telas da construtora (Obras, Tipologias, gerador). A geração continua por tipologias: o dono do CNPJ é a SPE; a unidade é a vendável.@(!_novo ? " Locais já gerados mantêm os nomes; novos usam o prefixo." : "")</p>
             }
+            @if (!_novo)
+            {
+                <div class="secao"><Icone Nome="cadeado" /> Módulos e telas liberados</div>
+                <p class="mudo pq">Tela desligada some do menu de todos os usuários da construtora; aberta pelo endereço, mostra “módulo não contratado”. Os dados gravados não são apagados. Pendências, Mensagens, Tarefas, Painel e Sistema ficam sempre disponíveis.</p>
+                <div class="modulos-plat" id="pc-modulos">
+                    @foreach (var m in CatalogoTelas.Modulos.Where(x => !x.Fixo))
+                    {
+                        var on = m.Telas.Count(t => !_bloq.Contains(t.Rota));
+                        <section class="modulo-plat">
+                            <header><label class="chave-mod"><input type="checkbox" checked="@(on == m.Telas.Count)" data-mod="@m.Id" @onchange="e => Modulo(m, e)" /> <b>@m.Nome</b></label><Selo Texto="@($"{on}/{m.Telas.Count}")" Tom="@(on > 0 ? "ok" : "erro")" /></header>
+                            <ul>
+                                @foreach (var t in m.Telas)
+                                {
+                                    <li class="@(_bloq.Contains(t.Rota) ? "off" : "")"><label><input type="checkbox" checked="@(!_bloq.Contains(t.Rota))" data-tela="@t.Rota" @onchange="e => Tela(t, e)" /> <span>@t.Nome</span></label></li>
+                                }
+                            </ul>
+                        </section>
+                    }
+                </div>
+            }
             @if (_novo && _passo == 3)
             {
                 <p class="mudo">Opcional: já cadastre a primeira obra. Depois ela segue o caminho normal dentro da construtora: Engenharia › Obras → @(_est.Condominio) (SPE) → Tipologias (ou kit de tipologia) → Gerador.</p>
@@ -188,10 +208,15 @@
         ErrosForm = null; _novo = false; _senha = null;
         if (!await Executar(async () => _e = await Plat.ConstrutoraAsync(id, Cancelamento))) return;
         _est = EstruturaLocais.De(_e!.ModeloEstrutura, _e.NomesNiveis);
+        _bloq = PlataformaServico.Bloqueadas(_e.TelasBloqueadas).ToHashSet(StringComparer.OrdinalIgnoreCase);
         _aberto = true;
     }
 
     private void Modelo(EstruturaLocais m) => _est = m;
+
+    private HashSet<string> _bloq = new(StringComparer.OrdinalIgnoreCase);
+    private void Tela(TelaSistema t, ChangeEventArgs e) { if (e.Value is true) _bloq.Remove(t.Rota); else _bloq.Add(t.Rota); }
+    private void Modulo(ModuloSistema m, ChangeEventArgs e) { foreach (var t in m.Telas) { if (e.Value is true) _bloq.Remove(t.Rota); else _bloq.Add(t.Rota); } }
 
     private void Nome(int i, ChangeEventArgs e)
     {
@@ -233,6 +258,7 @@
 
     private async Task Salvar()
     {
+        _e!.TelasBloqueadas = string.Join(';', _bloq);
         if (await Executar(() => Plat.SalvarConstrutoraAsync(_e!, _est, Cancelamento), "Construtora salva.")) { _aberto = false; await Carregar(); }
     }
 

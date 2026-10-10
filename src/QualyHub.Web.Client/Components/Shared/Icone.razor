@@ -1,5 +1,5 @@
 @* Ícones em traço (24×24), desenhados para o QualyHub. Uso: <Icone Nome="filtro" Tam="20" /> *@
-<svg width="@Tam" height="@Tam" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="@Traco" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+<svg width="@Tam" height="@Tam" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="@Traco" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" data-i="@Nome">
     @((MarkupString)(Caminhos.TryGetValue(Nome, out var p) ? p : Caminhos["ponto"]))
 </svg>
 

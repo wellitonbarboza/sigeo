@@ -58,7 +58,7 @@ public sealed class DiarioObraServico(IFabricaDb fabrica, IUsuarioAtual usuario,
         foreach (var a in d.Atividades) { a.Ordem = ordem++; a.Descricao = a.Descricao?.Trim() ?? ""; }
         ValidacaoException.Se(d.Validar(Hoje));
         await using var db = fabrica.Criar();
-        await Permissoes.ExigirAsync(db, usuario, "preencher o diário de obra", PerfilUsuario.Engenharia);
+        await Permissoes.ExigirTelaAsync(db, usuario, "engenharia/diario", Contratos.AcaoTela.Incluir, ct);
         var atual = await db.DiariosObra.Include(x => x.Efetivo).Include(x => x.Atividades).AsSplitQuery().FirstOrDefaultAsync(x => x.Id == d.Id, ct);
         if (atual is null)
         {
@@ -114,6 +114,7 @@ public sealed class DiarioObraServico(IFabricaDb fabrica, IUsuarioAtual usuario,
         await using var db = fabrica.Criar();
         var d = await db.DiariosObra.Include(x => x.Efetivo).Include(x => x.Atividades).AsSplitQuery().FirstOrDefaultAsync(x => x.Id == diarioId, ct)
                 ?? throw new RegraDeNegocioException("Salve o diário antes de assinar.");
+        await Permissoes.ExigirTelaAsync(db, usuario, "engenharia/diario", Contratos.AcaoTela.Aprovar, ct);
         if (!await PodeAssinarAsync(db, d.ObraId, ct)) throw new RegraDeNegocioException("Quem assina o diário é o engenheiro(a) da obra.");
         ValidacaoException.Se(d.Validar(Hoje));
         if (d.Trabalhado == DiaTrabalhado.Sim && d.Atividades.Count == 0) throw new RegraDeNegocioException("Dia trabalhado: registre ao menos uma atividade executada.");

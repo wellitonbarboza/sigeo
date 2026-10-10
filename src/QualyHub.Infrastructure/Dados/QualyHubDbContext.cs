@@ -24,6 +24,7 @@ public class QualyHubDbContext(DbContextOptions<QualyHubDbContext> options, IUsu
     // Estrutura
     public DbSet<Empresa> Empresas => Set<Empresa>();
     public DbSet<RegistroPlataforma> RegistrosPlataforma => Set<RegistroPlataforma>();
+    public DbSet<PerfilAcesso> PerfisAcesso => Set<PerfilAcesso>();
     public DbSet<Obra> Obras => Set<Obra>();
     public DbSet<Local> Locais => Set<Local>();
     public DbSet<CentroCusto> CentrosCusto => Set<CentroCusto>();

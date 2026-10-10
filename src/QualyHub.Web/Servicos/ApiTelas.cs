@@ -22,6 +22,9 @@ public static class ApiTelas
 
         api.MapGet("/obras", (PaineisConsultas q, CancellationToken ct) => q.ObrasAsync(ct));
 
+        // Acesso por tela do usuário (menu e bloqueio das telas do navegador).
+        api.MapGet("/acesso", (AcessoServico a, CancellationToken ct) => a.MapaAsync(ct));
+
         // Contador de mensagens não lidas do menu (telas que rodam no navegador).
         api.MapGet("/mensagens/nao-lidas", (MensagensServico m, CancellationToken ct) => m.NaoLidasAsync(ct));
 
@@ -44,29 +47,29 @@ public static class ApiTelas
         api.MapGet("/obra/{obra:guid}/torres", (Guid obra, PaineisConsultas q, CancellationToken ct) => q.TorresAsync(obra, ct));
 
         api.MapGet("/obra/{obra:guid}/mapa-torre/{torre:guid}", async (Guid obra, Guid torre, PaineisConsultas q, CancellationToken ct) =>
-            await q.MapaTorreAsync(obra, torre, ct) is { } m ? Results.Ok(m) : Results.NotFound());
+            await q.MapaTorreAsync(obra, torre, ct) is { } m ? Results.Ok(m) : Results.NotFound()).Tela("obra/mapa-torre");
 
         // Orçamento por local (Engenharia)
-        api.MapGet("/obra/{obra:guid}/orcamento", (Guid obra, EngenhariaConsultas q, CancellationToken ct) => q.OrcamentoAsync(obra, ct));
+        api.MapGet("/obra/{obra:guid}/orcamento", (Guid obra, EngenhariaConsultas q, CancellationToken ct) => q.OrcamentoAsync(obra, ct)).Tela("engenharia/orcamento");
 
         api.MapPost("/obra/{obra:guid}/orcamento/gerar", (Guid obra, PaineisConsultas p, OrcamentoServico orc, CancellationToken ct) =>
         {
             p.ConferirObra(obra);
             return orc.GerarAsync(obra, ct);
-        });
+        }).Tela("engenharia/orcamento");
 
         api.MapPost("/orcamento/celula/{id:guid}", async (Guid id, EdicaoCelula e, OrcamentoServico orc, CancellationToken ct) =>
         {
             if (e.Quantidade < 0) throw new QualyHub.Domain.Aprovacoes.RegraDeNegocioException("Informe uma quantidade maior ou igual a zero.");
             await orc.EditarCelulaAsync(id, e.Quantidade, e.Travar, ct);
             return Results.NoContent();
-        });
+        }).Tela("engenharia/orcamento");
 
         api.MapPost("/obra/{obra:guid}/orcamento/demanda", (Guid obra, PedidoDemanda d, PaineisConsultas p, OrcamentoServico orc, CancellationToken ct) =>
         {
             p.ConferirObra(obra);
             return orc.DemandaAsync(obra, d.Composicoes, d.Locais, d.Tipo, ct: ct);
-        });
+        }).Tela("engenharia/orcamento");
 
         // A requisição é montada com a demanda recalculada aqui (a tela manda só a escolha, nunca as quantidades).
         api.MapPost("/obra/{obra:guid}/orcamento/requisicao", async (Guid obra, PedidoDemanda d, PaineisConsultas p, OrcamentoServico orc,
@@ -81,6 +84,22 @@ public static class ApiTelas
             var id = await reqs.CriarDoOrcamentoAsync(obra, d.Tipo, demanda, grupo, await cat.ListaAsync(TipoLista.Atividade),
                 DateOnly.FromDateTime(relogio.GetLocalNow().Date), ct);
             return Results.Ok(new { id });
-        });
+        }).Tela("requisicoes");
     }
+}
+
+/// <summary>
+/// Endpoint de uma tela: confere se o usuário vê a tela (módulo contratado + perfil de acesso) e marca a tela da requisição,
+/// para a barreira de gravação conferir "Incluir/Editar" ou "Excluir" nela.
+/// </summary>
+public static class TelaEndpoint
+{
+    public static RouteHandlerBuilder Tela(this RouteHandlerBuilder b, string rota) => b.AddEndpointFilter(async (ctx, next) =>
+    {
+        var http = ctx.HttpContext;
+        http.Items[QualyHub.Web.Seguranca.ContextoTelaWeb.Chave] = rota;
+        var mapa = await http.RequestServices.GetRequiredService<AcessoServico>().MapaAsync(http.RequestAborted);
+        AcessoServico.Conferir(mapa, rota, QualyHub.Contratos.AcaoTela.Ver);
+        return await next(ctx);
+    });
 }

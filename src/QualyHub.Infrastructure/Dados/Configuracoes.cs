@@ -25,6 +25,7 @@ internal sealed class EmpresaCfg : IEntityTypeConfiguration<Empresa>
         b.HasIndex(x => x.Cnpj).IsUnique().HasFilter("[Cnpj] <> ''"); // construtora sem CNPJ informado ainda não colide com outra
         b.Property(x => x.ModeloEstrutura).HasMaxLength(30);
         b.Property(x => x.NomesNiveis).HasMaxLength(300);
+        b.Property(x => x.TelasBloqueadas).HasMaxLength(2000);
     }
 }
 
@@ -121,6 +122,19 @@ internal sealed class UsuarioCfg : IEntityTypeConfiguration<Usuario>
         b.HasMany(x => x.Obras).WithOne(x => x.Usuario).HasForeignKey(x => x.UsuarioId);
         b.HasMany(x => x.LimitesAprovacao).WithOne().HasForeignKey(x => x.UsuarioId);
         b.HasIndex(x => x.ContaId);
+        b.Property(x => x.ExcecoesAcesso).HasMaxLength(2000);
+        b.HasOne<PerfilAcesso>().WithMany().HasForeignKey(x => x.PerfilAcessoId).OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
+internal sealed class PerfilAcessoCfg : IEntityTypeConfiguration<PerfilAcesso>
+{
+    public void Configure(EntityTypeBuilder<PerfilAcesso> b)
+    {
+        b.ToTable("PerfisAcesso");
+        b.Property(x => x.Nome).HasMaxLength(80);
+        b.Property(x => x.Regras).Metadata.SetMaxLength(null); // nvarchar(max): uma linha por tela
+        b.HasIndex(x => new { x.EmpresaId, x.Nome }).IsUnique().HasFilter("[Excluido] = 0");
     }
 }
 

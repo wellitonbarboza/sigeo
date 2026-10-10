@@ -69,6 +69,8 @@ builder.Services.AddQualyHubIntegracoes(builder.Configuration);
 builder.Services.AddScoped<Notificacoes>();
 builder.Services.AddScoped<Catalogos>();
 builder.Services.AddScoped<QualyHub.Web.Client.Servicos.IContadorMensagens, ContadorMensagensServidor>();
+builder.Services.AddScoped<QualyHub.Web.Client.Servicos.IAcessoTelas, AcessoTelasServidor>();
+builder.Services.AddScoped<QualyHub.Application.Servicos.IContextoTela, ContextoTelaWeb>();
 builder.Services.AddSingleton<CacheCompartilhado>();
 builder.Services.AddSingleton<RotinaCadastros>();
 builder.Services.AddHostedService<RotinaMatinal>();

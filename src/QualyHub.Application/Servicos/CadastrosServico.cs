@@ -196,7 +196,7 @@ public sealed class CadastrosServico(IFabricaDb fabrica)
     public async Task<int> VincularPorGrupoAsync(CancellationToken ct)
     {
         await using var db = fabrica.Criar();
-        await Permissoes.ExigirAsync(db, fabrica.Usuario, "vincular produtos pelo grupo", PerfilUsuario.Qualidade, PerfilUsuario.Suprimentos);
+        await Permissoes.ExigirTelaAsync(db, fabrica.Usuario, "cadastros/controlados", Contratos.AcaoTela.Incluir, ct);
         var mudaram = await VincularAsync(db, ct);
         await db.SaveChangesAsync(ct);
         if (await SincronizacaoCadastros.ProdutosAsync(db, mudaram, ct) > 0) await db.SaveChangesAsync(ct);

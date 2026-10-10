@@ -12,4 +12,5 @@ builder.Services.AddScoped(_ => new HttpClient { BaseAddress = new Uri(builder.H
 builder.Services.AddScoped<Api>();
 builder.Services.AddScoped<Notificacoes>();
 builder.Services.AddScoped<IContadorMensagens, ContadorMensagensApi>();
+builder.Services.AddScoped<IAcessoTelas, AcessoTelasApi>();
 await builder.Build().RunAsync();

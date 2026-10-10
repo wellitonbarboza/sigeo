@@ -15,6 +15,13 @@ public static class Permissoes
         if (p is Domain.Common.PerfilUsuario.Administrador || (p is { } x && perfis.Contains(x))) return;
         throw new Domain.Aprovacoes.RegraDeNegocioException($"Seu perfil não permite {acao}.");
     }
+
+    /// <summary>Confere a ação na tela pelo perfil de acesso do usuário (telas liberadas para a construtora + perfil + exceções).</summary>
+    public static async Task ExigirTelaAsync(IQualyHubDb db, IUsuarioAtual usuario, string rota, char acao, CancellationToken ct = default)
+    {
+        if (usuario.UsuarioId is not { } id) return;
+        Servicos.AcessoServico.Conferir(await Servicos.AcessoServico.CalcularAsync(db, id, ct), rota, acao);
+    }
 }
 
 /// <summary>Numeração sequencial por empresa/chave, com concorrência otimista (RowVersion) e nova tentativa.</summary>

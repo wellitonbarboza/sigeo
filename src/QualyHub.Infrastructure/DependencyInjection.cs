@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using QualyHub.Infrastructure.Dados;
 using QualyHub.Infrastructure.Importacao;
 
@@ -16,6 +17,9 @@ public static class DependencyInjection
     {
         services.AddSingleton(TimeProvider.System);
         services.AddScoped<AuditoriaInterceptor>();
+        services.AddScoped<AcessoInterceptor>();
+        services.TryAddScoped<Application.Servicos.IContextoTela, Application.Servicos.SemContextoTela>();
+        services.AddScoped<Application.Servicos.AcessoServico>();
         services.AddDbContext<QualyHubDbContext>((sp, o) => o
             .UseSqlServer(connectionString, sql =>
             {
@@ -24,7 +28,7 @@ public static class DependencyInjection
                 // Várias coleções no mesmo Include viram consultas separadas (sem produto cartesiano: a linha-pai não volta N×M vezes).
                 sql.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery);
             })
-            .AddInterceptors(sp.GetRequiredService<AuditoriaInterceptor>()));
+            .AddInterceptors(sp.GetRequiredService<AcessoInterceptor>(), sp.GetRequiredService<AuditoriaInterceptor>()));
         services.AddScoped<ImportadorFornecedores>();
         services.AddSingleton<IFabricaSistema>(new Servicos.FabricaSistema(connectionString));
         services.AddScoped<IFabricaDb, Servicos.FabricaDb>();

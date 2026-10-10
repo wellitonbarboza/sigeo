@@ -99,6 +99,7 @@ public sealed class SistemaServico(IFabricaDb fabrica, TimeProvider relogio)
         await db.SaveChangesAsync(ct);
         // Perfil, desativação ou troca do usuário valem nas aprovações em andamento (aprovador nominal inativo → substituto/perfil).
         if (await AprovacaoServico.RecalcularPendentesAsync(db, x => true, ct) > 0) await db.SaveChangesAsync(ct);
+        AcessoServico.Invalidar(); // perfil do usuário muda o acesso por tela na hora
         return u.Id;
     }
 

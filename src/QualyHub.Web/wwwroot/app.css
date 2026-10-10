@@ -602,3 +602,39 @@ button.chip { border: 0; font-family: inherit; cursor: pointer; }
     .mapa-cotacao .tabela-rolavel { overflow: visible; }
     @page { size: A4 landscape; margin: 10mm; }
 }
+
+/* ───── Perfil de acesso: botões das ações que o usuário não tem na tela ficam escondidos (o servidor confere de novo) ───── */
+.conteudo[data-negar*="I"] button:has(> svg[data-i="mais"], > svg[data-i="editar"], > svg[data-i="upload"]) { display: none !important; }
+.conteudo[data-negar*="E"] button:has(> svg[data-i="lixeira"]) { display: none !important; }
+.conteudo[data-negar*="X"] :is(button, a):has(> svg[data-i="excel"], > svg[data-i="json"], > svg[data-i="impressora"], > svg[data-i="baixar"]) { display: none !important; }
+.bloqueio-tela { max-width: 520px; margin: 60px auto; text-align: center; background: var(--superficie); border: 1px solid var(--borda); border-radius: var(--raio); padding: 28px 24px; color: var(--texto-2); }
+.bloqueio-tela h2 { margin: 10px 0 6px; color: var(--texto); font-size: 20px; }
+.bloqueio-tela .btn { margin-top: 12px; }
+/* Matriz de perfis de acesso */
+.matriz-acesso { border-collapse: collapse; width: 100%; }
+.matriz-acesso th, .matriz-acesso td { padding: 5px 8px; border-bottom: 1px solid var(--borda); text-align: center; white-space: nowrap; }
+.matriz-acesso th:first-child, .matriz-acesso td:first-child { text-align: left; }
+.matriz-acesso thead th { position: sticky; top: 0; background: var(--superficie-2); z-index: 1; font-size: 12px; color: var(--texto-2); }
+.matriz-acesso tr.grupo td { background: var(--superficie-2); font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--texto-2); }
+.matriz-acesso .na { color: var(--texto-3); }
+.matriz-acesso input[type=checkbox] { width: 16px; height: 16px; cursor: pointer; }
+.celx { cursor: pointer; min-width: 32px; border-radius: 6px; border: 1px solid var(--borda-forte); background: var(--superficie); color: var(--texto-3); font: inherit; padding: 1px 6px; }
+.celx.base { color: var(--ok-texto); }
+.celx.mais { background: var(--ok-suave); color: var(--ok-texto); border-color: var(--ok); font-weight: 700; }
+.celx.menos { background: var(--erro-suave); color: var(--erro-texto); border-color: var(--erro); font-weight: 700; }
+.modulos-plat { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+.modulo-plat { border: 1px solid var(--borda); border-radius: var(--raio); background: var(--superficie); }
+.modulo-plat header { display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: var(--superficie-2); border-bottom: 1px solid var(--borda); border-radius: var(--raio) var(--raio) 0 0; }
+.modulo-plat header b { flex: 1; }
+.modulo-plat ul { list-style: none; margin: 0; padding: 6px 10px 8px; }
+.modulo-plat li label { display: flex; gap: 8px; align-items: center; padding: 2px 0; }
+.modulo-plat li.off span { color: var(--texto-3); text-decoration: line-through; }
+.grade-perfis { display: grid; grid-template-columns: 250px 1fr; gap: 12px; margin-top: 10px; align-items: start; }
+@media (max-width: 900px) { .grade-perfis { grid-template-columns: 1fr; } }
+.lista-perfis { list-style: none; margin: 0 0 8px; padding: 0; }
+.lista-perfis button { width: 100%; text-align: left; border: 0; background: none; font: inherit; color: var(--texto); padding: 7px 10px; border-radius: 8px; cursor: pointer; display: flex; justify-content: space-between; gap: 6px; }
+.lista-perfis button:hover { background: var(--superficie-2); }
+.lista-perfis button[aria-current=true] { background: var(--primaria-suave); color: var(--primaria); font-weight: 600; }
+.selo-mini { display: inline-block; padding: 0 7px; border-radius: 99px; font-size: 11px; font-weight: 600; background: var(--neutro-suave); color: var(--neutro-texto); margin-right: 2px; }
+.selo-mini.ok { background: var(--ok-suave); color: var(--ok-texto); }
+.selo-mini.erro { background: var(--erro-suave); color: var(--erro-texto); }

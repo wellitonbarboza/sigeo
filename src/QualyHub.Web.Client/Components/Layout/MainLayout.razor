@@ -1,6 +1,7 @@
-@inherits LayoutComponentBase
+﻿@inherits LayoutComponentBase
 @inject IJSRuntime JS
 @inject IContadorMensagens Contador
+@inject IAcessoTelas Acesso
 @implements IDisposable
 @* Layout único das telas internas: serve às páginas do servidor (Blazor Server) e às do navegador (WebAssembly).
    Por isso não injeta serviço do servidor — o usuário vem do estado de autenticação em cascata (claims do cookie). *@
@@ -18,7 +19,7 @@
                 <li class="grupo"><NavLink href="mensagens"><Icone Nome="mensagem" /> Mensagens @if (_naoLidas > 0) { <span class="cont-menu" title="@($"{_naoLidas} conversa(s) com mensagem não lida")">@(_naoLidas > 99 ? "99+" : _naoLidas)</span> }</NavLink></li>
                 <li class="grupo"><NavLink href="tarefas"><Icone Nome="lista" /> Tarefas</NavLink></li>
                 <li class="grupo"><NavLink href="painel"><Icone Nome="grafico" /> Painel de indicadores</NavLink></li>
-                @foreach (var g in _plataforma ? _grupos.Append(_grupoPlataforma) : _grupos)
+                @foreach (var g in GruposVisiveis)
                 {
                     <li class="grupo"><a class="dobra @(Aberto(g.Id) ? "aberto" : "")" @onclick="() => Alternar(g.Id)"><Icone Nome="@g.Icone" /> @g.Titulo <span class="seta">›</span></a></li>
                     @if (Aberto(g.Id))
@@ -39,10 +40,29 @@
     </aside>
     <main class="principal">
         @if (_suporteAte is { } sa) { <div class="faixa-suporte" role="status"><Icone Nome="escudo" Tam="14" /> Suporte da plataforma em @_empresa — acesso registrado na auditoria, vale até @sa.ToLocalTime().ToString("dd/MM HH:mm").</div> }
-        <div class="conteudo">
+        <div class="conteudo" data-negar="@Negadas">
             @* Erro ao desenhar um componente fica contido aqui: menu e cabeçalho continuam e o usuário pode tentar de novo. *@
             <ErrorBoundary @ref="_limiteErro">
-                <ChildContent>@Body</ChildContent>
+                <ChildContent>
+                    @if (_situacao is SituacaoTela.NaoContratada or SituacaoTela.SemPermissao)
+                    {
+                        <div class="pagina"><div class="bloqueio-tela" role="alert" id="tela-bloqueada">
+                            <Icone Nome="cadeado" Tam="28" />
+                            @if (_situacao == SituacaoTela.NaoContratada)
+                            {
+                                <h2>Módulo não contratado</h2>
+                                <p>“@_tela?.Nome” não está liberado para @_empresa. Fale com o administrador da plataforma.</p>
+                            }
+                            else
+                            {
+                                <h2>Sem permissão</h2>
+                                <p>Seu perfil de acesso não permite abrir “@_tela?.Nome”@(Imprimindo ? " para imprimir" : ""). Fale com o administrador da construtora.</p>
+                            }
+                            <a class="btn sec" href="">Voltar às pendências</a>
+                        </div></div>
+                    }
+                    else { @Body }
+                </ChildContent>
                 <ErrorContent Context="ex">
                     <div class="alerta erro" role="alert"><Icone Nome="exclamacao" />
                         <div>Não foi possível exibir esta parte da tela. O erro foi registrado.
@@ -72,29 +92,46 @@
     private string _tema = "claro";
     private sealed record Grupo(string Id, string Titulo, string Icone, (string Href, string Icone, string Texto)[] Itens);
     private readonly HashSet<string> _abertos = [];
-    private static readonly Grupo[] _grupos =
-    [
-        new("cad", "Cadastro", "cadastro", [("fornecedores", "predio", "Fornecedores"), ("fornecedores/qualificacao", "selo", "Qualificação Fornec."), ("fornecedores/documentos", "arquivo", "Docs. do Fornecedor"), ("fornecedores/exigencias", "tabela", "Matriz de Documentos"),
-            ("cadastros/controlados", "escudo-check", "Materiais/Serv. Control."), ("cadastros/estabelecimentos", "predio", "Estabelecimentos (CNPJs)"), ("cadastros/centros-custo", "tabela", "Centros de Custo"), ("cadastros/produtos", "caixa", "Produtos"), ("cadastros/categorias", "lista", "Categorias de Produto")]),
-        new("eng", "Engenharia", "regua", [("engenharia/obras", "predio", "Obras e Empreendimentos"), ("engenharia/tipologias", "cubo", "Tipologias"),
-            ("engenharia/composicoes", "lista", "Serviços e Composições"), ("engenharia/orcamento", "calculadora", "Orçamento por Local"), ("engenharia/planejamento", "grafico", "Planejamento"), ("engenharia/diario", "calendario", "Diário de Obra (RDO)"), ("engenharia/mao-de-obra", "pessoa", "Mão de Obra Própria")]),
-        new("sup", "Suprimentos", "carrinho", [("requisicoes", "prancheta", "Requisição"), ("cotacoes", "calculadora", "Orçamentos"), ("pedidos", "sacola", "Pedidos"), ("contratos", "contrato", "Contratos"),
-            ("notas-fiscais", "arquivo", "Notas Fiscais (entrada)"), ("recebimentos", "caixa", "Recebimento / FVM"), ("transferencias", "enviar", "Transferências p/ Obra"), ("medicoes", "regua", "Medições"), ("pagamentos", "dinheiro", "Liberação Pagamento")]),
-        new("sgq", "Qualidade", "medalha", [("sgq/documentos", "pasta", "Documentos SGQ"), ("sgq/copias", "impressora", "Cópias Controladas"), ("sgq/lista-mestra", "lista", "Lista Mestra"),
-            ("sgq/externos", "livro", "Documentos Externos"), ("fornecedores/avaliacao", "grafico", "Avaliação Fornec."), ("fornecedores/planos", "alvo", "Planos de Ação"),
-            ("sgq/grd", "enviar", "GRD"), ("sgq/leituras", "livro", "Leituras / Ciência"), ("sgq/registros", "arquivo-morto", "Registros (Retenção)")]),
-        new("qob", "Qualidade da Obra", "escudo-check", [("obra/mapa-torre", "predio", "Mapa da Torre (FVS)"), ("obra/mapa", "tabela", "Mapa de Inspeções"), ("obra/fvs", "prancheta", "FVS – Inspeções"), ("obra/modelos/fvs", "lista", "Modelos de FVS"),
-            ("obra/modelos/fvm", "caixa", "Modelos de FVM"), ("obra/rnc", "x-circulo", "Não Conformidades"), ("obra/acoes", "ferramenta", "Ações Corretivas"),
-            ("obra/equipamentos", "regua", "Equip. de Medição"), ("obra/auditorias", "lupa", "Auditorias Internas")]),
-        new("sst", "Segurança e Pessoas", "pessoa", [("sst/colaboradores", "pessoa", "Colaboradores"), ("sst/exigencias", "tabela", "Exigências por Função"), ("sst/documentos", "arquivo", "Docs. do Colaborador"),
-            ("sst/treinamentos", "livro", "Treinamentos"), ("sst/epi", "escudo", "Entrega de EPI"), ("sst/inspecoes", "prancheta", "Inspeções de Segurança"),
-            ("sst/pt", "chave", "Permissão de Trabalho"), ("sst/ocorrencias", "alerta", "Ocorrências e Acidentes"), ("sst/painel", "grafico", "Painel SST")]),
-        new("sis", "Sistema", "engrenagem", [("sistema/usuarios", "pessoa", "Usuários e Alçadas"), ("sistema/parametros", "ferramenta", "Parâmetros e Notificações"),
-            ("sistema/permissoes", "escudo", "Permissões SGQ"), ("sistema/log", "relogio", "Log de Auditoria")]),
-    ];
+    // Menu vem do catálogo de telas (o mesmo da plataforma e dos perfis de acesso).
+    private static readonly Grupo[] _grupos = CatalogoTelas.Modulos
+        .Select(m => new Grupo(m.Id, m.Nome, m.Icone, m.Telas.Select(t => (t.Rota, t.Icone, t.Nome)).ToArray())).ToArray();
 
     private static readonly Grupo _grupoPlataforma = new("plat", "Plataforma", "escudo", [("plataforma/construtoras", "predio", "Construtoras"), ("plataforma/usuarios", "pessoa", "Usuários e acessos"), ("plataforma/auditoria", "relogio", "Auditoria da plataforma")]);
     private bool _plataforma, _variasConstrutoras;
+    private MapaAcesso? _mapa;
+    private SituacaoTela _situacao;
+    private TelaSistema? _tela;
+    private string _caminho = "";
+
+    /// <summary>Só as telas que o usuário vê (módulo contratado + perfil de acesso); grupo vazio some.</summary>
+    private IEnumerable<Grupo> GruposVisiveis
+    {
+        get
+        {
+            // Sem o mapa (falha ao consultar), o menu mostra tudo: quem decide de fato é o servidor ao abrir e gravar.
+            var m = _mapa;
+            var gs = m is null ? _grupos.AsEnumerable() : _grupos.Select(g => g with { Itens = g.Itens.Where(i => m.Ve(i.Href)).ToArray() }).Where(g => g.Itens.Length > 0);
+            return _plataforma ? gs.Append(_grupoPlataforma) : gs;
+        }
+    }
+
+    private bool Imprimindo => _caminho.Contains("/imprimir", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Ações que o usuário não tem na tela atual: o CSS esconde os botões delas (o servidor confere de novo ao gravar).</summary>
+    private string? Negadas => _tela is null || _mapa is null ? null
+        : new string(AcaoTela.Todas.Where(a => !_mapa.Pode(_tela.Rota, a)).ToArray()) is { Length: > 0 } n ? n : null;
+
+    private async Task AvaliarAsync()
+    {
+        _caminho = Nav.ToBaseRelativePath(Nav.Uri).Split('?', '#')[0];
+        try { _mapa = await Acesso.MapaAsync(_cts.Token); }
+        catch (OperationCanceledException) { return; }
+        catch (Exception) { _mapa = null; } // API fora do ar: não bloqueia a tela (o servidor confere ao gravar)
+        _situacao = _mapa is null ? SituacaoTela.Livre : CatalogoTelas.Situacao(_mapa, _caminho, out _tela);
+        if (_mapa is null) _tela = CatalogoTelas.TelaDe(_caminho);
+    }
+
+    private void AoNavegar(object? s, LocationChangedEventArgs e) => _ = InvokeAsync(async () => { await AvaliarAsync(); StateHasChanged(); });
     private DateTimeOffset? _suporteAte;
 
     [Inject] private NavigationManager Nav { get; set; } = default!;
@@ -114,6 +151,8 @@
             _variasConstrutoras = u.FindFirst("qh:construtoras") is not null;
             _suporteAte = DateTimeOffset.TryParse(u.FindFirst("qh:suporte")?.Value, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var sa) ? sa : null;
         }
+        await AvaliarAsync();
+        Nav.LocationChanged += AoNavegar;
         var rel = Nav.ToBaseRelativePath(Nav.Uri).Split('?')[0];
         foreach (var g in _grupos.Append(_grupoPlataforma)) if (g.Itens.Any(i => rel.StartsWith(i.Href))) _abertos.Add(g.Id);
         if (_abertos.Count == 0) _abertos.Add("sup");
@@ -172,6 +211,7 @@
     public void Dispose()
     {
         _troca?.Dispose();
+        Nav.LocationChanged -= AoNavegar;
         Contador.Mudou -= AoMudar;
         _cts.Cancel();
     }

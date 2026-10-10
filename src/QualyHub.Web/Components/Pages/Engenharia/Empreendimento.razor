@@ -106,7 +106,7 @@
                                     <td>@(t.TipologiaId is { } tid ? _nomeTip.GetValueOrDefault(tid) : null)</td>
                                     <td class="num">@pavs.Count</td><td class="num">@_locais.Count(x => x.Tipo == GeradorEmpreendimento.TipoApartamento && x.LocalPaiId is { } lp && pavs.Contains(lp))</td>
                                     <td><span class="grupo-btn"><button class="btn sec pq" @onclick="() => RenomearTorre(t)">Editar</button>
-                                        <button class="btn sec pq perigo" disabled="@Ocupado" @onclick="() => ExcluirTorre(t)">Excluir</button></span></td></tr>
+                                        <button class="btn sec pq perigo" disabled="@Ocupado" @onclick="() => ExcluirTorre(t)"><Icone Nome="lixeira" Tam="14" /> Excluir</button></span></td></tr>
                             }
                             @if (!Torres.Any()) { <tr><td colspan="7" class="mudo">Nada cadastrado nesta obra.</td></tr> }
                         </tbody>
@@ -252,6 +252,8 @@
     </ChildContent>
     <Rodape><button class="btn prim" id="spe2-salvar" disabled="@Ocupado" @onclick="SalvarSpe"><Icone Nome="check" Tam="16" /> Salvar</button></Rodape>
 </Modal>
+
+<Confirmacao Pergunta="@PerguntaConfirmacao" AoSim="ConfirmacaoSim" AoNao="ConfirmacaoNao" />
 
 @code {
     private sealed class TorreForm { public string Nome { get; set; } = ""; public Guid TipologiaId { get; set; } }

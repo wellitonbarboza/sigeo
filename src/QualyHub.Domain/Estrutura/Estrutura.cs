@@ -20,6 +20,8 @@ public class Empresa : Entidade
     public string? ModeloEstrutura { get; set; }
     /// <summary>Nomes dos níveis separados por ";": condomínio;torre;pavimento;unidade;cômodo;prefixo da unidade.</summary>
     public string? NomesNiveis { get; set; }
+    /// <summary>Telas que a plataforma não liberou para a construtora (rotas separadas por ";"). Vazio = tudo liberado.</summary>
+    public string? TelasBloqueadas { get; set; }
 }
 
 /// <summary>
@@ -201,6 +203,10 @@ public class Usuario : EntidadeAuditavel
     public bool AdministradorPlataforma { get; set; }
     /// <summary>Acesso de suporte da plataforma: vale até esta data/hora (depois some da lista de construtoras).</summary>
     public DateTimeOffset? SuporteAte { get; set; }
+    /// <summary>Perfil de acesso (o que vê e faz em cada tela). Vazio = o perfil padrão do <see cref="Perfil"/>.</summary>
+    public Guid? PerfilAcessoId { get; set; }
+    /// <summary>Exceções só deste usuário sobre o perfil de acesso: "rota=+A-E;…" (+ libera, − bloqueia).</summary>
+    public string? ExcecoesAcesso { get; set; }
     public ICollection<UsuarioObra> Obras { get; set; } = [];
     /// <summary>Limites de aprovação por tipo (e opcionalmente por obra) — "aprova até R$ X".</summary>
     public ICollection<Aprovacoes.LimiteAprovacao> LimitesAprovacao { get; set; } = [];
@@ -434,4 +440,16 @@ public class RegistroPlataforma : Entidade
     public Guid? EmpresaId { get; set; }
     public string? Empresa { get; set; }
     public string? Detalhe { get; set; }
+}
+
+/// <summary>
+/// Perfil de acesso da construtora: por tela, as ações liberadas ("rota=VIEX;…"). O padrão de cada perfil de usuário
+/// (<see cref="Base"/>) nasce igual ao padrão do sistema e pode ser ajustado; perfis criados (cópias) não têm base.
+/// </summary>
+public class PerfilAcesso : EntidadeAuditavel
+{
+    public string Nome { get; set; } = string.Empty;
+    /// <summary>Perfil de usuário de que este é o padrão (usuários sem perfil de acesso escolhido caem aqui).</summary>
+    public PerfilUsuario? Base { get; set; }
+    public string Regras { get; set; } = string.Empty;
 }

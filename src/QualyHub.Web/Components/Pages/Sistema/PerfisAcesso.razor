@@ -1,0 +1,248 @@
+@page "/sistema/perfis"
+@inherits PaginaBase
+@inject AcessoServico Acesso
+
+<Pagina Titulo="Perfis de acesso" AoAtualizar="Carregar">
+    <ChildContent>
+        <div class="pagina">
+            @if (!Perfil()) { <div class="alerta aviso"><Icone Nome="escudo" /> Só o administrador da construtora altera perfis de acesso. Você pode consultar.</div> }
+            <div class="alerta info pq"><Icone Nome="info" Tam="14" /> <div>O que cada usuário vê no menu e pode fazer em cada tela. Só aparecem as telas que a plataforma liberou para @Usuario.EmpresaNome. “Aprovar” vale junto com a alçada de valor do usuário. Mudanças valem na próxima tela que a pessoa abrir, sem sair e entrar. O <b>Administrador</b> tem acesso total (fixo).</div></div>
+            <Abas Itens="_abas" @bind-Ativa="_aba" />
+            @if (_perfis is null || _mapa is null) { <Esqueleto Linhas="10" /> }
+            else if (_aba == "perfis")
+            {
+                <div class="grade-perfis">
+                    <div class="cartao">
+                        <ul class="lista-perfis" id="pa-lista">
+                            @foreach (var p in _perfis)
+                            {
+                                <li><button type="button" aria-current="@(p.Id == _sel?.Id)" @onclick="() => Escolher(p)"><span>@p.Nome</span><span class="selo-mini">@p.Usuarios</span></button></li>
+                            }
+                        </ul>
+                        <p class="mudo pq">Perfis padrão (um por perfil de usuário) valem para quem não tem perfil de acesso escolhido. Duplique para criar variações.</p>
+                    </div>
+                    @if (_sel is not null)
+                    {
+                        <div class="cartao">
+                            <Erros Lista="ErrosForm" />
+                            <div class="barra-filtro">
+                                <label>Nome <input id="pa-nome" @bind="_nome" disabled="@(!Perfil())" maxlength="80" /></label>
+                                @if (_sel.Base is { } b) { <Selo Texto="@($"padrão de {AcessoServico.Rotulo(b)}")" /> } else { <Selo Texto="criado" Tom="ok" /> }
+                                <span class="mudo pq">@_sel.Usuarios usuário(s)</span>
+                            </div>
+                            <div class="legenda pq mt-6"><span>☑ pode</span><span>— a ação não existe na tela</span><span>Desmarcar “Ver” tira a tela do menu; marcar outra ação marca “Ver”.</span></div>
+                            <div class="tabela-rolavel" style="max-height:62vh"><table class="matriz-acesso" id="pa-matriz">
+                                <thead><tr><th>Tela</th>@foreach (var (l, n) in AcaoTela.Lista) { <th>@n</th> }</tr></thead>
+                                <tbody>
+                                    @foreach (var m in CatalogoTelas.Modulos)
+                                    {
+                                        var tl = m.Telas.Where(Liberada).ToList();
+                                        if (tl.Count == 0) { <tr class="grupo"><td colspan="6">@m.Nome — não contratado</td></tr> continue; }
+                                        <tr class="grupo"><td colspan="6">@m.Nome</td></tr>
+                                        @foreach (var t in tl)
+                                        {
+                                            <tr>
+                                                <td>@t.Nome</td>
+                                                @foreach (var (l, n) in AcaoTela.Lista)
+                                                {
+                                                    if (!t.Acoes.Contains(l)) { <td class="na">—</td> continue; }
+                                                    var ok = (_regras.GetValueOrDefault(t.Rota) ?? "").Contains(l);
+                                                    <td><input type="checkbox" checked="@ok" disabled="@(!Perfil())" aria-label="@($"{t.Nome}: {n}")" data-pa="@($"{t.Rota}|{l}")" @onchange="e => Marcar(t, l, e)" /></td>
+                                                }
+                                            </tr>
+                                        }
+                                    }
+                                </tbody>
+                            </table></div>
+                            @if (Perfil())
+                            {
+                                <div class="grupo-btn mt-12">
+                                    <button class="btn prim" id="pa-salvar" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="14" /> Salvar perfil</button>
+                                    <button class="btn sec" id="pa-duplicar" disabled="@Ocupado" @onclick="Duplicar">Duplicar</button>
+                                    @if (_sel.Base is not null) { <button class="btn sec" disabled="@Ocupado" @onclick='() => Confirmar($"Voltar “{_sel.Nome}” às permissões padrão do sistema?", Restaurar)'>Voltar ao padrão</button> }
+                                    else { <button class="btn sec" disabled="@Ocupado" @onclick='() => Confirmar($"Excluir o perfil “{_sel.Nome}”?", ExcluirPerfil)'><Icone Nome="lixeira" Tam="14" /> Excluir</button> }
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="barra-filtro">
+                    <label>Usuário
+                        <select id="pa-usuario" value="@_uid" @onchange="EscolherUsuario">
+                            <option value="">Selecione…</option>
+                            @foreach (var u in _usuarios ?? []) { <option value="@u.Id">@u.Nome@(u.Ativo ? "" : " (inativo)") · @AcessoServico.Rotulo(u.Perfil)@(u.Excecoes is { Length: > 0 } ? " · com exceções" : "")</option> }
+                        </select>
+                    </label>
+                </div>
+                @if (_u is not null)
+                {
+                    <div class="cartao">
+                        <Erros Lista="ErrosForm" />
+                        @if (_u.Perfil == PerfilUsuario.Administrador)
+                        {
+                            <div class="alerta info"><Icone Nome="escudo" /> @_u.Nome é <b>Administrador</b>: vê e faz tudo nas telas liberadas para a construtora (fixo, para ninguém se trancar para fora). Para limitar, troque o perfil dele em Usuários e Alçadas.</div>
+                        }
+                        else
+                        {
+                            <div class="barra-filtro">
+                                <label>Perfil de acesso
+                                    <select id="pa-perfil-usu" value="@(_uPerfil?.ToString() ?? "")" @onchange="TrocarPerfilUsuario" disabled="@(!Perfil())">
+                                        <option value="">Padrão de @AcessoServico.Rotulo(_u.Perfil)</option>
+                                        @foreach (var p in _perfis) { <option value="@p.Id">@p.Nome</option> }
+                                    </select>
+                                </label>
+                                <Selo Texto="@($"{QtdExcecoes} exceção(ões)")" Tom="@(QtdExcecoes > 0 ? "ok" : "")" />
+                                @if (Perfil()) { <button class="btn sec pq" disabled="@(QtdExcecoes == 0)" @onclick="() => _exc.Clear()">Limpar exceções</button> }
+                                <span class="mudo pq">Obras que acessa e alçadas de valor continuam em Usuários e Alçadas.</span>
+                            </div>
+                            <div class="legenda pq mt-6"><span><button class="celx base" tabindex="-1">✓</button> vem do perfil</span><span><button class="celx mais" tabindex="-1">+</button> liberado só para ele</span><span><button class="celx menos" tabindex="-1">−</button> bloqueado só para ele</span><span>Clique: perfil → exceção → volta ao perfil.</span></div>
+                            <div class="tabela-rolavel" style="max-height:60vh"><table class="matriz-acesso" id="pa-usu-matriz">
+                                <thead><tr><th>Tela</th>@foreach (var (l, n) in AcaoTela.Lista) { <th>@n</th> }<th>Resultado</th></tr></thead>
+                                <tbody>
+                                    @{ var base_ = RegrasBaseUsuario(); }
+                                    @foreach (var m in CatalogoTelas.Modulos)
+                                    {
+                                        var tl = m.Telas.Where(Liberada).ToList();
+                                        if (tl.Count == 0) continue;
+                                        <tr class="grupo"><td colspan="7">@m.Nome</td></tr>
+                                        @foreach (var t in tl)
+                                        {
+                                            var doPerfil = base_.GetValueOrDefault(t.Rota) ?? "";
+                                            var ex = _exc.GetValueOrDefault(t.Rota);
+                                            var res = CatalogoTelas.Aplicar(doPerfil, ex, t.Acoes);
+                                            <tr>
+                                                <td>@t.Nome</td>
+                                                @foreach (var (l, n) in AcaoTela.Lista)
+                                                {
+                                                    if (!t.Acoes.Contains(l)) { <td class="na">—</td> continue; }
+                                                    var tem = doPerfil.Contains(l);
+                                                    bool? e = ex is not null && ex.TryGetValue(l, out var v) ? v : null;
+                                                    <td><button type="button" class="celx @ClasseCel(e, tem)" data-pe="@($"{t.Rota}|{l}")" disabled="@(!Perfil())" title="@DicaCel(e, tem)" @onclick="() => Alternar(t, l, tem)">@TextoCel(e, tem)</button></td>
+                                                }
+                                                <td>@if (res.Length > 0) { @foreach (var c in res) { <span class="selo-mini ok" title="@AcaoTela.Nome(c)">@c</span> } } else { <span class="selo-mini erro">sem acesso</span> }</td>
+                                            </tr>
+                                        }
+                                    }
+                                </tbody>
+                            </table></div>
+                            @if (Perfil()) { <button class="btn prim mt-12" id="pa-salvar-usu" disabled="@Ocupado" @onclick="SalvarUsuario"><Icone Nome="check" Tam="14" /> Salvar acesso de @_u.Nome</button> }
+                        }
+                    </div>
+                }
+            }
+        </div>
+    </ChildContent>
+    <Faixa><b>Perfis de acesso</b><span>Tela × ação (Ver, Incluir/Editar, Excluir/Cancelar, Aprovar, Exportar/Imprimir)</span><span>Exceção por usuário</span><span>Alterações no log de auditoria</span></Faixa>
+</Pagina>
+
+<Confirmacao Pergunta="@PerguntaConfirmacao" AoSim="ConfirmacaoSim" AoNao="ConfirmacaoNao" />
+
+@code {
+    private static readonly IReadOnlyList<(string, string)> _abas = [("perfis", "Perfis"), ("usuarios", "Por usuário (perfil + exceções)")];
+    private string _aba = "perfis";
+    private List<AcessoServico.LinhaPerfil>? _perfis;
+    private List<AcessoServico.LinhaUsuario>? _usuarios;
+    private MapaAcesso? _mapa;
+    private AcessoServico.LinhaPerfil? _sel;
+    private string _nome = "";
+    private Dictionary<string, string> _regras = new(StringComparer.OrdinalIgnoreCase);
+    private AcessoServico.LinhaUsuario? _u;
+    private Guid? _uid, _uPerfil;
+    private Dictionary<string, Dictionary<char, bool>> _exc = new(StringComparer.OrdinalIgnoreCase);
+
+    private int QtdExcecoes => _exc.Sum(e => e.Value.Count);
+    private bool Liberada(TelaSistema t) => _mapa?.NaoContratadas.Contains(t.Rota, StringComparer.OrdinalIgnoreCase) != true;
+
+    protected override async Task OnInitializedAsync() => await Carregar();
+
+    private async Task Carregar()
+    {
+        _mapa = await Acesso.MapaAsync(Cancelamento);
+        _perfis = await Acesso.PerfisAsync(Cancelamento);
+        _usuarios = await Acesso.UsuariosAsync(Cancelamento);
+        var sel = _perfis.FirstOrDefault(p => p.Id == _sel?.Id) ?? _perfis.FirstOrDefault();
+        if (sel is not null) Escolher(sel);
+        if (_uid is { } id && _usuarios.FirstOrDefault(u => u.Id == id) is { } u) AbrirUsuario(u);
+    }
+
+    private void Escolher(AcessoServico.LinhaPerfil p)
+    {
+        _sel = p; _nome = p.Nome; ErrosForm = null;
+        _regras = new Dictionary<string, string>(p.Regras, StringComparer.OrdinalIgnoreCase);
+    }
+
+    private void Marcar(TelaSistema t, char l, ChangeEventArgs e)
+    {
+        var s = new HashSet<char>(_regras.GetValueOrDefault(t.Rota) ?? "");
+        var on = e.Value is true;
+        if (on) { s.Add(l); s.Add(AcaoTela.Ver); }
+        else if (l == AcaoTela.Ver) s.Clear();
+        else s.Remove(l);
+        _regras[t.Rota] = AcaoTela.Normalizar(new string(s.ToArray()), t.Acoes);
+    }
+
+    private async Task Salvar()
+    {
+        if (await Executar(() => Acesso.SalvarPerfilAsync(_sel!.Id, _nome, _regras, Cancelamento), "Perfil salvo. Vale na próxima tela que cada usuário abrir.")) await Carregar();
+    }
+
+    private async Task Duplicar()
+    {
+        var id = Guid.Empty;
+        if (await Executar(async () => id = await Acesso.DuplicarPerfilAsync(_sel!.Id, Cancelamento), "Cópia criada."))
+        {
+            _sel = _sel! with { Id = id };
+            await Carregar();
+        }
+    }
+
+    private async Task Restaurar() { if (await Executar(() => Acesso.RestaurarPadraoAsync(_sel!.Id, Cancelamento), "Perfil voltou ao padrão.")) await Carregar(); }
+
+    private async Task ExcluirPerfil()
+    {
+        if (await Executar(() => Acesso.ExcluirPerfilAsync(_sel!.Id, Cancelamento), "Perfil excluído.")) { _sel = null; await Carregar(); }
+    }
+
+    // ───── Por usuário ─────
+
+    private void EscolherUsuario(ChangeEventArgs e)
+    {
+        _uid = Guid.TryParse(e.Value?.ToString(), out var g) ? g : null;
+        _u = null;
+        if (_uid is { } id && _usuarios?.FirstOrDefault(u => u.Id == id) is { } u) AbrirUsuario(u);
+    }
+
+    private void AbrirUsuario(AcessoServico.LinhaUsuario u)
+    {
+        _u = u; _uPerfil = u.PerfilAcessoId; ErrosForm = null;
+        _exc = CatalogoTelas.LerExcecoes(u.Excecoes);
+    }
+
+    private void TrocarPerfilUsuario(ChangeEventArgs e) => _uPerfil = Guid.TryParse(e.Value?.ToString(), out var g) ? g : null;
+
+    /// <summary>Regras do perfil que vale para o usuário (o escolhido; senão o padrão do perfil dele).</summary>
+    private Dictionary<string, string> RegrasBaseUsuario()
+    {
+        var p = _uPerfil is { } id ? _perfis!.FirstOrDefault(x => x.Id == id) : _perfis!.FirstOrDefault(x => x.Base == _u!.Perfil);
+        return p?.Regras ?? PerfisPadrao.Regras(_u!.Perfil);
+    }
+
+    private static string ClasseCel(bool? e, bool tem) => e == true ? "mais" : e == false ? "menos" : tem ? "base" : "";
+    private static string TextoCel(bool? e, bool tem) => e == true ? "+" : e == false ? "−" : tem ? "✓" : "·";
+    private static string DicaCel(bool? e, bool tem) => (tem ? "Perfil permite" : "Perfil não permite") + (e is null ? "" : " · exceção só deste usuário");
+
+    private void Alternar(TelaSistema t, char l, bool tem)
+    {
+        if (!_exc.TryGetValue(t.Rota, out var d)) _exc[t.Rota] = d = [];
+        if (d.ContainsKey(l)) d.Remove(l); else d[l] = !tem;
+        if (d.Count == 0) _exc.Remove(t.Rota);
+    }
+
+    private async Task SalvarUsuario()
+    {
+        if (await Executar(() => Acesso.SalvarAcessoUsuarioAsync(_u!.Id, _uPerfil, _exc, Cancelamento), $"Acesso de {_u!.Nome} salvo. Vale na próxima tela que ele abrir.")) await Carregar();
+    }
+}

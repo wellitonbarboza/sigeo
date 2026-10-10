@@ -40,6 +40,7 @@ public interface IQualyHubDb : IDisposable, IAsyncDisposable
 
     DbSet<Empresa> Empresas { get; }
     DbSet<RegistroPlataforma> RegistrosPlataforma { get; }
+    DbSet<PerfilAcesso> PerfisAcesso { get; }
     DbSet<Obra> Obras { get; }
     DbSet<Local> Locais { get; }
     DbSet<CentroCusto> CentrosCusto { get; }
