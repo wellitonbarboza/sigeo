@@ -25,6 +25,13 @@ public sealed class KitNestCancelliTests(BancoFixture f)
         await using (var s = File.OpenRead(Arquivo())) kit = LeitorKitTipologia.Ler(s);
         Assert.Equal(128, kit.Servicos.Count);
         Assert.True(kit.InsumosOuVazio.Count > 600);
+        // cômodos medidos no DWG V7: perímetro, pé-direito livre 2,82 m e vãos
+        Assert.All(kit.Ambientes.Where(a => a.Escopo == EscopoAmbiente.Comodo), a =>
+        {
+            Assert.True(a.Perimetro > 0 && a.AreaVaos > 0);
+            Assert.Equal(2.82m, a.PeDireito);
+        });
+        Assert.Equal(10.50m, kit.Ambientes.Single(a => a.Sigla == "DOR").Perimetro);
 
         var obraId = await Dados.CriarObraAsync(f);
         var eng = f.Engenharia;

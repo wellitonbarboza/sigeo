@@ -219,6 +219,7 @@ public sealed class KitTipologiaServico(IFabricaDb fabrica, EngenhariaServico en
         {
             if (string.IsNullOrWhiteSpace(t.Codigo) || string.IsNullOrWhiteSpace(t.Nome)) e.Add($"Tipologias linha {t.Linha}: informe código e nome.");
             if (existentes.TryGetValue(t.Codigo.Trim(), out var x) && x.Tipo != t.Tipo) e.Add($"Tipologias linha {t.Linha}: {t.Codigo} já existe como {x.Tipo}.");
+            if (t.Observacoes?.Length > 400) e.Add($"Tipologias linha {t.Linha}: observações com {t.Observacoes.Length} caracteres (máximo 400).");
         }
         TipoTipologia? TipoDe(string c) => tips.TryGetValue(Up(c), out var t) ? t : existentes.TryGetValue(c.Trim(), out var x) ? x.Tipo : null;
         foreach (var g in kit.Ambientes.GroupBy(a => (Up(a.Tipologia), Up(a.Sigla))).Where(g => g.Count() > 1)) e.Add($"Ambientes: sigla {g.Key.Item2} repetida em {g.Key.Item1}.");
