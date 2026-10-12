@@ -194,7 +194,8 @@ public enum TipoLista
 {
     Atividade = 1, CategoriaServico = 2, CriterioQualificacao = 3, ProcessoArea = 4, TipoDocumentoSgq = 5,
     EmissorExterno = 6, CondicaoPagamento = 7, Funcao = 8, TipoTarefa = 9, TipoAgrupamento = 10,
-    TipoComodo = 11, GrupoServico = 12, CategoriaDocumento = 13
+    TipoComodo = 11, GrupoServico = 12, CategoriaDocumento = 13,
+    Disciplina = 14, ModoFalha = 15, MotivoAjusteEstoque = 16
 }
 
 public enum PrioridadeTarefa { Baixa, Normal, Alta, Urgente }

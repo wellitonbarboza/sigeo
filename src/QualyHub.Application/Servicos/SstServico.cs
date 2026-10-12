@@ -198,7 +198,21 @@ public sealed class SstServico(IFabricaDb fabrica, IUsuarioAtual usuario, TimePr
     {
         await using var db = fabrica.Criar();
         var epi = await db.Epis.AsNoTracking().FirstAsync(x => x.Id == epiId, ct);
-        db.EntregasEpi.Add(EntregaEpi.Registrar(epi, colaboradorId, qtd, data, motivo, assinatura, usuario.Nome));
+        var entrega = EntregaEpi.Registrar(epi, colaboradorId, qtd, data, motivo, assinatura, usuario.Nome);
+        db.EntregasEpi.Add(entrega);
+        // EPI com produto controlado no estoque da obra: a entrega baixa do almoxarifado da obra do colaborador.
+        if (epi.ProdutoId is { } prod)
+        {
+            var col = await db.Colaboradores.AsNoTracking().Where(c => c.Id == colaboradorId).Select(c => new { c.ObraId, c.Nome, c.FornecedorId }).FirstAsync(ct);
+            var almox = await db.Almoxarifados.AsNoTracking().Where(a => a.ObraId == col.ObraId).Select(a => (Guid?)a.Id).FirstOrDefaultAsync(ct);
+            if (almox is { } al && await db.SaldosEstoque.AnyAsync(s => s.AlmoxarifadoId == al && s.ProdutoId == prod, ct))
+                await MotorEstoque.MovimentarAsync(db, new Domain.Suprimentos.MovimentoEstoque
+                {
+                    AlmoxarifadoId = al, ProdutoId = prod, Data = Agora, Tipo = Domain.Suprimentos.TipoMovimentoEstoque.EntregaEpi, Quantidade = -qtd,
+                    ColaboradorId = colaboradorId, FornecedorId = col.FornecedorId, EntreguePara = col.Nome, Documento = $"Entrega de EPI · {epi.Descricao}",
+                    OrigemTipo = "EntregaEpi", OrigemId = entrega.Id
+                }, ct);
+        }
         await db.SaveChangesAsync(ct);
         await RecalcularAsync([colaboradorId], ct);
     }

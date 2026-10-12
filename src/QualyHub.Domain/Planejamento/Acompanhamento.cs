@@ -65,6 +65,8 @@ public class DiarioObra : EntidadeDaObra, IHistoricoTemporal
     public DateTimeOffset? AssinadoEm { get; set; }
     public ICollection<DiarioEfetivo> Efetivo { get; set; } = [];
     public ICollection<DiarioAtividade> Atividades { get; set; } = [];
+    /// <summary>Equipamentos do dia (horas trabalhadas alimentam o horímetro; parado aparece no painel).</summary>
+    public ICollection<DiarioEquipamento> EquipamentosDia { get; set; } = [];
 
     public bool Editavel => Status == StatusDiario.Rascunho;
     public int TotalProprio => Efetivo.Where(e => !e.Terceiro).Sum(e => e.Quantidade);
@@ -103,6 +105,16 @@ public class DiarioEfetivo : Entidade
     public Guid? FornecedorId { get; set; }
     public string Nome { get; set; } = string.Empty;
     public int Quantidade { get; set; }
+}
+
+/// <summary>Equipamento no dia: horas trabalhadas e se ficou parado.</summary>
+public class DiarioEquipamento : Entidade
+{
+    public Guid DiarioId { get; set; }
+    public Guid EquipamentoId { get; set; }
+    public decimal Horas { get; set; }
+    public bool Parado { get; set; }
+    public string? Observacao { get; set; }
 }
 
 /// <summary>Atividade executada no dia: descrição, local opcional; as fotos são anexos ("DiarioAtividade", Id).</summary>

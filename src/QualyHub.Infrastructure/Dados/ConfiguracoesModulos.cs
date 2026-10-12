@@ -298,6 +298,7 @@ internal sealed class RecebimentoCfg : IEntityTypeConfiguration<Recebimento>
         b.HasIndex(x => new { x.EmpresaId, x.Numero }).IsUnique().HasFilter("[Excluido] = 0");
         b.HasOne(x => x.Pedido).WithMany().HasForeignKey(x => x.PedidoId);
         b.HasOne<Contrato>().WithMany().HasForeignKey(x => x.ContratoId);
+        b.HasOne<Almoxarifado>().WithMany().HasForeignKey(x => x.AlmoxarifadoId);
         b.HasOne<Fornecedor>().WithMany().HasForeignKey(x => x.FornecedorId);
         b.HasOne<Obra>().WithMany().HasForeignKey(x => x.ObraId);
         b.Property(x => x.ChaveNFe).HasMaxLength(44);
@@ -313,6 +314,7 @@ internal sealed class RecebimentoItemCfg : IEntityTypeConfiguration<RecebimentoI
     public void Configure(EntityTypeBuilder<RecebimentoItem> b)
     {
         b.HasOne<PedidoItem>().WithMany().HasForeignKey(x => x.PedidoItemId);
+        b.HasOne<Produto>().WithMany().HasForeignKey(x => x.ProdutoId);
         b.Property(x => x.QtdPedida).HasPrecision(18, 3);
         b.Property(x => x.QtdRecebida).HasPrecision(18, 3);
     }

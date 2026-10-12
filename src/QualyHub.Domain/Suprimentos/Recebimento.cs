@@ -15,6 +15,8 @@ public class Recebimento : EntidadeDaObra, IHistoricoTemporal
     public Guid FornecedorId { get; set; }
     /// <summary>Recebido no almoxarifado central (depois transferido para a obra/SPE).</summary>
     public bool AlmoxarifadoCentral { get; set; }
+    /// <summary>Onde está sendo recebido (almoxarifado central ou da obra): o material entra no estoque dele.</summary>
+    public Guid? AlmoxarifadoId { get; set; }
     public Guid? EstabelecimentoId { get; set; }
     public string? ChaveNFe { get; set; }
     public string? NumeroNotaFiscal { get; set; }
@@ -94,6 +96,8 @@ public class RecebimentoItem : Entidade
     public Guid RecebimentoId { get; set; }
     public Recebimento Recebimento { get; set; } = null!;
     public Guid? PedidoItemId { get; set; }
+    /// <summary>Produto (vem do item do pedido): é ele que entra no estoque.</summary>
+    public Guid? ProdutoId { get; set; }
     public string Descricao { get; set; } = string.Empty;
     public string? Unidade { get; set; }
     public decimal QtdPedida { get; set; }

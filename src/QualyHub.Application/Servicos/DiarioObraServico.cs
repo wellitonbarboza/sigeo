@@ -28,7 +28,7 @@ public sealed class DiarioObraServico(IFabricaDb fabrica, IUsuarioAtual usuario,
     public async Task<DiarioObra> AbrirAsync(Guid obraId, DateOnly data, CancellationToken ct = default)
     {
         await using var db = fabrica.CriarLeitura();
-        return await db.DiariosObra.AsNoTracking().Include(d => d.Efetivo).Include(d => d.Atividades).AsSplitQuery().FirstOrDefaultAsync(d => d.ObraId == obraId && d.Data == data, ct)
+        return await db.DiariosObra.AsNoTracking().Include(d => d.Efetivo).Include(d => d.Atividades).Include(d => d.EquipamentosDia).AsSplitQuery().FirstOrDefaultAsync(d => d.ObraId == obraId && d.Data == data, ct)
                ?? new DiarioObra { ObraId = obraId, Data = data, HoraInicio = new TimeOnly(7, 0), HoraTermino = new TimeOnly(17, 0) };
     }
 
@@ -59,7 +59,7 @@ public sealed class DiarioObraServico(IFabricaDb fabrica, IUsuarioAtual usuario,
         ValidacaoException.Se(d.Validar(Hoje));
         await using var db = fabrica.Criar();
         await Permissoes.ExigirTelaAsync(db, usuario, "engenharia/diario", Contratos.AcaoTela.Incluir, ct);
-        var atual = await db.DiariosObra.Include(x => x.Efetivo).Include(x => x.Atividades).AsSplitQuery().FirstOrDefaultAsync(x => x.Id == d.Id, ct);
+        var atual = await db.DiariosObra.Include(x => x.Efetivo).Include(x => x.Atividades).Include(x => x.EquipamentosDia).AsSplitQuery().FirstOrDefaultAsync(x => x.Id == d.Id, ct);
         if (atual is null)
         {
             if (await db.DiariosObra.AnyAsync(x => x.ObraId == d.ObraId && x.Data == d.Data, ct)) throw new RegraDeNegocioException($"Já existe diário em {d.Data:dd/MM/yyyy}.");
@@ -78,6 +78,14 @@ public sealed class DiarioObraServico(IFabricaDb fabrica, IUsuarioAtual usuario,
             // Id já vem preenchido (Guid v7): adicionar pelo contexto, senão o EF trataria como alteração de linha existente.
             var n = new DiarioEfetivo { DiarioId = atual.Id, Terceiro = e.Terceiro, FuncaoObraId = e.FuncaoObraId, FornecedorId = e.FornecedorId, Nome = e.Nome, Quantidade = e.Quantidade };
             db.Add(n); atual.Efetivo.Add(n);
+        }
+        // Equipamentos do dia: substitui (horas somam no horímetro na assinatura).
+        foreach (var e in atual.EquipamentosDia.ToList()) { atual.EquipamentosDia.Remove(e); db.Remove(e); }
+        foreach (var e in d.EquipamentosDia.Where(e => e.EquipamentoId != Guid.Empty).GroupBy(e => e.EquipamentoId).Select(g => g.First()))
+        {
+            if (e.Horas < 0 || e.Horas > 24) throw new RegraDeNegocioException("Horas do equipamento devem estar entre 0 e 24.");
+            var n = new DiarioEquipamento { DiarioId = atual.Id, EquipamentoId = e.EquipamentoId, Horas = e.Horas, Parado = e.Parado, Observacao = e.Observacao };
+            db.Add(n); atual.EquipamentosDia.Add(n);
         }
         var manter = d.Atividades.Select(a => a.Id).ToHashSet();
         foreach (var a in atual.Atividades.Where(a => !manter.Contains(a.Id)).ToList()) { atual.Atividades.Remove(a); db.Remove(a); }
@@ -112,7 +120,7 @@ public sealed class DiarioObraServico(IFabricaDb fabrica, IUsuarioAtual usuario,
     public async Task AssinarAsync(Guid diarioId, CancellationToken ct = default)
     {
         await using var db = fabrica.Criar();
-        var d = await db.DiariosObra.Include(x => x.Efetivo).Include(x => x.Atividades).AsSplitQuery().FirstOrDefaultAsync(x => x.Id == diarioId, ct)
+        var d = await db.DiariosObra.Include(x => x.Efetivo).Include(x => x.Atividades).Include(x => x.EquipamentosDia).AsSplitQuery().FirstOrDefaultAsync(x => x.Id == diarioId, ct)
                 ?? throw new RegraDeNegocioException("Salve o diário antes de assinar.");
         await Permissoes.ExigirTelaAsync(db, usuario, "engenharia/diario", Contratos.AcaoTela.Aprovar, ct);
         if (!await PodeAssinarAsync(db, d.ObraId, ct)) throw new RegraDeNegocioException("Quem assina o diário é o engenheiro(a) da obra.");
@@ -120,6 +128,7 @@ public sealed class DiarioObraServico(IFabricaDb fabrica, IUsuarioAtual usuario,
         if (d.Trabalhado == DiaTrabalhado.Sim && d.Atividades.Count == 0) throw new RegraDeNegocioException("Dia trabalhado: registre ao menos uma atividade executada.");
         var nome = await db.Usuarios.AsNoTracking().Where(u => u.Id == usuario.UsuarioId).Select(u => u.Nome).FirstOrDefaultAsync(ct) ?? usuario.Nome;
         d.Assinar(usuario.UsuarioId!.Value, nome, relogio.GetUtcNow());
+        await EquipamentosServico.HorasDoDiarioAsync(db, d, ct);
         await db.SaveChangesAsync(ct);
     }
 }

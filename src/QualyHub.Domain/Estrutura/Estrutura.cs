@@ -366,6 +366,18 @@ public static class Parametros
     public const string PeriodicidadeVerificacaoMeses = "QOB.PERIODICIDADE_VERIFICACAO_MESES";
     public const string AuditoriasPorAno = "QOB.AUDITORIAS_ANO";
     public const string ReincidenciasAc = "QOB.REINCIDENCIAS_AC";
+    // Etiqueta de equipamento (folha A4 de etiquetas adesivas, impressora comum)
+    public const string EtiquetaColunas = "ETQ.COLUNAS";
+    public const string EtiquetaLinhas = "ETQ.LINHAS";
+    public const string EtiquetaLarguraMm = "ETQ.LARGURA_MM";
+    public const string EtiquetaAlturaMm = "ETQ.ALTURA_MM";
+    public const string EtiquetaMargemSuperiorMm = "ETQ.MARGEM_SUPERIOR_MM";
+    public const string EtiquetaMargemEsquerdaMm = "ETQ.MARGEM_ESQUERDA_MM";
+    public const string EtiquetaEspacoHorizontalMm = "ETQ.ESPACO_H_MM";
+    public const string EtiquetaEspacoVerticalMm = "ETQ.ESPACO_V_MM";
+    // Estoque e equipamentos
+    public const string ConsumoMinimoDias = "EST.CONSUMO_MINIMO_DIAS";
+    public const string AlertaDevolucaoLocacaoDias = "EQP.ALERTA_DEVOLUCAO_DIAS";
     public const string AlertaVencimentoSstDias = "SST.ALERTA_VENCIMENTO_DIAS";
     public const string AlertaCaDias = "SST.ALERTA_CA_DIAS";
     public const string MetaAptosPerc = "SST.META_APTOS_PERC";
@@ -415,6 +427,16 @@ public static class Parametros
             [MetaAptosPerc] = (95m, "%", "Meta de colaboradores aptos", "Segurança e pessoas"),
             [MetaConformidadeInspecaoPerc] = (90m, "%", "Meta de conformidade das inspeções de segurança", "Segurança e pessoas"),
             [FrequenciaInspecaoDias] = (7m, "dias", "Frequência mínima de inspeção geral do canteiro", "Segurança e pessoas"),
+            [EtiquetaColunas] = (3m, "un", "Etiquetas por linha na folha A4", "Etiquetas"),
+            [EtiquetaLinhas] = (8m, "un", "Linhas de etiquetas na folha A4", "Etiquetas"),
+            [EtiquetaLarguraMm] = (63.5m, "mm", "Largura da etiqueta", "Etiquetas"),
+            [EtiquetaAlturaMm] = (33.9m, "mm", "Altura da etiqueta", "Etiquetas"),
+            [EtiquetaMargemSuperiorMm] = (12.9m, "mm", "Margem superior da folha", "Etiquetas"),
+            [EtiquetaMargemEsquerdaMm] = (7.2m, "mm", "Margem esquerda da folha", "Etiquetas"),
+            [EtiquetaEspacoHorizontalMm] = (2.5m, "mm", "Espaço entre etiquetas (horizontal)", "Etiquetas"),
+            [EtiquetaEspacoVerticalMm] = (0m, "mm", "Espaço entre etiquetas (vertical)", "Etiquetas"),
+            [ConsumoMinimoDias] = (60m, "dias", "Período de consumo usado na sugestão de mínimos", "Estoque"),
+            [AlertaDevolucaoLocacaoDias] = (5m, "dias", "Alerta antes da data de devolução do equipamento locado", "Estoque"),
         };
 }
 

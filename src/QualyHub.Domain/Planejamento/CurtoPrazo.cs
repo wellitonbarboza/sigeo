@@ -42,6 +42,8 @@ public class Restricao : EntidadeDaObra, IHistoricoTemporal
     public string? Resolucao { get; set; }
     public DateTimeOffset? RemovidaEm { get; set; }
     public string? RemovidaPor { get; set; }
+    /// <summary>Documento que gerou a restrição automaticamente (transferência de material, OS de equipamento): ao concluir, ela é removida sozinha.</summary>
+    public Guid? OrigemId { get; set; }
 
     public bool Aberta => Status == StatusRestricao.Aberta;
     public bool Vencida(DateOnly hoje) => Aberta && DataLimite < hoje;

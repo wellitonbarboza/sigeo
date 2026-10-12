@@ -69,7 +69,9 @@ public static class CatalogoTelas
             T("sup", "pedidos", "Pedidos", "sacola", "VIEAX"), T("sup", "contratos", "Contratos", "contrato", "VIEAX"),
             T("sup", "notas-fiscais", "Notas Fiscais (entrada)", "arquivo"), T("sup", "recebimentos", "Recebimento / FVM", "caixa", "VIEAX"),
             T("sup", "transferencias", "Transferências p/ Obra", "enviar"), T("sup", "medicoes", "Medições", "regua", "VIEAX"),
-            T("sup", "pagamentos", "Liberação Pagamento", "dinheiro", "VIEAX")]),
+            T("sup", "pagamentos", "Liberação Pagamento", "dinheiro", "VIEAX"), T("sup", "contratos/parcelas", "Parcelas de Contratos", "calendario", "VIEAX"),
+            T("sup", "estoque", "Estoque e Almoxarifados", "caixa", "VIEAX"), T("sup", "estoque/kits", "Kits de Material", "lista", "VIEX"),
+            T("sup", "equipamentos", "Equipamentos e Manutenção", "ferramenta", "VIEAX")]),
         new("sgq", "Qualidade", "medalha", false, [
             T("sgq", "sgq/documentos", "Documentos SGQ", "pasta", "VIEAX"), T("sgq", "sgq/copias", "Cópias Controladas", "impressora"),
             T("sgq", "sgq/lista-mestra", "Lista Mestra", "lista", "VX"), T("sgq", "sgq/externos", "Documentos Externos", "livro"),
@@ -206,25 +208,26 @@ public static class PerfisPadrao
                 Ver(); Modulo("eng", "IEA"); Modulo("qob", "IEA");
                 foreach (var x in new[] { "requisicoes", "medicoes", "recebimentos", "transferencias" }) Dar(x, "IEA");
                 foreach (var x in new[] { "cotacoes", "pedidos", "contratos", "pagamentos" }) Dar(x, "A");
+                foreach (var x in new[] { "estoque", "estoque/kits", "equipamentos", "contratos/parcelas" }) Dar(x, "IEA");
                 break;
             case PerfilUsuario.Qualidade:
                 Ver(); Modulo("sgq", "IEA"); Modulo("qob", "IEA"); Modulo("cad", "IEA"); Dar("sistema/permissoes", "VI");
                 break;
             case PerfilUsuario.Suprimentos:
                 Ver(); Modulo("sup", "IE"); Modulo("cad", "IE");
-                foreach (var x in new[] { "requisicoes", "cotacoes", "pedidos", "contratos" }) Dar(x, "A");
+                foreach (var x in new[] { "requisicoes", "cotacoes", "pedidos", "contratos", "estoque" }) Dar(x, "A");
                 break;
             case PerfilUsuario.Financeiro:
-                Ver(); Dar("pagamentos", "IEA"); Dar("notas-fiscais", "IE"); Dar("medicoes", "A");
+                Ver(); Dar("pagamentos", "IEA"); Dar("notas-fiscais", "IE"); Dar("medicoes", "A"); Dar("contratos/parcelas", "IA");
                 Dar("cadastros/centros-custo", "IE"); Dar("cadastros/estabelecimentos", "IE");
                 break;
             case PerfilUsuario.Campo:
                 Ver();
-                foreach (var x in new[] { "requisicoes", "recebimentos", "transferencias", "obra/fvs", "obra/rnc", "obra/acoes", "engenharia/last-planner" }) Dar(x, "I");
+                foreach (var x in new[] { "requisicoes", "recebimentos", "transferencias", "obra/fvs", "obra/rnc", "obra/acoes", "engenharia/last-planner", "equipamentos" }) Dar(x, "I");
                 break;
             case PerfilUsuario.Almoxarifado:
                 Modulo("sup", "VX"); Modulo("cad", "VX");
-                foreach (var x in new[] { "recebimentos", "transferencias", "notas-fiscais" }) Dar(x, "I");
+                foreach (var x in new[] { "recebimentos", "transferencias", "notas-fiscais", "estoque", "estoque/kits", "equipamentos", "contratos/parcelas" }) Dar(x, "I");
                 break;
             case PerfilUsuario.Seguranca:
                 Ver(); Modulo("sst", "IEA");

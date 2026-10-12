@@ -261,6 +261,8 @@ internal sealed class TransferenciaCfg : IEntityTypeConfiguration<TransferenciaM
         b.HasOne<Spe>().WithMany().HasForeignKey(x => x.SpeId);
         b.HasOne<Pedido>().WithMany().HasForeignKey(x => x.PedidoId);
         b.HasOne<Estabelecimento>().WithMany().HasForeignKey(x => x.OrigemEstabelecimentoId);
+        b.HasOne<Almoxarifado>().WithMany().HasForeignKey(x => x.OrigemAlmoxarifadoId);
+        b.HasOne<Almoxarifado>().WithMany().HasForeignKey(x => x.DestinoAlmoxarifadoId);
         // Um recebimento gera no máximo uma transferência ativa.
         b.HasIndex(x => x.RecebimentoId).IsUnique().HasFilter("[Excluido] = 0 AND [RecebimentoId] IS NOT NULL AND [Status] <> N'Cancelada'")
          .HasDatabaseName("UX_Transferencias_Recebimento");

@@ -267,6 +267,21 @@ public sealed class QualidadeObraServico(IFabricaDb fabrica, IUsuarioAtual usuar
 
     public async Task<Guid> SalvarEquipamentoAsync(EquipamentoMedicao e, CancellationToken ct = default)
     {
+        // Tipo configurável: preenche o que estiver vazio com o padrão do tipo; código sai do prefixo + sequência.
+        if (e.TipoMedicaoId is { } tid)
+        {
+            await using var dbt = fabrica.CriarLeitura();
+            var t = await dbt.TiposEquipamentoMedicao.AsNoTracking().FirstAsync(x => x.Id == tid, ct);
+            if (e.PeriodicidadeMeses <= 0) e.PeriodicidadeMeses = t.PeriodicidadeMeses;
+            if (string.IsNullOrWhiteSpace(e.Criterio)) e.Criterio = t.Criterio;
+            if (string.IsNullOrWhiteSpace(e.Codigo) && !string.IsNullOrWhiteSpace(t.Prefixo))
+            {
+                var codigos = await dbt.Equipamentos.AsNoTracking().Where(x => x.Codigo.StartsWith(t.Prefixo + "-")).Select(x => x.Codigo).ToListAsync(ct);
+                var maior = codigos.Select(c => int.TryParse(c[(t.Prefixo.Length + 1)..], out var n) ? n : 0).DefaultIfEmpty(0).Max();
+                e.Codigo = $"{t.Prefixo}-{maior + 1:000}";
+            }
+        }
+        if (e.Dono == DonoFerramenta.Terceiro && e.FornecedorId is null) throw new RegraDeNegocioException("Ferramenta de terceiro: informe a empreiteira dona.");
         var erros = new List<string>();
         if (string.IsNullOrWhiteSpace(e.Codigo)) erros.Add("Informe o código (etiqueta).");
         if (string.IsNullOrWhiteSpace(e.Descricao)) erros.Add("Informe a descrição / modelo / nº de série.");
@@ -280,6 +295,44 @@ public sealed class QualidadeObraServico(IFabricaDb fabrica, IUsuarioAtual usuar
         await Grafo.SalvarAsync(db, e);
         await db.SaveChangesAsync(ct);
         return e.Id;
+    }
+
+    // ───────── Tipos de equipamento de medição (configuráveis) e cautela ─────────
+
+    public async Task SalvarTipoMedicaoAsync(TipoEquipamentoMedicao t, CancellationToken ct = default)
+    {
+        var erros = new List<string>();
+        if (string.IsNullOrWhiteSpace(t.Nome)) erros.Add("Informe o nome do tipo.");
+        if (t.PeriodicidadeMeses <= 0) erros.Add("Informe a periodicidade (meses).");
+        if (string.IsNullOrWhiteSpace(t.Criterio)) erros.Add("Informe o critério de aceitação padrão.");
+        Checar(erros);
+        t.Prefixo = (t.Prefixo ?? "").Trim().ToUpperInvariant();
+        await using var db = fabrica.Criar();
+        if (await db.TiposEquipamentoMedicao.AnyAsync(x => x.Nome == t.Nome && x.Id != t.Id, ct)) throw new RegraDeNegocioException($"Tipo {t.Nome} já existe.");
+        await Grafo.SalvarAsync(db, t);
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>Entrega a ferramenta (cautela) para colaborador, empreiteira ou setor; fecha a cautela anterior.</summary>
+    public async Task EntregarFerramentaAsync(Guid equipamentoId, string para, Guid? colaboradorId, Guid? fornecedorId, DateOnly data, string? observacao, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(para)) throw new RegraDeNegocioException("Informe com quem fica a ferramenta.");
+        await using var db = fabrica.Criar();
+        var e = await db.Equipamentos.FirstAsync(x => x.Id == equipamentoId, ct);
+        if (!e.UsavelEm(Hoje)) throw new RegraDeNegocioException($"{e.Codigo} está vencido, reprovado ou em calibração: não pode ser entregue para uso.");
+        foreach (var c in await db.CautelasFerramenta.Where(c => c.EquipamentoMedicaoId == e.Id && c.DevolvidaEm == null).ToListAsync(ct)) c.DevolvidaEm = data;
+        db.CautelasFerramenta.Add(new CautelaFerramenta { EquipamentoMedicaoId = e.Id, Data = data, Para = para.Trim(), ColaboradorId = colaboradorId, FornecedorId = fornecedorId, EntreguePor = usuario.Nome, Observacao = observacao });
+        e.ComQuem = para.Trim(); e.CautelaColaboradorId = colaboradorId; e.CautelaFornecedorId = fornecedorId; e.CautelaDesde = data;
+        await db.SaveChangesAsync(ct);
+    }
+
+    public async Task DevolverFerramentaAsync(Guid equipamentoId, DateOnly data, CancellationToken ct = default)
+    {
+        await using var db = fabrica.Criar();
+        var e = await db.Equipamentos.FirstAsync(x => x.Id == equipamentoId, ct);
+        foreach (var c in await db.CautelasFerramenta.Where(c => c.EquipamentoMedicaoId == e.Id && c.DevolvidaEm == null).ToListAsync(ct)) c.DevolvidaEm = data;
+        e.ComQuem = "Almoxarifado"; e.CautelaColaboradorId = null; e.CautelaFornecedorId = null; e.CautelaDesde = data;
+        await db.SaveChangesAsync(ct);
     }
 
     /// <summary>Registra calibração/verificação. Reprovada: devolve as FVS feitas com o equipamento desde a última aprovação.</summary>
@@ -301,6 +354,9 @@ public sealed class QualidadeObraServico(IFabricaDb fabrica, IUsuarioAtual usuar
         {
             var desde = ultimaAprovada is { } d ? new DateTimeOffset(d.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero) : DateTimeOffset.MinValue;
             afetadas = await db.Fvss.AsNoTracking().Where(f => f.EquipamentoId == e.Id && f.DataInspecao >= desde).OrderBy(f => f.Numero).Select(f => f.Numero).ToListAsync(ct);
+            // Reprovada: a ferramenta é recolhida (fecha a cautela de quem estava usando).
+            foreach (var x in await db.CautelasFerramenta.Where(x => x.EquipamentoMedicaoId == e.Id && x.DevolvidaEm == null).ToListAsync(ct)) x.DevolvidaEm = c.Data;
+            e.ComQuem = "Recolhida (reprovada)"; e.CautelaColaboradorId = null; e.CautelaFornecedorId = null; e.CautelaDesde = c.Data;
         }
         await db.SaveChangesAsync(ct);
         return afetadas;
@@ -376,6 +432,7 @@ public sealed class QualidadeObraServico(IFabricaDb fabrica, IUsuarioAtual usuar
             db.Rncs.Add(r); x.RncId = r.Id;
         }
         rec.StatusLote = RegrasQualidadeObra.StatusDoLote(rec.FvmAprovada == true, rec.Destino == DestinoRecebimento.Devolvido, false, rec.QuarentenaAteEnsaio, [.. rec.Ensaios]);
+        await MotorEstoque.AjustarLoteAsync(db, rec, Agora, ct); // lote liberado: sai do bloqueado e fica disponível no estoque
         await db.SaveChangesAsync(ct);
     }
 

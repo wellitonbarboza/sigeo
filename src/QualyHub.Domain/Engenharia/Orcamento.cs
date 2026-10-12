@@ -15,6 +15,8 @@ public class Composicao : EntidadeAuditavel, IHistoricoTemporal
     public string Unidade { get; set; } = "m²";
     /// <summary>Etapa / grupo da EAP (lista "Grupo de serviço").</summary>
     public string? Grupo { get; set; }
+    /// <summary>Disciplina (lista configurável: civil, hidráulica, elétrica…) — usada nos kits por apartamento.</summary>
+    public string? Disciplina { get; set; }
     public RegraQuantidade Regra { get; set; } = RegraQuantidade.AreaPiso;
     /// <summary>Multiplicador sobre a medida do local (ex.: rodapé = perímetro × 0,9 para descontar portas).</summary>
     public decimal Fator { get; set; } = 1;

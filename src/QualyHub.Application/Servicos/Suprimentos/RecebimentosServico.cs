@@ -25,11 +25,18 @@ public sealed class RecebimentosServico(IFabricaDb fabrica, IUsuarioAtual usuari
             var ped = await db.Pedidos.Include(p => p.Itens).FirstAsync(p => p.Id == pid, ct);
             r.FornecedorId = ped.FornecedorId;
             r.ObraId = ped.ObraId;
-            if (ped.EntregaAlmoxarifadoCentral)
-            {
-                r.AlmoxarifadoCentral = true;
-                r.EstabelecimentoId ??= await db.Estabelecimentos.Where(e => e.AlmoxarifadoCentral).Select(e => (Guid?)e.Id).FirstOrDefaultAsync(ct);
-            }
+            // Onde está recebendo: o escolhido na tela; senão o local de entrega do pedido (central ou obra).
+            if (r.AlmoxarifadoId is null && ped.EntregaAlmoxarifadoCentral) r.AlmoxarifadoId = (await MotorEstoque.CentralAsync(db, ct))?.Id;
+            r.AlmoxarifadoId ??= (await MotorEstoque.DaObraAsync(db, r.ObraId, ct)).Id;
+            foreach (var ri in r.Itens.Where(i => i.PedidoItemId is not null)) ri.ProdutoId ??= ped.Itens.FirstOrDefault(i => i.Id == ri.PedidoItemId)?.ProdutoId;
+        }
+        else if (r.ObraId != Guid.Empty) r.AlmoxarifadoId ??= (await MotorEstoque.DaObraAsync(db, r.ObraId, ct)).Id;
+        if (r.AlmoxarifadoId is { } almoxId)
+        {
+            var almox = db.Almoxarifados.Local.FirstOrDefault(a => a.Id == almoxId) ?? await db.Almoxarifados.AsNoTracking().FirstAsync(a => a.Id == almoxId, ct);
+            r.AlmoxarifadoCentral = almox.Tipo == TipoAlmoxarifado.Central;
+            if (r.AlmoxarifadoCentral) r.EstabelecimentoId ??= almox.EstabelecimentoId;
+            else if (almox.ObraId is { } ao && ao != r.ObraId) throw new RegraDeNegocioException("O almoxarifado escolhido é de outra obra: receba no da obra do pedido ou no central e transfira depois.");
         }
         r.AplicarChecklist();
         ValidacaoException.Se(r.Validar());
@@ -76,6 +83,9 @@ public sealed class RecebimentosServico(IFabricaDb fabrica, IUsuarioAtual usuari
             r.ComunicadoEm = relogio.GetUtcNow();
         }
         db.Recebimentos.Add(r);
+        // Entrada no estoque do almoxarifado onde foi recebido (lote em quarentena entra bloqueado; devolvido não entra).
+        var custos = r.PedidoId is { } pidCusto ? await db.Set<PedidoItem>().AsNoTracking().Where(i => i.PedidoId == pidCusto).ToDictionaryAsync(i => i.Id, i => i.ValorUnitario, ct) : [];
+        await MotorEstoque.EntradaRecebimentoAsync(db, r, custos, relogio.GetUtcNow(), ct);
 
         if (r.PedidoId is { } pedidoId && r.Destino != DestinoRecebimento.Devolvido)
         {

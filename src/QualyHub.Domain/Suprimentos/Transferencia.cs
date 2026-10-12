@@ -14,6 +14,10 @@ public class TransferenciaMaterial : EntidadeDaObra, IHistoricoTemporal
     public Guid? PedidoId { get; set; }
     /// <summary>Estabelecimento de origem (almoxarifado central / quem faturou).</summary>
     public Guid? OrigemEstabelecimentoId { get; set; }
+    /// <summary>Almoxarifado de origem (central ou obra). Vazio = transferência antiga, sem controle de estoque.</summary>
+    public Guid? OrigemAlmoxarifadoId { get; set; }
+    /// <summary>Almoxarifado de destino (central ou obra).</summary>
+    public Guid? DestinoAlmoxarifadoId { get; set; }
     /// <summary>SPE de destino (dona do custo).</summary>
     public Guid? SpeId { get; set; }
     public DateOnly Data { get; set; }

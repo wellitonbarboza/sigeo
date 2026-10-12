@@ -390,6 +390,18 @@ public class EquipamentoMedicao : EntidadeAuditavel, IHistoricoTemporal
     public string? UltimoCertificado { get; set; }
     public bool Baixado { get; set; }
     public bool EmCalibracao { get; set; }
+    /// <summary>Tipo configurável (periodicidade, critério e controle padrão).</summary>
+    public Guid? TipoMedicaoId { get; set; }
+    /// <summary>Da construtora ou de terceiro (empreiteira).</summary>
+    public DonoFerramenta Dono { get; set; } = DonoFerramenta.Propria;
+    /// <summary>Empreiteira dona (terceiro).</summary>
+    public Guid? FornecedorId { get; set; }
+    /// <summary>Com quem está agora (cautela): colaborador, empreiteira ou setor.</summary>
+    public string? ComQuem { get; set; }
+    public Guid? CautelaColaboradorId { get; set; }
+    public Guid? CautelaFornecedorId { get; set; }
+    public DateOnly? CautelaDesde { get; set; }
+    public string QrToken { get; set; } = Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(10)).ToLowerInvariant();
     public ICollection<Calibracao> Calibracoes { get; set; } = [];
 
     public DateOnly? Proxima => UltimaData?.AddMonths(PeriodicidadeMeses);
@@ -413,6 +425,34 @@ public class EquipamentoMedicao : EntidadeAuditavel, IHistoricoTemporal
         Calibracoes.Add(c);
         UltimaData = c.Data; UltimoResultado = c.Resultado; UltimoCertificado = c.Certificado; EmCalibracao = false;
     }
+}
+
+public enum DonoFerramenta { Propria = 1, Terceiro = 2 }
+
+/// <summary>Tipo de equipamento de medição (trena, nível, prumo…): padrões configuráveis por construtora.</summary>
+public class TipoEquipamentoMedicao : EntidadeAuditavel
+{
+    public string Nome { get; set; } = string.Empty;
+    /// <summary>Prefixo do código (TR, NV, PR…).</summary>
+    public string Prefixo { get; set; } = string.Empty;
+    public int PeriodicidadeMeses { get; set; } = 6;
+    public string Criterio { get; set; } = string.Empty;
+    public string? Metodo { get; set; }
+    public TipoControleEquipamento TipoControle { get; set; } = TipoControleEquipamento.VerificacaoInterna;
+    public bool Ativo { get; set; } = true;
+}
+
+/// <summary>Cautela: entrega e devolução da ferramenta de medição (para colaborador próprio, empreiteira ou setor).</summary>
+public class CautelaFerramenta : EntidadeAuditavel
+{
+    public Guid EquipamentoMedicaoId { get; set; }
+    public DateOnly Data { get; set; }
+    public string Para { get; set; } = string.Empty;
+    public Guid? ColaboradorId { get; set; }
+    public Guid? FornecedorId { get; set; }
+    public DateOnly? DevolvidaEm { get; set; }
+    public string? EntreguePor { get; set; }
+    public string? Observacao { get; set; }
 }
 
 /// <summary>Q09 · Calibração (externa, RBC) ou verificação interna.</summary>

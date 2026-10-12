@@ -10,7 +10,7 @@ using QualyHub.Domain.Qualidade;
 
 namespace QualyHub.Application.Servicos;
 
-/// <summary>Transferência de material do almoxarifado central para a obra/SPE.</summary>
+/// <summary>Transferência de material entre almoxarifados (central ↔ obra, obra ↔ obra). Envio baixa da origem; conferência entra no destino.</summary>
 public sealed class TransferenciasServico(IFabricaDb fabrica, IUsuarioAtual usuario, TimeProvider relogio)
 {
     private DateOnly Hoje => DateOnly.FromDateTime(relogio.GetLocalNow().Date);
@@ -29,14 +29,18 @@ public sealed class TransferenciasServico(IFabricaDb fabrica, IUsuarioAtual usua
         var t = new TransferenciaMaterial
         {
             ObraId = r.ObraId, RecebimentoId = r.Id, PedidoId = r.PedidoId, SpeId = r.Pedido?.SpeId, OrigemEstabelecimentoId = r.EstabelecimentoId ?? r.Pedido?.EstabelecimentoFaturamentoId,
-            Data = Hoje, Numero = await Numerador.ProximoAsync(db, "Transferencia", ct)
+            Data = Hoje, Numero = await Numerador.ProximoAsync(db, "Transferencia", ct),
+            DestinoAlmoxarifadoId = (await MotorEstoque.DaObraAsync(db, r.ObraId, ct)).Id
         };
+        // Recebimento que entrou no estoque do central: a transferência baixa de lá. Recebimento antigo (antes do estoque) não tem saldo para baixar.
+        if (r.AlmoxarifadoId is { } origem && await db.MovimentosEstoque.AnyAsync(m => m.OrigemTipo == "Recebimento" && m.OrigemId == r.Id, ct))
+            t.OrigemAlmoxarifadoId = origem;
         foreach (var i in r.Itens.Where(i => i.QtdRecebida > 0))
         {
             var pi = r.Pedido?.Itens.FirstOrDefault(x => x.Id == i.PedidoItemId);
             t.Itens.Add(new TransferenciaItem
             {
-                TransferenciaId = t.Id, RecebimentoItemId = i.Id, ProdutoId = pi?.ProdutoId, Descricao = i.Descricao, Unidade = i.Unidade, Quantidade = i.QtdRecebida,
+                TransferenciaId = t.Id, RecebimentoItemId = i.Id, ProdutoId = i.ProdutoId ?? pi?.ProdutoId, Descricao = i.Descricao, Unidade = i.Unidade, Quantidade = i.QtdRecebida,
                 CustoUnitario = pi?.ValorUnitario ?? 0, Lote = i.Lote
             });
         }
@@ -69,6 +73,21 @@ public sealed class TransferenciasServico(IFabricaDb fabrica, IUsuarioAtual usua
         await using var db = fabrica.Criar();
         var t = await db.Transferencias.Include(x => x.Itens).FirstAsync(x => x.Id == id, ct);
         t.Enviar();
+        // Sai do saldo da origem (fica em trânsito até a conferência no destino); o custo vai pelo custo médio da origem.
+        if (t.OrigemAlmoxarifadoId is { } origem)
+        {
+            var agora = relogio.GetUtcNow();
+            foreach (var i in t.Itens)
+            {
+                if (i.ProdutoId is not { } prod) throw new RegraDeNegocioException($"{i.Descricao}: item sem produto cadastrado não pode sair do estoque.");
+                var m = await MotorEstoque.MovimentarAsync(db, new MovimentoEstoque
+                {
+                    AlmoxarifadoId = origem, ProdutoId = prod, Data = agora, Tipo = TipoMovimentoEstoque.TransferenciaSaida, Quantidade = -i.Quantidade,
+                    Documento = $"Transferência {t.Numero} · enviada", OrigemTipo = "Transferencia", OrigemId = t.Id, Lote = i.Lote
+                }, ct);
+                i.CustoUnitario = m.CustoUnitario;
+            }
+        }
         await db.SaveChangesAsync(ct);
     }
 
@@ -78,6 +97,17 @@ public sealed class TransferenciasServico(IFabricaDb fabrica, IUsuarioAtual usua
         await using var db = fabrica.Criar();
         var t = await db.Transferencias.FirstAsync(x => x.Id == id, ct);
         if (t.Status is StatusTransferencia.Recebida or StatusTransferencia.Cancelada) throw new RegraDeNegocioException("Transferência já recebida ou cancelada.");
+        // Já enviada: o material volta para o saldo da origem.
+        if (t.Status == StatusTransferencia.Enviada && t.OrigemAlmoxarifadoId is { } origem)
+        {
+            var itens = await db.TransferenciaItens.AsNoTracking().Where(i => i.TransferenciaId == t.Id && i.ProdutoId != null).ToListAsync(ct);
+            foreach (var i in itens)
+                await MotorEstoque.MovimentarAsync(db, new MovimentoEstoque
+                {
+                    AlmoxarifadoId = origem, ProdutoId = i.ProdutoId!.Value, Data = relogio.GetUtcNow(), Tipo = TipoMovimentoEstoque.TransferenciaEntrada, Quantidade = i.Quantidade,
+                    CustoUnitario = i.CustoUnitario, Documento = $"Transferência {t.Numero} · cancelada (retorno)", OrigemTipo = "Transferencia", OrigemId = t.Id
+                }, ct);
+        }
         t.Status = StatusTransferencia.Cancelada;
         t.Observacao = string.IsNullOrWhiteSpace(t.Observacao) ? $"Cancelada: {motivo.Trim()}" : $"{t.Observacao}\nCancelada: {motivo.Trim()}";
         await db.SaveChangesAsync(ct);
@@ -89,6 +119,18 @@ public sealed class TransferenciasServico(IFabricaDb fabrica, IUsuarioAtual usua
         var t = await db.Transferencias.Include(x => x.Itens).FirstAsync(x => x.Id == id, ct);
         if (!string.IsNullOrWhiteSpace(observacao)) t.Observacao = observacao;
         t.Conferir(usuario.Nome, relogio.GetUtcNow(), recebidas);
+        // Entra no destino o que foi conferido (a diferença fica registrada na observação).
+        if (t.DestinoAlmoxarifadoId is { } destino)
+        {
+            var agora = relogio.GetUtcNow();
+            foreach (var i in t.Itens.Where(i => i.ProdutoId is not null && (i.QuantidadeRecebida ?? i.Quantidade) > 0))
+                await MotorEstoque.MovimentarAsync(db, new MovimentoEstoque
+                {
+                    AlmoxarifadoId = destino, ProdutoId = i.ProdutoId!.Value, Data = agora, Tipo = TipoMovimentoEstoque.TransferenciaEntrada, Quantidade = i.QuantidadeRecebida ?? i.Quantidade,
+                    CustoUnitario = i.CustoUnitario, Documento = $"Transferência {t.Numero} · conferida", OrigemTipo = "Transferencia", OrigemId = t.Id, Lote = i.Lote
+                }, ct);
+        }
+        await MotorEstoque.RemoverRestricoesAsync(db, t.Id, $"Material conferido na transferência {t.Numero}.", usuario.Nome, relogio.GetUtcNow(), ct);
         await db.SaveChangesAsync(ct);
     }
 }

@@ -35,8 +35,17 @@ internal sealed class RncCfg : IEntityTypeConfiguration<Rnc>
 
 internal sealed class EquipamentoCfg : IEntityTypeConfiguration<EquipamentoMedicao>
 {
-    public void Configure(EntityTypeBuilder<EquipamentoMedicao> b) =>
+    public void Configure(EntityTypeBuilder<EquipamentoMedicao> b)
+    {
         b.HasIndex(x => new { x.EmpresaId, x.Codigo }).IsUnique().HasFilter("[Excluido] = 0");
+        b.Property(x => x.QrToken).HasMaxLength(40);
+        b.Property(x => x.ComQuem).HasMaxLength(200);
+        b.HasIndex(x => x.QrToken);
+        b.HasOne<TipoEquipamentoMedicao>().WithMany().HasForeignKey(x => x.TipoMedicaoId);
+        b.HasOne<Domain.Cadastros.Fornecedor>().WithMany().HasForeignKey(x => x.FornecedorId);
+        b.HasOne<Domain.Sst.Colaborador>().WithMany().HasForeignKey(x => x.CautelaColaboradorId);
+        b.HasOne<Domain.Cadastros.Fornecedor>().WithMany().HasForeignKey(x => x.CautelaFornecedorId);
+    }
 }
 
 internal sealed class ColaboradorCfg : IEntityTypeConfiguration<Colaborador>

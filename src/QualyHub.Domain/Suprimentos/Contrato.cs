@@ -35,6 +35,23 @@ public class Contrato : EntidadeDaObra, IHistoricoTemporal
     public DateTimeOffset? EnviadoFornecedorEm { get; set; }
     public StatusContrato Status { get; set; } = StatusContrato.EmElaboracao;
 
+    // ───── Cobrança recorrente (locação, serviço contínuo, manutenção mensal) ─────
+    /// <summary>Gera parcelas automáticas (em vez de medição com avaliação).</summary>
+    public bool Recorrente { get; set; }
+    public FormaCobranca FormaCobranca { get; set; } = FormaCobranca.Medicao;
+    public Periodicidade Periodicidade { get; set; } = Periodicidade.Mensal;
+    /// <summary>Mensal: dia de fechamento do período.</summary>
+    public int DiaCorte { get; set; } = 30;
+    public int DiaVencimento { get; set; } = 10;
+    /// <summary>Datas combinadas com o fornecedor ("dd/MM/yyyy;dd/MM/yyyy").</summary>
+    public string? DatasCombinadas { get; set; }
+    /// <summary>Diferença aceita entre a nota e o previsto (%) sem justificativa.</summary>
+    public decimal ToleranciaPerc { get; set; } = 2;
+    /// <summary>Ex.: "IGP-M · julho".</summary>
+    public string? Reajuste { get; set; }
+    /// <summary>Contrato de manutenção: a parcela só é aprovada com a OS da visita do período concluída.</summary>
+    public bool ExigeOsPorVisita { get; set; }
+
     public ICollection<ContratoItem> Itens { get; set; } = [];
     public ICollection<ContratoServico> ServicosVinculados { get; set; } = [];
 
@@ -96,6 +113,8 @@ public class ContratoItem : Entidade
     public string Unidade { get; set; } = "un";
     public decimal Quantidade { get; set; }
     public decimal PrecoUnitario { get; set; }
+    /// <summary>Locação por diária: valor mensal (a diária é cobrada até o mensal ficar mais barato).</summary>
+    public decimal? PrecoMensal { get; set; }
     public decimal Total => Math.Round(Quantidade * PrecoUnitario, 2);
     /// <summary>Serviço do orçamento contratado.</summary>
     public Guid? ComposicaoId { get; set; }

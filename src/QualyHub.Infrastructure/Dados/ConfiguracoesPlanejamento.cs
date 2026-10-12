@@ -210,6 +210,7 @@ internal sealed class DiarioObraCfg : IEntityTypeConfiguration<DiarioObra>
         b.HasIndex(x => new { x.ObraId, x.Numero });
         b.HasOne<Obra>().WithMany().HasForeignKey(x => x.ObraId).OnDelete(DeleteBehavior.Restrict);
         b.HasMany(x => x.Efetivo).WithOne().HasForeignKey(x => x.DiarioId).OnDelete(DeleteBehavior.Cascade);
+        b.HasMany(x => x.EquipamentosDia).WithOne().HasForeignKey(x => x.DiarioId).OnDelete(DeleteBehavior.Cascade);
         b.HasMany(x => x.Atividades).WithOne().HasForeignKey(x => x.DiarioId).OnDelete(DeleteBehavior.Cascade);
     }
 }

@@ -148,6 +148,24 @@ public interface IQualyHubDb : IDisposable, IAsyncDisposable
     DbSet<ContratoItemLocal> ContratoItemLocais { get; }
     DbSet<TransferenciaMaterial> Transferencias { get; }
     DbSet<TransferenciaItem> TransferenciaItens { get; }
+    DbSet<Almoxarifado> Almoxarifados { get; }
+    DbSet<SaldoEstoque> SaldosEstoque { get; }
+    DbSet<MovimentoEstoque> MovimentosEstoque { get; }
+    DbSet<InventarioEstoque> Inventarios { get; }
+    DbSet<InventarioItem> InventarioItens { get; }
+    DbSet<KitMaterial> KitsMaterial { get; }
+    DbSet<KitMaterialItem> KitMaterialItens { get; }
+    DbSet<FamiliaEquipamento> FamiliasEquipamento { get; }
+    DbSet<Domain.Suprimentos.Equipamento> Ativos { get; }
+    DbSet<EquipamentoDocumento> AtivoDocumentos { get; }
+    DbSet<MovimentoEquipamento> MovimentosEquipamento { get; }
+    DbSet<PlanoManutencao> PlanosManutencao { get; }
+    DbSet<OrdemServico> OrdensServico { get; }
+    DbSet<ParcelaContrato> ParcelasContrato { get; }
+    DbSet<UsoContrato> UsosContrato { get; }
+    DbSet<TipoEquipamentoMedicao> TiposEquipamentoMedicao { get; }
+    DbSet<CautelaFerramenta> CautelasFerramenta { get; }
+    DbSet<Domain.Planejamento.DiarioEquipamento> DiariosObraEquipamentos { get; }
     DbSet<Tarefa> Tarefas { get; }
     DbSet<TarefaProrrogacao> TarefaProrrogacoes { get; }
     DbSet<TarefaLeitura> TarefaLeituras { get; }

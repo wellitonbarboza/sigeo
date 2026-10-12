@@ -155,6 +155,36 @@ public static class CargaPadrao
         ("ITS 08.04", "Colocação de bancada"), ("ITS 08.05", "Instalação de louças e metais"), ("ITS 08.06", "Prevenção e combate a incêndio"),
     ];
 
+    public static readonly string[] Disciplinas = ["Civil", "Estrutura", "Alvenaria", "Hidráulica", "Elétrica", "Gás", "Prevenção de incêndio", "Impermeabilização", "Revestimento", "Esquadrias", "Pintura", "Louças e metais", "Acabamentos"];
+    public static readonly string[] ModosFalha = ["Desgaste", "Falha elétrica", "Falha mecânica", "Mau uso", "Falta de lubrificação", "Quebra", "Vazamento", "Outro"];
+    public static readonly string[] MotivosAjuste = ["Diferença de contagem", "Avaria", "Perda / extravio", "Vencimento", "Erro de lançamento"];
+
+    public static readonly (string Nome, bool Horimetro, bool Hodometro, string? Campos, Domain.Suprimentos.Criticidade Crit, bool Ativa)[] FamiliasEquipamento =
+    [
+        ("Elevação (grua, elevador, guincho)", true, false, "Capacidade (kg)", Domain.Suprimentos.Criticidade.A, true),
+        ("Concreto e argamassa", true, false, null, Domain.Suprimentos.Criticidade.B, true),
+        ("Energia (gerador, compressor)", true, false, "Potência", Domain.Suprimentos.Criticidade.B, true),
+        ("Compactação e terraplenagem", true, false, null, Domain.Suprimentos.Criticidade.B, true),
+        ("Carpintaria (serra de bancada…)", false, false, null, Domain.Suprimentos.Criticidade.A, true),
+        ("Demolição e perfuração", false, false, null, Domain.Suprimentos.Criticidade.C, true),
+        ("Ferramentas elétricas", false, false, null, Domain.Suprimentos.Criticidade.C, true),
+        ("Andaimes e escoramento", false, false, null, Domain.Suprimentos.Criticidade.B, true),
+        ("Veículos", false, true, "Placa;RENAVAM;Chassi", Domain.Suprimentos.Criticidade.B, false),
+    ];
+
+    public static readonly (string Nome, string Prefixo, int Meses, string Criterio, string Metodo, TipoControleEquipamento Controle)[] TiposMedicao =
+    [
+        ("Trena", "TR", 6, "Erro ≤ 1 mm em 5 m", "Comparação com a trena padrão em 1, 3 e 5 m", TipoControleEquipamento.VerificacaoInterna),
+        ("Nível de bolha", "NV", 6, "Bolha centralizada nas duas posições (giro de 180°)", "Leitura sobre superfície nivelada, invertendo a posição", TipoControleEquipamento.VerificacaoInterna),
+        ("Nível a laser", "NL", 12, "Conforme certificado de calibração (laboratório RBC)", "Calibração externa", TipoControleEquipamento.CalibracaoExterna),
+        ("Prumo de face", "PR", 6, "Desvio ≤ 1 mm em 1 m", "Comparação com prumo padrão em parede de referência", TipoControleEquipamento.VerificacaoInterna),
+        ("Esquadro", "ES", 6, "Desvio ≤ 1 mm em 60 cm", "Método 3-4-5 / comparação com esquadro padrão", TipoControleEquipamento.VerificacaoInterna),
+        ("Régua de alumínio", "RG", 6, "Flecha ≤ 1 mm em 2 m", "Comparação com régua padrão sobre superfície plana", TipoControleEquipamento.VerificacaoInterna),
+        ("Paquímetro", "PQ", 12, "Conforme certificado de calibração (laboratório RBC)", "Calibração externa", TipoControleEquipamento.CalibracaoExterna),
+        ("Balança", "BL", 12, "Conforme certificado de calibração (laboratório RBC)", "Calibração externa", TipoControleEquipamento.CalibracaoExterna),
+        ("Termômetro", "TM", 12, "Conforme certificado de calibração (laboratório RBC)", "Calibração externa", TipoControleEquipamento.CalibracaoExterna),
+    ];
+
     /// <summary>Regras de retenção genéricas (D11).</summary>
     public static readonly (string Id, string Prot, string Tempo, int? Anos, string Descarte)[] Retencoes =
     [
@@ -172,7 +202,7 @@ public static class CargaPadrao
     /// Versão da carga padrão. Suba quando incluir itens novos nas listas/cadastros padrão: empresas existentes recebem a carga
     /// uma vez por versão (itens que o usuário renomeou ou excluiu não voltam a cada reinício do app).
     /// </summary>
-    public const int Versao = 4;
+    public const int Versao = 5;
     private const string ChaveVersao = "Sistema:CargaPadrao";
 
     /// <summary>Aplica a carga só se a empresa ainda não recebeu esta versão (usado na inicialização do app).</summary>
@@ -217,6 +247,18 @@ public static class CargaPadrao
         Lista(TipoLista.TipoComodo, TiposComodo);
         Lista(TipoLista.GrupoServico, GruposServico);
         Lista(TipoLista.CategoriaDocumento, CategoriasDocumento);
+        Lista(TipoLista.Disciplina, Disciplinas);
+        Lista(TipoLista.ModoFalha, ModosFalha);
+        Lista(TipoLista.MotivoAjusteEstoque, MotivosAjuste);
+
+        // Famílias de equipamento (Veículos fica cadastrada e desligada: ligar quando for usar).
+        var familias = await db.FamiliasEquipamento.IgnoreQueryFilters().Where(f => f.EmpresaId == empresaId).Select(f => f.Nome).ToListAsync(ct);
+        foreach (var f in FamiliasEquipamento.Where(f => !familias.Contains(f.Nome)))
+            db.FamiliasEquipamento.Add(new Domain.Suprimentos.FamiliaEquipamento { EmpresaId = empresaId, Nome = f.Nome, UsaHorimetro = f.Horimetro, UsaHodometro = f.Hodometro, CamposExtras = f.Campos, CriticidadePadrao = f.Crit, Ativa = f.Ativa });
+        // Tipos de equipamento de medição (periodicidade e critério padrão — ajustáveis pelo SGQ).
+        var tiposMed = await db.TiposEquipamentoMedicao.IgnoreQueryFilters().Where(t => t.EmpresaId == empresaId).Select(t => t.Nome).ToListAsync(ct);
+        foreach (var t in TiposMedicao.Where(t => !tiposMed.Contains(t.Nome)))
+            db.TiposEquipamentoMedicao.Add(new TipoEquipamentoMedicao { EmpresaId = empresaId, Nome = t.Nome, Prefixo = t.Prefixo, PeriodicidadeMeses = t.Meses, Criterio = t.Criterio, Metodo = t.Metodo, TipoControle = t.Controle });
 
         var tipos = await db.TiposDocumento.IgnoreQueryFilters().Where(t => t.EmpresaId == empresaId).Select(t => t.Nome).ToListAsync(ct);
         foreach (var t in TiposDocumentoFornecedor.Where(t => !tipos.Contains(t.Nome)))
