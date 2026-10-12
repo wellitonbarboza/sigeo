@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <base href="/" />
-    <script>try { document.documentElement.dataset.tema = localStorage.getItem('qh.tema') || 'claro'; } catch { }</script>
+    <script>try { const d = document.documentElement.dataset; d.tema = localStorage.getItem('qh.tema') || 'claro'; d.menu = matchMedia('(max-width: 900px)').matches ? 'recolhido' : (localStorage.getItem('qh.menu') || 'aberto'); } catch { }</script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" />
     <ResourcePreloader />

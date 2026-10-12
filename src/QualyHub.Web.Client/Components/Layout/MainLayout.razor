@@ -9,33 +9,41 @@
 <div class="app">
     <aside class="lateral">
         <Logo />
+        <button type="button" class="recolher-menu" id="recolher-menu" @onclick="AlternarMenu"
+                title="@(_recolhido ? "Expandir menu" : "Recolher menu")" aria-label="@(_recolhido ? "Expandir menu" : "Recolher menu")" aria-expanded="@(!_recolhido)">
+            <Icone Nome="@(_recolhido ? "expandir" : "recolher")" Tam="18" /><span class="rotulo">Recolher menu</span>
+        </button>
         <div class="tema" role="group" aria-label="Tema">
-            <button class="@(_tema == "claro" ? "on" : "")" @onclick='() => Tema("claro")'><Icone Nome="sol" Tam="13" /> Claro</button>
-            <button class="@(_tema == "escuro" ? "on" : "")" @onclick='() => Tema("escuro")'><Icone Nome="lua" Tam="13" /> Escuro</button>
+            <button class="@(_tema == "claro" ? "on" : "")" @onclick='() => Tema("claro")' title="Tema claro"><Icone Nome="sol" Tam="13" /><span class="rotulo"> Claro</span></button>
+            <button class="@(_tema == "escuro" ? "on" : "")" @onclick='() => Tema("escuro")' title="Tema escuro"><Icone Nome="lua" Tam="13" /><span class="rotulo"> Escuro</span></button>
         </div>
         <nav>
             <ul class="menu">
-                <li class="grupo"><NavLink href="" Match="NavLinkMatch.All"><Icone Nome="casa" /> Minhas pendências</NavLink></li>
-                <li class="grupo"><NavLink href="mensagens"><Icone Nome="mensagem" /> Mensagens @if (_naoLidas > 0) { <span class="cont-menu" title="@($"{_naoLidas} conversa(s) com mensagem não lida")">@(_naoLidas > 99 ? "99+" : _naoLidas)</span> }</NavLink></li>
-                <li class="grupo"><NavLink href="tarefas"><Icone Nome="lista" /> Tarefas</NavLink></li>
-                <li class="grupo"><NavLink href="painel"><Icone Nome="grafico" /> Painel de indicadores</NavLink></li>
+                <li class="grupo"><NavLink href="" Match="NavLinkMatch.All" title="Minhas pendências"><Icone Nome="casa" /><span class="rotulo">Minhas pendências</span></NavLink></li>
+                <li class="grupo"><NavLink href="mensagens" title="Mensagens"><Icone Nome="mensagem" /><span class="rotulo">Mensagens</span> @if (_naoLidas > 0) { <span class="cont-menu" title="@($"{_naoLidas} conversa(s) com mensagem não lida")">@(_naoLidas > 99 ? "99+" : _naoLidas)</span> }</NavLink></li>
+                <li class="grupo"><NavLink href="tarefas" title="Tarefas"><Icone Nome="lista" /><span class="rotulo">Tarefas</span></NavLink></li>
+                <li class="grupo"><NavLink href="painel" title="Painel de indicadores"><Icone Nome="grafico" /><span class="rotulo">Painel de indicadores</span></NavLink></li>
                 @foreach (var g in GruposVisiveis)
                 {
-                    <li class="grupo"><a class="dobra @(Aberto(g.Id) ? "aberto" : "")" @onclick="() => Alternar(g.Id)"><Icone Nome="@g.Icone" /> @g.Titulo <span class="seta">›</span></a></li>
-                    @if (Aberto(g.Id))
-                    {
-                        @foreach (var (href, icone, texto) in g.Itens)
-                        {
-                            <li class="item"><NavLink href="@href" Match="NavLinkMatch.All"><Icone Nome="@icone" Tam="16" /> @texto</NavLink></li>
-                        }
-                    }
+                    @* Itens ficam dentro do grupo: aberto mostra embaixo; com o menu recolhido, abrem ao lado do ícone. *@
+                    <li class="grupo @(Aberto(g.Id) ? "aberto" : "") @(Contem(g) ? "atual" : "")" data-grupo="@g.Id">
+                        <a class="dobra @(Aberto(g.Id) ? "aberto" : "")" role="button" tabindex="0" aria-expanded="@Aberto(g.Id)" title="@g.Titulo"
+                           @onclick="() => Alternar(g.Id)" @onkeydown="e => Tecla(e, g.Id)"><Icone Nome="@g.Icone" /><span class="rotulo">@g.Titulo</span> <span class="seta">›</span></a>
+                        <ul class="sub">
+                            <li class="titulo-sub">@g.Titulo</li>
+                            @foreach (var (href, icone, texto) in g.Itens)
+                            {
+                                <li class="item"><NavLink href="@href" Match="NavLinkMatch.All"><Icone Nome="@icone" Tam="16" /> <span class="rotulo">@texto</span></NavLink></li>
+                            }
+                        </ul>
+                    </li>
                 }
             </ul>
         </nav>
-        <div class="usuario-box">
+        <div class="usuario-box" title="@_nome · @_empresa">
             <b>@_nome</b>
             @Rotulos.De(Enum.TryParse<PerfilUsuario>(_perfil, out var p) ? p : PerfilUsuario.Campo) · @_empresa
-            <div class="conta-links">@if (_variasConstrutoras) { <a href="conta/construtora" data-enhance-nav="false" id="trocar-construtora"><Icone Nome="predio" Tam="14" /> Trocar construtora</a> }<a href="conta/trocar-senha" data-enhance-nav="false"><Icone Nome="cadeado" Tam="14" /> Alterar senha</a><a href="conta/sair" data-enhance-nav="false"><Icone Nome="sair" Tam="14" /> Sair</a></div>
+            <div class="conta-links">@if (_variasConstrutoras) { <a href="conta/construtora" data-enhance-nav="false" id="trocar-construtora" title="Trocar construtora"><Icone Nome="predio" Tam="14" /> Trocar construtora</a> }<a href="conta/trocar-senha" data-enhance-nav="false" title="Alterar senha"><Icone Nome="cadeado" Tam="14" /> Alterar senha</a><a href="conta/sair" data-enhance-nav="false" title="Sair"><Icone Nome="sair" Tam="14" /> Sair</a></div>
         </div>
     </aside>
     <main class="principal">
@@ -154,17 +162,31 @@
         await AvaliarAsync();
         Nav.LocationChanged += AoNavegar;
         var rel = Nav.ToBaseRelativePath(Nav.Uri).Split('?')[0];
-        foreach (var g in _grupos.Append(_grupoPlataforma)) if (g.Itens.Any(i => rel.StartsWith(i.Href))) _abertos.Add(g.Id);
-        if (_abertos.Count == 0) _abertos.Add("sup");
+        // Abre só o grupo da tela atual; na tela inicial todos começam fechados.
+        foreach (var g in _grupos.Append(_grupoPlataforma)) if (Contem(g, rel)) _abertos.Add(g.Id);
     }
 
     private bool Aberto(string id) => _abertos.Contains(id);
     private void Alternar(string id) { if (!_abertos.Remove(id)) _abertos.Add(id); }
+    private void Tecla(KeyboardEventArgs e, string id) { if (e.Key is "Enter" or " ") Alternar(id); }
+    private bool Contem(Grupo g) => Contem(g, _caminho);
+    private static bool Contem(Grupo g, string rel) =>
+        rel.Length > 0 && g.Itens.Any(i => rel.Equals(i.Href, StringComparison.OrdinalIgnoreCase) || rel.StartsWith(i.Href + "/", StringComparison.OrdinalIgnoreCase));
+
+    // ───── Menu recolhido (só ícones) — lembrado no navegador ─────
+    private bool _recolhido;
+    private async Task AlternarMenu()
+    {
+        _recolhido = !_recolhido;
+        await JS.InvokeVoidAsync("qh.menu", _recolhido ? "recolhido" : "aberto");
+    }
 
     protected override async Task OnAfterRenderAsync(bool primeira)
     {
         if (!primeira) return;
         _tema = await JS.InvokeAsync<string>("qh.temaAtual");
+        _recolhido = await JS.InvokeAsync<string>("qh.menuAtual") == "recolhido";
+        StateHasChanged();
         Contador.Mudou += AoMudar;
         // Troca entre tela do servidor e tela do navegador: recarrega direto, sem desenhar a "página não encontrada"
         // no meio (era o que deixava a tela vazia antes de recarregar). A página atual fica visível até a nova chegar.

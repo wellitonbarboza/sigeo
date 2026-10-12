@@ -638,3 +638,43 @@ button.chip { border: 0; font-family: inherit; cursor: pointer; }
 .selo-mini { display: inline-block; padding: 0 7px; border-radius: 99px; font-size: 11px; font-weight: 600; background: var(--neutro-suave); color: var(--neutro-texto); margin-right: 2px; }
 .selo-mini.ok { background: var(--ok-suave); color: var(--ok-texto); }
 .selo-mini.erro { background: var(--erro-suave); color: var(--erro-texto); }
+
+/* ───── Menu lateral: grupos com submenu e modo recolhido (só ícones) ───── */
+.menu .sub { list-style: none; margin: 0; padding: 0; }
+.menu .grupo:not(.aberto) > .sub { display: none; }
+.menu .sub .titulo-sub { display: none; }
+.menu .rotulo { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.recolher-menu { display: flex; align-items: center; gap: 10px; margin: 10px 18px 0; padding: 6px 10px; border: 1px solid rgba(255,255,255,.14); border-radius: 7px;
+    background: transparent; color: var(--sidebar-sutil); font-size: 12.5px; cursor: pointer; width: fit-content; }
+.recolher-menu:hover { color: var(--sidebar-texto); background: rgba(255,255,255,.06); }
+
+html[data-menu="recolhido"] .app { grid-template-columns: 64px 1fr; }
+html[data-menu="recolhido"] .lateral { overflow-x: hidden; }
+html[data-menu="recolhido"] .lateral .rotulo,
+html[data-menu="recolhido"] .lateral .seta,
+html[data-menu="recolhido"] .marca > div,
+html[data-menu="recolhido"] .usuario-box > b { display: none; }
+html[data-menu="recolhido"] .marca { padding: 16px 0; min-height: 80px; }
+html[data-menu="recolhido"] .recolher-menu { margin: 10px auto 0; padding: 6px; }
+html[data-menu="recolhido"] .tema { flex-direction: column; margin: 10px auto 6px; }
+html[data-menu="recolhido"] .tema button { padding: 5px 7px; }
+html[data-menu="recolhido"] .menu .grupo > a { justify-content: center; padding: 10px 0; gap: 0; position: relative; }
+html[data-menu="recolhido"] .menu .grupo.atual > a { background: var(--sidebar-ativo); border-left-color: #7dd3fc; }
+html[data-menu="recolhido"] .menu .cont-menu { position: absolute; top: 3px; right: 6px; font-size: 10px; padding: 0 5px; }
+/* submenu abre ao lado do ícone (posição calculada no app.js, fixa para não ser cortada pela rolagem da lateral) */
+html[data-menu="recolhido"] .menu .grupo > .sub { display: none; position: fixed; z-index: 60; min-width: 240px; max-height: calc(100vh - 16px); overflow-y: auto;
+    background: var(--sidebar); border-radius: 0 8px 8px 0; box-shadow: 4px 6px 18px rgba(0,0,0,.28); padding: 4px 0 6px; }
+html[data-menu="recolhido"] .menu .grupo:hover > .sub,
+html[data-menu="recolhido"] .menu .grupo:focus-within > .sub { display: block; }
+html[data-menu="recolhido"] .menu .sub .titulo-sub { display: block; padding: 8px 16px 6px; font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--sidebar-sutil); }
+html[data-menu="recolhido"] .menu .sub .item > a { padding-left: 16px; }
+html[data-menu="recolhido"] .menu .sub .rotulo { display: inline; }
+html[data-menu="recolhido"] .usuario-box { padding: 12px 0; font-size: 0; }
+html[data-menu="recolhido"] .usuario-box .conta-links { flex-direction: column; align-items: center; gap: 12px; margin: 0; font-size: 0; }
+
+/* Telas estreitas (celular/tablet): o app.js força o modo recolhido; o botão de expandir some. */
+@media (max-width: 900px) {
+    .lateral { display: flex; }
+    html[data-menu="recolhido"] .app { grid-template-columns: 64px 1fr; }
+    .recolher-menu { display: none; }
+}

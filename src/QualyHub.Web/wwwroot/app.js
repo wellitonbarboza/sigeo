@@ -8,6 +8,9 @@ window.qh = {
     },
     tema(t) { document.documentElement.dataset.tema = t; try { localStorage.setItem('qh.tema', t); } catch { } },
     temaAtual() { return document.documentElement.dataset.tema || 'claro'; },
+    // Menu lateral recolhido (só ícones). Fica no <html> para valer já na primeira pintura, sem piscar.
+    menu(v) { document.documentElement.dataset.menu = v; try { localStorage.setItem('qh.menu', v); } catch { } },
+    menuAtual() { try { return localStorage.getItem('qh.menu') || 'aberto'; } catch { return document.documentElement.dataset.menu || 'aberto'; } },
     // Formatação do texto das mensagens (sem HTML): envolve a seleção com **…** / _…_ ou começa linhas com "- ".
     // Devolve o texto novo para o Blazor (o campo continua controlado pelo @bind).
     formatar(id, tipo) {
@@ -82,4 +85,27 @@ window.qh = {
     const o = new MutationObserver(() => { if (pronta()) { o.disconnect(); tirar(); } });
     o.observe(document.body, { childList: true, subtree: true });
     setTimeout(() => { o.disconnect(); tirar(); }, 20000);
+})();
+
+// Menu recolhido: o submenu do grupo abre ao lado do ícone (posição fixa, para não ser cortado pela rolagem da lateral).
+(() => {
+    const posicionar = e => {
+        const g = e.target.closest && e.target.closest('.lateral .menu li.grupo');
+        if (!g || document.documentElement.dataset.menu !== 'recolhido') return;
+        const r = g.getBoundingClientRect();
+        const sub = g.querySelector(':scope > .sub'); if (!sub) return;
+        const alto = sub.scrollHeight || 0, max = window.innerHeight - 8;
+        sub.style.top = Math.max(8, Math.min(r.top, max - alto)) + 'px';
+        sub.style.left = r.right + 'px';
+    };
+    document.addEventListener('mouseover', posicionar);
+    document.addEventListener('focusin', posicionar);
+})();
+
+// Tela estreita: menu sempre recolhido (barra de ícones); ao alargar, volta à escolha do usuário.
+(() => {
+    const mq = window.matchMedia('(max-width: 900px)');
+    const aplicar = () => { document.documentElement.dataset.menu = mq.matches ? 'recolhido' : qh.menuAtual(); };
+    mq.addEventListener('change', aplicar);
+    document.addEventListener('DOMContentLoaded', aplicar);
 })();
