@@ -68,7 +68,7 @@ public static class CatalogoTelas
             T("sup", "requisicoes", "Requisição", "prancheta", "VIEAX"), T("sup", "cotacoes", "Orçamentos", "calculadora", "VIEAX"),
             T("sup", "pedidos", "Pedidos", "sacola", "VIEAX"), T("sup", "contratos", "Contratos", "contrato", "VIEAX"),
             T("sup", "notas-fiscais", "Notas Fiscais (entrada)", "arquivo"), T("sup", "recebimentos", "Recebimento / FVM", "caixa", "VIEAX"),
-            T("sup", "transferencias", "Transferências p/ Obra", "enviar"), T("sup", "medicoes", "Medições", "regua", "VIEAX"),
+            T("sup", "transferencias", "Transferências", "enviar"), T("sup", "medicoes", "Medições", "regua", "VIEAX"),
             T("sup", "pagamentos", "Liberação Pagamento", "dinheiro", "VIEAX"), T("sup", "contratos/parcelas", "Parcelas de Contratos", "calendario", "VIEAX"),
             T("sup", "estoque", "Estoque e Almoxarifados", "caixa", "VIEAX"), T("sup", "estoque/kits", "Kits de Material", "lista", "VIEX"),
             T("sup", "equipamentos", "Equipamentos e Manutenção", "ferramenta", "VIEAX")]),

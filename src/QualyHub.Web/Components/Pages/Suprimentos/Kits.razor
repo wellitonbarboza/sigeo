@@ -1,0 +1,363 @@
+@page "/estoque/kits"
+@inherits PaginaBase
+@inject EstoqueServico EstoqueSrv
+@inject NavigationManager Nav
+
+<Pagina Titulo="Kits de material" Grade="GradeAtiva" AoNovo="NovoKit" AoAtualizar="Carregar">
+    <Direita>
+        <select id="kit-obra" class="larg-200" value="@_obraId" @onchange="async e => { _obraId = Guid.TryParse(e.Value?.ToString(), out var g) ? g : null; await TrocarObra(); }" aria-label="Obra">
+            @foreach (var o in _obras) { <option value="@o.Id">@o.Texto</option> }
+        </select>
+    </Direita>
+    <ChildContent>
+        <div class="pagina">
+            <Abas Itens="_abas" @bind-Ativa="_aba" />
+            @if (_aba == "kits")
+            {
+                <Grade T="KitMaterial" @ref="_gKits" Itens="_kits" AoClicar="k => AbrirKit(k.Id)" NomeExportacao="kits" Vazio="Nenhum kit. Crie um automático (etapa/disciplina do orçamento) ou manual (lista fixa).">
+                    <Colunas>
+                        <Coluna T="KitMaterial" Titulo="Código" Valor="k => k.Codigo" Largura="100px" />
+                        <Coluna T="KitMaterial" Titulo="Nome" Valor="k => k.Nome" />
+                        <Coluna T="KitMaterial" Titulo="Origem" Valor="k => De(k.Origem)" />
+                        <Coluna T="KitMaterial" Titulo="Etapa" Valor="k => k.Etapa" />
+                        <Coluna T="KitMaterial" Titulo="Disciplina" Valor="k => k.Disciplina" />
+                        <Coluna T="KitMaterial" Titulo="Itens" Valor="k => QtdItens(k)" Alinhar="num" />
+                        <Coluna T="KitMaterial" Titulo="Ativo" Valor="k => SimNao(k.Ativo)" />
+                    </Colunas>
+                </Grade>
+                <div class="alerta info"><Icone Nome="info" /> Automático: as quantidades saem do Orçamento por Local de cada apartamento (serviços da etapa e/ou disciplina × insumos de material com produto). Manual: lista fixa (ex.: kit de ferramentas, EPI de admissão).</div>
+            }
+            else if (_aba == "separar")
+            {
+                <div class="form">
+                    <Campo Rotulo="Kit" Classe="s4">
+                        <select id="sep-kit" @bind="_kitSep" @bind:after="LimparCalculo"><option value="">—</option>@foreach (var k in _kits.Where(k => k.Ativo)) { <option value="@k.Id">@k.Codigo – @k.Nome</option> }</select>
+                    </Campo>
+                    <Campo Rotulo="Sai do almoxarifado" Classe="s4">
+                        <select id="sep-almox" @bind="_almoxSep" @bind:after="LimparCalculo">@foreach (var a in _almoxs.Where(a => a.Ativo && (a.ObraId == _obraId || a.Tipo == TipoAlmoxarifado.Central))) { <option value="@a.Id">@(a.Tipo == TipoAlmoxarifado.Central ? "Central · " : "")@a.Nome</option> }</select>
+                    </Campo>
+                    <Campo Rotulo="Filtrar apartamentos" Classe="s4"><input id="sep-filtro" @bind="_filtroApto" @bind:event="oninput" placeholder="Ex.: Torre A, 10" /></Campo>
+                </div>
+                <div class="barra-acoes" style="justify-content:flex-start">
+                    <button class="btn sec" id="sep-semana" disabled="@Ocupado" @onclick="SugerirDaSemana" title="Marca os apartamentos citados nos compromissos da programação semanal desta semana"><Icone Nome="calendario" Tam="16" /> Pela programação da semana</button>
+                    <button class="btn sec" disabled="@Ocupado" @onclick="() => { foreach (var a in AptosFiltrados) _marcados.Add(a.Id); LimparCalculo(); }">Marcar filtrados</button>
+                    <button class="btn sec" disabled="@Ocupado" @onclick="() => { _marcados.Clear(); LimparCalculo(); }">Limpar</button>
+                    <span class="mudo">@_marcados.Count apartamento(s) marcado(s)</span>
+                    <button class="btn prim" id="sep-calcular" disabled="@(Ocupado || _kitSep is null || _marcados.Count == 0)" @onclick="Calcular"><Icone Nome="calculadora" Tam="16" /> Calcular necessidade</button>
+                </div>
+                <div class="checks rolavel-200" id="sep-aptos">
+                    @foreach (var a in AptosFiltrados)
+                    {
+                        <label><input type="checkbox" checked="@_marcados.Contains(a.Id)" @onchange="e => { if ((bool)e.Value!) _marcados.Add(a.Id); else _marcados.Remove(a.Id); LimparCalculo(); }" /> @a.Texto</label>
+                    }
+                </div>
+                @if (_nec is not null)
+                {
+                    <h3>Necessidade × saldo</h3>
+                    <div class="tabela-rolavel">
+                        <table class="itens" id="sep-nec">
+                            <thead><tr><th>Produto</th><th>Un.</th><th class="num">Necessário</th><th class="num">Saldo (sai daqui)</th><th class="num">No central</th><th class="num">Falta</th><th class="num">Custo orçado</th></tr></thead>
+                            <tbody>
+                                @foreach (var n in _nec)
+                                {
+                                    <tr><td>@n.Produto</td><td>@n.Unidade</td><td class="num">@n.Necessario.ToString("N3", Br)</td><td class="num">@n.Saldo.ToString("N3", Br)</td>
+                                        <td class="num">@n.Central.ToString("N3", Br)</td><td class="num @(n.Falta > 0 ? "neg" : "")">@n.Falta.ToString("N3", Br)</td><td class="num">@n.Orcado.ToString("N2", Br)</td></tr>
+                                }
+                            </tbody>
+                            <tfoot><tr><td colspan="6" class="texto-dir">Total orçado</td><td class="num"><b>@_nec.Sum(n => n.Orcado).ToString("N2", Br)</b></td></tr></tfoot>
+                        </table>
+                    </div>
+                    @if (_nec.Count == 0) { <div class="alerta aviso"><Icone Nome="alerta" /> Sem material para os apartamentos marcados. Confira o Orçamento por Local e se os insumos de material têm produto vinculado.</div> }
+                    <div class="barra-acoes" style="justify-content:flex-start">
+                        @if (_nec.Any(n => n.Falta > 0) && _central is not null && _almoxSep != _central.Id)
+                        {
+                            <Campo Rotulo="Precisa na obra até" Classe="s3"><input id="sep-limite" type="date" @bind="_limite" /></Campo>
+                            <button class="btn prim" id="sep-pedir" disabled="@Ocupado" @onclick="PedirFalta"><Icone Nome="enviar" Tam="16" /> Pedir a falta ao central (+ restrição no Last Planner)</button>
+                        }
+                    </div>
+                    <h3>Entrega por apartamento</h3>
+                    <Grade T="Opcao" Itens="_aptos.Where(a => _marcados.Contains(a.Id)).ToList()" MostrarAgrupamento="false" NomeExportacao="kit-entregas">
+                        <Colunas>
+                            <Coluna T="Opcao" Titulo="Apartamento" Valor="a => a.Texto" />
+                            <Coluna T="Opcao" Titulo="Entregue" Valor="a => _entregues.Contains(a.Id) ? EntregueTexto : PendenteTexto"><Modelo><Selo Texto="@(_entregues.Contains(context.Id) ? EntregueTexto : PendenteTexto)" Tom="@(_entregues.Contains(context.Id) ? "ok" : "aviso")" /></Modelo></Coluna>
+                        </Colunas>
+                        <Acoes><button class="btn pq" disabled="@Ocupado" @onclick="() => AbrirEntrega(context)" @onclick:stopPropagation="true"><Icone Nome="sacola" Tam="14" /> Entregar</button></Acoes>
+                    </Grade>
+                }
+            }
+            else if (_aba == "consumo")
+            {
+                <div class="form">
+                    <Campo Rotulo="Kit" Classe="s5">
+                        <select id="con-kit" @bind="_kitCon"><option value="">—</option>@foreach (var k in _kits) { <option value="@k.Id">@k.Codigo – @k.Nome</option> }</select>
+                    </Campo>
+                    <Campo Rotulo="" Classe="s3"><button class="btn prim" id="con-calc" disabled="@(Ocupado || _kitCon is null)" @onclick="CalcularConsumo"><Icone Nome="grafico" Tam="16" /> Consumo × orçado</button></Campo>
+                </div>
+                <p class="mudo">Apartamentos marcados na aba "Separar e entregar" (ou todos que receberam o kit, se nenhum estiver marcado).</p>
+                @if (_consumo is not null)
+                {
+                    <div class="kpis">
+                        <Kpi Rotulo="Orçado" Valor="@_consumo.Sum(c => c.Orcado).ToString("C0", Br)" />
+                        <Kpi Rotulo="Real (saídas − devoluções)" Valor="@_consumo.Sum(c => c.Real).ToString("C0", Br)" Tom="info" />
+                        <Kpi Rotulo="Acima de 5%" Valor="@_consumo.Count(c => c.DiferencaPerc > 5)" Tom="erro" />
+                    </div>
+                    <Grade T="EstoqueServico.ConsumoLocal" @ref="_gCon" Itens="_consumo" NomeExportacao="kit-consumo">
+                        <Colunas>
+                            <Coluna T="EstoqueServico.ConsumoLocal" Titulo="Apartamento" Valor="c => NomeApto(c)" />
+                            <Coluna T="EstoqueServico.ConsumoLocal" Titulo="Orçado" Valor="c => c.Orcado" Formato="N2" Alinhar="num" />
+                            <Coluna T="EstoqueServico.ConsumoLocal" Titulo="Real" Valor="c => c.Real" Formato="N2" Alinhar="num" />
+                            <Coluna T="EstoqueServico.ConsumoLocal" Titulo="Diferença %" Valor="c => c.DiferencaPerc"><Modelo><Selo Texto="@($"{context.DiferencaPerc:+0.0;-0.0;0}%")" Tom="@(context.DiferencaPerc > 5 ? "erro" : context.DiferencaPerc > 0 ? "aviso" : "ok")" /></Modelo></Coluna>
+                        </Colunas>
+                    </Grade>
+                }
+            }
+        </div>
+    </ChildContent>
+    <Faixa><b>Kits</b><span>Separação por apartamento a partir do orçamento</span><span>Baixa por apartamento e serviço</span></Faixa>
+</Pagina>
+
+<Modal @bind-Aberto="_abertoKit" Titulo="@(_kit?.Codigo is { Length: > 0 } c ? $"Kit {c}" : "Novo kit")" Tamanho="grande">
+    <ChildContent>
+        @if (_kit is not null)
+        {
+            <Erros Lista="ErrosForm" />
+            <div class="form">
+                <Campo Rotulo="Nome" Classe="s6" Obrigatorio="true"><input id="kit-nome" @bind="_kit.Nome" /></Campo>
+                <Campo Rotulo="Origem" Classe="s3">
+                    <select id="kit-origem" @bind="_kit.Origem"><option value="@OrigemKit.Automatico">Automático (orçamento)</option><option value="@OrigemKit.Manual">Manual (lista fixa)</option></select>
+                </Campo>
+                <Campo Rotulo="Ativo" Classe="s3"><label class="check"><input type="checkbox" @bind="_kit.Ativo" /> Em uso</label></Campo>
+                @if (_kit.Origem == OrigemKit.Automatico)
+                {
+                    <Campo Rotulo="Etapa (grupo do serviço)" Classe="s6">
+                        <select id="kit-etapa" @bind="_kit.Etapa"><option value="">— todas —</option>@foreach (var g in _etapas) { <option value="@g">@g</option> }</select>
+                    </Campo>
+                    <Campo Rotulo="Disciplina" Classe="s6">
+                        <select id="kit-disc" @bind="_kit.Disciplina"><option value="">— todas —</option>@foreach (var d in _disciplinas) { <option value="@d">@d</option> }</select>
+                    </Campo>
+                }
+                else
+                {
+                    <Campo Rotulo="Incluir produto" Classe="s8"><BuscaProduto Produtos="_produtos" AoEscolher="IncluirItem" /></Campo>
+                }
+            </div>
+            @if (_kit.Origem == OrigemKit.Manual)
+            {
+                <table class="itens" id="kit-itens">
+                    <thead><tr><th>Produto</th><th>Un.</th><th class="num">Quantidade</th><th></th></tr></thead>
+                    <tbody>
+                        @foreach (var i in _kit.Itens.ToList())
+                        {
+                            <tr><td>@NomeProduto(i.ProdutoId)</td><td>@UnProduto(i.ProdutoId)</td><td class="larg-110"><input type="number" step="0.001" @bind="i.Quantidade" /></td>
+                                <td><button class="btn pq" @onclick="() => _kit.Itens.Remove(i)" aria-label="Remover"><Icone Nome="lixeira" Tam="14" /></button></td></tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        }
+    </ChildContent>
+    <Rodape><button class="btn prim" id="kit-salvar" disabled="@Ocupado" @onclick="SalvarKit"><Icone Nome="check" Tam="16" /> Salvar</button></Rodape>
+</Modal>
+
+<Modal @bind-Aberto="_abertoEnt" Titulo="@($"Entregar kit · {_aptoEnt?.Texto}")">
+    <ChildContent>
+        <Erros Lista="ErrosForm" />
+        <div class="form">
+            <Campo Rotulo="Retirado por (nome)" Classe="s6" Obrigatorio="true"><input id="ent-para" @bind="_entPara" /></Campo>
+            <Campo Rotulo="Empreiteira" Classe="s6">
+                <select id="ent-forn" @bind="_entForn"><option value="">— mão de obra própria —</option>@foreach (var f in _fornecedores) { <option value="@f.Id">@f.Texto</option> }</select>
+            </Campo>
+        </div>
+        <p class="mudo">Cada insumo sai do estoque com o apartamento e o serviço (consumo real × orçado).</p>
+    </ChildContent>
+    <Rodape><button class="btn prim" id="ent-ok" disabled="@Ocupado" @onclick="Entregar"><Icone Nome="check" Tam="16" /> Confirmar entrega</button></Rodape>
+</Modal>
+
+@code {
+    private sealed record LinhaNec(Guid ProdutoId, string Produto, string Unidade, decimal Necessario, decimal Saldo, decimal Central, decimal Falta, decimal Orcado);
+    private const string EntregueTexto = "Entregue", PendenteTexto = "Pendente";
+    private static readonly IReadOnlyList<(string, string)> _abas = [("kits", "Kits"), ("separar", "Separar e entregar"), ("consumo", "Consumo × orçado")];
+    private string _aba = "kits";
+    private Grade<KitMaterial>? _gKits;
+    private Grade<EstoqueServico.ConsumoLocal>? _gCon;
+    private IGrade? GradeAtiva => _aba == "consumo" ? _gCon : _gKits;
+    private IGrade? _gradeVista;
+    /// <summary>A barra de ferramentas acompanha a grade da aba visível (a referência só existe depois que a aba renderiza).</summary>
+    protected override void OnAfterRender(bool firstRender) { if (!ReferenceEquals(_gradeVista, GradeAtiva)) { _gradeVista = GradeAtiva; StateHasChanged(); } }
+
+    private List<Opcao> _obras = [], _aptos = [], _fornecedores = [];
+    private Guid? _obraId;
+    private List<KitMaterial> _kits = [];
+    private List<Almoxarifado> _almoxs = [];
+    private Almoxarifado? _central => _almoxs.FirstOrDefault(a => a.Tipo == TipoAlmoxarifado.Central && a.Ativo);
+    private List<string> _etapas = [], _disciplinas = [];
+    private List<ProdutoBusca> _produtos = [];
+    private Dictionary<Guid, ProdutoBusca> _prodPorId = [];
+
+    private KitMaterial? _kit;
+    private bool _abertoKit;
+
+    private Guid? _kitSep, _almoxSep, _kitCon;
+    private string? _filtroApto;
+    private readonly HashSet<Guid> _marcados = [];
+    private HashSet<Guid> _entregues = [];
+    private List<LinhaNec>? _nec;
+    private DateOnly _limite;
+    private List<EstoqueServico.ConsumoLocal>? _consumo;
+
+    private Opcao? _aptoEnt;
+    private bool _abertoEnt;
+    private string? _entPara;
+    private Guid? _entForn;
+
+    private IEnumerable<Opcao> AptosFiltrados => string.IsNullOrWhiteSpace(_filtroApto) ? _aptos
+        : _aptos.Where(a => SemAcento(a.Texto).Contains(SemAcento(_filtroApto), StringComparison.OrdinalIgnoreCase));
+
+    private static string SimNao(bool b) => b ? "Sim" : "Não";
+    private string NomeApto(EstoqueServico.ConsumoLocal c) => _aptos.FirstOrDefault(a => a.Id == c.LocalId)?.Texto ?? c.Local;
+    private static string QtdItens(KitMaterial k) => k.Origem == OrigemKit.Manual ? k.Itens.Count.ToString() : "orçamento";
+    private string NomeProduto(Guid id) => _prodPorId.TryGetValue(id, out var p) ? $"{p.Codigo} – {p.Nome}" : "(produto inativo)";
+    private string UnProduto(Guid id) => _prodPorId.TryGetValue(id, out var p) ? p.Unidade : "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        _obras = await Cat.ObrasAsync();
+        _obraId = _obras.FirstOrDefault()?.Id;
+        _produtos = await Cat.ProdutosBuscaAsync(); _prodPorId = _produtos.ToDictionary(p => p.Id);
+        _disciplinas = await Cat.ListaAsync(TipoLista.Disciplina);
+        _fornecedores = await Cat.FornecedoresAsync();
+        _almoxs = await EstoqueSrv.AlmoxarifadosAsync(Cancelamento);
+        _limite = Hoje.AddDays(7);
+        await TrocarObra();
+    }
+
+    private async Task TrocarObra()
+    {
+        _marcados.Clear(); LimparCalculo(); _consumo = null;
+        _aptos = _obraId is { } o ? (await Cat.LocaisComCaminhoAsync(o)).Where(l => l.Extra is "Apartamento" or "Área comum" or "Unidade" or "Casa").ToList() : [];
+        _almoxSep = _almoxs.FirstOrDefault(a => a.ObraId == _obraId)?.Id ?? _central?.Id;
+        await Carregar();
+    }
+
+    private async Task Carregar()
+    {
+        await using var db = Fabrica.CriarLeitura();
+        _kits = await db.KitsMaterial.AsNoTracking().Include(k => k.Itens).Where(k => k.ObraId == null || k.ObraId == _obraId).OrderBy(k => k.Codigo).ToListAsync(Cancelamento);
+        _etapas = _obraId is null ? [] : await db.Composicoes.AsNoTracking().Where(c => c.Ativa && c.Grupo != null && c.Grupo != "").Select(c => c.Grupo!).Distinct().OrderBy(g => g).ToListAsync(Cancelamento);
+    }
+
+    private void LimparCalculo() { _nec = null; }
+
+    // ───── Cadastro ─────
+    private void NovoKit()
+    {
+        _kit = new KitMaterial { ObraId = _obraId, Origem = OrigemKit.Automatico };
+        ErrosForm = null; _abertoKit = true;
+    }
+
+    private void AbrirKit(Guid id)
+    {
+        var k = _kits.First(x => x.Id == id);
+        _kit = new KitMaterial { Id = k.Id, Codigo = k.Codigo, Nome = k.Nome, Origem = k.Origem, ObraId = k.ObraId ?? _obraId, Etapa = k.Etapa, Disciplina = k.Disciplina, Ativo = k.Ativo,
+            Itens = k.Itens.Select(i => new KitMaterialItem { Id = i.Id, KitId = i.KitId, ProdutoId = i.ProdutoId, Quantidade = i.Quantidade }).ToList() };
+        ErrosForm = null; _abertoKit = true;
+    }
+
+    private void IncluirItem(ProdutoBusca p)
+    {
+        if (_kit is null || _kit.Itens.Any(i => i.ProdutoId == p.Id)) return;
+        _kit.Itens.Add(new KitMaterialItem { KitId = _kit.Id, ProdutoId = p.Id, Quantidade = 1 });
+    }
+
+    private async Task SalvarKit()
+    {
+        if (string.IsNullOrWhiteSpace(_kit!.Etapa)) _kit.Etapa = null;
+        if (string.IsNullOrWhiteSpace(_kit.Disciplina)) _kit.Disciplina = null;
+        if (await Executar(() => EstoqueSrv.SalvarKitAsync(_kit, Cancelamento), "Kit salvo.")) { _abertoKit = false; await Carregar(); }
+    }
+
+    // ───── Separação ─────
+    private async Task SugerirDaSemana()
+    {
+        if (_obraId is null) return;
+        await using var db = Fabrica.CriarLeitura();
+        var seg = Hoje.AddDays(-(((int)Hoje.DayOfWeek + 6) % 7));
+        var textos = await db.PlanosSemanais.AsNoTracking().Where(p => p.ObraId == _obraId && p.Semana >= seg.AddDays(-6) && p.Semana <= seg)
+            .SelectMany(p => p.Compromissos).Select(c => c.Descricao + " " + c.Meta).ToListAsync(Cancelamento);
+        var texto = SemAcento(string.Join(" | ", textos));
+        var n = 0;
+        foreach (var a in _aptos)
+        {
+            var nome = SemAcento(a.Texto);
+            if (nome.Length >= 2 && System.Text.RegularExpressions.Regex.IsMatch(texto, $@"(?<![\w]){System.Text.RegularExpressions.Regex.Escape(nome)}(?![\w])", System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+            { _marcados.Add(a.Id); n++; }
+        }
+        LimparCalculo();
+        if (textos.Count == 0) Notif.Erro("Sem programação semanal para esta semana.");
+        else Notif.Sucesso(n == 0 ? "Nenhum apartamento citado nos compromissos da semana." : $"{n} apartamento(s) marcados pela programação da semana.");
+    }
+
+    private async Task Calcular()
+    {
+        await Executar(async () =>
+        {
+            var nec = await EstoqueSrv.NecessidadeAsync(_kitSep!.Value, _marcados.ToList(), Cancelamento);
+            await using var db = Fabrica.CriarLeitura();
+            var ids = nec.Select(n => n.ProdutoId).Distinct().ToList();
+            var saldos = await db.SaldosEstoque.AsNoTracking().Where(s => s.AlmoxarifadoId == _almoxSep && ids.Contains(s.ProdutoId)).ToDictionaryAsync(s => s.ProdutoId, s => s.Disponivel, Cancelamento);
+            var central = _central is { } c && c.Id != _almoxSep
+                ? await db.SaldosEstoque.AsNoTracking().Where(s => s.AlmoxarifadoId == c.Id && ids.Contains(s.ProdutoId)).ToDictionaryAsync(s => s.ProdutoId, s => s.Disponivel, Cancelamento)
+                : [];
+            _nec = nec.GroupBy(n => n.ProdutoId).Select(g =>
+            {
+                var q = g.Sum(x => x.Quantidade); var s = saldos.GetValueOrDefault(g.Key);
+                return new LinhaNec(g.Key, NomeProduto(g.Key), UnProduto(g.Key), q, s, central.GetValueOrDefault(g.Key), Math.Max(0, Math.Round(q - s, 3)), g.Sum(x => x.CustoOrcado));
+            }).OrderBy(n => n.Produto).ToList();
+            var marc = _marcados.ToList();
+            _entregues = (await db.MovimentosEstoque.AsNoTracking().Where(m => m.KitId == _kitSep && m.LocalId != null && marc.Contains(m.LocalId.Value)).Select(m => m.LocalId!.Value).Distinct().ToListAsync(Cancelamento)).ToHashSet();
+        });
+    }
+
+    private void PedirFalta()
+    {
+        var falta = _nec!.Where(n => n.Falta > 0).ToList();
+        var kit = _kits.First(k => k.Id == _kitSep);
+        Confirmar($"Pedir ao central {falta.Count} item(ns) em falta para o kit {kit.Codigo}? Cria a transferência (rascunho) e uma restrição de material no Last Planner até a conferência na obra.", async () =>
+        {
+            Guid t = default;
+            if (await Executar(async () =>
+            {
+                t = await EstoqueSrv.SolicitarTransferenciaAsync(_central!.Id, _almoxSep!.Value, falta.Select(f => new EstoqueServico.ItemSolicitado(f.ProdutoId, f.Falta)).ToList(),
+                    $"Kit {kit.Codigo} · {_marcados.Count} apto(s)", Cancelamento);
+                await EstoqueSrv.CriarRestricaoAsync(_obraId!.Value, t, $"Kit {kit.Nome}", $"Material do kit {kit.Codigo} vindo do central ({falta.Count} itens)", _limite, Cancelamento);
+            }, "Transferência solicitada e restrição criada."))
+                Nav.NavigateTo($"/transferencias?id={t}");
+        });
+    }
+
+    private void AbrirEntrega(Opcao a) { _aptoEnt = a; _entPara = null; _entForn = null; ErrosForm = null; _abertoEnt = true; }
+
+    private async Task Entregar()
+    {
+        int n = 0;
+        if (await Executar(async () => n = await EstoqueSrv.EntregarKitAsync(_kitSep!.Value, _almoxSep!.Value, _aptoEnt!.Id, _entPara ?? "", _entForn, null, Cancelamento)))
+        {
+            Notif.Sucesso($"Kit entregue — {n} lançamento(s) de saída."); _abertoEnt = false; await Calcular();
+        }
+    }
+
+    // ───── Consumo ─────
+    private async Task CalcularConsumo()
+    {
+        await Executar(async () =>
+        {
+            var locais = _marcados.ToList();
+            if (locais.Count == 0)
+            {
+                await using var db = Fabrica.CriarLeitura();
+                locais = await db.MovimentosEstoque.AsNoTracking().Where(m => m.KitId == _kitCon && m.LocalId != null).Select(m => m.LocalId!.Value).Distinct().ToListAsync(Cancelamento);
+            }
+            _consumo = locais.Count == 0 ? [] : (await EstoqueSrv.ConsumoAsync(_kitCon!.Value, locais, Cancelamento)).OrderBy(c => c.Local).ToList();
+        });
+    }
+}

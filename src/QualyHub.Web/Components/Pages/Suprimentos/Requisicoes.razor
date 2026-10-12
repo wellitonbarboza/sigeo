@@ -5,6 +5,7 @@
 @inject OrcamentoServico Orc
 @inject FornecedoresServico Forn
 @inject NavigationManager Nav
+@inject EstoqueServico EstoqueSrv
 @using QualyHub.Application.Comum
 
 <Pagina Titulo="Requisição de compras" Grade="_grade" AoNovo="Novo" AoAtualizar="Carregar">
@@ -118,7 +119,12 @@
                                 }
                             </td>
                             <td class="larg-70"><input @bind="i.Unidade" disabled="@(!Editavel)" /></td>
-                            <td class="larg-110"><input type="number" step="0.001" @bind="i.Quantidade" disabled="@(!Editavel)" /></td>
+                            <td class="larg-110"><input type="number" step="0.001" @bind="i.Quantidade" disabled="@(!Editavel)" />
+                                @if (i.ProdutoId is { } pe && (_saldoObra.ContainsKey(pe) || _saldoCentral.ContainsKey(pe)))
+                                {
+                                    <div class="saldo-estoque" title="Saldo disponível em estoque">Estoque: obra @_saldoObra.GetValueOrDefault(pe).ToString("0.##", Br)@(_central is null ? "" : $" · central {_saldoCentral.GetValueOrDefault(pe).ToString("0.##", Br)}")</div>
+                                }
+                            </td>
                             <td>@if (i.MaterialControlado) { <Selo Texto="Sim" Tom="info" /> } else { <Selo Texto="Não" /> }</td>
                             <td><input @bind="i.EspecificacaoTecnica" disabled="@(!Editavel)" placeholder="@(i.MaterialControlado ? "obrigatória" : "—")" /></td>
                             <td><input @bind="i.DocumentosExigidos" disabled="@(!Editavel)" /></td>
@@ -156,6 +162,11 @@
     <Rodape>
         @if (_r is not null)
         {
+            @if (_central is not null && _almoxObra is not null && _r.Numero > 0 && _r.Status is not (StatusRequisicao.Cancelada or StatusRequisicao.Concluida or StatusRequisicao.NaoAutorizada)
+                 && _r.Itens.Any(i => i.ProdutoId is { } p && _saldoCentral.GetValueOrDefault(p) > 0))
+            {
+                <button class="btn sec" id="req-central" disabled="@Ocupado" @onclick="AtenderDoCentral" title="Cria uma transferência do almoxarifado central com o que houver em estoque"><Icone Nome="caixa" Tam="16" /> Atender do estoque central</button>
+            }
             @if (_r.Status == StatusRequisicao.Autorizada) { <button class="btn laranja" @onclick="AbrirCotacao"><Icone Nome="calculadora" Tam="16" /> Gerar cotação</button> }
             @if (PodeVoltar) { <button class="btn sec" id="req-voltar" disabled="@Ocupado" @onclick="VoltarEdicao"><Icone Nome="editar" Tam="16" /> Voltar para edição</button> }
             @if (PodeExcluir) { <button class="btn perigo" id="req-excluir" disabled="@Ocupado" @onclick="Excluir"><Icone Nome="lixeira" Tam="16" /> Excluir requisição</button> }
@@ -255,12 +266,40 @@
                 r.Tipo, r.Atividade, r.CentroCusto != null ? r.CentroCusto.Nome : null, r.DataEntrega, r.Itens.Count, r.Status, r.CriadoPor, r.CriadoEm)).ToListAsync(Cancelamento);
     }
 
-    private void Novo()
+    private async Task Novo()
     {
         _r = new Requisicao { DataEntrega = Hoje.AddDays(15), ObraId = _obras.Count == 1 ? _obras[0].Id : Guid.Empty };
+        await CarregarEstoque();
         _locaisObra = [];
         if (SpesDaObra.Count() == 1) _r.SpeId = SpesDaObra.First().Id;
         ErrosForm = null; _aberto = true;
+    }
+
+    private Dictionary<Guid, decimal> _saldoObra = [], _saldoCentral = [];
+    private Almoxarifado? _central, _almoxObra;
+
+    /// <summary>Saldo em estoque (obra e central) para mostrar ao lado de cada item: o comprador vê se dá para atender por transferência.</summary>
+    private async Task CarregarEstoque()
+    {
+        _saldoObra = []; _saldoCentral = []; _almoxObra = null;
+        if (_r is null || _r.ObraId == Guid.Empty) return;
+        await using var db = Fabrica.CriarLeitura();
+        _central = await db.Almoxarifados.AsNoTracking().FirstOrDefaultAsync(a => a.Tipo == TipoAlmoxarifado.Central && a.Ativo, Cancelamento);
+        _almoxObra = await db.Almoxarifados.AsNoTracking().FirstOrDefaultAsync(a => a.ObraId == _r.ObraId, Cancelamento);
+        if (_almoxObra is { } ao) _saldoObra = await db.SaldosEstoque.AsNoTracking().Where(x => x.AlmoxarifadoId == ao.Id && x.Disponivel > 0).ToDictionaryAsync(x => x.ProdutoId, x => x.Disponivel, Cancelamento);
+        if (_central is { } c) _saldoCentral = await db.SaldosEstoque.AsNoTracking().Where(x => x.AlmoxarifadoId == c.Id && x.Disponivel > 0).ToDictionaryAsync(x => x.ProdutoId, x => x.Disponivel, Cancelamento);
+    }
+
+    private void AtenderDoCentral()
+    {
+        var itens = _r!.Itens.Where(i => i.ProdutoId is { } p && _saldoCentral.GetValueOrDefault(p) > 0 && i.Quantidade > 0)
+            .GroupBy(i => i.ProdutoId!.Value).Select(g => new EstoqueServico.ItemSolicitado(g.Key, Math.Min(g.Sum(i => i.Quantidade), _saldoCentral[g.Key]))).ToList();
+        Confirmar($"Criar transferência do central para a obra com {itens.Count} item(ns) em estoque? Depois ajuste a requisição para comprar só o que faltar.", async () =>
+        {
+            Guid t = default;
+            if (await Executar(async () => t = await EstoqueSrv.SolicitarTransferenciaAsync(_central!.Id, _almoxObra!.Id, itens, $"Requisição {_r!.Numero} atendida pelo estoque", Cancelamento), "Transferência criada."))
+                Nav.NavigateTo($"/transferencias?id={t}");
+        });
     }
 
     private async Task Abrir(Guid id)
@@ -268,6 +307,7 @@
         await using var db = Fabrica.CriarLeitura();
         _r = await db.Requisicoes.AsNoTracking().Include(r => r.Itens).ThenInclude(i => i.Locais).FirstAsync(r => r.Id == id, Cancelamento);
         _locaisObra = await db.Locais.AsNoTracking().Where(l => l.ObraId == _r.ObraId).ToListAsync(Cancelamento);
+        await CarregarEstoque();
         ErrosForm = null; _versao++; _aberto = true;
     }
 
@@ -358,6 +398,7 @@
         await using (var db = Fabrica.CriarLeitura())
             _locaisObra = obra == Guid.Empty ? [] : await db.Locais.AsNoTracking().Where(l => l.ObraId == obra).ToListAsync(Cancelamento);
         await EnderecoDaObra();
+        await CarregarEstoque();
     }
 
     private async Task IncluirOrc()

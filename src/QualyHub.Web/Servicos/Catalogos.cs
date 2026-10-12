@@ -114,6 +114,25 @@ public sealed class Catalogos(IFabricaDb fabrica, QualyHub.Web.Seguranca.Usuario
         return await db.Locais.AsNoTracking().Where(l => l.ObraId == obraId).OrderBy(l => l.Codigo).Select(l => new Opcao(l.Id, l.Nome, l.Tipo)).ToListAsync();
     });
 
+    /// <summary>
+    /// Locais com o caminho legível (Torre A › Apto 101 › Cozinha), sem condomínio e pavimento: o mesmo "Apto 101" existe em várias torres.
+    /// Extra = tipo do local.
+    /// </summary>
+    public Task<List<Opcao>> LocaisComCaminhoAsync(Guid obraId) => Cache($"locaiscam:{obraId}", async () =>
+    {
+        await using var db = fabrica.CriarLeitura();
+        var ls = await db.Locais.AsNoTracking().Where(l => l.ObraId == obraId).Select(l => new { l.Id, l.Nome, l.Tipo, l.LocalPaiId, l.Codigo }).ToListAsync();
+        var porId = ls.ToDictionary(l => l.Id);
+        string Caminho(Guid id)
+        {
+            var partes = new List<string>();
+            for (var (atual, n) = (porId.GetValueOrDefault(id), 0); atual is not null && n < 8; atual = atual.LocalPaiId is { } p ? porId.GetValueOrDefault(p) : null, n++)
+                if (n == 0 || !(atual.Tipo is "Condomínio" or "Pavimento")) partes.Insert(0, atual.Nome);
+            return string.Join(" › ", partes);
+        }
+        return ls.OrderBy(l => l.Codigo).Select(l => new Opcao(l.Id, Caminho(l.Id), l.Tipo)).ToList();
+    });
+
     public Task<List<Opcao>> ModelosAsync(TipoModelo tipo, bool soVigentes = true) => Cache($"modelos:{tipo}:{soVigentes}", async () =>
     {
         await using var db = fabrica.CriarLeitura();

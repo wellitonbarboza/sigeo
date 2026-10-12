@@ -2,8 +2,9 @@
 @inherits PaginaBase
 @inject TransferenciasServico TransferenciasSrv
 @inject NavigationManager Nav
+@inject EstoqueServico EstoqueSrv
 
-<Pagina Titulo="Transferências para as obras / SPEs" Grade="_grade" AoAtualizar="Carregar">
+<Pagina Titulo="Transferências entre almoxarifados" Grade="_grade" AoNovo="NovaTransferencia" AoAtualizar="Carregar">
     <ChildContent>
         <div class="pagina">
             <div class="kpis">
@@ -16,17 +17,19 @@
                 <Colunas>
                     <Coluna T="Linha" Titulo="Nº" Valor="l => l.Numero" Largura="70px" />
                     <Coluna T="Linha" Titulo="Data" Valor="l => l.Data" />
-                    <Coluna T="Linha" Titulo="Obra" Valor="l => l.Obra" />
+                    <Coluna T="Linha" Titulo="Origem" Valor="l => l.Origem" />
+                    <Coluna T="Linha" Titulo="Destino" Valor="l => l.Destino" />
+                    <Coluna T="Linha" Titulo="Obra" Valor="l => l.Obra" Visivel="false" />
                     <Coluna T="Linha" Titulo="SPE (destino do custo)" Valor="l => l.Spe" />
                     <Coluna T="Linha" Titulo="Recebimento" Valor="l => l.Recebimento" />
                     <Coluna T="Linha" Titulo="Valor" Valor="l => l.Valor" Formato="N2" Alinhar="num" />
                     <Coluna T="Linha" Titulo="Status" Valor="l => l.Status"><Modelo><Selo Texto="@De(context.Status)" Tom="@Tom(context.Status)" /></Modelo></Coluna>
                 </Colunas>
             </Grade>
-            <div class="alerta info"><Icone Nome="info" /> Fluxo: compra faturada pela fábrica → recebimento no almoxarifado central com FVM → transferência para a obra (custo na SPE) → conferência curta na obra.</div>
+            <div class="alerta info"><Icone Nome="info" /> Fluxo: recebimento com FVM no almoxarifado que recebeu → transferência (central → obra, obra → obra ou obra → central) → saída no envio e entrada na conferência, pelo custo médio da origem. Custo na SPE de destino.</div>
         </div>
     </ChildContent>
-    <Faixa><b>Transferências</b><span>Almoxarifado central → obra / SPE</span><span>O custo do material vai para a SPE de destino</span></Faixa>
+    <Faixa><b>Transferências</b><span>Central ⇄ obras · obra ⇄ obra</span><span>O custo do material vai para a SPE de destino</span></Faixa>
 </Pagina>
 
 <Modal @bind-Aberto="_aberto" Titulo="@($"Transferência {_t?.Numero}")" Tamanho="grande">
@@ -35,7 +38,8 @@
         {
             <Erros Lista="ErrosForm" />
             <div class="form">
-                <Campo Rotulo="Obra de destino" Classe="s4"><input readonly value="@_obras.FirstOrDefault(o => o.Id == _t.ObraId)?.Texto" /></Campo>
+                <Campo Rotulo="De (origem)" Classe="s4"><input readonly value="@NomeAlmox(_t.OrigemAlmoxarifadoId, "Almoxarifado central")" /></Campo>
+                <Campo Rotulo="Para (destino)" Classe="s4"><input readonly value="@NomeAlmox(_t.DestinoAlmoxarifadoId, _obras.FirstOrDefault(o => o.Id == _t.ObraId)?.Texto)" /></Campo>
                 <Campo Rotulo="SPE (destino do custo)" Classe="s5"><select @bind="_t.SpeId" disabled="@(_t.Status != StatusTransferencia.Rascunho)"><option value="">—</option>@foreach (var s in _spes.Where(s => s.Extra == _t.ObraId.ToString())) { <option value="@s.Id">@s.Texto</option> }</select></Campo>
                 <Campo Rotulo="Data" Classe="s3"><input type="date" @bind="_t.Data" disabled="@(_t.Status != StatusTransferencia.Rascunho)" /></Campo>
                 <Campo Rotulo="Observação" Classe="s12"><input id="tr-obs" @bind="_t.Observacao" disabled="@(_t.Status == StatusTransferencia.Recebida)" /></Campo>
@@ -69,10 +73,61 @@
     </Rodape>
 </Modal>
 
+<Modal @bind-Aberto="_abertoNova" Titulo="Nova transferência" Tamanho="grande">
+    <ChildContent>
+        <Erros Lista="ErrosForm" />
+        <div class="form">
+            <Campo Rotulo="De (origem)" Classe="s6" Obrigatorio="true">
+                <select id="nt-origem" @bind="_ntOrigem"><option value="">—</option>@foreach (var a in _almoxs.Where(a => a.Ativo)) { <option value="@a.Id">@(a.Tipo == TipoAlmoxarifado.Central ? "Central · " : "")@a.Nome</option> }</select>
+            </Campo>
+            <Campo Rotulo="Para (destino)" Classe="s6" Obrigatorio="true">
+                <select id="nt-destino" @bind="_ntDestino"><option value="">—</option>@foreach (var a in _almoxs.Where(a => a.Ativo && a.Id != _ntOrigem)) { <option value="@a.Id">@(a.Tipo == TipoAlmoxarifado.Central ? "Central · " : "")@a.Nome</option> }</select>
+            </Campo>
+            <Campo Rotulo="Incluir produto" Classe="s8"><BuscaProduto Produtos="_produtos" AoEscolher="p => { if (_ntItens.All(i => i.Produto.Id != p.Id)) _ntItens.Add(new ItemNovo(p)); }" /></Campo>
+            <Campo Rotulo="Observação" Classe="s12"><input @bind="_ntObs" /></Campo>
+        </div>
+        <table class="itens" id="nt-itens">
+            <thead><tr><th>Produto</th><th>Un.</th><th class="num">Quantidade</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var i in _ntItens.ToList())
+                {
+                    <tr><td>@i.Produto.Codigo – @i.Produto.Nome</td><td>@i.Produto.Unidade</td><td class="larg-110"><input type="number" step="0.001" @bind="i.Quantidade" /></td>
+                        <td><button class="btn pq" @onclick="() => _ntItens.Remove(i)" aria-label="Remover"><Icone Nome="lixeira" Tam="14" /></button></td></tr>
+                }
+            </tbody>
+        </table>
+    </ChildContent>
+    <Rodape><button class="btn prim" id="nt-criar" disabled="@Ocupado" @onclick="CriarTransferencia"><Icone Nome="check" Tam="16" /> Criar (rascunho)</button></Rodape>
+</Modal>
+
 <Confirmacao Pergunta="@PerguntaConfirmacao" AoSim="ConfirmacaoSim" AoNao="ConfirmacaoNao" TextoSim="Cancelar transferência" />
 
 @code {
-    private sealed record Linha(Guid Id, int Numero, DateOnly Data, string Obra, string? Spe, int? Recebimento, decimal Valor, StatusTransferencia Status);
+    private sealed record Linha(Guid Id, int Numero, DateOnly Data, string Obra, string Origem, string Destino, string? Spe, int? Recebimento, decimal Valor, StatusTransferencia Status);
+    private sealed class ItemNovo(ProdutoBusca p) { public ProdutoBusca Produto { get; } = p; public decimal Quantidade { get; set; } = 1; }
+    private List<Almoxarifado> _almoxs = [];
+    private List<ProdutoBusca> _produtos = [];
+    private bool _abertoNova;
+    private Guid? _ntOrigem, _ntDestino;
+    private string? _ntObs;
+    private List<ItemNovo> _ntItens = [];
+
+    private string NomeAlmox(Guid? id, string? padrao) => id is { } g && _almoxs.FirstOrDefault(a => a.Id == g) is { } a ? (a.Tipo == TipoAlmoxarifado.Central ? "Central · " : "") + a.Nome : padrao ?? "—";
+
+    private async Task NovaTransferencia()
+    {
+        _produtos = await Cat.ProdutosBuscaAsync();
+        _ntOrigem = _almoxs.FirstOrDefault(a => a.Tipo == TipoAlmoxarifado.Central)?.Id; _ntDestino = null; _ntObs = null; _ntItens = []; ErrosForm = null; _abertoNova = true;
+    }
+
+    private async Task CriarTransferencia()
+    {
+        if (_ntOrigem is null || _ntDestino is null) { ErrosForm = ["Escolha a origem e o destino."]; return; }
+        Guid id = default;
+        if (await Executar(async () => id = await EstoqueSrv.SolicitarTransferenciaAsync(_ntOrigem.Value, _ntDestino.Value,
+                _ntItens.Select(i => new EstoqueServico.ItemSolicitado(i.Produto.Id, i.Quantidade)).ToList(), _ntObs, Cancelamento), "Transferência criada."))
+        { _abertoNova = false; await Carregar(); await Abrir(id); }
+    }
     private Grade<Linha>? _grade;
     private List<Linha>? _itens;
     private TransferenciaMaterial? _t;
@@ -93,6 +148,7 @@
     protected override async Task OnInitializedAsync()
     {
         _obras = await Cat.ObrasAsync(); _spes = await Cat.SpesAsync();
+        _almoxs = await EstoqueSrv.AlmoxarifadosAsync(Cancelamento);
         await Carregar();
         if (Nav.Uri.Contains("?id=") && Guid.TryParse(Nav.Uri.Split("?id=")[1], out var id)) await Abrir(id);
     }
@@ -105,7 +161,8 @@
         var recs = await db.Recebimentos.AsNoTracking().Where(r => idsRec.Contains(r.Id)).Select(r => new { r.Id, r.Numero }).ToDictionaryAsync(r => r.Id, r => r.Numero, Cancelamento);
         var obras = _obras.ToDictionary(o => o.Id, o => o.Texto);
         var spes = _spes.ToDictionary(s => s.Id, s => s.Texto);
-        _itens = lista.Select(t => new Linha(t.Id, t.Numero, t.Data, obras.GetValueOrDefault(t.ObraId, ""), t.SpeId is { } sp ? spes.GetValueOrDefault(sp) : null,
+        _itens = lista.Select(t => new Linha(t.Id, t.Numero, t.Data, obras.GetValueOrDefault(t.ObraId, ""), NomeAlmox(t.OrigemAlmoxarifadoId, "Central"),
+            NomeAlmox(t.DestinoAlmoxarifadoId, obras.GetValueOrDefault(t.ObraId, "")), t.SpeId is { } sp ? spes.GetValueOrDefault(sp) : null,
             t.RecebimentoId is { } r ? recs.GetValueOrDefault(r) : null, t.Valor, t.Status)).ToList();
     }
 

@@ -1,8 +1,9 @@
 @page "/obra/equipamentos"
 @inherits PaginaBase
 @inject QualidadeObraServico Qob
+@inject NavigationManager Nav
 
-<Pagina Titulo="Equipamentos de medição" Grade="_grade" AoNovo="Novo" AoAtualizar="Carregar">
+<Pagina Titulo="Equipamentos de medição (aferição)" Grade="GradeAtiva" AoNovo="Novo" AoAtualizar="Carregar">
     <ChildContent>
         <div class="pagina">
             <div class="kpis">
@@ -11,11 +12,23 @@
                 <Kpi Rotulo="@($"Vencem em {_alerta} dias")" Valor="@_itens?.Count(e => St(e) == StatusEquipamento.VenceEmBreve)" Tom="aviso" />
                 <Kpi Rotulo="Bloqueados" Valor="@_itens?.Count(e => St(e) == StatusEquipamento.Bloqueado)" Sub="não podem ser usados em FVS" Tom="erro" />
             </div>
+            <Abas Itens="_abas" @bind-Ativa="_aba" />
+            @if (_aba == "ferr")
+            {
+            <div class="barra-acoes" style="justify-content:flex-start">
+                <button class="btn sec" id="afe-etiquetas" disabled="@(_selec.Count == 0)" @onclick="Etiquetas"><Icone Nome="impressora" Tam="16" /> Etiquetas A4 (@_selec.Count)</button>
+                <button class="btn sec" disabled="@(_itens is null)" @onclick="() => { foreach (var e in _itens!.Where(x => !x.Baixado)) _selec.Add(e.Id); }">Marcar todos</button>
+                @if (_selec.Count > 0) { <button class="btn sec" @onclick="() => _selec.Clear()">Desmarcar</button> }
+            </div>
             <Grade T="EquipamentoMedicao" @ref="_grade" Itens="_itens" AoClicar="Abrir" NomeExportacao="equipamentos" CriadoPor="e => e.CriadoPor">
                 <Colunas>
+                    <Coluna T="EquipamentoMedicao" Titulo="" Ordenavel="false" Largura="34px"><Modelo><input type="checkbox" checked="@_selec.Contains(context.Id)" @onclick:stopPropagation="true" @onchange="e => { if ((bool)e.Value!) _selec.Add(context.Id); else _selec.Remove(context.Id); }" aria-label="Selecionar para etiqueta" /></Modelo></Coluna>
                     <Coluna T="EquipamentoMedicao" Titulo="Código" Valor="e => e.Codigo" Largura="90px" />
                     <Coluna T="EquipamentoMedicao" Titulo="Equipamento" Valor="e => e.Descricao" />
-                    <Coluna T="EquipamentoMedicao" Titulo="Local / responsável" Valor="e => e.Responsavel" />
+                    <Coluna T="EquipamentoMedicao" Titulo="Tipo" Valor="e => NomeTipo(e.TipoMedicaoId)" />
+                    <Coluna T="EquipamentoMedicao" Titulo="Dono" Valor="e => Dono(e)" />
+                    <Coluna T="EquipamentoMedicao" Titulo="Com quem" Valor="e => e.ComQuem" />
+                    <Coluna T="EquipamentoMedicao" Titulo="Local / responsável" Valor="e => e.Responsavel" Visivel="false" />
                     <Coluna T="EquipamentoMedicao" Titulo="Tipo de controle" Valor="e => e.TipoControle" />
                     <Coluna T="EquipamentoMedicao" Titulo="Última" Valor="e => e.UltimaData" />
                     <Coluna T="EquipamentoMedicao" Titulo="Próxima" Valor="e => e.Proxima" />
@@ -23,9 +36,27 @@
                     <Coluna T="EquipamentoMedicao" Titulo="Status" Valor="e => St(e)"><Modelo><Selo Texto="@De(St(context))" Tom="@Tom(St(context))" /></Modelo></Coluna>
                 </Colunas>
             </Grade>
+            }
+            else
+            {
+                <div class="barra-acoes" style="justify-content:flex-start">
+                    <button class="btn prim" id="tm-novo" @onclick="NovoTipo"><Icone Nome="mais" Tam="16" /> Novo tipo</button>
+                </div>
+                <Grade T="TipoEquipamentoMedicao" @ref="_gTipos" Itens="_tipos" AoClicar="AbrirTipo" NomeExportacao="tipos-equipamento-medicao">
+                    <Colunas>
+                        <Coluna T="TipoEquipamentoMedicao" Titulo="Tipo" Valor="t => t.Nome" />
+                        <Coluna T="TipoEquipamentoMedicao" Titulo="Prefixo do código" Valor="t => t.Prefixo" />
+                        <Coluna T="TipoEquipamentoMedicao" Titulo="Periodicidade (meses)" Valor="t => t.PeriodicidadeMeses" Alinhar="num" />
+                        <Coluna T="TipoEquipamentoMedicao" Titulo="Controle" Valor="t => De(t.TipoControle)" />
+                        <Coluna T="TipoEquipamentoMedicao" Titulo="Critério" Valor="t => t.Criterio" />
+                        <Coluna T="TipoEquipamentoMedicao" Titulo="Ativo" Valor="t => t.Ativo"><Modelo><Selo Texto="@(context.Ativo ? "Ativo" : "Inativo")" Tom="@(context.Ativo ? "ok" : "neutro")" /></Modelo></Coluna>
+                    </Colunas>
+                </Grade>
+                <div class="alerta info"><Icone Nome="info" /> O tipo define o prefixo do código (TR-001, NV-002…), a periodicidade e o critério padrão. Vale para ferramentas próprias e de empreiteiras.</div>
+            }
         </div>
     </ChildContent>
-    <Faixa><b>Tela 38 · Equipamentos</b><span>SiAC 7.1.5 · vencido ou reprovado bloqueia uso na FVS</span><span>Reprovação lista as FVS feitas desde a última aprovação</span></Faixa>
+    <Faixa><b>Tela 38 · Equipamentos de medição</b><span>SiAC 7.1.5 · vencido ou reprovado bloqueia uso na FVS</span><span>Reprovação lista as FVS feitas desde a última aprovação</span></Faixa>
 </Pagina>
 
 <Modal @bind-Aberto="_aberto" Titulo="@($"Equipamento {_e?.Codigo} — {_e?.Descricao}")" Tamanho="media">
@@ -34,9 +65,15 @@
         {
             <Erros Lista="ErrosForm" />
             <div class="form">
-                <Campo Rotulo="Código (etiqueta)" Obrigatorio Classe="s3"><input @bind="_e.Codigo" /></Campo>
-                <Campo Rotulo="Descrição / modelo / nº de série" Obrigatorio Classe="s9"><input @bind="_e.Descricao" /></Campo>
-                <Campo Rotulo="Tipo" Classe="s3"><select @bind="_e.Tipo">@foreach (var t in Enum.GetValues<TipoEquipamento>()) { <option value="@t">@De(t)</option> }</select></Campo>
+                <Campo Rotulo="Tipo (configurável)" Classe="s4"><select id="afe-tipo" value="@_e.TipoMedicaoId" @onchange="e => EscolherTipo(e.Value?.ToString())"><option value="">—</option>@foreach (var t in _tipos.Where(t => t.Ativo || t.Id == _e.TipoMedicaoId)) { <option value="@t.Id">@t.Nome</option> }</select></Campo>
+                <Campo Rotulo="Código (etiqueta)" Obrigatorio Classe="s3" Ajuda="@(string.IsNullOrEmpty(_e.Codigo) && _e.TipoMedicaoId is not null ? "Vazio: gera pelo prefixo do tipo" : null)"><input id="afe-codigo" @bind="_e.Codigo" /></Campo>
+                <Campo Rotulo="Descrição / modelo / nº de série" Obrigatorio Classe="s5"><input id="afe-desc" @bind="_e.Descricao" /></Campo>
+                <Campo Rotulo="Dono" Classe="s3"><select id="afe-dono" @bind="_e.Dono"><option value="@DonoFerramenta.Propria">Própria</option><option value="@DonoFerramenta.Terceiro">Empreiteira (terceiro)</option></select></Campo>
+                @if (_e.Dono == DonoFerramenta.Terceiro)
+                {
+                    <Campo Rotulo="Empreiteira dona" Obrigatorio Classe="s5"><select id="afe-forn" @bind="_e.FornecedorId"><option value="">—</option>@foreach (var f in _fornecedores) { <option value="@f.Id">@f.Texto</option> }</select></Campo>
+                }
+                <Campo Rotulo="Categoria" Classe="s3"><select @bind="_e.Tipo">@foreach (var t in Enum.GetValues<TipoEquipamento>()) { <option value="@t">@De(t)</option> }</select></Campo>
                 <Campo Rotulo="Tipo de controle" Classe="s5"><select @bind="_e.TipoControle">@foreach (var t in Enum.GetValues<TipoControleEquipamento>()) { <option value="@t">@De(t)</option> }</select></Campo>
                 <Campo Rotulo="Periodicidade (meses)" Classe="s4"><input type="number" @bind="_e.PeriodicidadeMeses" /></Campo>
                 @if (_e.TipoControle == TipoControleEquipamento.VerificacaoInterna)
@@ -50,6 +87,23 @@
             </div>
             @if (_e.CriadoEm != default)
             {
+                <div class="secao"><Icone Nome="usuario" /> Com quem está (cautela)</div>
+                <p>@(_e.ComQuem ?? "Almoxarifado")@(_e.CautelaDesde is { } cd ? $" desde {Data(cd)}" : "")</p>
+                <div class="form">
+                    <Campo Rotulo="Entregar para" Classe="s4"><input id="afe-para" @bind="_para" placeholder="Nome / equipe / setor" /></Campo>
+                    <Campo Rotulo="Colaborador" Classe="s4"><select @bind="_paraColab" @bind:after="() => { if (_paraColab is { } c) _para = _colabs.FirstOrDefault(x => x.Id == c)?.Texto; }"><option value="">—</option>@foreach (var c in _colabs) { <option value="@c.Id">@c.Texto</option> }</select></Campo>
+                    <Campo Rotulo="Empreiteira" Classe="s4"><select @bind="_paraForn" @bind:after="() => { if (_paraForn is { } f && string.IsNullOrWhiteSpace(_para)) _para = _fornecedores.FirstOrDefault(x => x.Id == f)?.Texto; }"><option value="">—</option>@foreach (var f in _fornecedores) { <option value="@f.Id">@f.Texto</option> }</select></Campo>
+                </div>
+                <div class="linha-botoes">
+                    <button class="btn sec" id="afe-entregar" disabled="@Ocupado" @onclick="Entregar"><Icone Nome="enviar" Tam="14" /> Entregar (cautela)</button>
+                    @if (!string.IsNullOrEmpty(_e.ComQuem) && _e.ComQuem != "Almoxarifado") { <button class="btn sec" id="afe-devolver" disabled="@Ocupado" @onclick="Devolver">Devolvida ao almoxarifado</button> }
+                    <button class="btn sec" @onclick='() => Nav.NavigateTo($"/obra/equipamentos/etiquetas?ids={_e.Id}", true)'><Icone Nome="qr" Tam="14" /> Etiqueta</button>
+                </div>
+                @if (_cautelas.Count > 0)
+                {
+                    <div class="tabela-rolavel"><table class="itens"><thead><tr><th>Entregue em</th><th>Para</th><th>Por</th><th>Devolvida em</th></tr></thead>
+                        <tbody>@foreach (var c in _cautelas) { <tr><td>@Data(c.Data)</td><td>@c.Para</td><td>@c.EntreguePor</td><td>@Data(c.DevolvidaEm)</td></tr> }</tbody></table></div>
+                }
                 <div class="secao"><Icone Nome="relogio" /> Calibrações e verificações</div>
                 <div class="tabela-rolavel">
                 <table class="itens">
@@ -78,7 +132,76 @@
     <Rodape><button class="btn prim" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="16" /> Salvar</button></Rodape>
 </Modal>
 
+<Modal @bind-Aberto="_abertoTipo" Titulo="@(_t?.Nome is { Length: > 0 } n ? n : "Novo tipo")">
+    <ChildContent>
+        @if (_t is not null)
+        {
+            <Erros Lista="ErrosForm" />
+            <div class="form">
+                <Campo Rotulo="Nome" Obrigatorio Classe="s8"><input id="tm-nome" @bind="_t.Nome" placeholder="Ex.: Trena, Nível a laser" /></Campo>
+                <Campo Rotulo="Prefixo do código" Classe="s4"><input id="tm-prefixo" @bind="_t.Prefixo" maxlength="6" placeholder="TR" /></Campo>
+                <Campo Rotulo="Periodicidade (meses)" Obrigatorio Classe="s4"><input id="tm-period" type="number" @bind="_t.PeriodicidadeMeses" /></Campo>
+                <Campo Rotulo="Controle" Classe="s8"><select @bind="_t.TipoControle">@foreach (var c in Enum.GetValues<TipoControleEquipamento>()) { <option value="@c">@De(c)</option> }</select></Campo>
+                <Campo Rotulo="Critério de aceitação padrão" Obrigatorio Classe="s12"><input id="tm-criterio" @bind="_t.Criterio" /></Campo>
+                <Campo Rotulo="Método de verificação" Classe="s12"><textarea @bind="_t.Metodo"></textarea></Campo>
+                <Campo Rotulo="" Classe="s4"><label class="check"><input type="checkbox" @bind="_t.Ativo" /> Ativo</label></Campo>
+            </div>
+        }
+    </ChildContent>
+    <Rodape><button class="btn prim" id="tm-salvar" disabled="@Ocupado" @onclick="SalvarTipo"><Icone Nome="check" Tam="16" /> Salvar</button></Rodape>
+</Modal>
+
 @code {
+    private static readonly IReadOnlyList<(string, string)> _abas = [("ferr", "Ferramentas"), ("tipos", "Tipos e periodicidade")];
+    private string _aba = "ferr";
+    private Grade<TipoEquipamentoMedicao>? _gTipos;
+    private IGrade? GradeAtiva => _aba == "tipos" ? _gTipos : _grade;
+    private IGrade? _gradeVista;
+    /// <summary>A barra de ferramentas acompanha a grade da aba visível (a referência só existe depois que a aba renderiza).</summary>
+    protected override void OnAfterRender(bool firstRender) { if (!ReferenceEquals(_gradeVista, GradeAtiva)) { _gradeVista = GradeAtiva; StateHasChanged(); } }
+    private List<TipoEquipamentoMedicao> _tipos = [];
+    private List<Opcao> _fornecedores = [], _colabs = [];
+    private readonly HashSet<Guid> _selec = [];
+    private List<CautelaFerramenta> _cautelas = [];
+    private string? _para;
+    private Guid? _paraColab, _paraForn;
+    private TipoEquipamentoMedicao? _t;
+    private bool _abertoTipo;
+
+    private string NomeTipo(Guid? id) => id is { } g ? _tipos.FirstOrDefault(t => t.Id == g)?.Nome ?? "" : "";
+    private string Dono(EquipamentoMedicao e) => e.Dono == DonoFerramenta.Propria ? "Própria" : _fornecedores.FirstOrDefault(f => f.Id == e.FornecedorId)?.Texto ?? "Terceiro";
+    private void Etiquetas() => Nav.NavigateTo("/obra/equipamentos/etiquetas?ids=" + string.Join(",", _selec), true);
+
+    private void EscolherTipo(string? v)
+    {
+        _e!.TipoMedicaoId = Guid.TryParse(v, out var g) ? g : null;
+        if (_tipos.FirstOrDefault(t => t.Id == g) is { } t)
+        {
+            _e.PeriodicidadeMeses = t.PeriodicidadeMeses; _e.Criterio = t.Criterio; _e.TipoControle = t.TipoControle;
+            if (_e.CriadoEm == default && !string.IsNullOrEmpty(t.Prefixo) && (string.IsNullOrEmpty(_e.Codigo) || _e.Codigo.Contains('-'))) _e.Codigo = "";
+            if (string.IsNullOrWhiteSpace(_e.Descricao)) _e.Descricao = t.Nome;
+        }
+    }
+
+    private async Task Entregar()
+    {
+        if (await Executar(() => Qob.EntregarFerramentaAsync(_e!.Id, _para ?? "", _paraColab, _paraForn, Hoje, null, Cancelamento), "Ferramenta entregue."))
+        { await Carregar(); await Abrir(_e!); }
+    }
+
+    private async Task Devolver()
+    {
+        if (await Executar(() => Qob.DevolverFerramentaAsync(_e!.Id, Hoje, Cancelamento), "Devolvida ao almoxarifado.")) { await Carregar(); await Abrir(_e!); }
+    }
+
+    private void NovoTipo() { _t = new TipoEquipamentoMedicao(); ErrosForm = null; _abertoTipo = true; }
+    private void AbrirTipo(TipoEquipamentoMedicao t)
+    {
+        _t = new TipoEquipamentoMedicao { Id = t.Id, Nome = t.Nome, Prefixo = t.Prefixo, PeriodicidadeMeses = t.PeriodicidadeMeses, Criterio = t.Criterio, Metodo = t.Metodo, TipoControle = t.TipoControle, Ativo = t.Ativo };
+        ErrosForm = null; _abertoTipo = true;
+    }
+    private async Task SalvarTipo() { if (await Executar(() => Qob.SalvarTipoMedicaoAsync(_t!, Cancelamento), "Tipo salvo.")) { _abertoTipo = false; await Carregar(); } }
+
     private Grade<EquipamentoMedicao>? _grade;
     private List<EquipamentoMedicao>? _itens;
     private EquipamentoMedicao? _e;
@@ -94,6 +217,7 @@
     protected override async Task OnInitializedAsync()
     {
         _obras = await Cat.ObrasAsync();
+        _fornecedores = await Cat.FornecedoresAsync(); _colabs = await Cat.ColaboradoresAsync();
         await using (var db = Fabrica.CriarLeitura()) { _p = await ParametrosServico.CarregarAsync(db, Cancelamento); _alerta = _p.Int(Parametros.AlertaCalibracaoDias); }
         await Carregar();
     }
@@ -102,9 +226,11 @@
     {
         await using var db = Fabrica.CriarLeitura();
         _itens = await db.Equipamentos.AsNoTracking().OrderBy(e => e.Codigo).ToListAsync(Cancelamento);
+        _tipos = await db.TiposEquipamentoMedicao.AsNoTracking().OrderBy(t => t.Nome).ToListAsync(Cancelamento);
     }
 
-    private void Novo() { _e = new EquipamentoMedicao { PeriodicidadeMeses = _p!.Int(Parametros.PeriodicidadeVerificacaoMeses), ObraId = _obras.Count == 1 ? _obras[0].Id : null }; _cals = []; ErrosForm = null; _aberto = true; }
+    private void Novo() { if (_aba == "tipos") { NovoTipo(); return; } NovoFerr(); }
+    private void NovoFerr() { _e = new EquipamentoMedicao { PeriodicidadeMeses = _p!.Int(Parametros.PeriodicidadeVerificacaoMeses), ObraId = _obras.Count == 1 ? _obras[0].Id : null }; _cals = []; ErrosForm = null; _aberto = true; }
 
     private async Task Abrir(EquipamentoMedicao e)
     {
@@ -112,6 +238,8 @@
         _e = await db.Equipamentos.AsNoTracking().FirstAsync(x => x.Id == e.Id, Cancelamento);
         _cals = await db.Calibracoes.AsNoTracking().Where(c => c.EquipamentoMedicaoId == e.Id).OrderByDescending(c => c.Data).ToListAsync(Cancelamento);
         _nova = new Calibracao { Data = Hoje, Tipo = _e.TipoControle == TipoControleEquipamento.VerificacaoInterna ? TipoControleEquipamento.VerificacaoInterna : TipoControleEquipamento.CalibracaoExterna };
+        _cautelas = await db.CautelasFerramenta.AsNoTracking().Where(c => c.EquipamentoMedicaoId == e.Id).OrderByDescending(c => c.Data).ThenByDescending(c => c.CriadoEm).Take(20).ToListAsync(Cancelamento);
+        _para = null; _paraColab = null; _paraForn = null;
         _afetadas = []; ErrosForm = null; _aberto = true;
     }
 

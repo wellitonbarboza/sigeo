@@ -4,6 +4,7 @@
 @inject TransferenciasServico TransferenciasSrv
 @inject NavigationManager Nav
 @inject QualidadeObraServico Qob
+@inject EstoqueServico EstoqueSrv
 
 <Pagina Titulo="Recebimento de materiais / FVM" Grade="_grade" AoNovo="Novo" AoAtualizar="Carregar">
     <ChildContent>
@@ -45,6 +46,12 @@
                 </Campo>
                 <Campo Rotulo="Chave NF-e (44 dígitos)" Classe="s5"><input @bind="_r.ChaveNFe" maxlength="44" disabled="@(!Novo_)" /></Campo>
                 <Campo Rotulo="Nº nota fiscal" Classe="s3"><input @bind="_r.NumeroNotaFiscal" disabled="@(!Novo_)" /></Campo>
+                <Campo Rotulo="Onde está recebendo (estoque)" Classe="s6" Ajuda="O material entra no saldo deste almoxarifado (em quarentena até o ensaio, se houver).">
+                    <select id="rec-almox" @bind="_r.AlmoxarifadoId" disabled="@(!Novo_)">
+                        <option value="">Automático (central se o pedido for para o central; senão a obra)</option>
+                        @foreach (var a in _almoxs.Where(a => a.Ativo && (a.Tipo == TipoAlmoxarifado.Central || a.ObraId == _r.ObraId))) { <option value="@a.Id">@(a.Tipo == TipoAlmoxarifado.Central ? "Central · " : "Obra · ")@a.Nome</option> }
+                    </select>
+                </Campo>
             </div>
             <div class="secao"><Icone Nome="lista" /> Itens recebidos</div>
             <div class="tabela-rolavel">
@@ -197,8 +204,11 @@
         ("Atendimento", "Quantidade correta, descarga, postura", () => _r!.FvmAtendimento, v => _r!.FvmAtendimento = v),
     ];
 
+    private List<Almoxarifado> _almoxs = [];
+
     protected override async Task OnInitializedAsync()
     {
+        _almoxs = await EstoqueSrv.AlmoxarifadosAsync(Cancelamento);
         await Carregar();
         if (Nav.Uri.Contains("?pedido=") && Guid.TryParse(Nav.Uri.Split("?pedido=")[1], out var pid)) { await Novo(); await EscolherPedido(pid.ToString()); }
         else if (Nav.Uri.Contains("?nota=") && Guid.TryParse(Nav.Uri.Split("?nota=")[1], out var nid)) await NovoDaNota(nid);
@@ -262,6 +272,7 @@
         var p = await db.Pedidos.AsNoTracking().Include(x => x.Itens).FirstAsync(x => x.Id == id, Cancelamento);
         if (_pedidos.All(o => o.Id != id)) _pedidos.Add(new Opcao(p.Id, $"Pedido {p.Numero}"));
         _r.PedidoId = p.Id; _r.FornecedorId = p.FornecedorId; _r.ObraId = p.ObraId;
+        _r.AlmoxarifadoId = p.EntregaAlmoxarifadoCentral ? _almoxs.FirstOrDefault(a => a.Tipo == TipoAlmoxarifado.Central && a.Ativo)?.Id : _almoxs.FirstOrDefault(a => a.ObraId == p.ObraId)?.Id;
         foreach (var i in p.Itens.Where(i => i.Quantidade > i.QuantidadeRecebidaAceita))
         {
             var saldo = i.Quantidade - i.QuantidadeRecebidaAceita;

@@ -38,7 +38,7 @@ public sealed class OrcamentoServico(IFabricaDb fabrica)
     {
         await using var db = fabrica.Criar();
         var o = await db.Composicoes.AsNoTracking().Include(x => x.Itens).FirstAsync(x => x.Id == id, ct);
-        var n = new Composicao { Codigo = codigo, Descricao = o.Descricao + " (cópia)", Unidade = o.Unidade, Grupo = o.Grupo, Regra = o.Regra, Fator = o.Fator, ServicoControladoId = o.ServicoControladoId, Observacao = o.Observacao };
+        var n = new Composicao { Codigo = codigo, Descricao = o.Descricao + " (cópia)", Unidade = o.Unidade, Grupo = o.Grupo, Disciplina = o.Disciplina, Regra = o.Regra, Fator = o.Fator, ServicoControladoId = o.ServicoControladoId, Observacao = o.Observacao };
         foreach (var i in o.Itens)
             n.Itens.Add(new ComposicaoItem { ComposicaoId = n.Id, Ordem = i.Ordem, Tipo = i.Tipo, ProdutoId = i.ProdutoId, FuncaoObraId = i.FuncaoObraId, Descricao = i.Descricao, Unidade = i.Unidade, Coeficiente = i.Coeficiente, PerdaPerc = i.PerdaPerc, CustoUnitario = i.CustoUnitario });
         await SalvarComposicaoAsync(n, ct);

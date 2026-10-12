@@ -1,0 +1,461 @@
+@page "/estoque"
+@inherits PaginaBase
+@inject EstoqueServico EstoqueSrv
+@inject NavigationManager Nav
+
+<Pagina Titulo="Estoque e almoxarifados" Grade="GradeAtiva" AoAtualizar="Recarregar">
+    <Direita>
+        <select id="est-almox" class="larg-200" value="@_almoxId" @onchange="async e => { _almoxId = Guid.TryParse(e.Value?.ToString(), out var g) ? g : null; await Recarregar(); }" aria-label="Almoxarifado">
+            @foreach (var a in _almoxs.Where(a => a.Ativo)) { <option value="@a.Id">@(a.Tipo == TipoAlmoxarifado.Central ? "Central · " : "")@a.Nome</option> }
+        </select>
+        <button class="btn prim" id="est-lancar" disabled="@(_almox is null)" @onclick="AbrirLancamento"><Icone Nome="mais" Tam="16" /> Lançar</button>
+    </Direita>
+    <ChildContent>
+        <div class="pagina">
+            @if (_almoxs.Count == 0)
+            {
+                <div class="alerta info"><Icone Nome="info" /> Nenhum almoxarifado. O central é criado quando um estabelecimento é marcado como "almoxarifado central"; cada obra ativa ganha o seu automaticamente.</div>
+            }
+            <div class="kpis">
+                <Kpi Rotulo="Itens com saldo" Valor="@_saldos?.Count(s => s.Disponivel + s.Bloqueado > 0)" />
+                <Kpi Rotulo="Valor em estoque" Valor="@(_saldos?.Sum(s => s.Valor).ToString("C0", Br))" Tom="info" />
+                <Kpi Rotulo="No ponto de pedido" Valor="@_saldos?.Count(s => s.Situacao == "Ponto de pedido")" Tom="aviso" />
+                <Kpi Rotulo="Abaixo do mínimo" Valor="@_saldos?.Count(s => s.Situacao == "Abaixo do mínimo")" Tom="erro" />
+                <Kpi Rotulo="Em quarentena (FVM)" Valor="@_saldos?.Count(s => s.Bloqueado > 0)" Tom="aviso" />
+            </div>
+            <Abas Itens="_abas" @bind-Ativa="_aba" />
+            @if (_aba == "saldos")
+            {
+                <div class="barra-acoes">
+                    <button class="btn sec" id="est-sugerir" disabled="@(Ocupado || _almox is null)" @onclick="SugerirMinimos" title="Calcula mínimo, ponto de pedido e máximo pelo consumo de 60 dias × prazo de entrega (só dos itens ainda sem parâmetro)"><Icone Nome="raio" Tam="16" /> Sugerir mínimos</button>
+                    @if (_almox?.Tipo == TipoAlmoxarifado.Obra && _central is not null)
+                    {
+                        <button class="btn sec" id="est-repor" disabled="@(Ocupado || _saldos?.Any(s => s.Reposicao > 0) != true)" @onclick="ReporDoCentral" title="Cria uma transferência (rascunho) do central para esta obra com todos os itens no ponto de pedido"><Icone Nome="enviar" Tam="16" /> Pedir reposição ao central</button>
+                    }
+                    <label class="check"><input type="checkbox" @bind="_soAlerta" /> Só ponto de pedido / abaixo do mínimo</label>
+                </div>
+                <Grade T="LinhaSaldo" @ref="_gSaldos" Itens="SaldosFiltrados" AoClicar="AbrirSaldo" NomeExportacao="estoque-saldos" Vazio="Sem saldo neste almoxarifado. Use o inventário de implantação para começar.">
+                    <Colunas>
+                        <Coluna T="LinhaSaldo" Titulo="Código" Valor="l => l.Codigo" Largura="110px" />
+                        <Coluna T="LinhaSaldo" Titulo="Produto" Valor="l => l.Produto" />
+                        <Coluna T="LinhaSaldo" Titulo="Un." Valor="l => l.Unidade" Largura="60px" />
+                        <Coluna T="LinhaSaldo" Titulo="Disponível" Valor="l => l.Disponivel" Formato="N3" Alinhar="num" />
+                        <Coluna T="LinhaSaldo" Titulo="Quarentena" Valor="l => l.Bloqueado" Formato="N3" Alinhar="num" />
+                        <Coluna T="LinhaSaldo" Titulo="Custo médio" Valor="l => l.CustoMedio" Formato="N2" Alinhar="num" />
+                        <Coluna T="LinhaSaldo" Titulo="Valor" Valor="l => l.Valor" Formato="N2" Alinhar="num" />
+                        <Coluna T="LinhaSaldo" Titulo="Mín." Valor="l => l.Minimo" Formato="N2" Alinhar="num" />
+                        <Coluna T="LinhaSaldo" Titulo="P. pedido" Valor="l => l.PontoPedido" Formato="N2" Alinhar="num" />
+                        <Coluna T="LinhaSaldo" Titulo="Máx." Valor="l => l.Maximo" Formato="N2" Alinhar="num" />
+                        <Coluna T="LinhaSaldo" Titulo="Central" Valor="l => l.NoCentral" Formato="N2" Alinhar="num" Visivel="@(_almox?.Tipo == TipoAlmoxarifado.Obra && _central is not null)" />
+                        <Coluna T="LinhaSaldo" Titulo="Situação" Valor="l => l.Situacao"><Modelo><Selo Texto="@context.Situacao" Tom="@(context.Situacao switch { "Abaixo do mínimo" => "erro", "Ponto de pedido" => "aviso", "OK" => "ok", _ => "neutro" })" /></Modelo></Coluna>
+                    </Colunas>
+                </Grade>
+            }
+            else if (_aba == "movimentos")
+            {
+                <Grade T="LinhaMov" @ref="_gMovs" Itens="_movs" Limite="LimiteGrade" AoCarregarTudo="async () => { ListaCompleta = true; await CarregarMovimentos(); }" NomeExportacao="estoque-kardex" Vazio="Nenhum movimento.">
+                    <Colunas>
+                        <Coluna T="LinhaMov" Titulo="Data" Valor="l => DataHora(l.Data)" Largura="120px" />
+                        <Coluna T="LinhaMov" Titulo="Tipo" Valor="l => De(l.Tipo)" />
+                        <Coluna T="LinhaMov" Titulo="Produto" Valor="l => l.Produto" />
+                        <Coluna T="LinhaMov" Titulo="Qtde" Valor="l => l.Quantidade" Formato="N3" Alinhar="num" />
+                        <Coluna T="LinhaMov" Titulo="Custo unit." Valor="l => l.Custo" Formato="N2" Alinhar="num" />
+                        <Coluna T="LinhaMov" Titulo="Valor" Valor="l => l.Valor" Formato="N2" Alinhar="num" />
+                        <Coluna T="LinhaMov" Titulo="Saldo após" Valor="l => l.SaldoApos" Formato="N3" Alinhar="num" />
+                        <Coluna T="LinhaMov" Titulo="Documento" Valor="l => l.Documento" />
+                        <Coluna T="LinhaMov" Titulo="Local / serviço" Valor="l => l.Aplicacao" />
+                        <Coluna T="LinhaMov" Titulo="Para quem" Valor="l => l.Para" />
+                        <Coluna T="LinhaMov" Titulo="Por" Valor="l => l.Por" Visivel="false" />
+                    </Colunas>
+                </Grade>
+            }
+            else if (_aba == "inventario")
+            {
+                <div class="barra-acoes">
+                    <select @bind="_tipoInv" class="larg-200" aria-label="Tipo de inventário">
+                        <option value="@TipoInventario.Implantacao">Implantação (começar o estoque)</option>
+                        <option value="@TipoInventario.Ciclico">Cíclico (itens com saldo)</option>
+                        <option value="@TipoInventario.Geral">Geral</option>
+                    </select>
+                    <button class="btn prim" id="inv-abrir" disabled="@(Ocupado || _almox is null)" @onclick="AbrirInventario"><Icone Nome="mais" Tam="16" /> Abrir inventário</button>
+                </div>
+                <Grade T="LinhaInv" @ref="_gInv" Itens="_invs" AoClicar="l => AbrirInv(l.Id)" NomeExportacao="inventarios" Vazio="Nenhum inventário neste almoxarifado.">
+                    <Colunas>
+                        <Coluna T="LinhaInv" Titulo="Nº" Valor="l => l.Numero" Largura="70px" />
+                        <Coluna T="LinhaInv" Titulo="Data" Valor="l => l.Data" />
+                        <Coluna T="LinhaInv" Titulo="Tipo" Valor="l => De(l.Tipo)" />
+                        <Coluna T="LinhaInv" Titulo="Itens" Valor="l => l.Itens" Alinhar="num" />
+                        <Coluna T="LinhaInv" Titulo="Com diferença" Valor="l => l.ComDiferenca" Alinhar="num" />
+                        <Coluna T="LinhaInv" Titulo="Aprovado por" Valor="l => l.AprovadoPor" />
+                        <Coluna T="LinhaInv" Titulo="Status" Valor="l => l.Status"><Modelo><Selo Texto="@De(context.Status)" Tom="@Tom(context.Status)" /></Modelo></Coluna>
+                    </Colunas>
+                </Grade>
+                <div class="alerta info"><Icone Nome="info" /> Implantação: o almoxarife conta o que existe e informa o custo unitário — vira o saldo e o custo médio inicial. Cíclico/geral: diferenças viram ajuste depois da aprovação (o motivo é obrigatório).</div>
+            }
+            else if (_aba == "almox")
+            {
+                <Grade T="Almoxarifado" @ref="_gAlm" Itens="_almoxs" AoClicar="a => { _alm = new Almoxarifado { Id = a.Id, Codigo = a.Codigo, Nome = a.Nome, Tipo = a.Tipo, Endereco = a.Endereco, Ativo = a.Ativo }; ErrosForm = null; _abertoAlm = true; }" NomeExportacao="almoxarifados">
+                    <Colunas>
+                        <Coluna T="Almoxarifado" Titulo="Código" Valor="a => a.Codigo" Largura="120px" />
+                        <Coluna T="Almoxarifado" Titulo="Nome" Valor="a => a.Nome" />
+                        <Coluna T="Almoxarifado" Titulo="Tipo" Valor="a => De(a.Tipo)" />
+                        <Coluna T="Almoxarifado" Titulo="Endereço" Valor="a => a.Endereco" />
+                        <Coluna T="Almoxarifado" Titulo="Ativo" Valor="a => SimNao(a.Ativo)" />
+                    </Colunas>
+                </Grade>
+                <div class="alerta info"><Icone Nome="info" /> O central vem do estabelecimento marcado como almoxarifado central (Cadastros › Estabelecimentos). O de cada obra é criado sozinho.</div>
+            }
+        </div>
+    </ChildContent>
+    <Faixa><b>Estoque</b><span>@(_almox?.Nome ?? "—")</span><span>Saldo físico e custo médio por almoxarifado</span></Faixa>
+</Pagina>
+
+@* ───── Saldo: mínimos e reposição ───── *@
+<Modal @bind-Aberto="_abertoSaldo" Titulo="@_saldo?.Produto">
+    <ChildContent>
+        @if (_saldo is not null)
+        {
+            <Erros Lista="ErrosForm" />
+            <p class="mudo">Disponível <b>@_saldo.Disponivel.ToString("N3", Br) @_saldo.Unidade</b> · quarentena @_saldo.Bloqueado.ToString("N3", Br) · custo médio @_saldo.CustoMedio.ToString("N2", Br)@if (_central is not null && _almox?.Tipo == TipoAlmoxarifado.Obra) { <span> · no central @_saldo.NoCentral.ToString("N3", Br)</span> }</p>
+            <div class="form">
+                <Campo Rotulo="Mínimo" Classe="s4"><input id="min-min" type="number" step="0.01" @bind="_min" /></Campo>
+                <Campo Rotulo="Ponto de pedido" Classe="s4"><input id="min-pp" type="number" step="0.01" @bind="_pp" /></Campo>
+                <Campo Rotulo="Máximo" Classe="s4"><input id="min-max" type="number" step="0.01" @bind="_max" /></Campo>
+                @if (_almox?.Tipo == TipoAlmoxarifado.Obra && _central is not null)
+                {
+                    <Campo Rotulo="Pedir ao central (quantidade)" Classe="s6" Ajuda="@($"Sugestão até o máximo: {_saldo.Reposicao:N2}")"><input id="min-pedir" type="number" step="0.01" @bind="_pedir" /></Campo>
+                }
+            </div>
+        }
+    </ChildContent>
+    <Rodape>
+        <button class="btn sec" disabled="@Ocupado" @onclick="IrRequisicao" title="Comprar: abre uma requisição">Requisição de compra</button>
+        @if (_almox?.Tipo == TipoAlmoxarifado.Obra && _central is not null) { <button class="btn sec" id="min-transf" disabled="@(Ocupado || _pedir <= 0)" @onclick="PedirAoCentral"><Icone Nome="enviar" Tam="16" /> Pedir ao central</button> }
+        <button class="btn prim" id="min-salvar" disabled="@Ocupado" @onclick="SalvarMinimos"><Icone Nome="check" Tam="16" /> Salvar parâmetros</button>
+    </Rodape>
+</Modal>
+
+@* ───── Lançamento manual ───── *@
+<Modal @bind-Aberto="_abertoLanc" Titulo="Lançar no estoque" Tamanho="grande">
+    <ChildContent>
+        <Erros Lista="ErrosForm" />
+        <div class="form">
+            <Campo Rotulo="Tipo" Classe="s3">
+                <select id="lc-tipo" @bind="_lc.Tipo">
+                    <option value="@TipoMovimentoEstoque.Saida">Saída (aplicação)</option>
+                    <option value="@TipoMovimentoEstoque.Devolucao">Devolução de sobra</option>
+                    <option value="@TipoMovimentoEstoque.Perda">Perda / avaria</option>
+                </select>
+            </Campo>
+            <Campo Rotulo="Produto" Classe="s6" Obrigatorio="true"><BuscaProduto Produtos="_produtos" Valor="_lc.ProdutoId" AoEscolher="p => _lc.ProdutoId = p.Id" /></Campo>
+            <Campo Rotulo="Quantidade" Classe="s3" Obrigatorio="true" Ajuda="@SaldoDoProduto(_lc.ProdutoId)"><input id="lc-qtd" type="number" step="0.001" @bind="_lc.Quantidade" /></Campo>
+            @if (_almox?.ObraId is not null)
+            {
+                <Campo Rotulo="Apartamento / local de aplicação" Classe="s6">
+                    <select id="lc-local" @bind="_lc.LocalId"><option value="">—</option>@foreach (var l in _locais) { <option value="@l.Id">@l.Texto</option> }</select>
+                </Campo>
+            }
+            <Campo Rotulo="Serviço (composição)" Classe="s6">
+                <select id="lc-servico" @bind="_lc.ComposicaoId"><option value="">—</option>@foreach (var c in _composicoes) { <option value="@c.Id">@c.Texto</option> }</select>
+            </Campo>
+            <Campo Rotulo="Colaborador (mão de obra própria)" Classe="s4">
+                <select @bind="_lc.ColaboradorId"><option value="">—</option>@foreach (var c in _colabs) { <option value="@c.Id">@c.Texto</option> }</select>
+            </Campo>
+            <Campo Rotulo="Empreiteira" Classe="s4">
+                <select @bind="_lc.FornecedorId"><option value="">—</option>@foreach (var f in _fornecedores) { <option value="@f.Id">@f.Texto</option> }</select>
+            </Campo>
+            <Campo Rotulo="Entregue para (nome)" Classe="s4"><input id="lc-para" @bind="_lc.EntreguePara" /></Campo>
+            <Campo Rotulo="Observação" Classe="s12" Obrigatorio="@(_lc.Tipo == TipoMovimentoEstoque.Perda)"><input id="lc-obs" @bind="_lc.Observacao" /></Campo>
+        </div>
+    </ChildContent>
+    <Rodape><button class="btn prim" id="lc-salvar" disabled="@Ocupado" @onclick="Lancar"><Icone Nome="check" Tam="16" /> Lançar</button></Rodape>
+</Modal>
+
+@* ───── Inventário ───── *@
+<Modal @bind-Aberto="_abertoInv" Titulo="@($"Inventário {_inv?.Numero} · {(_inv is null ? "" : De(_inv.Tipo))}")" Tamanho="grande">
+    <ChildContent>
+        @if (_inv is not null)
+        {
+            var editavel = _inv.Status == StatusInventario.EmContagem;
+            var impl = _inv.Tipo == TipoInventario.Implantacao;
+            <Erros Lista="ErrosForm" />
+            @if (editavel)
+            {
+                <div class="form">
+                    <Campo Rotulo="Incluir produto encontrado" Classe="s8"><BuscaProduto Produtos="_produtos" AoEscolher="IncluirNoInventario" /></Campo>
+                </div>
+            }
+            <div class="tabela-rolavel">
+                <table class="itens" id="inv-itens">
+                    <thead><tr><th>Produto</th><th>Un.</th><th class="num">Sistema</th><th class="num">Contado</th>@if (impl) { <th class="num">Custo unit.</th> }<th class="num">Diferença</th><th>Motivo / observação</th></tr></thead>
+                    <tbody>
+                        @foreach (var i in _inv.Itens.OrderBy(i => NomeProduto(i.ProdutoId)))
+                        {
+                            <tr><td>@NomeProduto(i.ProdutoId)</td><td>@UnProduto(i.ProdutoId)</td><td class="num">@i.SaldoSistema.ToString("N3", Br)</td>
+                                <td class="larg-110"><input type="number" step="0.001" @bind="i.Contado" disabled="@(!editavel)" /></td>
+                                @if (impl) { <td class="larg-110"><input type="number" step="0.01" @bind="i.CustoUnitario" disabled="@(!editavel)" /></td> }
+                                <td class="num @(i.Diferenca < 0 ? "neg" : "")">@i.Diferenca.ToString("N3", Br)</td>
+                                <td><input @bind="i.Observacao" disabled="@(!editavel)" /></td></tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            @if (_inv.AprovadoEm is { } ap) { <p class="mudo">Aprovado por @_inv.AprovadoPor em @ap.ToLocalTime().ToString("dd/MM/yyyy HH:mm").</p> }
+        }
+    </ChildContent>
+    <Rodape>
+        @if (_inv?.Status == StatusInventario.EmContagem)
+        {
+            <button class="btn sec" id="inv-salvar" disabled="@Ocupado" @onclick="() => SalvarContagem(false)"><Icone Nome="check" Tam="16" /> Salvar contagem</button>
+            <button class="btn prim" id="inv-enviar" disabled="@Ocupado" @onclick="() => SalvarContagem(true)"><Icone Nome="enviar" Tam="16" /> Enviar para aprovação</button>
+        }
+        @if (_inv?.Status == StatusInventario.AguardandoAprovacao && Perfil(PerfilUsuario.Engenharia, PerfilUsuario.Suprimentos, PerfilUsuario.Diretoria))
+        {
+            <button class="btn ok" id="inv-aprovar" disabled="@Ocupado" @onclick="AprovarInventario"><Icone Nome="check" Tam="16" /> Aprovar e ajustar o estoque</button>
+        }
+        @if (_inv is { Status: StatusInventario.EmContagem or StatusInventario.AguardandoAprovacao }) { <button class="btn" disabled="@Ocupado" @onclick="CancelarInventario">Cancelar inventário</button> }
+    </Rodape>
+</Modal>
+
+@* ───── Almoxarifado ───── *@
+<Modal @bind-Aberto="_abertoAlm" Titulo="@_alm?.Codigo">
+    <ChildContent>
+        @if (_alm is not null)
+        {
+            <Erros Lista="ErrosForm" />
+            <div class="form">
+                <Campo Rotulo="Nome" Classe="s8" Obrigatorio="true"><input id="alm-nome" @bind="_alm.Nome" /></Campo>
+                <Campo Rotulo="Ativo" Classe="s4"><label class="check"><input type="checkbox" @bind="_alm.Ativo" /> Em uso</label></Campo>
+                <Campo Rotulo="Endereço / referência" Classe="s12"><input @bind="_alm.Endereco" /></Campo>
+            </div>
+        }
+    </ChildContent>
+    <Rodape><button class="btn prim" disabled="@Ocupado" @onclick="SalvarAlmox"><Icone Nome="check" Tam="16" /> Salvar</button></Rodape>
+</Modal>
+
+<Confirmacao Pergunta="@PerguntaConfirmacao" AoSim="ConfirmacaoSim" AoNao="ConfirmacaoNao" />
+
+@code {
+    private sealed record LinhaSaldo(Guid ProdutoId, string Codigo, string Produto, string Unidade, decimal Disponivel, decimal Bloqueado, decimal CustoMedio, decimal Valor,
+        decimal Minimo, decimal PontoPedido, decimal Maximo, decimal NoCentral, string Situacao, decimal Reposicao);
+    private sealed record LinhaMov(DateTimeOffset Data, TipoMovimentoEstoque Tipo, string Produto, decimal Quantidade, decimal Custo, decimal Valor, decimal SaldoApos,
+        string Documento, string? Aplicacao, string? Para, string? Por);
+    private sealed record LinhaInv(Guid Id, int Numero, DateOnly Data, TipoInventario Tipo, int Itens, int ComDiferenca, string? AprovadoPor, StatusInventario Status);
+    private sealed class Lanc
+    {
+        public TipoMovimentoEstoque Tipo { get; set; } = TipoMovimentoEstoque.Saida;
+        public Guid? ProdutoId { get; set; }
+        public decimal Quantidade { get; set; }
+        public Guid? LocalId { get; set; }
+        public Guid? ComposicaoId { get; set; }
+        public Guid? ColaboradorId { get; set; }
+        public Guid? FornecedorId { get; set; }
+        public string? EntreguePara { get; set; }
+        public string? Observacao { get; set; }
+    }
+
+    private static readonly IReadOnlyList<(string, string)> _abas = [("saldos", "Saldos e mínimos"), ("movimentos", "Movimentos (kardex)"), ("inventario", "Inventário"), ("almox", "Almoxarifados")];
+    private string _aba = "saldos";
+    private Grade<LinhaSaldo>? _gSaldos;
+    private Grade<LinhaMov>? _gMovs;
+    private Grade<LinhaInv>? _gInv;
+    private Grade<Almoxarifado>? _gAlm;
+    private IGrade? GradeAtiva => _aba switch { "movimentos" => _gMovs, "inventario" => _gInv, "almox" => _gAlm, _ => _gSaldos };
+    private IGrade? _gradeVista;
+    /// <summary>A barra de ferramentas acompanha a grade da aba visível (a referência só existe depois que a aba renderiza).</summary>
+    protected override void OnAfterRender(bool firstRender) { if (!ReferenceEquals(_gradeVista, GradeAtiva)) { _gradeVista = GradeAtiva; StateHasChanged(); } }
+
+    private List<Almoxarifado> _almoxs = [];
+    private Guid? _almoxId;
+    private Almoxarifado? _almox => _almoxs.FirstOrDefault(a => a.Id == _almoxId);
+    private Almoxarifado? _central => _almoxs.FirstOrDefault(a => a.Tipo == TipoAlmoxarifado.Central && a.Ativo);
+    private List<LinhaSaldo>? _saldos;
+    private List<LinhaMov>? _movs;
+    private List<LinhaInv>? _invs;
+    private bool _soAlerta;
+    private IEnumerable<LinhaSaldo>? SaldosFiltrados => _soAlerta ? _saldos?.Where(s => s.Situacao is "Abaixo do mínimo" or "Ponto de pedido") : _saldos;
+
+    private List<ProdutoBusca> _produtos = [];
+    private Dictionary<Guid, ProdutoBusca> _prodPorId = [];
+    private List<Opcao> _locais = [], _composicoes = [], _colabs = [], _fornecedores = [];
+
+    private LinhaSaldo? _saldo;
+    private bool _abertoSaldo;
+    private decimal _min, _pp, _max, _pedir;
+    private Lanc _lc = new();
+    private bool _abertoLanc;
+    private InventarioEstoque? _inv;
+    private bool _abertoInv;
+    private TipoInventario _tipoInv = TipoInventario.Ciclico;
+    private Almoxarifado? _alm;
+    private bool _abertoAlm;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var obras = (await Cat.ObrasAsync()).Select(o => o.Id).ToHashSet();
+        _almoxs = (await EstoqueSrv.AlmoxarifadosAsync(Cancelamento)).Where(a => a.ObraId is null || obras.Contains(a.ObraId.Value)).ToList();
+        _produtos = await Cat.ProdutosBuscaAsync();
+        _prodPorId = _produtos.ToDictionary(p => p.Id);
+        _composicoes = await Cat.ComposicoesAsync(); _colabs = await Cat.ColaboradoresAsync(); _fornecedores = await Cat.FornecedoresAsync();
+        var q = Nav.ToAbsoluteUri(Nav.Uri).Query;
+        if (q.Contains("almox=") && Guid.TryParse(q.Split("almox=")[1].Split('&')[0], out var a) && _almoxs.Any(x => x.Id == a)) _almoxId = a;
+        if (q.Contains("aba=")) _aba = q.Split("aba=")[1].Split('&')[0];
+        _almoxId ??= _almoxs.FirstOrDefault(x => x.Tipo == TipoAlmoxarifado.Central && x.Ativo)?.Id ?? _almoxs.FirstOrDefault(x => x.Ativo)?.Id;
+        await Recarregar();
+    }
+
+    private static string SimNao(bool b) => b ? "Sim" : "Não";
+    private void IrRequisicao() => Nav.NavigateTo("/requisicoes");
+    private string NomeProduto(Guid id) => _prodPorId.TryGetValue(id, out var p) ? $"{p.Codigo} – {p.Nome}" : "(produto inativo)";
+    private string UnProduto(Guid id) => _prodPorId.TryGetValue(id, out var p) ? p.Unidade : "";
+    private string? SaldoDoProduto(Guid? id) => id is { } g && _saldos?.FirstOrDefault(s => s.ProdutoId == g) is { } s ? $"Disponível: {s.Disponivel:N3} {s.Unidade}" : null;
+
+    private async Task Recarregar()
+    {
+        _locais = _almox?.ObraId is { } o ? await Cat.LocaisComCaminhoAsync(o) : [];
+        await CarregarSaldos(); await CarregarMovimentos(); await CarregarInventarios();
+    }
+
+    private async Task CarregarSaldos()
+    {
+        if (_almoxId is not { } id) { _saldos = []; return; }
+        await using var db = Fabrica.CriarLeitura();
+        var lista = await db.SaldosEstoque.AsNoTracking().Where(s => s.AlmoxarifadoId == id).ToListAsync(Cancelamento);
+        var central = _central is { } c && c.Id != id
+            ? await db.SaldosEstoque.AsNoTracking().Where(s => s.AlmoxarifadoId == c.Id).ToDictionaryAsync(s => s.ProdutoId, s => s.Disponivel, Cancelamento)
+            : [];
+        _saldos = lista.Select(s =>
+        {
+            var p = _prodPorId.GetValueOrDefault(s.ProdutoId);
+            var sit = s.AbaixoDoMinimo ? "Abaixo do mínimo" : s.NoPontoDePedido ? "Ponto de pedido" : s.Minimo + s.PontoPedido + s.Maximo > 0 ? "OK" : "Sem parâmetro";
+            var repor = s.NoPontoDePedido ? RegrasEstoque.Reposicao(s) : 0;
+            return new LinhaSaldo(s.ProdutoId, p?.Codigo ?? "", p?.Nome ?? "(produto inativo)", p?.Unidade ?? "", s.Disponivel, s.Bloqueado, s.CustoMedio, s.Valor,
+                s.Minimo, s.PontoPedido, s.Maximo, central.GetValueOrDefault(s.ProdutoId), sit, repor);
+        }).OrderBy(s => s.Produto).ToList();
+    }
+
+    private async Task CarregarMovimentos()
+    {
+        if (_almoxId is not { } id) { _movs = []; return; }
+        await using var db = Fabrica.CriarLeitura();
+        var lista = await db.MovimentosEstoque.AsNoTracking().Where(m => m.AlmoxarifadoId == id).OrderByDescending(m => m.Data).ThenByDescending(m => m.CriadoEm).Take(LimiteAtual).ToListAsync(Cancelamento);
+        var locIds = lista.Where(m => m.LocalId != null).Select(m => m.LocalId!.Value).Distinct().ToList();
+        var locs = _locais.Count > 0 ? _locais.Where(l => locIds.Contains(l.Id)).ToDictionary(l => l.Id, l => l.Texto) : await db.Locais.AsNoTracking().Where(l => locIds.Contains(l.Id)).ToDictionaryAsync(l => l.Id, l => l.Nome, Cancelamento);
+        var comps = _composicoes.ToDictionary(c => c.Id, c => c.Texto);
+        var colabs = _colabs.ToDictionary(c => c.Id, c => c.Texto);
+        var forns = _fornecedores.ToDictionary(c => c.Id, c => c.Texto);
+        _movs = lista.Select(m => new LinhaMov(m.Data, m.Tipo, NomeProduto(m.ProdutoId), m.Quantidade, m.CustoUnitario, m.Valor, m.SaldoApos, m.Documento,
+            string.Join(" · ", new[] { m.LocalId is { } l ? locs.GetValueOrDefault(l) : null, m.ComposicaoId is { } c ? comps.GetValueOrDefault(c) : null }.Where(x => !string.IsNullOrEmpty(x))),
+            m.EntreguePara ?? (m.ColaboradorId is { } co ? colabs.GetValueOrDefault(co) : null) ?? (m.FornecedorId is { } f ? forns.GetValueOrDefault(f) : null),
+            m.CriadoPor)).ToList();
+    }
+
+    private async Task CarregarInventarios()
+    {
+        if (_almoxId is not { } id) { _invs = []; return; }
+        await using var db = Fabrica.CriarLeitura();
+        var lista = await db.Inventarios.AsNoTracking().Include(i => i.Itens).Where(i => i.AlmoxarifadoId == id).OrderByDescending(i => i.Numero).ToListAsync(Cancelamento);
+        _invs = lista.Select(i => new LinhaInv(i.Id, i.Numero, i.Data, i.Tipo, i.Itens.Count, i.Itens.Count(x => x.Diferenca != 0), i.AprovadoPor, i.Status)).ToList();
+    }
+
+    // ───── Saldos ─────
+    private void AbrirSaldo(LinhaSaldo s)
+    {
+        _saldo = s; _min = s.Minimo; _pp = s.PontoPedido; _max = s.Maximo; _pedir = s.Reposicao; ErrosForm = null; _abertoSaldo = true;
+    }
+
+    private async Task SalvarMinimos()
+    {
+        if (await Executar(() => EstoqueSrv.SalvarMinimosAsync(_almoxId!.Value, _saldo!.ProdutoId, _min, _pp, _max, Cancelamento), "Parâmetros salvos."))
+        { _abertoSaldo = false; await CarregarSaldos(); }
+    }
+
+    private async Task PedirAoCentral()
+    {
+        Guid t = default;
+        if (await Executar(async () => t = await EstoqueSrv.SolicitarTransferenciaAsync(_central!.Id, _almoxId!.Value, [new(_saldo!.ProdutoId, _pedir)], "Reposição pelo ponto de pedido", Cancelamento)))
+            Nav.NavigateTo($"/transferencias?id={t}");
+    }
+
+    private void ReporDoCentral()
+    {
+        var itens = _saldos!.Where(s => s.Reposicao > 0).ToList();
+        Confirmar($"Pedir ao central a reposição de {itens.Count} item(ns) no ponto de pedido? Cria uma transferência em rascunho.", async () =>
+        {
+            Guid t = default;
+            if (await Executar(async () => t = await EstoqueSrv.SolicitarTransferenciaAsync(_central!.Id, _almoxId!.Value,
+                    itens.Select(i => new EstoqueServico.ItemSolicitado(i.ProdutoId, i.Reposicao)).ToList(), "Reposição pelo ponto de pedido", Cancelamento)))
+                Nav.NavigateTo($"/transferencias?id={t}");
+        });
+    }
+
+    private async Task SugerirMinimos()
+    {
+        var n = 0;
+        if (await Executar(async () => n = await EstoqueSrv.SugerirMinimosAsync(_almoxId!.Value, Cancelamento)))
+        { Notif.Sucesso(n == 0 ? "Nenhum item sem parâmetro com consumo nos últimos 60 dias." : $"{n} item(ns) com mínimo sugerido — revise na grade."); await CarregarSaldos(); }
+    }
+
+    // ───── Lançamento ─────
+    private void AbrirLancamento() { _lc = new(); ErrosForm = null; _abertoLanc = true; }
+
+    private async Task Lancar()
+    {
+        if (_lc.ProdutoId is null) { ErrosForm = ["Escolha o produto."]; return; }
+        var info = new EstoqueServico.SaidaInfo(_almoxId!.Value, _lc.ProdutoId.Value, _lc.Quantidade, _lc.Tipo, _lc.LocalId, _lc.ComposicaoId, _lc.ColaboradorId, _lc.FornecedorId, _lc.EntreguePara, _lc.Observacao);
+        if (await Executar(() => EstoqueSrv.LancarAsync(info, Cancelamento), "Lançado no estoque."))
+        { _abertoLanc = false; await CarregarSaldos(); await CarregarMovimentos(); }
+    }
+
+    // ───── Inventário ─────
+    private async Task AbrirInventario()
+    {
+        Guid id = default;
+        if (await Executar(async () => id = await EstoqueSrv.AbrirInventarioAsync(_almoxId!.Value, _tipoInv, null, Cancelamento), "Inventário aberto."))
+        { await CarregarInventarios(); await AbrirInv(id); }
+    }
+
+    private async Task AbrirInv(Guid id)
+    {
+        await using var db = Fabrica.CriarLeitura();
+        _inv = await db.Inventarios.AsNoTracking().Include(i => i.Itens).FirstAsync(i => i.Id == id, Cancelamento);
+        ErrosForm = null; _abertoInv = true;
+    }
+
+    private async Task IncluirNoInventario(ProdutoBusca p)
+    {
+        if (_inv is null || _inv.Itens.Any(i => i.ProdutoId == p.Id)) return;
+        var sist = _saldos?.FirstOrDefault(s => s.ProdutoId == p.Id)?.Disponivel ?? 0;
+        _inv.Itens.Add(new InventarioItem { InventarioId = _inv.Id, ProdutoId = p.Id, SaldoSistema = sist, CustoUnitario = _inv.Tipo == TipoInventario.Implantacao ? p.Preco : null });
+        await Task.CompletedTask;
+    }
+
+    private async Task SalvarContagem(bool enviar)
+    {
+        var itens = _inv!.Itens.Select(i => new EstoqueServico.Contagem(i.ProdutoId, i.Contado, i.CustoUnitario, i.Observacao)).ToList();
+        if (await Executar(() => EstoqueSrv.SalvarContagemAsync(_inv.Id, itens, enviar, Cancelamento), enviar ? "Enviado para aprovação." : "Contagem salva."))
+        { await CarregarInventarios(); await AbrirInv(_inv.Id); }
+    }
+
+    private void AprovarInventario() => Confirmar("Aprovar o inventário? As diferenças viram movimento de ajuste no estoque.", async () =>
+    {
+        if (await Executar(() => EstoqueSrv.AprovarInventarioAsync(_inv!.Id, Cancelamento), "Inventário aprovado — estoque ajustado."))
+        { _abertoInv = false; await Recarregar(); }
+    });
+
+    private void CancelarInventario() => Confirmar("Cancelar este inventário? A contagem é descartada.", async () =>
+    {
+        if (await Executar(() => EstoqueSrv.CancelarInventarioAsync(_inv!.Id, Cancelamento), "Inventário cancelado."))
+        { _abertoInv = false; await CarregarInventarios(); }
+    });
+
+    private async Task SalvarAlmox()
+    {
+        if (await Executar(() => EstoqueSrv.SalvarAlmoxarifadoAsync(_alm!, Cancelamento), "Almoxarifado salvo."))
+        {
+            _abertoAlm = false;
+            var obras = (await Cat.ObrasAsync()).Select(o => o.Id).ToHashSet();
+            _almoxs = (await EstoqueSrv.AlmoxarifadosAsync(Cancelamento)).Where(a => a.ObraId is null || obras.Contains(a.ObraId.Value)).ToList();
+        }
+    }
+}

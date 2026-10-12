@@ -1,0 +1,603 @@
+@page "/equipamentos"
+@inherits PaginaBase
+@inject EquipamentosServico EquipSrv
+@inject EstoqueServico EstoqueSrv
+@inject NavigationManager Nav
+
+<Pagina Titulo="Equipamentos e manutenção" Grade="GradeAtiva" AoNovo="Novo" AoAtualizar="Carregar">
+    <ChildContent>
+        <div class="pagina">
+            <div class="kpis">
+                <Kpi Rotulo="Equipamentos ativos" Valor="@_sits.Count(s => s.Equipamento.Situacao is not (SituacaoEquipamento.Baixado or SituacaoEquipamento.Devolvido))" />
+                <Kpi Rotulo="Em uso" Valor="@_sits.Count(s => s.Equipamento.Situacao == SituacaoEquipamento.EmUso)" Tom="ok" />
+                <Kpi Rotulo="Parados / em manutenção" Valor="@_sits.Count(s => s.Equipamento.Situacao is SituacaoEquipamento.Parado or SituacaoEquipamento.EmManutencao)" Tom="erro" />
+                <Kpi Rotulo="Com bloqueio" Valor="@_sits.Count(s => s.Bloqueios.Count > 0)" Tom="aviso" />
+                <Kpi Rotulo="Preventivas vencidas" Valor="@_planos?.Count(p => p.Situacao == Vencida)" Tom="erro" />
+                <Kpi Rotulo="OS em aberto" Valor="@_ordens?.Count(o => o.Os.EmAberto)" Tom="info" />
+            </div>
+            <Abas Itens="_abas" @bind-Ativa="_aba" />
+            @if (_aba == "equip")
+            {
+                <div class="barra-acoes" style="justify-content:flex-start">
+                    <button class="btn sec" id="eq-etiquetas" disabled="@(_selec.Count == 0)" @onclick="ImprimirEtiquetas"><Icone Nome="impressora" Tam="16" /> Etiquetas (@_selec.Count)</button>
+                    <label class="check"><input type="checkbox" @bind="_mostrarInativos" /> Mostrar baixados / devolvidos</label>
+                </div>
+                <Grade T="EquipamentosServico.Situacao" @ref="_gEq" Itens="EquipFiltrados" AoClicar="s => Abrir(s.Equipamento.Id)" NomeExportacao="equipamentos" Vazio="Nenhum equipamento cadastrado.">
+                    <Colunas>
+                        <Coluna T="EquipamentosServico.Situacao" Titulo="" Ordenavel="false" Largura="34px"><Modelo><input type="checkbox" checked="@_selec.Contains(context.Equipamento.Id)" @onclick:stopPropagation="true" @onchange="e => Marcar(context.Equipamento.Id, (bool)e.Value!)" aria-label="Selecionar" /></Modelo></Coluna>
+                        <Coluna T="EquipamentosServico.Situacao" Titulo="Patrimônio" Valor="s => s.Equipamento.Patrimonio" Largura="110px" />
+                        <Coluna T="EquipamentosServico.Situacao" Titulo="Equipamento" Valor="s => s.Equipamento.Nome" />
+                        <Coluna T="EquipamentosServico.Situacao" Titulo="Família" Valor="s => NomeFamilia(s.Equipamento.FamiliaId)" />
+                        <Coluna T="EquipamentosServico.Situacao" Titulo="Propriedade" Valor="s => De(s.Equipamento.Propriedade)" />
+                        <Coluna T="EquipamentosServico.Situacao" Titulo="Crit." Valor="s => s.Equipamento.Criticidade" Largura="60px"><Modelo><Selo Texto="@context.Equipamento.Criticidade.ToString()" Tom="@Tom(context.Equipamento.Criticidade)" /></Modelo></Coluna>
+                        <Coluna T="EquipamentosServico.Situacao" Titulo="Onde está" Valor="s => NomeAlmox(s.Equipamento.AlmoxarifadoId)" />
+                        <Coluna T="EquipamentosServico.Situacao" Titulo="Horím./hodôm." Valor="s => Leitura(s.Equipamento)" Alinhar="num" />
+                        <Coluna T="EquipamentosServico.Situacao" Titulo="Devolver até" Valor="s => s.Equipamento.DevolverAte" Visivel="false" />
+                        <Coluna T="EquipamentosServico.Situacao" Titulo="Situação" Valor="s => s.Equipamento.Situacao"><Modelo><Selo Texto="@De(context.Equipamento.Situacao)" Tom="@Tom(context.Equipamento.Situacao)" /></Modelo></Coluna>
+                        <Coluna T="EquipamentosServico.Situacao" Titulo="Bloqueios" Valor="s => Juntar(s.Bloqueios)" />
+                    </Colunas>
+                </Grade>
+            }
+            else if (_aba == "prev")
+            {
+                <div class="barra-acoes" style="justify-content:flex-start">
+                    <button class="btn prim" id="pl-novo" disabled="@Ocupado" @onclick="NovoPlano"><Icone Nome="mais" Tam="16" /> Novo plano</button>
+                    <button class="btn sec" id="pl-gerar" disabled="@Ocupado" @onclick="GerarPreventivas" title="Abre OS preventiva para cada plano vencido ou perto de vencer (sem OS em aberto)"><Icone Nome="raio" Tam="16" /> Gerar OS das vencidas</button>
+                </div>
+                <Grade T="LinhaPlano" @ref="_gPl" Itens="_planos" AoClicar="l => AbrirPlano(l.Plano)" NomeExportacao="planos-manutencao" Vazio="Nenhum plano de manutenção.">
+                    <Colunas>
+                        <Coluna T="LinhaPlano" Titulo="Equipamento" Valor="l => l.Equipamento" />
+                        <Coluna T="LinhaPlano" Titulo="Plano" Valor="l => l.Plano.Nome" />
+                        <Coluna T="LinhaPlano" Titulo="Gatilho" Valor="l => De(l.Plano.Gatilho)" />
+                        <Coluna T="LinhaPlano" Titulo="Intervalo" Valor="l => Intervalo(l.Plano)" />
+                        <Coluna T="LinhaPlano" Titulo="Última" Valor="l => UltimaTexto(l.Plano)" />
+                        <Coluna T="LinhaPlano" Titulo="Próxima" Valor="l => ProximaTexto(l.Plano)" />
+                        <Coluna T="LinhaPlano" Titulo="Executante" Valor="l => l.Plano.Executante" />
+                        <Coluna T="LinhaPlano" Titulo="Situação" Valor="l => l.Situacao"><Modelo><Selo Texto="@context.Situacao" Tom="@(context.Situacao == Vencida ? "erro" : context.Situacao == PertoTexto ? "aviso" : "ok")" /></Modelo></Coluna>
+                    </Colunas>
+                </Grade>
+            }
+            else if (_aba == "os")
+            {
+                <div class="barra-acoes" style="justify-content:flex-start">
+                    <label class="check"><input type="checkbox" @bind="_soAbertas" /> Só em aberto</label>
+                </div>
+                <Grade T="LinhaOs" @ref="_gOs" Itens="OrdensFiltradas" AoClicar="l => AbrirOs(l.Os.Id)" NomeExportacao="ordens-servico" Vazio="Nenhuma OS.">
+                    <Colunas>
+                        <Coluna T="LinhaOs" Titulo="OS" Valor="l => l.Os.Numero" Largura="70px" />
+                        <Coluna T="LinhaOs" Titulo="Equipamento" Valor="l => l.Equipamento" />
+                        <Coluna T="LinhaOs" Titulo="Tipo" Valor="l => De(l.Os.Tipo)" />
+                        <Coluna T="LinhaOs" Titulo="Aberta em" Valor="l => DataHora(l.Os.AbertaEm)" />
+                        <Coluna T="LinhaOs" Titulo="Descrição" Valor="l => l.Os.Descricao" />
+                        <Coluna T="LinhaOs" Titulo="Horas parado" Valor="l => Math.Round((decimal)l.Os.HorasParado(Relogio.GetUtcNow()), 1)" Formato="N1" Alinhar="num" />
+                        <Coluna T="LinhaOs" Titulo="Custo" Valor="l => l.Os.CustoTotal" Formato="N2" Alinhar="num" />
+                        <Coluna T="LinhaOs" Titulo="Status" Valor="l => l.Os.Status"><Modelo><Selo Texto="@De(context.Os.Status)" Tom="@Tom(context.Os.Status)" /></Modelo></Coluna>
+                    </Colunas>
+                </Grade>
+                @if (_ordens is { Count: > 0 })
+                {
+                    var corr = _ordens.Where(o => o.Os.Tipo == TipoOrdemServico.Corretiva && o.Os.Status != StatusOrdemServico.Cancelada).Select(o => o.Os).ToList();
+                    var (mttr, _) = RegrasManutencao.Indicadores(corr, 0);
+                    <p class="mudo">Corretivas: @corr.Count · MTTR @mttr.ToString("N1", Br) h · custo total das OS @_ordens.Sum(o => o.Os.CustoTotal).ToString("C2", Br)</p>
+                }
+            }
+            else if (_aba == "familias")
+            {
+                <div class="barra-acoes" style="justify-content:flex-start">
+                    <button class="btn prim" id="fam-nova" @onclick="() => { _fam = new FamiliaEquipamento(); ErrosForm = null; _abertoFam = true; }"><Icone Nome="mais" Tam="16" /> Nova família</button>
+                </div>
+                <Grade T="FamiliaEquipamento" @ref="_gFam" Itens="_familias" AoClicar="f => { _fam = Copia(f); ErrosForm = null; _abertoFam = true; }" NomeExportacao="familias-equipamento">
+                    <Colunas>
+                        <Coluna T="FamiliaEquipamento" Titulo="Família" Valor="f => f.Nome" />
+                        <Coluna T="FamiliaEquipamento" Titulo="Horímetro" Valor="f => SimNao(f.UsaHorimetro)" />
+                        <Coluna T="FamiliaEquipamento" Titulo="Hodômetro" Valor="f => SimNao(f.UsaHodometro)" />
+                        <Coluna T="FamiliaEquipamento" Titulo="Campos próprios" Valor="f => f.CamposExtras" />
+                        <Coluna T="FamiliaEquipamento" Titulo="Criticidade padrão" Valor="f => f.CriticidadePadrao" />
+                        <Coluna T="FamiliaEquipamento" Titulo="Ligada" Valor="f => f.Ativa"><Modelo><Selo Texto="@(context.Ativa ? "Ligada" : "Desligada")" Tom="@(context.Ativa ? "ok" : "neutro")" /></Modelo></Coluna>
+                    </Colunas>
+                </Grade>
+                <div class="alerta info"><Icone Nome="info" /> Famílias desligadas (ex.: Veículos) ficam prontas para uso: ligue quando for cadastrar. Os campos próprios (ex.: Placa; RENAVAM) aparecem no cadastro do equipamento.</div>
+            }
+        </div>
+    </ChildContent>
+    <Faixa><b>Equipamentos</b><span>Patrimônio, locados e de terceiros</span><span>Preventiva · corretiva · disponibilidade</span></Faixa>
+</Pagina>
+
+@* ───── Equipamento ───── *@
+<Modal @bind-Aberto="_aberto" Titulo="@(_e is null ? "" : string.IsNullOrEmpty(_e.Patrimonio) ? "Novo equipamento" : $"{_e.Patrimonio} · {_e.Nome}")" Tamanho="grande">
+    <ChildContent>
+        @if (_e is not null)
+        {
+            var fam = _familias.FirstOrDefault(f => f.Id == _e.FamiliaId);
+            <Erros Lista="ErrosForm" />
+            @if (_sits.FirstOrDefault(s => s.Equipamento.Id == _e.Id) is { Bloqueios.Count: > 0 } sb)
+            {
+                <div class="alerta erro"><Icone Nome="alerta" /> Bloqueado para uso: @string.Join("; ", sb.Bloqueios)</div>
+            }
+            <div class="form">
+                <Campo Rotulo="Patrimônio / código" Classe="s3" Obrigatorio="true"><input id="eq-pat" @bind="_e.Patrimonio" /></Campo>
+                <Campo Rotulo="Nome" Classe="s5" Obrigatorio="true"><input id="eq-nome" @bind="_e.Nome" /></Campo>
+                <Campo Rotulo="Família" Classe="s4" Obrigatorio="true">
+                    <select id="eq-fam" value="@_e.FamiliaId" @onchange="e => TrocarFamilia(e.Value?.ToString())"><option value="">—</option>@foreach (var f in _familias.Where(f => f.Ativa || f.Id == _e.FamiliaId)) { <option value="@f.Id">@f.Nome</option> }</select>
+                </Campo>
+                <Campo Rotulo="Propriedade" Classe="s3">
+                    <select id="eq-prop" @bind="_e.Propriedade">@foreach (var p in Enum.GetValues<PropriedadeEquipamento>()) { <option value="@p">@De(p)</option> }</select>
+                </Campo>
+                <Campo Rotulo="Criticidade" Classe="s2" Ajuda="A: parada para a obra">
+                    <select @bind="_e.Criticidade">@foreach (var c in Enum.GetValues<Criticidade>()) { <option value="@c">@c</option> }</select>
+                </Campo>
+                <Campo Rotulo="Quantidade" Classe="s2" Ajuda="Itens iguais sem patrimônio individual"><input type="number" step="1" @bind="_e.Quantidade" /></Campo>
+                <Campo Rotulo="Onde está (almoxarifado)" Classe="s5">
+                    <select id="eq-almox" @bind="_e.AlmoxarifadoId" disabled="@(!_novo)"><option value="">—</option>@foreach (var a in _almoxs.Where(a => a.Ativo)) { <option value="@a.Id">@(a.Tipo == TipoAlmoxarifado.Central ? "Central · " : "")@a.Nome</option> }</select>
+                </Campo>
+                @if (_e.Propriedade != PropriedadeEquipamento.Propria)
+                {
+                    <Campo Rotulo="@(_e.Propriedade == PropriedadeEquipamento.Locada ? "Locadora" : "Dono (empreiteira)")" Classe="s4" Obrigatorio="true">
+                        <select id="eq-forn" @bind="_e.FornecedorId"><option value="">—</option>@foreach (var f in _fornecedores) { <option value="@f.Id">@f.Texto</option> }</select>
+                    </Campo>
+                }
+                @if (_e.Propriedade == PropriedadeEquipamento.Locada)
+                {
+                    <Campo Rotulo="Contrato de locação" Classe="s4">
+                        <select id="eq-ctr" value="@_e.ContratoId" @onchange="e => TrocarContrato(e.Value?.ToString())"><option value="">—</option>@foreach (var c in _contratos.Where(c => _e.FornecedorId is null || c.Extra == _e.FornecedorId.ToString())) { <option value="@c.Id">@c.Texto</option> }</select>
+                    </Campo>
+                    <Campo Rotulo="Item do contrato (diária / mês)" Classe="s4">
+                        <select id="eq-ctr-item" @bind="_e.ContratoItemId"><option value="">—</option>@foreach (var i in _itensContrato) { <option value="@i.Id">@i.Texto</option> }</select>
+                    </Campo>
+                    <Campo Rotulo="Devolver até" Classe="s3"><input type="date" @bind="_e.DevolverAte" /></Campo>
+                }
+                else if (_e.Propriedade == PropriedadeEquipamento.Propria)
+                {
+                    <Campo Rotulo="Valor de aquisição" Classe="s3"><input type="number" step="0.01" @bind="_e.ValorAquisicao" /></Campo>
+                    <Campo Rotulo="Data de aquisição" Classe="s3"><input type="date" @bind="_e.DataAquisicao" /></Campo>
+                    <Campo Rotulo="Diária interna (rateio)" Classe="s3"><input type="number" step="0.01" @bind="_e.DiariaInterna" /></Campo>
+                }
+                <Campo Rotulo="Fabricante" Classe="s3"><input @bind="_e.Fabricante" /></Campo>
+                <Campo Rotulo="Modelo" Classe="s3"><input @bind="_e.Modelo" /></Campo>
+                <Campo Rotulo="Nº de série" Classe="s3"><input @bind="_e.NumeroSerie" /></Campo>
+                <Campo Rotulo="Ano" Classe="s3"><input type="number" @bind="_e.Ano" /></Campo>
+                @if (fam?.UsaHorimetro == true) { <Campo Rotulo="Horímetro (h)" Classe="s3"><input id="eq-hor" type="number" step="0.1" @bind="_e.Horimetro" disabled="@(!_novo)" /></Campo> }
+                @if (fam?.UsaHodometro == true) { <Campo Rotulo="Hodômetro (km)" Classe="s3"><input type="number" step="1" @bind="_e.Hodometro" disabled="@(!_novo)" /></Campo> }
+                @if (fam is not null)
+                {
+                    foreach (var campo in fam.Campos)
+                    {
+                        var nome = campo;
+                        <Campo Rotulo="@nome" Classe="s4"><input value="@_extras.GetValueOrDefault(nome)" @onchange="e => _extras[nome] = e.Value?.ToString() ?? string.Empty" /></Campo>
+                    }
+                }
+                <Campo Rotulo="Observação" Classe="s12"><input @bind="_e.Observacao" /></Campo>
+            </div>
+            <div class="secao"><Icone Nome="arquivo" /> Documentos com vencimento (laudo NR-12/NR-18, ART, seguro…)</div>
+            <table class="itens" id="eq-docs">
+                <thead><tr><th>Documento</th><th>Vencimento</th><th>Bloqueia o uso se vencido</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var d in _e.Documentos.ToList())
+                    {
+                        <tr class="@(d.Vencimento < Hoje ? "linha-erro" : "")"><td><input @bind="d.Nome" /></td><td class="larg-160"><input type="date" @bind="d.Vencimento" /></td>
+                            <td><input type="checkbox" @bind="d.Bloqueia" /></td><td><button class="btn pq" @onclick="() => _e.Documentos.Remove(d)" aria-label="Remover"><Icone Nome="lixeira" Tam="14" /></button></td></tr>
+                    }
+                </tbody>
+            </table>
+            <button class="btn pq" @onclick="() => _e.Documentos.Add(new EquipamentoDocumento { EquipamentoId = _e.Id })"><Icone Nome="mais" Tam="14" /> Documento</button>
+            @if (!_novo)
+            {
+                <div class="secao"><Icone Nome="relogio" /> Histórico</div>
+                <div class="tabela-rolavel">
+                    <table class="itens">
+                        <thead><tr><th>Data</th><th>Evento</th><th>Detalhe</th></tr></thead>
+                        <tbody>
+                            @foreach (var h in _historico) { <tr><td>@h.Data.ToString("dd/MM/yyyy")</td><td>@h.Evento</td><td>@h.Detalhe</td></tr> }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        }
+    </ChildContent>
+    <Rodape>
+        @if (_e is not null && !_novo)
+        {
+            <button class="btn sec" id="eq-mov" disabled="@Ocupado" @onclick="AbrirMovimento"><Icone Nome="enviar" Tam="16" /> Movimentar</button>
+            @if (_familias.FirstOrDefault(f => f.Id == _e.FamiliaId) is { } ff && (ff.UsaHorimetro || ff.UsaHodometro))
+            {
+                <button class="btn sec" id="eq-leitura" disabled="@Ocupado" @onclick="() => { _leitura = ff.UsaHodometro ? _e.Hodometro : _e.Horimetro; _abertoLeitura = true; }"><Icone Nome="velocimetro" Tam="16" /> Leitura</button>
+            }
+            <button class="btn sec" id="eq-corretiva" disabled="@Ocupado" @onclick="() => { _corrDesc = null; _corrParado = true; ErrosForm = null; _abertoCorr = true; }"><Icone Nome="ferramenta" Tam="16" /> Abrir corretiva</button>
+            <button class="btn sec" disabled="@Ocupado" @onclick="() => Nav.NavigateTo(UrlEtiquetas([_e.Id]))"><Icone Nome="qr" Tam="16" /> Etiqueta</button>
+        }
+        <button class="btn prim" id="eq-salvar" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="16" /> Salvar</button>
+    </Rodape>
+</Modal>
+
+<Modal @bind-Aberto="_abertoMov" Titulo="Movimentar equipamento">
+    <ChildContent>
+        <Erros Lista="ErrosForm" />
+        <div class="form">
+            <Campo Rotulo="Movimento" Classe="s6">
+                <select id="mv-tipo" @bind="_mvTipo">@foreach (var t in Enum.GetValues<TipoMovimentoEquipamento>()) { <option value="@t">@De(t)</option> }</select>
+            </Campo>
+            <Campo Rotulo="Data" Classe="s6"><input type="date" @bind="_mvData" /></Campo>
+            @if (_mvTipo is TipoMovimentoEquipamento.Transferencia or TipoMovimentoEquipamento.Chegada)
+            {
+                <Campo Rotulo="Para" Classe="s12">
+                    <select id="mv-para" @bind="_mvPara"><option value="">—</option>@foreach (var a in _almoxs.Where(a => a.Ativo)) { <option value="@a.Id">@(a.Tipo == TipoAlmoxarifado.Central ? "Central · " : "")@a.Nome</option> }</select>
+                </Campo>
+            }
+            <Campo Rotulo="Checklist de saída/chegada (estado, acessórios)" Classe="s12"><textarea @bind="_mvCheck"></textarea></Campo>
+            <Campo Rotulo="Observação" Classe="s12"><input @bind="_mvObs" /></Campo>
+        </div>
+    </ChildContent>
+    <Rodape><button class="btn prim" id="mv-ok" disabled="@Ocupado" @onclick="Movimentar"><Icone Nome="check" Tam="16" /> Registrar</button></Rodape>
+</Modal>
+
+<Modal @bind-Aberto="_abertoLeitura" Titulo="Registrar leitura">
+    <ChildContent>
+        <Erros Lista="ErrosForm" />
+        <div class="form"><Campo Rotulo="Leitura atual" Classe="s6"><input id="lt-valor" type="number" step="0.1" @bind="_leitura" /></Campo></div>
+    </ChildContent>
+    <Rodape><button class="btn prim" id="lt-ok" disabled="@Ocupado" @onclick="RegistrarLeitura"><Icone Nome="check" Tam="16" /> Registrar</button></Rodape>
+</Modal>
+
+<Modal @bind-Aberto="_abertoCorr" Titulo="Abrir manutenção corretiva">
+    <ChildContent>
+        <Erros Lista="ErrosForm" />
+        <div class="form">
+            <Campo Rotulo="O que aconteceu" Classe="s12" Obrigatorio="true"><textarea id="co-desc" @bind="_corrDesc"></textarea></Campo>
+            <Campo Rotulo="" Classe="s12"><label class="check"><input type="checkbox" @bind="_corrParado" /> Equipamento parado (cria restrição no Last Planner da obra)</label></Campo>
+        </div>
+    </ChildContent>
+    <Rodape><button class="btn prim" id="co-ok" disabled="@Ocupado" @onclick="AbrirCorretiva"><Icone Nome="check" Tam="16" /> Abrir OS</button></Rodape>
+</Modal>
+
+@* ───── Plano ───── *@
+<Modal @bind-Aberto="_abertoPlano" Titulo="Plano de manutenção" Tamanho="grande">
+    <ChildContent>
+        @if (_pl is not null)
+        {
+            <Erros Lista="ErrosForm" />
+            <div class="form">
+                <Campo Rotulo="Equipamento" Classe="s6" Obrigatorio="true">
+                    <select id="pl-eq" @bind="_pl.EquipamentoId"><option value="@Guid.Empty">—</option>@foreach (var s in _sits.Where(s => s.Equipamento.Situacao is not (SituacaoEquipamento.Baixado or SituacaoEquipamento.Devolvido)).OrderBy(s => s.Equipamento.Patrimonio)) { <option value="@s.Equipamento.Id">@s.Equipamento.Patrimonio – @s.Equipamento.Nome</option> }</select>
+                </Campo>
+                <Campo Rotulo="Nome do plano" Classe="s6" Obrigatorio="true"><input id="pl-nome" @bind="_pl.Nome" placeholder="Ex.: Revisão 250 h, Inspeção mensal" /></Campo>
+                <Campo Rotulo="Gatilho" Classe="s3">
+                    <select id="pl-gat" @bind="_pl.Gatilho"><option value="@GatilhoManutencao.Tempo">Tempo (dias)</option><option value="@GatilhoManutencao.Uso">Uso (h / km)</option><option value="@GatilhoManutencao.Evento">Evento (antes de mobilizar)</option></select>
+                </Campo>
+                @if (_pl.Gatilho == GatilhoManutencao.Tempo)
+                {
+                    <Campo Rotulo="A cada (dias)" Classe="s3"><input id="pl-dias" type="number" @bind="_pl.IntervaloDias" /></Campo>
+                    <Campo Rotulo="Última realizada" Classe="s3"><input type="date" @bind="_pl.UltimaData" /></Campo>
+                }
+                else if (_pl.Gatilho == GatilhoManutencao.Uso)
+                {
+                    <Campo Rotulo="A cada (h / km)" Classe="s3"><input id="pl-uso" type="number" step="0.1" @bind="_pl.IntervaloUso" /></Campo>
+                    <Campo Rotulo="Leitura da última" Classe="s3"><input type="number" step="0.1" @bind="_pl.UltimaLeitura" /></Campo>
+                }
+                <Campo Rotulo="Avisar com (dias / h antes)" Classe="s3"><input type="number" @bind="_pl.DiasAntecedencia" /></Campo>
+                <Campo Rotulo="Executante" Classe="s6"><input @bind="_pl.Executante" placeholder="Equipe própria / oficina / contrato" /></Campo>
+                <Campo Rotulo="Contrato de manutenção" Classe="s6">
+                    <select @bind="_pl.ContratoId"><option value="">—</option>@foreach (var c in _contratos) { <option value="@c.Id">@c.Texto</option> }</select>
+                </Campo>
+                <Campo Rotulo="Checklist (um item por linha)" Classe="s12"><textarea rows="5" @bind="_pl.Checklist"></textarea></Campo>
+                <Campo Rotulo="" Classe="s4"><label class="check"><input type="checkbox" @bind="_pl.Ativo" /> Plano ativo</label></Campo>
+            </div>
+        }
+    </ChildContent>
+    <Rodape>
+        @if (_pl is not null && _planos?.Any(p => p.Plano.Id == _pl.Id) == true) { <button class="btn sec" id="pl-os" disabled="@Ocupado" @onclick="GerarOsDoPlano"><Icone Nome="ferramenta" Tam="16" /> Gerar OS agora</button> }
+        <button class="btn prim" id="pl-salvar" disabled="@Ocupado" @onclick="SalvarPlano"><Icone Nome="check" Tam="16" /> Salvar</button>
+    </Rodape>
+</Modal>
+
+@* ───── OS ───── *@
+<Modal @bind-Aberto="_abertoOs" Titulo="@($"OS {_os?.Numero} · {(_os is null ? "" : De(_os.Tipo))}")" Tamanho="grande">
+    <ChildContent>
+        @if (_os is not null)
+        {
+            var aberta = _os.Status is not (StatusOrdemServico.Verificada or StatusOrdemServico.Cancelada);
+            <Erros Lista="ErrosForm" />
+            <p class="mudo">@NomeEquip(_os.EquipamentoId) · aberta por @_os.AbertaPor em @DataHora(_os.AbertaEm) · <Selo Texto="@De(_os.Status)" Tom="@Tom(_os.Status)" /></p>
+            <div class="form">
+                <Campo Rotulo="Descrição" Classe="s12"><textarea @bind="_os.Descricao" disabled="@(!aberta)"></textarea></Campo>
+                @if (_os.Tipo == TipoOrdemServico.Corretiva)
+                {
+                    <Campo Rotulo="Modo de falha" Classe="s4">
+                        <select @bind="_os.ModoFalha" disabled="@(!aberta)"><option value="">—</option>@foreach (var m in _modosFalha) { <option value="@m">@m</option> }</select>
+                    </Campo>
+                    <Campo Rotulo="Causa (obrigatória para concluir)" Classe="s8"><input id="os-causa" @bind="_os.Causa" disabled="@(!aberta)" /></Campo>
+                }
+                <Campo Rotulo="Executado por" Classe="s4"><input id="os-exec" @bind="_os.ExecutadoPor" disabled="@(!aberta)" /></Campo>
+                <Campo Rotulo="Leitura (h / km)" Classe="s2"><input type="number" step="0.1" @bind="_os.Leitura" disabled="@(!aberta)" /></Campo>
+                <Campo Rotulo="Mão de obra" Classe="s2"><input type="number" step="0.01" @bind="_os.CustoMaoObra" disabled="@(!aberta)" /></Campo>
+                <Campo Rotulo="Peças" Classe="s2"><input type="number" step="0.01" @bind="_os.CustoPecas" disabled="@(!aberta)" /></Campo>
+                <Campo Rotulo="Terceiros" Classe="s2"><input type="number" step="0.01" @bind="_os.CustoTerceiros" disabled="@(!aberta)" /></Campo>
+                <Campo Rotulo="Contrato (visita)" Classe="s6">
+                    <select @bind="_os.ContratoId" disabled="@(!aberta)"><option value="">—</option>@foreach (var c in _contratos) { <option value="@c.Id">@c.Texto</option> }</select>
+                </Campo>
+                <Campo Rotulo="Observação" Classe="s6"><input @bind="_os.Observacao" disabled="@(!aberta)" /></Campo>
+            </div>
+            @if (_osChecklist.Count > 0)
+            {
+                <div class="secao"><Icone Nome="prancheta" /> Checklist do plano</div>
+                <div class="checks">
+                    @foreach (var item in _osChecklist.Keys.ToList())
+                    {
+                        var k = item;
+                        <label><input type="checkbox" checked="@_osChecklist[k]" disabled="@(!aberta)" @onchange="e => _osChecklist[k] = (bool)e.Value!" /> @k</label>
+                    }
+                </div>
+            }
+            @if (_os.ConcluidaEm is { } ce) { <p class="mudo">Concluída em @DataHora(ce)@(_os.VerificadoPor is { } v ? $" · verificada por {v} em {DataHora(_os.VerificadaEm)}" : "").</p> }
+        }
+    </ChildContent>
+    <Rodape>
+        @if (_os is not null)
+        {
+            @if (_os.Status is not (StatusOrdemServico.Verificada or StatusOrdemServico.Cancelada)) { <button class="btn sec" id="os-salvar" disabled="@Ocupado" @onclick="SalvarOs"><Icone Nome="check" Tam="16" /> Salvar</button> }
+            @if (_os.Status == StatusOrdemServico.Aberta || _os.Status == StatusOrdemServico.AguardandoPeca) { <button class="btn prim" id="os-exec-ini" disabled="@Ocupado" @onclick="() => Avancar(StatusOrdemServico.EmExecucao)">Iniciar execução</button> }
+            @if (_os.Status == StatusOrdemServico.EmExecucao)
+            {
+                <button class="btn sec" disabled="@Ocupado" @onclick="() => Avancar(StatusOrdemServico.AguardandoPeca)">Aguardando peça</button>
+                <button class="btn prim" id="os-concluir" disabled="@Ocupado" @onclick="() => Avancar(StatusOrdemServico.Concluida)">Concluir</button>
+            }
+            @if (_os.Status == StatusOrdemServico.Concluida) { <button class="btn ok" id="os-verificar" disabled="@Ocupado" @onclick="() => Avancar(StatusOrdemServico.Verificada)" title="Corretiva: por outra pessoa que não o executor">Verificar e liberar</button> }
+            @if (_os.EmAberto) { <button class="btn" disabled="@Ocupado" @onclick="() => Confirmar(PerguntaCancelarOs, () => Avancar(StatusOrdemServico.Cancelada))">Cancelar OS</button> }
+        }
+    </Rodape>
+</Modal>
+
+@* ───── Família ───── *@
+<Modal @bind-Aberto="_abertoFam" Titulo="@(_fam?.Nome is { Length: > 0 } n ? n : "Nova família")">
+    <ChildContent>
+        @if (_fam is not null)
+        {
+            <Erros Lista="ErrosForm" />
+            <div class="form">
+                <Campo Rotulo="Nome" Classe="s8" Obrigatorio="true"><input id="fam-nome" @bind="_fam.Nome" /></Campo>
+                <Campo Rotulo="Criticidade padrão" Classe="s4"><select @bind="_fam.CriticidadePadrao">@foreach (var c in Enum.GetValues<Criticidade>()) { <option value="@c">@c</option> }</select></Campo>
+                <Campo Rotulo="" Classe="s4"><label class="check"><input type="checkbox" @bind="_fam.UsaHorimetro" /> Usa horímetro</label></Campo>
+                <Campo Rotulo="" Classe="s4"><label class="check"><input type="checkbox" @bind="_fam.UsaHodometro" /> Usa hodômetro</label></Campo>
+                <Campo Rotulo="" Classe="s4"><label class="check"><input id="fam-ativa" type="checkbox" @bind="_fam.Ativa" /> Ligada (aceita cadastro)</label></Campo>
+                <Campo Rotulo="Campos próprios (separados por ;)" Classe="s12" Ajuda="Ex.: Placa; RENAVAM; Chassi"><input @bind="_fam.CamposExtras" /></Campo>
+            </div>
+        }
+    </ChildContent>
+    <Rodape><button class="btn prim" id="fam-salvar" disabled="@Ocupado" @onclick="SalvarFamilia"><Icone Nome="check" Tam="16" /> Salvar</button></Rodape>
+</Modal>
+
+<Confirmacao Pergunta="@PerguntaConfirmacao" AoSim="ConfirmacaoSim" AoNao="ConfirmacaoNao" />
+
+@code {
+    private sealed record LinhaPlano(PlanoManutencao Plano, string Equipamento, string Situacao);
+    private sealed record LinhaOs(OrdemServico Os, string Equipamento);
+    private sealed record Hist(DateOnly Data, string Evento, string? Detalhe);
+    private const string Vencida = "Vencida", PertoTexto = "Perto de vencer", EmDia = "Em dia";
+    private const string PerguntaCancelarOs = "Cancelar esta OS?";
+    private static readonly IReadOnlyList<(string, string)> _abas = [("equip", "Equipamentos"), ("prev", "Preventivas e agenda"), ("os", "Ordens de serviço"), ("familias", "Famílias")];
+    private string _aba = "equip";
+    private Grade<EquipamentosServico.Situacao>? _gEq;
+    private Grade<LinhaPlano>? _gPl;
+    private Grade<LinhaOs>? _gOs;
+    private Grade<FamiliaEquipamento>? _gFam;
+    private IGrade? GradeAtiva => _aba switch { "prev" => _gPl, "os" => _gOs, "familias" => _gFam, _ => _gEq };
+    private IGrade? _gradeVista;
+    /// <summary>A barra de ferramentas acompanha a grade da aba visível (a referência só existe depois que a aba renderiza).</summary>
+    protected override void OnAfterRender(bool firstRender) { if (!ReferenceEquals(_gradeVista, GradeAtiva)) { _gradeVista = GradeAtiva; StateHasChanged(); } }
+
+    private List<EquipamentosServico.Situacao> _sits = [];
+    private List<FamiliaEquipamento> _familias = [];
+    private List<Almoxarifado> _almoxs = [];
+    private List<Opcao> _fornecedores = [], _contratos = [], _itensContrato = [];
+    private List<string> _modosFalha = [];
+    private List<LinhaPlano>? _planos;
+    private List<LinhaOs>? _ordens;
+    private bool _mostrarInativos, _soAbertas = true;
+    private readonly HashSet<Guid> _selec = [];
+
+    private IEnumerable<EquipamentosServico.Situacao> EquipFiltrados => _mostrarInativos ? _sits : _sits.Where(s => s.Equipamento.Situacao is not (SituacaoEquipamento.Baixado or SituacaoEquipamento.Devolvido));
+    private IEnumerable<LinhaOs>? OrdensFiltradas => _soAbertas ? _ordens?.Where(o => o.Os.EmAberto || o.Os.Status == StatusOrdemServico.Concluida) : _ordens;
+
+    private Equipamento? _e;
+    private bool _aberto, _novo;
+    private Dictionary<string, string> _extras = [];
+    private List<Hist> _historico = [];
+    private bool _abertoMov, _abertoLeitura, _abertoCorr;
+    private TipoMovimentoEquipamento _mvTipo = TipoMovimentoEquipamento.Transferencia;
+    private DateOnly _mvData;
+    private Guid? _mvPara;
+    private string? _mvCheck, _mvObs, _corrDesc;
+    private bool _corrParado = true;
+    private decimal _leitura;
+    private PlanoManutencao? _pl;
+    private bool _abertoPlano;
+    private OrdemServico? _os;
+    private bool _abertoOs;
+    private Dictionary<string, bool> _osChecklist = [];
+    private FamiliaEquipamento? _fam;
+    private bool _abertoFam;
+
+    private static string Juntar(IEnumerable<string> l) => string.Join("; ", l);
+    private static string SimNao(bool b) => b ? "Sim" : "Não";
+    private string NomeFamilia(Guid id) => _familias.FirstOrDefault(f => f.Id == id)?.Nome ?? "";
+    private string NomeAlmox(Guid? id) => id is { } g && _almoxs.FirstOrDefault(a => a.Id == g) is { } a ? (a.Tipo == TipoAlmoxarifado.Central ? "Central · " : "") + a.Nome : "—";
+    private string NomeEquip(Guid id) => _sits.FirstOrDefault(s => s.Equipamento.Id == id)?.Equipamento is { } e ? $"{e.Patrimonio} – {e.Nome}" : "";
+    private string Leitura(Equipamento e) => e.Hodometro > 0 ? $"{e.Hodometro:N0} km" : e.Horimetro > 0 ? $"{e.Horimetro:N1} h" : "";
+    private static string Intervalo(PlanoManutencao p) => p.Gatilho switch { GatilhoManutencao.Tempo => $"{p.IntervaloDias} dias", GatilhoManutencao.Uso => $"{p.IntervaloUso:N0} h/km", _ => "a cada mobilização" };
+    private static string UltimaTexto(PlanoManutencao p) => p.Gatilho == GatilhoManutencao.Uso ? (p.UltimaLeitura?.ToString("N0") ?? "—") : Data(p.UltimaData);
+    private static string ProximaTexto(PlanoManutencao p) => p.Gatilho switch { GatilhoManutencao.Tempo => Data(p.ProximaData), GatilhoManutencao.Uso => p.ProximaLeitura?.ToString("N0") ?? "—", _ => "na transferência" };
+    private static FamiliaEquipamento Copia(FamiliaEquipamento f) => new() { Id = f.Id, Nome = f.Nome, UsaHorimetro = f.UsaHorimetro, UsaHodometro = f.UsaHodometro, CamposExtras = f.CamposExtras, CriticidadePadrao = f.CriticidadePadrao, Ativa = f.Ativa };
+    private static string UrlEtiquetas(IEnumerable<Guid> ids) => "/equipamentos/etiquetas?ids=" + string.Join(",", ids);
+    private void Marcar(Guid id, bool v) { if (v) _selec.Add(id); else _selec.Remove(id); }
+    private void ImprimirEtiquetas() => Nav.NavigateTo(UrlEtiquetas(_selec), forceLoad: true);
+
+    protected override async Task OnInitializedAsync()
+    {
+        _almoxs = await EstoqueSrv.AlmoxarifadosAsync(Cancelamento);
+        _fornecedores = await Cat.FornecedoresAsync();
+        _contratos = await Cat.ContratosAtivosAsync();
+        _modosFalha = await Cat.ListaAsync(TipoLista.ModoFalha);
+        _mvData = Hoje;
+        await Carregar();
+    }
+
+    private async Task Carregar()
+    {
+        await using var db = Fabrica.CriarLeitura();
+        _familias = await db.FamiliasEquipamento.AsNoTracking().OrderBy(f => f.Nome).ToListAsync(Cancelamento);
+        _sits = (await EquipamentosServico.SituacoesAsync(db, Hoje, Cancelamento)).OrderBy(s => s.Equipamento.Patrimonio).ToList();
+        var eqs = _sits.ToDictionary(s => s.Equipamento.Id, s => s.Equipamento);
+        var planos = await db.PlanosManutencao.AsNoTracking().ToListAsync(Cancelamento);
+        _planos = planos.Where(p => eqs.ContainsKey(p.EquipamentoId)).Select(p =>
+        {
+            var e = eqs[p.EquipamentoId]; var leit = e.Horimetro + e.Hodometro;
+            var sit = !p.Ativo ? "Inativo" : p.Vencido(Hoje, leit) ? Vencida : p.PertoDeVencer(Hoje, leit) ? PertoTexto : EmDia;
+            return new LinhaPlano(p, $"{e.Patrimonio} – {e.Nome}", sit);
+        }).OrderBy(l => l.Situacao == Vencida ? 0 : l.Situacao == PertoTexto ? 1 : 2).ThenBy(l => l.Equipamento).ToList();
+        var oss = await db.OrdensServico.AsNoTracking().OrderByDescending(o => o.Numero).Take(LimiteAtual).ToListAsync(Cancelamento);
+        _ordens = oss.Select(o => new LinhaOs(o, eqs.TryGetValue(o.EquipamentoId, out var e) ? $"{e.Patrimonio} – {e.Nome}" : "")).ToList();
+    }
+
+    // ───── Equipamento ─────
+    private void Novo()
+    {
+        if (_aba == "prev") { NovoPlano(); return; }
+        if (_aba == "familias") { _fam = new FamiliaEquipamento(); ErrosForm = null; _abertoFam = true; return; }
+        _e = new Equipamento(); _novo = true; _extras = []; _itensContrato = []; _historico = []; ErrosForm = null; _aberto = true;
+    }
+
+    private async Task Abrir(Guid id)
+    {
+        await using var db = Fabrica.CriarLeitura();
+        _e = await db.Ativos.AsNoTracking().Include(e => e.Documentos).FirstAsync(e => e.Id == id, Cancelamento);
+        _novo = false;
+        _extras = (_e.CamposExtras ?? "").Split(';', StringSplitOptions.RemoveEmptyEntries).Select(p => p.Split('=', 2)).Where(p => p.Length == 2)
+            .GroupBy(p => p[0].Trim()).ToDictionary(g => g.Key, g => g.First()[1].Trim());
+        await CarregarItensContrato();
+        var movs = await db.MovimentosEquipamento.AsNoTracking().Where(m => m.EquipamentoId == id).ToListAsync(Cancelamento);
+        var oss = await db.OrdensServico.AsNoTracking().Where(o => o.EquipamentoId == id).ToListAsync(Cancelamento);
+        _historico = movs.Select(m => new Hist(m.Data, De(m.Tipo), string.Join(" · ", new[] { m.ParaAlmoxarifadoId is { } p ? "para " + NomeAlmox(p) : null, m.Observacao }.Where(x => !string.IsNullOrEmpty(x)))))
+            .Concat(oss.Select(o => new Hist(DateOnly.FromDateTime(o.AbertaEm.LocalDateTime), $"OS {o.Numero} {De(o.Tipo).ToLowerInvariant()}", $"{De(o.Status)} · {o.Descricao}")))
+            .OrderByDescending(h => h.Data).ToList();
+        ErrosForm = null; _aberto = true;
+    }
+
+    private async Task CarregarItensContrato()
+    {
+        _itensContrato = [];
+        if (_e?.ContratoId is not { } cid) return;
+        await using var db = Fabrica.CriarLeitura();
+        _itensContrato = (await db.Contratos.AsNoTracking().Where(c => c.Id == cid).SelectMany(c => c.Itens).ToListAsync(Cancelamento))
+            .Select(i => new Opcao(i.Id, $"{i.Descricao} ({i.Unidade}) · {i.PrecoUnitario:N2}{(i.PrecoMensal is > 0 ? $" · mês {i.PrecoMensal:N2}" : "")}")).ToList();
+    }
+
+    private async Task TrocarContrato(string? v)
+    {
+        _e!.ContratoId = Guid.TryParse(v, out var g) ? g : null; _e.ContratoItemId = null;
+        await CarregarItensContrato();
+    }
+
+    private void TrocarFamilia(string? v)
+    {
+        _e!.FamiliaId = Guid.TryParse(v, out var g) ? g : Guid.Empty;
+        if (_novo && _familias.FirstOrDefault(f => f.Id == g) is { } f) _e.Criticidade = f.CriticidadePadrao;
+    }
+
+    private async Task Salvar()
+    {
+        var campos = _familias.FirstOrDefault(f => f.Id == _e!.FamiliaId)?.Campos ?? [];
+        _e!.CamposExtras = string.Join(";", campos.Where(c => !string.IsNullOrWhiteSpace(_extras.GetValueOrDefault(c))).Select(c => $"{c}={_extras[c].Replace(";", ",").Replace("=", "-").Trim()}"));
+        if (string.IsNullOrEmpty(_e.CamposExtras)) _e.CamposExtras = null;
+        if (_e.Propriedade == PropriedadeEquipamento.Propria) { _e.FornecedorId = null; _e.ContratoId = null; _e.ContratoItemId = null; }
+        Guid id = default;
+        if (await Executar(async () => id = await EquipSrv.SalvarAsync(_e, Cancelamento), "Equipamento salvo.")) { await Carregar(); await Abrir(id); }
+    }
+
+    private void AbrirMovimento() { _mvTipo = TipoMovimentoEquipamento.Transferencia; _mvData = Hoje; _mvPara = null; _mvCheck = null; _mvObs = null; ErrosForm = null; _abertoMov = true; }
+
+    private async Task Movimentar()
+    {
+        if (await Executar(() => EquipSrv.MovimentarAsync(_e!.Id, _mvTipo, _mvPara, _mvData, _mvCheck, _mvObs, Cancelamento), "Movimento registrado."))
+        { _abertoMov = false; await Carregar(); await Abrir(_e!.Id); }
+    }
+
+    private async Task RegistrarLeitura()
+    {
+        var f = _familias.First(x => x.Id == _e!.FamiliaId);
+        if (await Executar(() => EquipSrv.RegistrarLeituraAsync(_e!.Id, f.UsaHodometro ? null : _leitura, f.UsaHodometro ? _leitura : null, Cancelamento), "Leitura registrada."))
+        { _abertoLeitura = false; await Carregar(); await Abrir(_e!.Id); }
+    }
+
+    private async Task AbrirCorretiva()
+    {
+        Guid id = default;
+        if (await Executar(async () => id = await EquipSrv.AbrirCorretivaAsync(_e!.Id, _corrDesc ?? "", _corrParado, Cancelamento), "OS corretiva aberta."))
+        { _abertoCorr = false; _aberto = false; await Carregar(); _aba = "os"; await AbrirOs(id); }
+    }
+
+    // ───── Planos ─────
+    private void NovoPlano() { _pl = new PlanoManutencao(); ErrosForm = null; _abertoPlano = true; }
+
+    private void AbrirPlano(PlanoManutencao p)
+    {
+        _pl = new PlanoManutencao { Id = p.Id, EquipamentoId = p.EquipamentoId, Nome = p.Nome, Gatilho = p.Gatilho, IntervaloDias = p.IntervaloDias, IntervaloUso = p.IntervaloUso,
+            UltimaData = p.UltimaData, UltimaLeitura = p.UltimaLeitura, Executante = p.Executante, ContratoId = p.ContratoId, Checklist = p.Checklist, DiasAntecedencia = p.DiasAntecedencia, Ativo = p.Ativo };
+        ErrosForm = null; _abertoPlano = true;
+    }
+
+    private async Task SalvarPlano()
+    {
+        if (await Executar(() => EquipSrv.SalvarPlanoAsync(_pl!, Cancelamento), "Plano salvo.")) { _abertoPlano = false; await Carregar(); }
+    }
+
+    private async Task GerarOsDoPlano()
+    {
+        Guid id = default;
+        if (await Executar(async () => id = await EquipSrv.GerarOsAsync(_pl!.Id, Cancelamento), "OS preventiva gerada.")) { _abertoPlano = false; await Carregar(); _aba = "os"; await AbrirOs(id); }
+    }
+
+    private async Task GerarPreventivas()
+    {
+        var n = 0;
+        if (await Executar(async () => n = await EquipSrv.GerarPreventivasAsync(Cancelamento)))
+        { Notif.Sucesso(n == 0 ? "Nenhum plano vencido sem OS." : $"{n} OS preventiva(s) gerada(s)."); await Carregar(); }
+    }
+
+    // ───── OS ─────
+    private async Task AbrirOs(Guid id)
+    {
+        await using var db = Fabrica.CriarLeitura();
+        _os = await db.OrdensServico.AsNoTracking().FirstAsync(o => o.Id == id, Cancelamento);
+        var feitos = (_os.ChecklistResultado ?? "").Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(l => l.Trim()).ToList();
+        var itens = _os.PlanoId is { } pid ? (await db.PlanosManutencao.AsNoTracking().FirstOrDefaultAsync(p => p.Id == pid, Cancelamento))?.ItensChecklist ?? [] : [];
+        _osChecklist = itens.Distinct().ToDictionary(i => i, i => feitos.Contains("[x] " + i));
+        ErrosForm = null; _abertoOs = true;
+    }
+
+    private void AplicarChecklist()
+    {
+        if (_osChecklist.Count > 0) _os!.ChecklistResultado = string.Join("\n", _osChecklist.Select(kv => (kv.Value ? "[x] " : "[ ] ") + kv.Key));
+    }
+
+    private async Task SalvarOs()
+    {
+        AplicarChecklist();
+        if (await Executar(() => EquipSrv.SalvarOsAsync(_os!, Cancelamento), "OS salva.")) { await Carregar(); await AbrirOs(_os!.Id); }
+    }
+
+    private async Task Avancar(StatusOrdemServico novo)
+    {
+        AplicarChecklist();
+        if (await Executar(async () =>
+        {
+            if (_os!.Status is not (StatusOrdemServico.Verificada or StatusOrdemServico.Cancelada)) await EquipSrv.SalvarOsAsync(_os, Cancelamento);
+            await EquipSrv.AvancarOsAsync(_os.Id, novo, Cancelamento);
+        }, $"OS: {De(novo).ToLowerInvariant()}."))
+        { await Carregar(); await AbrirOs(_os!.Id); }
+    }
+
+    // ───── Famílias ─────
+    private async Task SalvarFamilia()
+    {
+        if (await Executar(() => EquipSrv.SalvarFamiliaAsync(_fam!, Cancelamento), "Família salva.")) { _abertoFam = false; await Carregar(); }
+    }
+}

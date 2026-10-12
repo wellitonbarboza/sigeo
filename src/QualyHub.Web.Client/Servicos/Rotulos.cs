@@ -257,6 +257,10 @@ public static partial class Rotulos
         ["Investigacao"] = "investigação", ["Programada"] = "programada", ["Construcao"] = "construção", ["Material"] = "material", ["Laje"] = "laje",
         ["Obrigatorio"] = "obrigatório", ["Proprio"] = "próprio", ["Media"] = "média", ["Padrao"] = "padrão", ["Balanca"] = "balança", ["Equipamento"] = "equipamento",
         ["Documento"] = "documento", ["Concessao"] = "concessão", ["Quarentena"] = "quarentena",
+        ["Manutencao"] = "manutenção", ["Diaria"] = "diária", ["Pecas"] = "peças", ["Saida"] = "saída", ["Devolucao"] = "devolução",
+        ["Transferencia"] = "transferência", ["Implantacao"] = "implantação", ["Liberacao"] = "liberação", ["Inventario"] = "inventário",
+        ["Automatico"] = "automático", ["Propria"] = "própria", ["Disponivel"] = "disponível", ["Contagem"] = "contagem",
+        ["Cobranca"] = "cobrança", ["Periodica"] = "periódica", ["Combinadas"] = "combinadas", ["Peca"] = "peça", ["Cancelado"] = "cancelado",
     };
 
     [GeneratedRegex("(?<!^)([A-Z])")]
@@ -393,6 +397,20 @@ public static partial class Rotulos
         DecisaoSemestral.Desqualificar => "erro",
         SituacaoDocExterno.Vigente => "ok",
         SituacaoDocExterno.Substituida or SituacaoDocExterno.Cancelada => "erro",
+        Domain.Suprimentos.StatusParcela.Paga or Domain.Suprimentos.StatusParcela.Liberada => "ok",
+        Domain.Suprimentos.StatusParcela.Aprovada => "info",
+        Domain.Suprimentos.StatusParcela.Conferida => "aviso",
+        Domain.Suprimentos.StatusParcela.Cancelada => "neutro",
+        Domain.Suprimentos.StatusOrdemServico.Verificada or Domain.Suprimentos.StatusOrdemServico.Concluida => "ok",
+        Domain.Suprimentos.StatusOrdemServico.Aberta or Domain.Suprimentos.StatusOrdemServico.AguardandoPeca => "aviso",
+        Domain.Suprimentos.StatusOrdemServico.EmExecucao => "info",
+        Domain.Suprimentos.SituacaoEquipamento.Disponivel or Domain.Suprimentos.SituacaoEquipamento.EmUso => "ok",
+        Domain.Suprimentos.SituacaoEquipamento.EmManutencao => "info",
+        Domain.Suprimentos.SituacaoEquipamento.Parado => "erro",
+        Domain.Suprimentos.StatusInventario.Aprovado => "ok",
+        Domain.Suprimentos.StatusInventario.AguardandoAprovacao => "aviso",
+        Domain.Suprimentos.StatusInventario.EmContagem => "info",
+        Domain.Suprimentos.Criticidade.A => "erro", Domain.Suprimentos.Criticidade.B => "aviso",
         _ => "neutro"
     };
 

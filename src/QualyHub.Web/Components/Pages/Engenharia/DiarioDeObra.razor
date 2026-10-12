@@ -114,6 +114,32 @@
                             }
                             @if (d.Atividades.Count == 0) { <div class="mudo">Nenhuma atividade. @(ro ? "" : "Use \"+ Atividade\" ou traga do plano semanal.")</div> }
 
+                            <div class="rdo-sec"><Icone Nome="engrenagem" Tam="16" /> Equipamentos no dia
+                                @if (!ro)
+                                {
+                                    <button class="btn sec pq" id="rdo-add-eq" @onclick="() => d.EquipamentosDia.Add(new DiarioEquipamento { DiarioId = d.Id })"><Icone Nome="mais" Tam="14" /> Equipamento</button>
+                                    @if (_equipObra.Count > 0) { <button class="btn sec pq" id="rdo-eq-obra" @onclick="TrazerEquipamentos"><Icone Nome="atualizar" Tam="14" /> Os da obra</button> }
+                                }
+                            </div>
+                            @if (d.EquipamentosDia.Count > 0)
+                            {
+                                <table class="itens" id="rdo-equip">
+                                    <thead><tr><th>Equipamento</th><th class="num">Horas</th><th>Parado</th><th>Observação</th><th></th></tr></thead>
+                                    <tbody>
+                                        @foreach (var x in d.EquipamentosDia.ToList())
+                                        {
+                                            <tr><td><select aria-label="Equipamento" @bind="x.EquipamentoId" disabled="@ro"><option value="@Guid.Empty">—</option>@foreach (var eq in _equipTodos) { <option value="@eq.Id">@eq.Texto</option> }</select></td>
+                                                <td class="larg-90"><input type="number" step="0.5" min="0" max="24" aria-label="Horas" @bind="x.Horas" disabled="@ro" /></td>
+                                                <td><input type="checkbox" aria-label="Parado" @bind="x.Parado" disabled="@ro" /></td>
+                                                <td><input aria-label="Observação" @bind="x.Observacao" disabled="@ro" placeholder="Ex.: aguardando peça, chuva" /></td>
+                                                <td>@if (!ro) { <button class="icone-btn" title="Remover" @onclick="() => d.EquipamentosDia.Remove(x)"><Icone Nome="lixeira" Tam="15" /></button> }</td></tr>
+                                        }
+                                    </tbody>
+                                </table>
+                                <div class="mudo mt-6">Ao assinar, as horas somam no horímetro. Equipamento parado sem OS: abra a corretiva em Suprimentos › Equipamentos.</div>
+                            }
+                            else { <div class="mudo">Nenhum equipamento registrado no dia.</div> }
+
                             <div class="rdo-sec"><Icone Nome="alerta" Tam="16" /> Ocorrências e registros</div>
                             <div class="form">
                                 <Campo Rotulo="Ocorrências" Classe="s12"><textarea rows="2" @bind="d.Ocorrencias" disabled="@ro"></textarea></Campo>
@@ -157,6 +183,13 @@
     private HashSet<Guid> _salvas = [];
     private List<Opcao> _funcoes = [], _fornecedores = [], _locais = [];
     private bool _podeAssinar, _podePreencher;
+    private List<Opcao> _equipObra = [], _equipTodos = [];
+
+    private void TrazerEquipamentos()
+    {
+        foreach (var e in _equipObra.Where(e => _d!.EquipamentosDia.All(x => x.EquipamentoId != e.Id)))
+            _d!.EquipamentosDia.Add(new DiarioEquipamento { DiarioId = _d.Id, EquipamentoId = e.Id });
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -174,6 +207,12 @@
         {
             _locais = await Cat.LocaisAsync(o);
             _podeAssinar = await Diario.PodeAssinarAsync(o, Cancelamento);
+            await using var db = Fabrica.CriarLeitura();
+            var almox = await db.Almoxarifados.AsNoTracking().Where(a => a.ObraId == o).Select(a => (Guid?)a.Id).FirstOrDefaultAsync(Cancelamento);
+            var eqs = await db.Ativos.AsNoTracking().Where(e => e.Situacao != SituacaoEquipamento.Baixado && e.Situacao != SituacaoEquipamento.Devolvido).OrderBy(e => e.Patrimonio)
+                .Select(e => new { e.Id, e.Patrimonio, e.Nome, e.AlmoxarifadoId }).ToListAsync(Cancelamento);
+            _equipTodos = eqs.Select(e => new Opcao(e.Id, $"{e.Patrimonio} – {e.Nome}")).ToList();
+            _equipObra = almox is null ? [] : eqs.Where(e => e.AlmoxarifadoId == almox).Select(e => new Opcao(e.Id, $"{e.Patrimonio} – {e.Nome}")).ToList();
         }
         await Recarregar();
     }

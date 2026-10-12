@@ -1,0 +1,225 @@
+@page "/contratos/parcelas"
+@inherits PaginaBase
+@inject ContratosRecorrentesServico RecSrv
+@inject NavigationManager Nav
+
+<Pagina Titulo="Parcelas de contratos recorrentes" Grade="_grade" AoAtualizar="Carregar">
+    <Direita>
+        <select id="pc-contrato" class="larg-260" value="@_contratoId" @onchange="async e => { _contratoId = Guid.TryParse(e.Value?.ToString(), out var g) ? g : null; await Carregar(); }" aria-label="Contrato">
+            <option value="">Todos os contratos recorrentes</option>
+            @foreach (var c in _contratos) { <option value="@c.Id">@c.Numero – @c.Fornecedor</option> }
+        </select>
+        <button class="btn sec" id="pc-gerar" disabled="@(Ocupado || _contratoId is null)" @onclick="Gerar" title="Cria as parcelas da vigência e recalcula o previsto das que ainda não têm nota"><Icone Nome="calendario" Tam="16" /> Gerar / atualizar parcelas</button>
+        <button class="btn sec" id="pc-vincular" disabled="@Ocupado" @onclick="Vincular" title="Liga notas importadas (SIEG/XML) do fornecedor à parcela do período"><Icone Nome="corrente" Tam="16" /> Vincular notas SIEG</button>
+        @if (ContratoAtual?.FormaCobranca == FormaCobranca.Uso) { <button class="btn prim" id="pc-uso" disabled="@Ocupado" @onclick="AbrirUso"><Icone Nome="mais" Tam="16" /> Lançar uso</button> }
+    </Direita>
+    <ChildContent>
+        <div class="pagina">
+            <div class="kpis">
+                <Kpi Rotulo="Aguardando nota" Valor="@_linhas?.Count(l => l.P.Status == StatusParcela.Prevista && l.P.Inicio <= Hoje)" Tom="aviso" />
+                <Kpi Rotulo="A aprovar" Valor="@_linhas?.Count(l => l.P.Status == StatusParcela.Conferida)" Tom="info" />
+                <Kpi Rotulo="Fora da tolerância" Valor="@_linhas?.Count(l => l.Fora)" Tom="erro" />
+                <Kpi Rotulo="Vencidas sem pagamento" Valor="@_linhas?.Count(l => l.P.Vencida(Hoje))" Tom="erro" />
+                <Kpi Rotulo="Previsto no mês" Valor="@(_linhas?.Where(l => l.P.Vencimento.Year == Hoje.Year && l.P.Vencimento.Month == Hoje.Month && l.P.Status != StatusParcela.Cancelada).Sum(l => l.P.NotaValor ?? l.P.ValorPrevisto).ToString("C0", Br))" />
+            </div>
+            <Grade T="Linha" @ref="_grade" Itens="_linhas" AoClicar="l => Abrir(l.P.Id)" NomeExportacao="parcelas-contratos" Vazio="Nenhuma parcela. Marque o contrato como recorrente e use “Gerar / atualizar parcelas”.">
+                <Colunas>
+                    <Coluna T="Linha" Titulo="Contrato" Valor="l => l.Contrato" />
+                    <Coluna T="Linha" Titulo="Fornecedor" Valor="l => l.Fornecedor" />
+                    <Coluna T="Linha" Titulo="Nº" Valor="l => l.P.Numero" Largura="50px" />
+                    <Coluna T="Linha" Titulo="Período" Valor="l => Periodo(l.P)" />
+                    <Coluna T="Linha" Titulo="Vencimento" Valor="l => l.P.Vencimento" />
+                    <Coluna T="Linha" Titulo="Previsto" Valor="l => l.P.ValorPrevisto" Formato="N2" Alinhar="num" />
+                    <Coluna T="Linha" Titulo="Nota" Valor="l => l.P.NotaNumero" />
+                    <Coluna T="Linha" Titulo="Valor da nota" Valor="l => l.P.NotaValor" Formato="N2" Alinhar="num" />
+                    <Coluna T="Linha" Titulo="Diferença" Valor="l => l.P.Diferenca"><Modelo>@if (context.P.Diferenca is { } d) { <Selo Texto="@d.ToString("N2", Br)" Tom="@(context.Fora ? "erro" : "ok")" /> }</Modelo></Coluna>
+                    <Coluna T="Linha" Titulo="Status" Valor="l => l.P.Status"><Modelo><Selo Texto="@De(context.P.Status)" Tom="@(context.P.Vencida(Hoje) ? "erro" : Tom(context.P.Status))" /></Modelo></Coluna>
+                </Colunas>
+            </Grade>
+            <div class="alerta info"><Icone Nome="info" /> Fluxo: prevista → nota lançada (almoxarife ou SIEG) → aprovada pela engenharia (fora da tolerância exige justificativa) → liberada pelo financeiro → paga.</div>
+        </div>
+    </ChildContent>
+    <Faixa><b>Parcelas</b><span>Locação · serviço contínuo · manutenção</span><span>Previsto × nota por período</span></Faixa>
+</Pagina>
+
+<Modal @bind-Aberto="_aberto" Titulo="@(_p is null ? "" : $"Parcela {_p.Numero} · {_ct?.Numero}")" Tamanho="grande">
+    <ChildContent>
+        @if (_p is not null && _ct is not null)
+        {
+            <Erros Lista="ErrosForm" />
+            <p class="mudo">@_ct.Fornecedor.RazaoSocial · @De(_ct.FormaCobranca) · período @Periodo(_p) · vence @Data(_p.Vencimento) · tolerância @_ct.ToleranciaPerc.ToString("N1", Br)%</p>
+            @if (!string.IsNullOrWhiteSpace(_p.Composicao))
+            {
+                <div class="secao"><Icone Nome="calculadora" /> Composição do previsto</div>
+                <pre class="composicao" id="pc-comp">@_p.Composicao</pre>
+            }
+            <p><b>Previsto: @Moeda(_p.ValorPrevisto)</b>@if (_p.NotaValor is { } nv) { <span> · Nota @_p.NotaNumero: <b>@Moeda(nv)</b> (@_p.NotaOrigem) · diferença @Moeda(_p.Diferenca)</span> }</p>
+            <div class="form">
+                @if (_p.Status == StatusParcela.Prevista)
+                {
+                    <Campo Rotulo="Nº da nota" Classe="s4" Obrigatorio="true"><input id="pc-nota" @bind="_notaNumero" /></Campo>
+                    <Campo Rotulo="Valor da nota" Classe="s4" Obrigatorio="true"><input id="pc-valor" type="number" step="0.01" @bind="_notaValor" /></Campo>
+                }
+                @if (_p.Status == StatusParcela.Conferida)
+                {
+                    <Campo Rotulo="Justificativa (obrigatória fora da tolerância)" Classe="s12" Obrigatorio="@_p.ForaDaTolerancia(_ct.ToleranciaPerc)"><input id="pc-just" @bind="_justificativa" /></Campo>
+                    @if (_ct.ExigeOsPorVisita)
+                    {
+                        <div class="s12 @(_p.OrdemServicoId is null ? "alerta aviso" : "alerta ok")"><Icone Nome="ferramenta" /> @(_p.OrdemServicoId is null ? "Contrato exige a OS da visita: verifique a OS em Equipamentos para liberar a aprovação." : "OS da visita vinculada.")</div>
+                    }
+                }
+                @if (_p.Status == StatusParcela.Liberada) { <Campo Rotulo="Pago em" Classe="s4"><input id="pc-pago" type="date" @bind="_pagoEm" /></Campo> }
+                @if (_p.Status is StatusParcela.Conferida or StatusParcela.Aprovada) { <Campo Rotulo="Motivo (para devolver)" Classe="s12"><input id="pc-motivo" @bind="_motivo" /></Campo> }
+            </div>
+            @if (!string.IsNullOrWhiteSpace(_p.Justificativa)) { <p class="mudo">Justificativa: @_p.Justificativa</p> }
+            <p class="mudo">
+                @if (_p.ConferidoEm is { } c) { <span>Nota lançada por @_p.ConferidoPor em @DataHora(c). </span> }
+                @if (_p.AprovadoEm is { } a) { <span>Aprovada por @_p.AprovadoPor em @DataHora(a). </span> }
+                @if (_p.LiberadoEm is { } l) { <span>Liberada por @_p.LiberadoPor em @DataHora(l). </span> }
+                @if (_p.PagoEm is { } pg) { <span>Paga em @Data(pg).</span> }
+            </p>
+            @if (_usos.Count > 0)
+            {
+                <div class="secao"><Icone Nome="lista" /> Usos lançados no período</div>
+                <table class="itens"><thead><tr><th>Data</th><th>Item</th><th class="num">Qtde</th><th>Documento</th></tr></thead>
+                    <tbody>@foreach (var u in _usos) { <tr><td>@Data(u.Data)</td><td>@(_ct.Itens.FirstOrDefault(i => i.Id == u.ContratoItemId)?.Descricao)</td><td class="num">@u.Quantidade.ToString("N2", Br)</td><td>@u.Documento</td></tr> }</tbody>
+                </table>
+            }
+        }
+    </ChildContent>
+    <Rodape>
+        @if (_p is not null)
+        {
+            @if (_p.Status == StatusParcela.Prevista) { <button class="btn prim" id="pc-lancar" disabled="@Ocupado" @onclick="LancarNota"><Icone Nome="arquivo" Tam="16" /> Lançar nota</button> }
+            @if (_p.Status is StatusParcela.Conferida or StatusParcela.Aprovada) { <button class="btn perigo" disabled="@Ocupado" @onclick="Devolver">Devolver</button> }
+            @if (_p.Status == StatusParcela.Conferida && Perfil(PerfilUsuario.Engenharia, PerfilUsuario.Diretoria)) { <button class="btn ok" id="pc-aprovar" disabled="@Ocupado" @onclick="Aprovar"><Icone Nome="check" Tam="16" /> Aprovar</button> }
+            @if (_p.Status == StatusParcela.Aprovada && Perfil(PerfilUsuario.Financeiro, PerfilUsuario.Diretoria)) { <button class="btn ok" id="pc-liberar" disabled="@Ocupado" @onclick="Liberar"><Icone Nome="dinheiro" Tam="16" /> Liberar pagamento</button> }
+            @if (_p.Status == StatusParcela.Liberada && Perfil(PerfilUsuario.Financeiro, PerfilUsuario.Diretoria)) { <button class="btn ok" id="pc-paga" disabled="@Ocupado" @onclick="Pagar"><Icone Nome="check" Tam="16" /> Marcar paga</button> }
+        }
+    </Rodape>
+</Modal>
+
+<Modal @bind-Aberto="_abertoUso" Titulo="Lançar uso (ex.: troca de caçamba, visita)">
+    <ChildContent>
+        <Erros Lista="ErrosForm" />
+        @if (_uso is not null && ContratoAtual is not null)
+        {
+            <div class="form">
+                <Campo Rotulo="Item" Classe="s6" Obrigatorio="true">
+                    <select id="uso-item" @bind="_uso.ContratoItemId"><option value="@Guid.Empty">—</option>@foreach (var i in _itensContrato) { <option value="@i.Id">@i.Texto</option> }</select>
+                </Campo>
+                <Campo Rotulo="Data" Classe="s3"><input type="date" @bind="_uso.Data" /></Campo>
+                <Campo Rotulo="Quantidade" Classe="s3"><input id="uso-qtd" type="number" step="0.01" @bind="_uso.Quantidade" /></Campo>
+                <Campo Rotulo="Documento (ticket, MTR, romaneio)" Classe="s6"><input @bind="_uso.Documento" /></Campo>
+                <Campo Rotulo="Observação" Classe="s6"><input @bind="_uso.Observacao" /></Campo>
+            </div>
+        }
+    </ChildContent>
+    <Rodape><button class="btn prim" id="uso-ok" disabled="@Ocupado" @onclick="LancarUso"><Icone Nome="check" Tam="16" /> Lançar</button></Rodape>
+</Modal>
+
+<Confirmacao Pergunta="@PerguntaConfirmacao" AoSim="ConfirmacaoSim" AoNao="ConfirmacaoNao" />
+
+@code {
+    private sealed record Linha(ParcelaContrato P, string Contrato, string Fornecedor, bool Fora);
+    private sealed record ContratoRec(Guid Id, string Numero, string Fornecedor, FormaCobranca FormaCobranca, decimal Tolerancia);
+    private Grade<Linha>? _grade;
+    private List<Linha>? _linhas;
+    private List<ContratoRec> _contratos = [];
+    private Guid? _contratoId;
+    private ContratoRec? ContratoAtual => _contratos.FirstOrDefault(c => c.Id == _contratoId);
+
+    private ParcelaContrato? _p;
+    private Contrato? _ct;
+    private List<UsoContrato> _usos = [];
+    private bool _aberto;
+    private string? _notaNumero, _justificativa, _motivo;
+    private decimal _notaValor;
+    private DateOnly _pagoEm;
+    private UsoContrato? _uso;
+    private bool _abertoUso;
+    private List<Opcao> _itensContrato = [];
+
+    private static string Periodo(ParcelaContrato p) => $"{p.Inicio:dd/MM} a {p.Fim:dd/MM/yyyy}";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var q = Nav.ToAbsoluteUri(Nav.Uri).Query;
+        if (q.Contains("contrato=") && Guid.TryParse(q.Split("contrato=")[1].Split('&')[0], out var c)) _contratoId = c;
+        await Carregar();
+    }
+
+    private async Task Carregar()
+    {
+        await using var db = Fabrica.CriarLeitura();
+        _contratos = await db.Contratos.AsNoTracking().Where(c => c.Recorrente && c.FormaCobranca != FormaCobranca.Medicao).OrderBy(c => c.Numero)
+            .Select(c => new ContratoRec(c.Id, c.Numero, c.Fornecedor.RazaoSocial, c.FormaCobranca, c.ToleranciaPerc)).ToListAsync(Cancelamento);
+        var porId = _contratos.ToDictionary(c => c.Id);
+        var q = db.ParcelasContrato.AsNoTracking().Where(p => p.Status != StatusParcela.Cancelada);
+        if (_contratoId is { } id) q = q.Where(p => p.ContratoId == id);
+        var lista = await q.OrderBy(p => p.Vencimento).ThenBy(p => p.Numero).Take(LimiteAtual).ToListAsync(Cancelamento);
+        _linhas = lista.Where(p => porId.ContainsKey(p.ContratoId)).Select(p =>
+        {
+            var c = porId[p.ContratoId];
+            return new Linha(p, c.Numero, c.Fornecedor, p.ForaDaTolerancia(c.Tolerancia));
+        }).ToList();
+    }
+
+    private async Task Abrir(Guid id)
+    {
+        await using var db = Fabrica.CriarLeitura();
+        _p = await db.ParcelasContrato.AsNoTracking().FirstAsync(p => p.Id == id, Cancelamento);
+        _ct = await db.Contratos.AsNoTracking().Include(c => c.Fornecedor).Include(c => c.Itens).FirstAsync(c => c.Id == _p.ContratoId, Cancelamento);
+        _usos = _ct.FormaCobranca == FormaCobranca.Uso
+            ? await db.UsosContrato.AsNoTracking().Where(u => u.ContratoId == _ct.Id && u.Data >= _p.Inicio && u.Data <= _p.Fim).OrderBy(u => u.Data).ToListAsync(Cancelamento)
+            : [];
+        _notaNumero = _p.NotaNumero; _notaValor = _p.NotaValor ?? _p.ValorPrevisto; _justificativa = _p.Justificativa; _motivo = null; _pagoEm = Hoje;
+        ErrosForm = null; _aberto = true;
+    }
+
+    private async Task Depois(string? msg = null) { await Carregar(); if (_p is not null) await Abrir(_p.Id); }
+
+    private async Task Gerar()
+    {
+        var n = 0;
+        if (await Executar(async () => n = await RecSrv.GerarParcelasAsync(_contratoId!.Value, Cancelamento)))
+        { Notif.Sucesso(n == 0 ? "Parcelas atualizadas." : $"{n} parcela(s) criada(s)."); await Carregar(); }
+    }
+
+    private async Task Vincular()
+    {
+        var n = 0;
+        if (await Executar(async () => n = await RecSrv.VincularNotasAsync(Cancelamento)))
+        { Notif.Sucesso(n == 0 ? "Nenhuma nota nova para vincular." : $"{n} nota(s) vinculada(s)."); await Carregar(); }
+    }
+
+    private async Task LancarNota()
+    {
+        if (string.IsNullOrWhiteSpace(_notaNumero) || _notaValor <= 0) { ErrosForm = ["Informe o número e o valor da nota."]; return; }
+        if (await Executar(() => RecSrv.LancarNotaAsync(_p!.Id, _notaNumero.Trim(), _notaValor, Cancelamento), "Nota lançada — segue para aprovação.")) await Depois();
+    }
+
+    private async Task Aprovar() { if (await Executar(() => RecSrv.AprovarAsync(_p!.Id, _justificativa, Cancelamento), "Parcela aprovada.")) await Depois(); }
+    private async Task Liberar() { if (await Executar(() => RecSrv.LiberarAsync(_p!.Id, Cancelamento), "Pagamento liberado.")) await Depois(); }
+    private async Task Pagar() { if (await Executar(() => RecSrv.MarcarPagaAsync(_p!.Id, _pagoEm, Cancelamento), "Parcela paga.")) await Depois(); }
+
+    private async Task Devolver()
+    {
+        if (string.IsNullOrWhiteSpace(_motivo)) { ErrosForm = ["Informe o motivo da devolução."]; return; }
+        if (await Executar(() => RecSrv.DevolverAsync(_p!.Id, _motivo, Cancelamento), "Parcela devolvida.")) await Depois();
+    }
+
+    private async Task AbrirUso()
+    {
+        await using var db = Fabrica.CriarLeitura();
+        _itensContrato = (await db.ContratoItens.AsNoTracking().Where(i => i.ContratoId == _contratoId).OrderBy(i => i.Item).ToListAsync(Cancelamento))
+            .Select(i => new Opcao(i.Id, $"{i.Descricao} ({i.Unidade}) · {i.PrecoUnitario:N2}")).ToList();
+        _uso = new UsoContrato { ContratoId = _contratoId!.Value, Data = Hoje, Quantidade = 1, ContratoItemId = _itensContrato.FirstOrDefault()?.Id ?? Guid.Empty };
+        ErrosForm = null; _abertoUso = true;
+    }
+
+    private async Task LancarUso()
+    {
+        if (await Executar(() => RecSrv.LancarUsoAsync(_uso!, Cancelamento), "Uso lançado — previsto da parcela recalculado.")) { _abertoUso = false; await Carregar(); }
+    }
+}
