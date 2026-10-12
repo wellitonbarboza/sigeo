@@ -74,8 +74,7 @@
                 {
                     <div class="crono-modos">
                         <span class="grupo-btn" role="tablist" aria-label="Modo do cronograma">
-                            <button class="btn @(_modoCrono == "ver" ? "prim" : "sec") pq" id="crono-ver" @onclick='() => _modoCrono = "ver"'>Gantt por local</button>
-                            <button class="btn @(_modoCrono == "editar" ? "prim" : "sec") pq" id="crono-editar" @onclick='() => _modoCrono = "editar"'>Editar cronograma (redes e ligações)</button>
+                            <button class="btn @(_modoCrono == "editar" ? "prim" : "sec") pq" id="crono-editar" @onclick='() => _modoCrono = "editar"'>Gantt por local (editar redes e ligações)</button>
                             <button class="btn @(_modoCrono == "tabela" ? "prim" : "sec") pq" id="crono-tabela" @onclick='() => _modoCrono = "tabela"'>Tabela e Gantt detalhado</button>
                         </span>
                     </div>

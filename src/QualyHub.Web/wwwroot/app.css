@@ -644,7 +644,9 @@ button.chip { border: 0; font-family: inherit; cursor: pointer; }
 .menu .grupo:not(.aberto) > .sub { display: none; }
 .menu .sub .titulo-sub { display: none; }
 .menu .rotulo { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.recolher-menu { display: flex; align-items: center; gap: 10px; margin: 10px 18px 0; padding: 6px 10px; border: 1px solid rgba(255,255,255,.14); border-radius: 7px;
+.lateral-topo { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 14px 18px 10px; }
+.lateral-topo .tema { margin: 0; }
+.recolher-menu { display: flex; align-items: center; margin: 0; padding: 6px; border: 1px solid rgba(255,255,255,.14); border-radius: 7px;
     background: transparent; color: var(--sidebar-sutil); font-size: 12.5px; cursor: pointer; width: fit-content; }
 .recolher-menu:hover { color: var(--sidebar-texto); background: rgba(255,255,255,.06); }
 
@@ -655,8 +657,8 @@ html[data-menu="recolhido"] .lateral .seta,
 html[data-menu="recolhido"] .marca > div,
 html[data-menu="recolhido"] .usuario-box > b { display: none; }
 html[data-menu="recolhido"] .marca { padding: 16px 0; min-height: 80px; }
-html[data-menu="recolhido"] .recolher-menu { margin: 10px auto 0; padding: 6px; }
-html[data-menu="recolhido"] .tema { flex-direction: column; margin: 10px auto 6px; }
+html[data-menu="recolhido"] .lateral-topo { flex-direction: column-reverse; margin: 10px auto 6px; }
+html[data-menu="recolhido"] .tema { flex-direction: column; }
 html[data-menu="recolhido"] .tema button { padding: 5px 7px; }
 html[data-menu="recolhido"] .menu .grupo > a { justify-content: center; padding: 10px 0; gap: 0; position: relative; }
 html[data-menu="recolhido"] .menu .grupo.atual > a { background: var(--sidebar-ativo); border-left-color: #7dd3fc; }

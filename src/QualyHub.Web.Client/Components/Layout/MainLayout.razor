@@ -9,13 +9,15 @@
 <div class="app">
     <aside class="lateral">
         <Logo />
-        <button type="button" class="recolher-menu" id="recolher-menu" @onclick="AlternarMenu"
-                title="@(_recolhido ? "Expandir menu" : "Recolher menu")" aria-label="@(_recolhido ? "Expandir menu" : "Recolher menu")" aria-expanded="@(!_recolhido)">
-            <Icone Nome="@(_recolhido ? "expandir" : "recolher")" Tam="18" /><span class="rotulo">Recolher menu</span>
-        </button>
-        <div class="tema" role="group" aria-label="Tema">
-            <button class="@(_tema == "claro" ? "on" : "")" @onclick='() => Tema("claro")' title="Tema claro"><Icone Nome="sol" Tam="13" /><span class="rotulo"> Claro</span></button>
-            <button class="@(_tema == "escuro" ? "on" : "")" @onclick='() => Tema("escuro")' title="Tema escuro"><Icone Nome="lua" Tam="13" /><span class="rotulo"> Escuro</span></button>
+        <div class="lateral-topo">
+            <div class="tema" role="group" aria-label="Tema">
+                <button class="@(_tema == "claro" ? "on" : "")" @onclick='() => Tema("claro")' title="Tema claro"><Icone Nome="sol" Tam="13" /><span class="rotulo"> Claro</span></button>
+                <button class="@(_tema == "escuro" ? "on" : "")" @onclick='() => Tema("escuro")' title="Tema escuro"><Icone Nome="lua" Tam="13" /><span class="rotulo"> Escuro</span></button>
+            </div>
+            <button type="button" class="recolher-menu" id="recolher-menu" @onclick="AlternarMenu"
+                    title="@(_recolhido ? "Expandir menu" : "Recolher menu")" aria-label="@(_recolhido ? "Expandir menu" : "Recolher menu")" aria-expanded="@(!_recolhido)">
+                <Icone Nome="@(_recolhido ? "expandir" : "recolher")" Tam="18" />
+            </button>
         </div>
         <nav>
             <ul class="menu">
