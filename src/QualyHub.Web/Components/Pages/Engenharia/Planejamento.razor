@@ -1,13 +1,12 @@
 @page "/engenharia/planejamento"
 @using QualyHub.Domain.Planejamento
 @using QualyHub.Web.Components.Pages.Engenharia.Partes
-@using Syncfusion.Blazor.Gantt
 @inherits PaginaBase
-@inject PlanejamentoServico Plan
-@inject IJSRuntime JS
+@inject NavigationManager Nav
+@* Indicadores do planejamento: só leitura. A edição do cronograma e a reprogramação ficam em "Cronograma e Reprogramação";
+   o acompanhamento semanal (plano de ação, programação, médio e curto prazo, medição) fica em "Last Planner". *@
 
-
-<Pagina Titulo="Planejamento da obra" AoAtualizar="Recarregar">
+<Pagina Titulo="Indicadores do planejamento" AoAtualizar="Recarregar">
     <ChildContent>
         <div class="pagina toque plan">
             <div class="barra-filtro">
@@ -20,13 +19,18 @@
                         </select>
                     </label>
                 }
+                <span class="esp"></span>
+                @if (_obraId is { } ol)
+                {
+                    <a class="btn sec pq" id="ir-cronograma" href="@($"engenharia/cronograma?obra={ol}")"><Icone Nome="calendario" Tam="14" /> Cronograma e reprogramação</a>
+                    <a class="btn sec pq" id="ir-lps" href="@($"engenharia/last-planner?obra={ol}")"><Icone Nome="alvo" Tam="14" /> Last Planner</a>
+                }
             </div>
 
             @if (_obraId is null) { <div class="alerta info"><Icone Nome="info" /> Escolha a obra.</div> }
             else if (_versao is null)
             {
-                <div class="alerta info"><Icone Nome="info" /> A obra ainda não tem cronograma.</div>
-                @if (_podeEditar) { <button class="btn prim" id="plan-criar" disabled="@Ocupado" @onclick="CriarLb0"><Icone Nome="mais" Tam="14" /> Criar a linha de base (LB0)</button> }
+                <div class="alerta info"><Icone Nome="info" /> A obra ainda não tem cronograma. Crie a linha de base em <a href="@($"engenharia/cronograma?obra={_obraId}")">Cronograma e reprogramação</a>.</div>
             }
             else
             {
@@ -38,155 +42,19 @@
                     <Kpi Rotulo="Avanço físico" Valor="@($"{_avanco:0.0}%")" Sub="ponderado pelo custo" />
                     <Kpi Rotulo="Atividades críticas" Valor="@_criticas" Sub="folga ≤ 0, não concluídas" Tom="@(_criticas > 0 ? "aviso" : "")" />
                 </div>
-
                 <div class="barra-botoes plan-acoes">
                     <Selo Texto="@($"{v.Codigo} · {De(v.Status)}")" Tom="@Tom(v.Status)" />
                     @if (v.MotivoDevolucao is { Length: > 0 } md) { <span class="alerta aviso pq"><Icone Nome="alerta" Tam="14" /> Devolvida: @md</span> }
-                    <span class="esp"></span>
-                    @if (_editavel)
-                    {
-                        <button class="btn sec" id="plan-gerar" disabled="@Ocupado" @onclick="Gerar"><Icone Nome="raio" Tam="14" /> Gerar pelas redes</button>
-                        <button class="btn prim" id="plan-enviar" disabled="@Ocupado" @onclick="AbrirEnvio"><Icone Nome="enviar" Tam="14" /> Enviar para aprovação</button>
-                    }
-                    else if (_podeEditar && v.Status == StatusVersao.Vigente && !_versoes.Any(x => x.Status is StatusVersao.EmElaboracao or StatusVersao.EmAprovacao))
-                    {
-                        <button class="btn prim" id="plan-reprogramar" disabled="@Ocupado" @onclick="NovaReprogramacao"><Icone Nome="editar" Tam="14" /> Nova reprogramação</button>
-                    }
-                    <button class="btn sec" id="plan-medicao" @onclick="() => _abertoMedicao = true"><Icone Nome="check" Tam="14" /> Medição semanal</button>
-                    <button class="btn sec" id="plan-excel" @onclick="@(() => Baixar("excel"))"><Icone Nome="excel" Tam="14" /> Excel</button>
-                    <button class="btn sec" id="plan-msp" @onclick="@(() => Baixar("msproject"))"><Icone Nome="baixar" Tam="14" /> MS Project</button>
-                    @if (_editavel)
-                    {
-                        <label class="btn sec" for="plan-msp-imp" title="Importar XML do MS Project (substitui as atividades desta versão)"><Icone Nome="upload" Tam="14" /> Importar MS Project</label>
-                        <InputFile id="plan-msp-imp" class="oculto" accept=".xml" OnChange="ImportarMsProject" />
-                    }
-                    <button class="btn sec" id="plan-imprimir" @onclick="() => _abertoImpressao = true"><Icone Nome="impressora" Tam="14" /> PDF / imprimir</button>
                 </div>
-                <Erros Lista="ErrosForm" />
-                <Abas Itens="_abas" Ativa="@_aba" AtivaChanged="TrocarAba" />
+                <Abas Itens="_abas" Ativa="@_aba" AtivaChanged="a => _aba = a" />
 
                 @if (_aba == "painel")
                 {
-                    <PainelPlanejamento ObraId="_obraId!.Value" Versao="_ganttChave" />
+                    <PainelPlanejamento ObraId="_obraId!.Value" Versao="_chave" />
                 }
-                else if (_aba == "acao")
+                else if (_aba == "gantt")
                 {
-                    <PlanoAcaoPlanejamento ObraId="_obraId!.Value" Versoes="_versoes" PodeEditar="_podeEditar" />
-                }
-                else if (_aba == "prog")
-                {
-                    <ProgramacaoSemanal ObraId="_obraId!.Value" />
-                }
-                else if (_aba == "crono")
-                {
-                    <div class="crono-modos">
-                        <span class="grupo-btn" role="tablist" aria-label="Modo do cronograma">
-                            <button class="btn @(_modoCrono == "ver" ? "prim" : "sec") pq" id="crono-ver" @onclick='() => _modoCrono = "ver"'>Gantt por local</button>
-                            <button class="btn @(_modoCrono == "editar" ? "prim" : "sec") pq" id="crono-editar" @onclick='() => _modoCrono = "editar"'>Editar cronograma (redes e ligações)</button>
-                            <button class="btn @(_modoCrono == "tabela" ? "prim" : "sec") pq" id="crono-tabela" @onclick='() => _modoCrono = "tabela"'>Tabela e Gantt detalhado</button>
-                        </span>
-                    </div>
-                    @if (_modoCrono != "tabela")
-                    {
-                        <GanttPorLocal ObraId="_obraId!.Value" VersaoId="v.Id" Modo="@_modoCrono" PodeEditar="_podeEditar" Versao="_ganttChave"
-                                       AoMudar="AoMudarGantt" AoSequencia="IrParaRedes" />
-                    }
-                    else {
-                    <div class="barra-filtro plan-opcoes">
-                        <label><input type="checkbox" @bind="_mostrarBase" /> Linha de base</label>
-                        <label>Início do projeto <input type="date" id="plan-inicio" value="@v.InicioProjeto.ToString("yyyy-MM-dd")" disabled="@(!_editavel)" @onchange="e => MudarInicio(e.Value?.ToString(), null)" /></label>
-                        <label>Data de status <input type="date" id="plan-status" value="@(v.DataStatus?.ToString("yyyy-MM-dd"))" disabled="@(!_editavel)" @onchange="e => MudarInicio(null, e.Value?.ToString())" /></label>
-                        <span class="mudo">Arraste a barra para mover (vira folga no vínculo, sem restrição de data) · puxe a ponta para mudar a duração · clique na linha para editar.</span>
-                    </div>
-                    @if (_linhas.Count == 0)
-                    {
-                        <div class="alerta info"><Icone Nome="info" /> Sem atividades. Monte as redes (aba Redes) e clique em <b>Gerar pelas redes</b>, importe um XML do MS Project ou inclua atividades à mão.</div>
-                    }
-                    else if (!_scriptGantt)
-                    {
-                        <Esqueleto Linhas="12" />
-                    }
-                    else
-                    {
-                        <div class="plan-gantt" @key="_versaoChave">
-                            <SfGantt @ref="_gantt" TValue="LinhaGantt" DataSource="_linhas" Height="600px" Width="100%" TreeColumnIndex="1"
-                                     TaskMode="ScheduleMode.Manual" ProjectStartDate="_pIni" ProjectEndDate="_pFim" RenderBaseline="_mostrarBase" BaselineColor="#a5a8ee" HighlightWeekends="true"
-                                     IncludeWeekend="false" RowHeight="32" TaskbarHeight="18"
-                                     Toolbar="_toolbar" AllowSelection="true" AllowResizing="true">
-                                <GanttTaskFields Id="Id" Name="Nome" StartDate="Inicio" EndDate="Termino" Progress="Avanco"
-                                                 ParentID="PaiId" Dependency="Dependencia" BaselineStartDate="InicioBase" BaselineEndDate="TerminoBase" CssClass="Classe" />
-                                <GanttEditSettings AllowTaskbarEditing="_editavel" AllowEditing="false" AllowAdding="false" AllowDeleting="false" />
-                                <GanttSplitterSettings Position="50%" />
-                                <GanttTimelineSettings TimelineViewMode="TimelineViewMode.Week" TimelineUnitSize="56">
-                                    <GanttTopTierSettings Unit="TimelineViewMode.Month" FormatterTemplate="_fmtMes" />
-                                    <GanttBottomTierSettings Unit="TimelineViewMode.Week" FormatterTemplate="_fmtDia" />
-                                </GanttTimelineSettings>
-                                <GanttHolidays>
-                                    @foreach (var (data, nome) in _feriadosVisiveis) { <GanttHoliday From="@data" To="@data" Label="@nome" /> }
-                                </GanttHolidays>
-                                @if (v.DataStatus is { } st)
-                                {
-                                    <GanttEventMarkers><GanttEventMarker Day="@CronogramaVisao.Ini(st)" Label="Data de status" /></GanttEventMarkers>
-                                }
-                                <GanttEvents TValue="LinhaGantt" TaskbarEdited="AoEditarBarra" RowSelected="AoSelecionar" />
-                                <GanttColumns>
-                                    <GanttColumn Field="Eap" HeaderText="EAP" Width="78" />
-                                    <GanttColumn Field="Nome" HeaderText="Atividade" Width="260" />
-                                    <GanttColumn Field="Dias" HeaderText="Dur. (d.ú.)" Width="80" TextAlign="Syncfusion.Blazor.Grids.TextAlign.Right" />
-                                    <GanttColumn Field="Inicio" HeaderText="Início" Width="90" Format="dd/MM/yy" />
-                                    <GanttColumn Field="Termino" HeaderText="Término" Width="90" Format="dd/MM/yy" />
-                                    <GanttColumn Field="Predecessoras" HeaderText="Predecessoras" Width="140" />
-                                    <GanttColumn Field="Avanco" HeaderText="%" Width="60" TextAlign="Syncfusion.Blazor.Grids.TextAlign.Right" />
-                                    <GanttColumn Field="Folga" HeaderText="Folga" Width="70" TextAlign="Syncfusion.Blazor.Grids.TextAlign.Right" />
-                                    <GanttColumn Field="Custo" HeaderText="Custo orçado" Width="120" Format="N0" TextAlign="Syncfusion.Blazor.Grids.TextAlign.Right" />
-                                    <GanttColumn Field="Desvio" HeaderText="Δ base (d.ú.)" Width="96" TextAlign="Syncfusion.Blazor.Grids.TextAlign.Right" />
-                                </GanttColumns>
-                            </SfGantt>
-                        </div>
-                    }
-
-                    <div class="cartao plan-edicao" id="plan-edicao">
-                        <div class="cab-edicao">
-                            <b>@(_sel is null ? "Nova atividade" : _sel.Resumo ? $"Agrupador {_sel.Eap}" : $"Atividade {_sel.Eap}")</b>
-                            @if (_sel is not null) { <span class="mudo">@Data(_sel.Inicio) a @Data(_sel.Termino)@(_sel.Folga is { } f ? $" · folga {f} d.ú." : "")@(_sel.Critica ? " · crítica" : "")</span> }
-                        </div>
-                        <div class="form">
-                            <Campo Rotulo="Nome" Classe="s5"><input id="at-nome" @bind="_fNome" disabled="@(!_editavel)" /></Campo>
-                            @if (_sel?.Resumo != true)
-                            {
-                                <Campo Rotulo="Duração (d.ú.; 0 = marco)" Classe="s2"><input id="at-dur" type="number" min="0" @bind="_fDur" disabled="@(!_editavel)" /></Campo>
-                                <Campo Rotulo="Avanço %" Classe="s1"><input id="at-avanco" type="number" min="0" max="100" step="5" @bind="_fAvanco" disabled="@(!_editavel)" /></Campo>
-                                <Campo Rotulo="Início (mover)" Classe="s2"><input id="at-inicio" type="date" @bind="_fInicio" disabled="@(!_editavel || _sel is null)" /></Campo>
-                                <Campo Rotulo="Predecessoras (EAP + TI/II/TT/IT ± folga)" Classe="s6" Ajuda="Ex.: 1.2.3TI+2; 4II; 2.1TT-1"><input id="at-pred" @bind="_fPred" disabled="@(!_editavel)" placeholder="1.2.3TI+2; 4II" /></Campo>
-                            }
-                        </div>
-                        @if (_editavel)
-                        {
-                            <div class="barra-botoes">
-                                <button class="btn prim" id="at-salvar" disabled="@Ocupado" @onclick="SalvarAtividade"><Icone Nome="check" Tam="14" /> @(_sel is null ? "Incluir" : "Salvar")</button>
-                                <button class="btn sec" id="at-nova" @onclick="() => NovaAtividade(false)"><Icone Nome="mais" Tam="14" /> Atividade@(_sel?.Resumo == true ? $" em {_sel.Eap}" : "")</button>
-                                <button class="btn sec" id="at-novo-grupo" @onclick="() => NovaAtividade(true)"><Icone Nome="mais" Tam="14" /> Agrupador</button>
-                                @if (_sel is not null) { <button class="btn sec perigo" id="at-excluir" disabled="@Ocupado" @onclick="@(() => Confirmar($"Excluir {_sel.Eap} {_sel.Nome}{(_sel.Resumo ? " e tudo abaixo dele" : "")}?", ExcluirAtividade))">Excluir</button> }
-                            </div>
-                        }
-                    </div>
-                    }
-                }
-                else if (_aba == "redes")
-                {
-                    <EditorRedes ObraId="_obraId.Value" Editavel="_podeEditar" AoMudar="() => { _redesMudaram = true; return Task.CompletedTask; }" />
-                    @if (_redesMudaram && _editavel)
-                    {
-                        <div class="alerta info mt-12"><Icone Nome="info" /> Redes alteradas. <button class="btn prim pq" id="plan-gerar2" disabled="@Ocupado" @onclick="Gerar">Gerar o cronograma de @v.Codigo pelas redes</button> (mantém avanço, linha de base e folgas ajustadas).</div>
-                    }
-                }
-                else if (_aba == "medio")
-                {
-                    <MedioPrazo ObraId="_obraId!.Value" PodeEditar="_podeApontar" Destacar="RestricaoQuery" />
-                }
-                else if (_aba == "curto")
-                {
-                    <CurtoPrazo ObraId="_obraId!.Value" PodeEditar="_podeApontar" />
+                    <GanttPorLocal ObraId="_obraId!.Value" VersaoId="v.Id" Modo="ver" PodeEditar="false" Versao="_chave" />
                 }
                 else if (_aba == "desemb")
                 {
@@ -207,192 +75,42 @@
                         </tbody>
                     </table></div>
                 }
-                else if (_aba == "versoes")
-                {
-                    <div class="tabela-rolavel"><table class="itens" id="tabela-versoes">
-                        <thead><tr><th>Versão</th><th>Situação</th><th>Motivo / descrição</th><th>Término</th><th class="num">Δ base</th><th class="num">Custo</th><th>Enviado</th><th>Aprovado</th><th></th></tr></thead>
-                        <tbody>
-                            @foreach (var x in _versoes)
-                            {
-                                <tr class="@(x.Id == _versaoId ? "sel" : "")">
-                                    <td><b>@x.Codigo</b></td>
-                                    <td><Selo Texto="@De(x.Status)" Tom="@Tom(x.Status)" /></td>
-                                    <td>@x.Motivo@if (x.Descricao is { Length: > 0 }) { <div class="mudo">@x.Descricao</div> }@if (x.MotivoDevolucao is { Length: > 0 }) { <div class="neg">Devolvida: @x.MotivoDevolucao</div> }</td>
-                                    <td>@Data(x.TerminoPrevisto)</td>
-                                    <td class="num">@(x.TerminoBase is { } b && x.TerminoPrevisto is { } t ? _cal.DiasUteisEntre(b, t).ToString("+0;-0;0") : "—")</td>
-                                    <td class="num">@x.CustoTotal.ToString("N0", Br)</td>
-                                    <td>@(x.EnviadoPor is null ? "—" : $"{x.EnviadoPor} · {DataHora(x.EnviadoEm)}")</td>
-                                    <td>@(x.AprovadoPor is null ? "—" : $"{x.AprovadoPor} · {DataHora(x.AprovadoEm)}")</td>
-                                    <td class="nowrap">
-                                        @if (x.Id != _versaoId) { <button class="btn sec pq" @onclick="() => AbrirVersao(x.Id)">Abrir</button> }
-                                        @if (x.Status == StatusVersao.EmElaboracao && _podeEditar) { <button class="btn sec pq perigo" @onclick="@(() => Confirmar($"Descartar a versão {x.Codigo}?", () => Descartar(x.Id)))">Descartar</button> }
-                                    </td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table></div>
-                    <div class="cartao mt-12" id="plan-autorizacoes"><b>@v.Codigo</b>
-                        <Autorizacoes Entidade="EntidadeAprovavel.Cronograma" EntidadeId="v.Id" Versao="_versaoChave" AoDecidir="Recarregar" />
-                    </div>
-                    <p class="mudo">O engenheiro responsável e o diretor técnico aprovam (alçadas em Sistema › Permissões). Aprovada, a versão vira vigente, grava o desembolso mensal e a anterior fica como substituída. A LB0 aprovada congela a linha de base.</p>
-                }
-                else if (_aba == "cal")
-                {
-                    <div class="grade-2">
-                        <div>
-                            <h4>Feriados municipais e paradas</h4>
-                            <div class="tabela-rolavel"><table class="itens" id="feriados">
-                                <thead><tr><th>Data</th><th>Nome</th><th>Vale para</th><th></th></tr></thead>
-                                <tbody>
-                                    @foreach (var f in _feriados)
-                                    {
-                                        <tr><td>@Data(f.Data)</td><td>@f.Nome</td><td>@(f.ObraId is null ? "todas as obras" : "esta obra")</td>
-                                            <td>@if (_podeEditar) { <button class="icone-btn" title="Excluir" @onclick="() => ExcluirFeriado(f.Id)"><Icone Nome="lixeira" Tam="15" /></button> }</td></tr>
-                                    }
-                                    @if (_feriados.Count == 0) { <tr><td colspan="4" class="mudo">Nenhum. Inclua feriados municipais/estaduais e paradas (ex.: recesso de fim de ano).</td></tr> }
-                                </tbody>
-                            </table></div>
-                            @if (_podeEditar)
-                            {
-                                <div class="form mt-6">
-                                    <Campo Rotulo="Data" Classe="s4"><input id="fer-data" type="date" @bind="_fFerData" /></Campo>
-                                    <Campo Rotulo="Nome" Classe="s5"><input id="fer-nome" @bind="_fFerNome" /></Campo>
-                                    <Campo Rotulo="Só esta obra" Classe="s3"><input type="checkbox" @bind="_fFerObra" /></Campo>
-                                </div>
-                                <button class="btn sec" id="fer-add" disabled="@Ocupado" @onclick="AddFeriado"><Icone Nome="mais" Tam="14" /> Incluir</button>
-                            }
-                        </div>
-                        <div>
-                            <h4>Feriados nacionais (calculados)</h4>
-                            <ul class="lista-simples">
-                                @foreach (var (dataF, nomeF) in Calendario.FeriadosNacionais(Hoje.Year).Concat(Calendario.FeriadosNacionais(Hoje.Year + 1)).Where(f => f.Data >= Hoje).Take(16))
-                                { <li>@Data(dataF) · @nomeF</li> }
-                            </ul>
-                            <p class="mudo">Semana de trabalho: segunda a sexta. Carnaval (segunda e terça), Sexta-feira Santa e Corpus Christi param a obra.</p>
-                        </div>
-                    </div>
-                }
             }
         </div>
     </ChildContent>
 </Pagina>
 
-<Modal Titulo="@($"Enviar {_versao?.Codigo} para aprovação")" @bind-Aberto="_abertoEnvio">
-    <ChildContent>
-        @if (_versao is { } ve)
-        {
-            <div class="kpis">
-                <Kpi Rotulo="Término" Valor="@Data(ve.TerminoPrevisto)" Sub="@(_desvio is { } d ? $"{d:+0;-0;0} d.ú. vs base" : "")" />
-                <Kpi Rotulo="Custo orçado" Valor="@ve.CustoTotal.ToString("C0", Br)" />
-                <Kpi Rotulo="Atividades movidas" Valor="@_movidas" Sub="início diferente da base" />
-            </div>
-            <Erros Lista="ErrosForm" />
-            <div class="form">
-                <Campo Rotulo="Motivo" Classe="s12" Obrigatorio>
-                    <select id="env-motivo" @bind="_motivo">
-                        @foreach (var m in Motivos) { <option>@m</option> }
-                    </select>
-                </Campo>
-                <Campo Rotulo="O que mudou e ação de recuperação" Classe="s12"><textarea id="env-desc" rows="3" @bind="_descricao"></textarea></Campo>
-            </div>
-            <p class="mudo">Fluxo: engenheiro responsável → diretor técnico. Só depois da aprovação a versão vira vigente e o desembolso é atualizado.</p>
-        }
-    </ChildContent>
-    <Rodape><button class="btn prim" id="env-confirmar" disabled="@Ocupado" @onclick="Enviar"><Icone Nome="enviar" Tam="14" /> Enviar</button></Rodape>
-</Modal>
-
-<Modal Titulo="PDF / impressão do cronograma" @bind-Aberto="_abertoImpressao">
-    <ChildContent>
-        <div class="form">
-            <Campo Rotulo="Folha" Classe="s3"><select id="imp-folha" @bind="_folha">@foreach (var f in new[] { "A0", "A1", "A2", "A3", "A4" }) { <option>@f</option> }</select></Campo>
-            <Campo Rotulo="Orientação" Classe="s3"><select id="imp-orient" @bind="_orientacao"><option value="paisagem">Paisagem</option><option value="retrato">Retrato</option></select></Campo>
-            <Campo Rotulo="Detalhe" Classe="s3"><select id="imp-nivel" @bind="_nivel"><option value="1">Redes</option><option value="2">Pacotes</option><option value="9">Todas as atividades</option></select></Campo>
-            <Campo Rotulo="Linha de base" Classe="s3"><input type="checkbox" @bind="_impBase" /></Campo>
-        </div>
-        <p class="mudo">Abre em nova aba no tamanho da folha; use "Salvar como PDF" na janela de impressão. Para A0–A2 escolha esse tamanho também na impressora/plotter.</p>
-    </ChildContent>
-    <Rodape><a class="btn prim" id="imp-abrir" target="_blank" href="@($"engenharia/planejamento/imprimir?versao={_versaoId}&folha={_folha}&orientacao={_orientacao}&nivel={_nivel}&base={_impBase}")"><Icone Nome="impressora" Tam="14" /> Abrir para imprimir</a></Rodape>
-</Modal>
-
-<Modal Titulo="Medição semanal" @bind-Aberto="_abertoMedicao" Tamanho="grande">
-    <ChildContent>
-        @if (_obraId is { } om && _abertoMedicao) { <MedicaoSemanalMapa ObraId="om" AoGravar="AoGravarMedicao" /> }
-    </ChildContent>
-</Modal>
-
-<Confirmacao Pergunta="@PerguntaConfirmacao" AoSim="ConfirmacaoSim" AoNao="ConfirmacaoNao" />
-
 @code {
     [SupplyParameterFromQuery(Name = "obra")] public Guid? ObraQuery { get; set; }
     [SupplyParameterFromQuery(Name = "aba")] public string? AbaQuery { get; set; }
-    [SupplyParameterFromQuery(Name = "restricao")] public Guid? RestricaoQuery { get; set; }
-    private bool _podeApontar;
 
-    private static readonly string[] Motivos = ["Planejamento inicial", "Atraso de fornecedor", "Chuvas acima da média", "Mão de obra / produtividade", "Mudança de projeto", "Antecipação de etapa", "Ajuste de ritmo (linha de balanço)", "Outro"];
-    private readonly List<(string, string)> _abas = [("painel", "Painel"), ("crono", "Cronograma"), ("acao", "Plano de ação"), ("prog", "Programação semanal"), ("medio", "Médio prazo · restrições"), ("curto", "Curto prazo · PPC"), ("desemb", "Desembolso e curva S"), ("redes", "Redes"), ("versoes", "Versões e aprovação"), ("cal", "Calendário")];
-    private readonly List<string> _toolbar = ["ExpandAll", "CollapseAll", "ZoomIn", "ZoomOut", "ZoomToFit", "PrevTimeSpan", "NextTimeSpan", "Search"];
+    // Abas que mudaram de tela: links antigos (?aba=…) continuam funcionando.
+    private static readonly HashSet<string> AbasCronograma = ["crono", "redes", "versoes", "cal"];
+    private static readonly HashSet<string> AbasLastPlanner = ["acao", "prog", "medio", "curto"];
 
-    private SfGantt<LinhaGantt>? _gantt;
-    // Rótulos da escala de tempo em português (o servidor roda com cultura invariante).
-    private static readonly string[] MesesCurtos = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
-    private readonly RenderFragment<GanttTimelineFormatter> _fmtMes = f => @<text>@(MesesCurtos[f.Date.Month - 1])/@(f.Date.Year)</text>;
-    private readonly RenderFragment<GanttTimelineFormatter> _fmtDia = f => @<text>@f.Date.ToString("dd")</text>;
-    private Guid? _obraId, _versaoId;
+    private readonly List<(string, string)> _abas = [("painel", "Painel"), ("gantt", "Gantt por local"), ("desemb", "Desembolso e curva S")];
     private string _aba = "painel";
-    private string _modoCrono = "ver";
-    private int _ganttChave;
-    private bool _abertoMedicao, _mudouNoGantt;
+    private Guid? _obraId, _versaoId;
     private List<VersaoCronograma> _versoes = [];
     private VersaoCronograma? _versao;
     private Calendario _cal = new();
-    private List<LinhaGantt> _linhas = [];
-    private Dictionary<int, AtividadeCronograma> _porLinha = [];
-    private List<(DateTime, string)> _feriadosVisiveis = [];
-    private List<Feriado> _feriados = [];
-    private List<RedePlanejamento> _redesVersao = [];
-    private DateTime _pIni, _pFim;
-    private bool _mostrarBase = true, _editavel, _podeEditar, _redesMudaram, _abertoEnvio, _abertoImpressao, _impBase = true, _fFerObra = true;
     private int? _desvio;
-    private int _criticas, _folhas, _movidas, _versaoChave;
+    private int _criticas, _folhas, _chave;
     private decimal _avanco;
-    private AtividadeCronograma? _sel;
-    private bool _novoResumo;
-    private string _fNome = "";
-    private int _fDur = 1;
-    private decimal _fAvanco;
-    private string? _fPred;
-    private DateOnly? _fInicio;
-    private string _motivo = Motivos[0];
-    private string? _descricao, _fFerNome;
-    private DateOnly? _fFerData;
-    private string _folha = "A1", _orientacao = "paisagem", _nivel = "9";
-
-    private bool _scriptGantt;
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        await base.OnAfterRenderAsync(firstRender);
-        if (!firstRender || _scriptGantt) return;
-        try
-        {
-            // Estilo e script do Gantt juntos; o Gantt só aparece com os dois prontos (não abre sem formatação).
-            await Task.WhenAll(
-                JS.InvokeVoidAsync("qh.carregarCss", Assets["lib/syncfusion/tailwind3-lite-34.2.9.css"]).AsTask(),
-                JS.InvokeVoidAsync("qh.carregarScript", "_content/Syncfusion.Blazor.Core/scripts/syncfusion-blazor.min.js").AsTask());
-            _scriptGantt = true; StateHasChanged();
-        }
-        catch (JSException) { ErrosForm = ["Não foi possível carregar o componente do Gantt. Recarregue a página."]; StateHasChanged(); }
-    }
 
     protected override void OnInitialized()
     {
-        _podeEditar = Perfil(PerfilUsuario.Engenharia, PerfilUsuario.Diretoria);
-        _podeApontar = Perfil(PerfilUsuario.Engenharia, PerfilUsuario.Diretoria, PerfilUsuario.Campo);
-        if (AbaQuery is { } a && _abas.Any(x => x.Item1 == a)) _aba = a;
+        if (AbaQuery is { } a)
+        {
+            var destino = AbasCronograma.Contains(a) ? "engenharia/cronograma" : AbasLastPlanner.Contains(a) ? "engenharia/last-planner" : null;
+            if (destino is not null) { Nav.NavigateTo(destino + new Uri(Nav.Uri).Query, replace: true); return; }
+            if (_abas.Any(x => x.Item1 == a)) _aba = a;
+        }
     }
 
     private async Task TrocarObra(Guid? nova)
     {
-        _obraId = nova; _versaoId = null; _versao = null; _sel = null; _redesMudaram = false;
+        _obraId = nova; _versaoId = null; _versao = null;
         await Recarregar();
     }
 
@@ -400,205 +118,34 @@
     {
         if (_obraId is not { } o) return;
         await using var db = Fabrica.CriarLeitura();
-        _versoes = await db.VersoesCronograma.AsNoTracking().Where(v => v.ObraId == o).OrderByDescending(v => v.Numero).ToListAsync(Cancelamento);
+        _versoes = await db.VersoesCronograma.AsNoTracking().Where(v => v.ObraId == o)
+            .OrderByDescending(v => v.Numero).ToListAsync(Cancelamento);
+        // Indicadores olham a versão vigente; sem ela, a mais recente em aprovação ou elaboração.
         _versaoId = _versaoId is { } atual && _versoes.Any(v => v.Id == atual) ? atual
-            : (_versoes.FirstOrDefault(v => v.Status == StatusVersao.EmElaboracao) ?? _versoes.FirstOrDefault(v => v.Status == StatusVersao.EmAprovacao)
-               ?? _versoes.FirstOrDefault(v => v.Status == StatusVersao.Vigente) ?? _versoes.FirstOrDefault())?.Id;
+            : (_versoes.FirstOrDefault(v => v.Status == StatusVersao.Vigente) ?? _versoes.FirstOrDefault(v => v.Status == StatusVersao.EmAprovacao)
+               ?? _versoes.FirstOrDefault())?.Id;
         _cal = await PlanejamentoServico.CalendarioAsync(db, o, Cancelamento);
-        _feriados = await db.Feriados.AsNoTracking().Where(f => f.ObraId == null || f.ObraId == o).OrderBy(f => f.Data).ToListAsync(Cancelamento);
+        await CarregarVersao(db);
+    }
+
+    private async Task AbrirVersao(Guid id)
+    {
+        _versaoId = id;
+        await using var db = Fabrica.CriarLeitura();
         await CarregarVersao(db);
     }
 
     private async Task CarregarVersao(IQualyHubDb db)
     {
-        _versao = null; _linhas = []; _porLinha = [];
+        _versao = null;
         if (_versaoId is not { } id) return;
-        _versao = await db.VersoesCronograma.AsNoTracking().Include(v => v.Atividades).Include(v => v.Vinculos).AsSplitQuery().FirstAsync(v => v.Id == id, Cancelamento);
+        _versao = await db.VersoesCronograma.AsNoTracking().Include(v => v.Atividades).FirstAsync(v => v.Id == id, Cancelamento);
         var v = _versao;
-        if (_versoes.FindIndex(x => x.Id == v.Id) is var iv and >= 0) _versoes[iv] = v; // resumo da lista acompanha a versão aberta
-        _editavel = _podeEditar && v.Editavel;
-        _redesVersao = await db.RedesPlanejamento.AsNoTracking().Include(r => r.Locais).Include(r => r.Pacotes).AsSplitQuery().Where(r => r.ObraId == v.ObraId).OrderBy(r => r.Ordem).ToListAsync(Cancelamento);
-        var cores = _redesVersao.Select((r, i) => (r.Id, i % 5 + 1)).ToDictionary(x => x.Id, x => x.Item2);
-        var (linhas, ids) = CronogramaVisao.Linhas(v, _cal, cores);
-        _linhas = linhas;
-        var porId = v.Atividades.ToDictionary(a => a.Id);
-        _porLinha = ids.ToDictionary(x => x.Value, x => porId[x.Key]);
         var folhas = v.Atividades.Where(a => !a.Resumo).ToList();
         _folhas = folhas.Count;
         _criticas = folhas.Count(a => a.Critica);
         _avanco = folhas.Sum(a => a.Custo) is > 0 and var c ? folhas.Sum(a => a.Avanco * a.Custo) / c : folhas.Count == 0 ? 0 : folhas.Average(a => a.Avanco);
         _desvio = v.TerminoBase is { } tb && v.TerminoPrevisto is { } tp ? _cal.DiasUteisEntre(tb, tp) : null;
-        _movidas = folhas.Count(a => a.InicioBase is { } b && b != a.Inicio);
-        var datas = v.Atividades.SelectMany(a => new DateOnly?[] { a.Inicio, a.Termino, a.InicioBase, a.TerminoBase }).Where(d => d != null && d.Value != default).Select(d => d!.Value).ToList();
-        var ini = datas.Count > 0 ? datas.Min() : v.InicioProjeto; var fim = datas.Count > 0 ? datas.Max() : v.InicioProjeto.AddMonths(6);
-        _pIni = CronogramaVisao.Ini(ini.AddDays(-7)); _pFim = CronogramaVisao.Fim(fim.AddDays(21));
-        _feriadosVisiveis = Enumerable.Range(ini.Year, fim.Year - ini.Year + 1).SelectMany(Calendario.FeriadosNacionais)
-            .Concat(_feriados.Select(f => (f.Data, f.Nome))).Where(f => f.Item1 >= ini && f.Item1 <= fim)
-            .Select(f => (CronogramaVisao.Ini(f.Item1), f.Item2)).ToList();
-        _versaoChave++;
-        if (!_mudouNoGantt) _ganttChave++;
-        _mudouNoGantt = false;
-        if (_sel is not null) Selecionar(v.Atividades.FirstOrDefault(a => a.Id == _sel.Id)); else NovaAtividade(false);
+        _chave++;
     }
-
-    private async Task AbrirVersao(Guid id)
-    {
-        _versaoId = id; _sel = null;
-        await using var db = Fabrica.CriarLeitura();
-        await CarregarVersao(db);
-    }
-
-    private void TrocarAba(string a) => _aba = a;
-
-    /// <summary>Mudança gravada no Gantt por local: atualiza indicadores e a versão sem redesenhar o Gantt (ele já se atualizou).</summary>
-    private async Task AoMudarGantt() { _mudouNoGantt = true; await Recarregar(); }
-
-    private async Task AoGravarMedicao() => await Recarregar();
-
-    private void IrParaRedes(Guid? rede) => _aba = "redes";
-
-    private async Task CriarLb0()
-    {
-        if (_obraId is not { } o) return;
-        if (await Executar(async () => _versaoId = await Plan.VersaoEmElaboracaoAsync(o, true, Cancelamento), "Linha de base (LB0) criada. Monte as redes e gere o cronograma."))
-        { _aba = "redes"; await Recarregar(); }
-    }
-
-    private async Task NovaReprogramacao()
-    {
-        if (_obraId is not { } o) return;
-        Guid id = default;
-        if (await Executar(async () => id = await Plan.NovaReprogramacaoAsync(o, Cancelamento), "Reprogramação aberta a partir da versão vigente."))
-        { _versaoId = id; _aba = "crono"; await Recarregar(); }
-    }
-
-    private async Task Gerar()
-    {
-        if (_versaoId is not { } id) return;
-        var n = 0;
-        if (await Executar(async () => n = await Plan.GerarPelasRedesAsync(id, Cancelamento)))
-        {
-            Notif.Sucesso($"Cronograma gerado pelas redes: {n} atividades.");
-            _redesMudaram = false; _aba = "crono"; await Recarregar();
-        }
-    }
-
-    private async Task MudarInicio(string? inicio, string? status)
-    {
-        if (_versao is not { } v) return;
-        var ini = DateOnly.TryParse(inicio, out var a) ? a : v.InicioProjeto;
-        DateOnly? st = DateOnly.TryParse(status, out var b) ? b : v.DataStatus;
-        if (await Executar(() => Plan.AlterarInicioProjetoAsync(v.Id, ini, st, Cancelamento))) await Recarregar();
-    }
-
-    private void Selecionar(AtividadeCronograma? a)
-    {
-        _sel = a;
-        if (a is null) return;
-        _novoResumo = a.Resumo; _fNome = a.Nome; _fDur = a.Duracao; _fAvanco = a.Avanco; _fInicio = a.Inicio;
-        _fPred = MotorCronograma.FormatarPredecessoras(a.Id, _versao!.Vinculos.ToList(), _versao.Atividades.ToDictionary(x => x.Id));
-    }
-
-    private void AoSelecionar(Syncfusion.Blazor.Grids.RowSelectEventArgs<LinhaGantt> e)
-    {
-        if (e.Data is { } l && _porLinha.TryGetValue(l.Id, out var a)) Selecionar(a);
-    }
-
-    private Guid? _paiNovo;
-    private void NovaAtividade(bool resumo)
-    {
-        _paiNovo = _sel?.Resumo == true ? _sel.Id : _sel?.PaiId;
-        _sel = null; _novoResumo = resumo; _fNome = ""; _fDur = resumo ? 0 : 5; _fAvanco = 0; _fPred = resumo ? null : ""; _fInicio = null;
-    }
-
-    private async Task SalvarAtividade()
-    {
-        if (_versao is not { } v) return;
-        var e = new PlanejamentoServico.AtividadeEdicao(_sel?.Id, _sel is null ? _paiNovo : _sel.PaiId, _fNome, _fDur, _fAvanco, _fPred,
-            _sel is not null && _fInicio is { } i && i != _sel.Inicio ? i : null, _sel?.Resumo ?? _novoResumo);
-        Guid id = default;
-        if (await Executar(async () => id = await Plan.SalvarAtividadeAsync(v.Id, e, Cancelamento), "Atividade salva e cronograma recalculado."))
-        {
-            await using var db = Fabrica.CriarLeitura();
-            _sel = new AtividadeCronograma { Id = id };
-            await CarregarVersao(db);
-        }
-    }
-
-    private async Task ExcluirAtividade()
-    {
-        if (_versao is not { } v || _sel is not { } a) return;
-        if (await Executar(() => Plan.ExcluirAtividadeAsync(v.Id, a.Id, Cancelamento), "Excluída e cronograma recalculado."))
-        { _sel = null; await using var db = Fabrica.CriarLeitura(); await CarregarVersao(db); }
-    }
-
-    /// <summary>
-    /// Barra editada no Gantt: decide pelo que mudou — arrastar (início e término andam juntos) só move (folga no vínculo);
-    /// puxar uma ponta muda a duração; arrastar o progresso muda o avanço.
-    /// </summary>
-    private async Task AoEditarBarra(TaskbarEditedEventArgs<LinhaGantt> e)
-    {
-        if (_versao is not { } v || e.Data is not { } l || !_porLinha.TryGetValue(l.Id, out var a)) return;
-        var ini = DateOnly.FromDateTime(l.Inicio); var fim = DateOnly.FromDateTime(l.Termino);
-        var mudouIni = ini != a.Inicio; var mudouFim = fim != a.Termino;
-        bool ok;
-        if (!mudouIni && !mudouFim && l.Avanco != (int)Math.Round(a.Avanco))
-            ok = await Executar(() => Plan.SalvarAtividadeAsync(v.Id, new PlanejamentoServico.AtividadeEdicao(a.Id, a.PaiId, a.Nome, a.Duracao, Math.Clamp(l.Avanco, 0, 100), null, null), Cancelamento));
-        else if (!mudouIni && !mudouFim) return;
-        else
-        {
-            var mesmaDuracao = a.Duracao == 0 || _cal.DiasUteisEntre(_cal.ProximoUtil(ini), fim) + (_cal.EhUtil(fim) ? 1 : 0) == a.Duracao;
-            ok = await Executar(() => Plan.MoverAsync(v.Id, a.Id, ini, mudouIni && mudouFim && mesmaDuracao ? null : fim, Cancelamento));
-        }
-        _sel = a;
-        await using var db = Fabrica.CriarLeitura();
-        await CarregarVersao(db); // em caso de erro volta a barra para a posição calculada
-        if (ok) Notif.Sucesso("Cronograma recalculado.");
-    }
-
-    private void AbrirEnvio() { ErrosForm = null; _motivo = _versao?.Numero == 0 ? Motivos[0] : Motivos[1]; _descricao = _versao?.Descricao; _abertoEnvio = true; }
-
-    private async Task Enviar()
-    {
-        if (_versao is not { } v) return;
-        if (await Executar(() => Plan.EnviarParaAprovacaoAsync(v.Id, _motivo, _descricao, Cancelamento), $"{v.Codigo} enviada para aprovação (engenheiro responsável → diretor técnico)."))
-        { _abertoEnvio = false; _aba = "versoes"; await Recarregar(); }
-    }
-
-    private async Task Descartar(Guid id)
-    {
-        if (await Executar(() => Plan.DescartarAsync(id, Cancelamento), "Versão descartada.")) { _versaoId = null; await Recarregar(); }
-    }
-
-    private async Task ImportarMsProject(InputFileChangeEventArgs e)
-    {
-        if (_versao is not { } v) return;
-        var n = 0;
-        if (await Executar(async () =>
-        {
-            await using var s = e.File.OpenReadStream(20 * 1024 * 1024, Cancelamento);
-            using var ms = new MemoryStream();
-            await s.CopyToAsync(ms, Cancelamento); ms.Position = 0;
-            n = await Plan.ImportarMsProjectAsync(v.Id, ms, Cancelamento);
-        }))
-        { Notif.Sucesso($"MS Project importado: {n} atividades."); await Recarregar(); }
-    }
-
-    private async Task Baixar(string tipo)
-    {
-        if (_versaoId is { } id) await JS.InvokeVoidAsync("open", $"/arquivos/cronograma/{id}/{tipo}", "_blank");
-    }
-
-    private async Task AddFeriado()
-    {
-        if (_fFerData is not { } d) { ErrosForm = ["Informe a data."]; return; }
-        var f = new Feriado { Data = d, Nome = _fFerNome?.Trim() ?? "", ObraId = _fFerObra ? _obraId : null };
-        if (await Executar(() => Plan.SalvarFeriadoAsync(f, Cancelamento), "Feriado incluído; versões em elaboração recalculadas.")) { _fFerData = null; _fFerNome = null; await Recarregar(); }
-    }
-
-    private async Task ExcluirFeriado(Guid id)
-    {
-        if (await Executar(() => Plan.ExcluirFeriadoAsync(id, Cancelamento), "Feriado excluído.")) await Recarregar();
-    }
-
 }

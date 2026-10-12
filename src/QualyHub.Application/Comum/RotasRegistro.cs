@@ -15,7 +15,7 @@ public static class RotasRegistro
         ["Requisicao"] = ("requisicoes", "Requisição"), ["Cotacao"] = ("cotacoes", "Cotação"), ["Pedido"] = ("pedidos", "Pedido"),
         ["Contrato"] = ("contratos", "Contrato"), ["Medicao"] = ("medicoes", "Medição"), ["Recebimento"] = ("recebimentos", "Recebimento"),
         ["Pagamento"] = ("pagamentos", "Liberação de pagamento"), ["Tarefa"] = ("tarefas", "Tarefa"),
-        ["Conversa"] = ("mensagens", "Mensagem"), ["Cronograma"] = ("engenharia/planejamento", "Cronograma"), ["Restricao"] = ("engenharia/planejamento", "Restrição"),
+        ["Conversa"] = ("mensagens", "Mensagem"), ["Cronograma"] = ("engenharia/cronograma", "Cronograma"), ["Restricao"] = ("engenharia/last-planner", "Restrição"),
     };
 
     public static string Rotulo(string? entidade) => entidade is not null && Mapa.TryGetValue(entidade, out var m) ? m.Rotulo : entidade ?? "";
@@ -25,8 +25,8 @@ public static class RotasRegistro
         if (entidade is null || id is not { } i || !Mapa.TryGetValue(entidade, out var m)) return null;
         return entidade switch
         {
-            "Cronograma" => $"engenharia/planejamento?aba=versoes&versao={i}",
-            "Restricao" => $"engenharia/planejamento?aba=medio&restricao={i}",
+            "Cronograma" => $"engenharia/cronograma?aba=versoes&versao={i}",
+            "Restricao" => $"engenharia/last-planner?aba=medio&restricao={i}",
             _ => $"{m.Rota}?id={i}"
         };
     }
@@ -36,7 +36,7 @@ public static class RotasRegistro
         EntidadeAprovavel.Requisicao => $"requisicoes?id={id}", EntidadeAprovavel.Cotacao => $"cotacoes?id={id}", EntidadeAprovavel.Pedido => $"pedidos?id={id}",
         EntidadeAprovavel.Contrato => $"contratos?id={id}", EntidadeAprovavel.Medicao => $"medicoes?id={id}", EntidadeAprovavel.Pagamento => $"pagamentos?id={id}",
         EntidadeAprovavel.Aditivo => $"contratos?aditivo={id}", EntidadeAprovavel.DocumentoSgq => $"sgq/documentos?id={id}",
-        EntidadeAprovavel.Cronograma => "engenharia/planejamento?aba=versoes", EntidadeAprovavel.AvaliacaoFornecedor => "fornecedores/avaliacao",
+        EntidadeAprovavel.Cronograma => "engenharia/cronograma?aba=versoes", EntidadeAprovavel.AvaliacaoFornecedor => "fornecedores/avaliacao",
         _ => ""
     };
 }

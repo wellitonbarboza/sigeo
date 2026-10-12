@@ -15,6 +15,9 @@ public sealed class AcessoTelasTests
     [InlineData("engenharia/empreendimento", "engenharia/obras")]
     [InlineData("campo/fvs/0198f3a2-0000-7000-8000-000000000000", "obra/fvs")]
     [InlineData("cotacoes/mapa", "cotacoes")]
+    [InlineData("engenharia/planejamento/imprimir", "engenharia/planejamento")]
+    [InlineData("engenharia/cronograma", "engenharia/cronograma")]
+    [InlineData("engenharia/last-planner?aba=medio", "engenharia/last-planner")]
     public void Endereco_cai_na_tela_certa(string caminho, string rota) => Assert.Equal(rota, CatalogoTelas.TelaDe(caminho)?.Rota);
 
     [Theory]
@@ -63,5 +66,18 @@ public sealed class AcessoTelasTests
         var ter = PerfisPadrao.Regras(PerfilUsuario.Terceiro);
         Assert.Equal(2, ter.Count);
         Assert.All(Enum.GetValues<PerfilUsuario>(), p => Assert.All(PerfisPadrao.Regras(p), r => Assert.Contains('V', r.Value)));
+    }
+
+    [Fact]
+    public void Planejamento_dividido_indicadores_so_leitura_edicao_e_last_planner_separados()
+    {
+        Assert.Equal("VX", CatalogoTelas.Telas["engenharia/planejamento"].Acoes);
+        var dir = PerfisPadrao.Regras(PerfilUsuario.Diretoria);
+        Assert.Contains('I', dir["engenharia/cronograma"]);
+        Assert.Contains('A', dir["engenharia/cronograma"]);
+        var campo = PerfisPadrao.Regras(PerfilUsuario.Campo);
+        Assert.Contains('I', campo["engenharia/last-planner"]);
+        Assert.DoesNotContain('I', campo["engenharia/cronograma"]);
+        Assert.Equal("VX", campo["engenharia/planejamento"]);
     }
 }

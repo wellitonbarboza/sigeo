@@ -150,7 +150,7 @@ public sealed class AprovacaoServico(IUsuarioAtual usuario, TimeProvider relogio
         EntidadeAprovavel.Pedido => "pedidos", EntidadeAprovavel.Medicao => "medicoes", EntidadeAprovavel.DocumentoSgq => "sgq/documentos",
         EntidadeAprovavel.AvaliacaoFornecedor => "fornecedores/avaliacao", EntidadeAprovavel.Requisicao => "requisicoes", EntidadeAprovavel.Cotacao => "cotacoes",
         EntidadeAprovavel.Contrato or EntidadeAprovavel.Aditivo => "contratos", EntidadeAprovavel.Pagamento => "pagamentos",
-        EntidadeAprovavel.Cronograma => "engenharia/planejamento", _ => throw new ArgumentOutOfRangeException(nameof(e))
+        EntidadeAprovavel.Cronograma => "engenharia/cronograma", _ => throw new ArgumentOutOfRangeException(nameof(e))
     };
 
     public static async Task<SolicitacaoAprovacao?> UltimaAsync(IQualyHubDb db, EntidadeAprovavel e, Guid id, CancellationToken ct = default) =>

@@ -124,6 +124,15 @@ QualyHub.Web (Blazor Server + API)  ──►  QualyHub.Application (casos de us
   **aprovação** no `AprovacaoServico` (A na tela do documento + alçada). Fora de tela (rotinas, portal, login) não há barreira.
 - Regras de negócio por função continuam (ex.: assinatura do RDO pelo engenheiro da obra, cronograma por Engenharia/Diretoria, medição semanal pela Engenharia).
 
+## Planejamento em três telas
+- **Planejamento** (`engenharia/planejamento`, ações V/X): só indicadores — KPIs, Painel, Gantt por local (só ver) e Desembolso/curva S.
+  Abre na versão vigente. Links antigos `?aba=` de edição ou de Last Planner são redirecionados para a tela nova.
+- **Cronograma (edição)** (`engenharia/cronograma`): edição do cronograma (Gantt por local, editar redes/ligações, tabela/Gantt detalhado),
+  Gerar pelas redes, Importar/Exportar MS Project, Nova reprogramação, Enviar para aprovação, Redes, Versões e aprovação, Calendário.
+  `?versao=` abre a obra da versão (links de aprovação/registro).
+- **Last Planner** (`engenharia/last-planner`): médio prazo/restrições, curto prazo/PPC, programação semanal, plano de ação e medição semanal.
+- Migração `DivisaoTelasPlanejamento`: regras de perfis, exceções por usuário e telas bloqueadas da antiga "Planejamento" copiadas para as duas telas novas.
+
 ## Kits de importação (docs/kits)
 - **Kit de tipologia** (Engenharia › Tipologias › Importar kit): abas Tipologias, Ambientes, Mix, Servicos, Aplicacao e, opcional,
   **Insumos** (Serviço, Tipo, Descrição, Unidade, Quantidade por unidade do serviço, Perda %, Custo unitário, Produto (código),

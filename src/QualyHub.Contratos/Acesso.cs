@@ -60,7 +60,9 @@ public static class CatalogoTelas
         new("eng", "Engenharia", "regua", false, [
             T("eng", "engenharia/obras", "Obras e Empreendimentos", "predio"), T("eng", "engenharia/tipologias", "Tipologias", "cubo"),
             T("eng", "engenharia/composicoes", "Serviços e Composições", "lista"), T("eng", "engenharia/orcamento", "Orçamento por Local", "calculadora", "VIEAX"),
-            T("eng", "engenharia/planejamento", "Planejamento", "grafico", "VIEAX"), T("eng", "engenharia/diario", "Diário de Obra (RDO)", "calendario", "VIEAX"),
+            T("eng", "engenharia/planejamento", "Planejamento", "grafico", "VX"),
+            T("eng", "engenharia/cronograma", "Cronograma (edição)", "calendario", "VIEAX"), T("eng", "engenharia/last-planner", "Last Planner", "alvo"),
+            T("eng", "engenharia/diario", "Diário de Obra (RDO)", "prancheta", "VIEAX"),
             T("eng", "engenharia/mao-de-obra", "Mão de Obra Própria", "pessoa")]),
         new("sup", "Suprimentos", "carrinho", false, [
             T("sup", "requisicoes", "Requisição", "prancheta", "VIEAX"), T("sup", "cotacoes", "Orçamentos", "calculadora", "VIEAX"),
@@ -198,7 +200,7 @@ public static class PerfisPadrao
                 break;
             case PerfilUsuario.Diretoria:
                 Ver(); foreach (var m in Operacao) Modulo(m, "A");
-                Dar("engenharia/planejamento", "I"); Dar("sgq/documentos", "I"); Dar("sistema/log", "VX");
+                Dar("engenharia/cronograma", "I"); Dar("sgq/documentos", "I"); Dar("sistema/log", "VX");
                 break;
             case PerfilUsuario.Engenharia:
                 Ver(); Modulo("eng", "IEA"); Modulo("qob", "IEA");
@@ -218,7 +220,7 @@ public static class PerfisPadrao
                 break;
             case PerfilUsuario.Campo:
                 Ver();
-                foreach (var x in new[] { "requisicoes", "recebimentos", "transferencias", "obra/fvs", "obra/rnc", "obra/acoes", "engenharia/planejamento" }) Dar(x, "I");
+                foreach (var x in new[] { "requisicoes", "recebimentos", "transferencias", "obra/fvs", "obra/rnc", "obra/acoes", "engenharia/last-planner" }) Dar(x, "I");
                 break;
             case PerfilUsuario.Almoxarifado:
                 Modulo("sup", "VX"); Modulo("cad", "VX");

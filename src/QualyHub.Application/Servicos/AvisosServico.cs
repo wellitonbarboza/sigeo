@@ -150,7 +150,7 @@ public static class AvisosServico
                 n += await EnfileirarAsync(db, rRes, Ds([r.ResponsavelId]), $"restricao:{r.Id:N}:{dia}",
                     new Dictionary<string, string?> { ["restricao"] = $"{r.Numero} – {r.Descricao}", ["atividade"] = r.AtividadeNome, ["data"] = r.DataLimite.ToString("dd/MM/yyyy"),
                         ["assunto"] = r.DataLimite < hoje ? $"Restrição vencida: {r.AtividadeNome}" : $"Restrição vence em {r.DataLimite:dd/MM}: {r.AtividadeNome}" },
-                    $"engenharia/planejamento?obra={r.ObraId}&aba=medio&restricao={r.Id}", ct);
+                    $"engenharia/last-planner?obra={r.ObraId}&aba=medio&restricao={r.Id}", ct);
         }
         return n;
     }
