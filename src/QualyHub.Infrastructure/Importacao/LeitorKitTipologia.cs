@@ -6,7 +6,7 @@ using QualyHub.Domain.Common;
 namespace QualyHub.Infrastructure.Importacao;
 
 /// <summary>
-/// Lê a planilha do kit de tipologia (abas Tipologias, Ambientes, Mix, Serviços e Aplicação; cabeçalho na linha 1).
+/// Lê a planilha do kit de tipologia (abas Tipologias, Ambientes, Mix, Serviços, Aplicação e, opcional, Insumos; cabeçalho na linha 1).
 /// Cabeçalhos e listas (tipo, escopo, regra, nível) são comparados sem acento e sem caixa.
 /// </summary>
 public static class LeitorKitTipologia
@@ -30,10 +30,22 @@ public static class LeitorKitTipologia
             l.Dec("fator") ?? 1, l.TxtOpc("its"), l.TxtOpc("observacao"))).ToList();
         var aps = AbasPlanilha.Linhas(wb, erros, "Aplicacao", true).Select(l => new KitAplicacao(l.N,
             l.Txt("tipologia"), l.Txt("servico"), l.Enum("nivel", Alvos), l.TxtOpc("ambiente"), l.Dec("quantidadefixa"))).ToList();
+        var ins = AbasPlanilha.Linhas(wb, erros, "Insumos", false).Select(l => new KitInsumo(l.N,
+            l.Txt("servico"), l.Enum("tipo", TiposInsumo), l.Txt("descricao"), l.Txt("unidade"),
+            l.Dec("quantidadeporunidadedoservico") ?? l.Dec("coeficiente") ?? 0, l.Dec("perda") ?? 0,
+            l.Dec("custounitarior") ?? l.Dec("custounitario") ?? 0, l.TxtOpc("produtocodigo") ?? l.TxtOpc("produto"),
+            l.TxtOpc("grupodoproduto"), l.TxtOpc("subgrupodoproduto"))).ToList();
         ValidacaoException.Se(erros);
-        return new KitTipologia(tips, ambs, mix, servs, aps);
+        return new KitTipologia(tips, ambs, mix, servs, aps, ins);
     }
 
+    private static readonly Dictionary<string, TipoInsumo> TiposInsumo = new()
+    {
+        ["material"] = TipoInsumo.Material, ["maodeobra"] = TipoInsumo.MaoObraEmpreitada, ["maodeobraempreitada"] = TipoInsumo.MaoObraEmpreitada,
+        ["empreitada"] = TipoInsumo.MaoObraEmpreitada, ["maodeobrapropria"] = TipoInsumo.MaoObraPropria, ["equipamento"] = TipoInsumo.Equipamento,
+        ["servicodeterceiro"] = TipoInsumo.ServicoTerceiro, ["servicoterceiro"] = TipoInsumo.ServicoTerceiro, ["terceiro"] = TipoInsumo.ServicoTerceiro,
+        ["materialmaodeobra"] = TipoInsumo.ServicoTerceiro, ["verba"] = TipoInsumo.ServicoTerceiro
+    };
     private static readonly Dictionary<string, TipoTipologia> TiposTipologia = new()
     { ["apartamento"] = TipoTipologia.Apartamento, ["torre"] = TipoTipologia.Torre, ["implantacao"] = TipoTipologia.Implantacao };
     private static readonly Dictionary<string, EscopoAmbiente> Escopos = new()

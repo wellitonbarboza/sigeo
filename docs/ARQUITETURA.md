@@ -123,3 +123,13 @@ QualyHub.Web (Blazor Server + API)  ──►  QualyHub.Application (casos de us
   endereço do circuito ou `.Tela("rota")` nos endpoints da API) — gravar exige I, operação só de exclusão/cancelamento exige E;
   **aprovação** no `AprovacaoServico` (A na tela do documento + alçada). Fora de tela (rotinas, portal, login) não há barreira.
 - Regras de negócio por função continuam (ex.: assinatura do RDO pelo engenheiro da obra, cronograma por Engenharia/Diretoria, medição semanal pela Engenharia).
+
+## Kits de importação (docs/kits)
+- **Kit de tipologia** (Engenharia › Tipologias › Importar kit): abas Tipologias, Ambientes, Mix, Servicos, Aplicacao e, opcional,
+  **Insumos** (Serviço, Tipo, Descrição, Unidade, Quantidade por unidade do serviço, Perda %, Custo unitário, Produto (código),
+  Grupo/Subgrupo do produto). Serviço com insumos na planilha tem os insumos substituídos (reimportar atualiza custos); material sem
+  código de produto é procurado por nome + unidade ou criado no cadastro (código padronizado pelo grupo/subgrupo).
+- `Kit_Tipologia_Nest_Cancelli_R01.xlsx`: orçamento revisado R01 do Nest Cancelli (128 serviços, 641 insumos); itens "apt × 38" no
+  apartamento, demais na torre com quantidade fixa — o orçamento gerado bate com o total do R01 (teste `KitNestCancelliTests`).
+- **Cronograma**: XML do MS Project (MSPDI) na versão em elaboração; custo em centavos (padrão MSPDI); feriados do calendário do
+  projeto entram no calendário da obra. `Nest_Cancelli_Cronograma_R08_importacao_QualyHub.xml` = baseline R08 adequada.

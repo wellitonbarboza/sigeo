@@ -16,7 +16,7 @@ public static partial class MsProjectXml
     private static readonly XNamespace Ns = "http://schemas.microsoft.com/project";
     private const int MinutosDia = 480;
 
-    public sealed record Lido(List<AtividadeCronograma> Atividades, List<VinculoAtividade> Vinculos, DateOnly? Inicio);
+    public sealed record Lido(List<AtividadeCronograma> Atividades, List<VinculoAtividade> Vinculos, DateOnly? Inicio, List<(DateOnly Data, string Nome)>? Feriados = null);
 
     private static int TipoMsp(TipoVinculo t) => t switch
     {
@@ -137,6 +137,27 @@ public static partial class MsProjectXml
         var comPred = vinculos.Select(v => v.SucessoraId).ToHashSet();
         foreach (var a in atividades.Where(a => !a.Resumo && !comPred.Contains(a.Id) && a.Inicio != default)) a.InicioMinimo = a.Inicio;
         var inicio = Data(V(proj, "StartDate")) ?? atividades.Where(a => a.Inicio != default).Select(a => (DateOnly?)a.Inicio).Min();
-        return new Lido(atividades, vinculos, inicio);
+        return new Lido(atividades, vinculos, inicio, Feriados(proj, ns));
+    }
+
+    /// <summary>Dias não úteis do calendário do projeto (exceções com DayWorking = 0), limitados a 10 anos.</summary>
+    private static List<(DateOnly Data, string Nome)> Feriados(XElement proj, XNamespace ns)
+    {
+        var lista = new List<(DateOnly, string)>();
+        var uid = proj.Element(ns + "CalendarUID")?.Value;
+        var cal = proj.Element(ns + "Calendars")?.Elements(ns + "Calendar").FirstOrDefault(c => c.Element(ns + "UID")?.Value == uid)
+                  ?? proj.Element(ns + "Calendars")?.Elements(ns + "Calendar").FirstOrDefault();
+        if (cal is null) return lista;
+        foreach (var e in cal.Element(ns + "Exceptions")?.Elements(ns + "Exception") ?? [])
+        {
+            if (e.Element(ns + "DayWorking")?.Value == "1") continue;
+            var p = e.Element(ns + "TimePeriod");
+            if (!DateTime.TryParse(p?.Element(ns + "FromDate")?.Value, CultureInfo.InvariantCulture, DateTimeStyles.None, out var de)) continue;
+            var ate = DateTime.TryParse(p?.Element(ns + "ToDate")?.Value, CultureInfo.InvariantCulture, DateTimeStyles.None, out var a) ? a : de;
+            var nome = (e.Element(ns + "Name")?.Value ?? "Feriado").Trim();
+            for (var d = DateOnly.FromDateTime(de); d <= DateOnly.FromDateTime(ate) && lista.Count < 3650; d = d.AddDays(1))
+                lista.Add((d, nome.Length == 0 ? "Feriado" : nome[..Math.Min(nome.Length, 100)]));
+        }
+        return lista;
     }
 }

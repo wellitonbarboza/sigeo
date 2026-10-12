@@ -577,6 +577,13 @@ public sealed class PlanejamentoServico(IFabricaDb fabrica, IUsuarioAtual usuari
         foreach (var a in Profundidade(v.Atividades.ToList())) db.AtividadesCronograma.Remove(a);
         await db.SaveChangesAsync(ct);
         v.Atividades.Clear(); v.Vinculos.Clear();
+        // Feriados do calendário do Project que a obra ainda não tem (o motor de datas usa o calendário da obra).
+        if (lido.Feriados is { Count: > 0 } fer)
+        {
+            var ja = (await db.Feriados.Where(f => f.ObraId == null || f.ObraId == v.ObraId).Select(f => f.Data).ToListAsync(ct)).ToHashSet();
+            foreach (var (data, nome) in fer.Where(x => ja.Add(x.Data))) db.Feriados.Add(new Feriado { Data = data, Nome = nome, ObraId = v.ObraId });
+            await db.SaveChangesAsync(ct);
+        }
         foreach (var a in lido.Atividades) { a.VersaoId = v.Id; v.Atividades.Add(a); db.AtividadesCronograma.Add(a); }
         foreach (var l in lido.Vinculos) { l.VersaoId = v.Id; v.Vinculos.Add(l); db.VinculosAtividade.Add(l); }
         if (lido.Inicio is { } ini) v.InicioProjeto = (await CalendarioAsync(db, v.ObraId, ct)).ProximoUtil(ini);

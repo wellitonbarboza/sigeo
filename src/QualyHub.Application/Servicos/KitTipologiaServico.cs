@@ -9,7 +9,17 @@ namespace QualyHub.Application.Servicos;
 
 public sealed record KitTipologia(
     IReadOnlyList<KitTip> Tipologias, IReadOnlyList<KitAmbiente> Ambientes, IReadOnlyList<KitMix> Mix,
-    IReadOnlyList<KitServico> Servicos, IReadOnlyList<KitAplicacao> Aplicacoes);
+    IReadOnlyList<KitServico> Servicos, IReadOnlyList<KitAplicacao> Aplicacoes, IReadOnlyList<KitInsumo>? Insumos = null)
+{
+    public IReadOnlyList<KitInsumo> InsumosOuVazio => Insumos ?? [];
+}
+
+/// <summary>
+/// Insumo da composição (aba Insumos, opcional): quantidade por unidade do serviço e custo unitário.
+/// Material aponta para o produto pelo código; sem código, procura pelo nome e unidade ou cria o produto (grupo/subgrupo da planilha).
+/// </summary>
+public sealed record KitInsumo(int Linha, string Servico, TipoInsumo Tipo, string Descricao, string Unidade, decimal Coeficiente, decimal Perda,
+    decimal CustoUnitario, string? Produto, string? GrupoProduto, string? SubgrupoProduto);
 
 public sealed record KitTip(int Linha, string Codigo, string Nome, TipoTipologia Tipo, int Dormitorios, int Suites, decimal AreaPrivativa,
     decimal? AreaEquivalente, int Pavimentos, bool PrimeiroTerreo, bool NumeracaoPorAndar, decimal? PeDireitoPadrao, string? Observacoes);
@@ -24,7 +34,7 @@ public sealed record KitServico(int Linha, string Codigo, string Descricao, stri
 public sealed record KitAplicacao(int Linha, string Tipologia, string Servico, AlvoServico Alvo, string? Ambiente, decimal? QuantidadeFixa);
 
 public sealed record ResumoKit(int TipologiasNovas, int TipologiasAtualizadas, int Ambientes, int ServicosNovos, int ServicosAtualizados, int Aplicacoes,
-    IReadOnlyList<string> ItsNaoEncontradas, IReadOnlyList<string> Avisos);
+    IReadOnlyList<string> ItsNaoEncontradas, IReadOnlyList<string> Avisos, int Insumos = 0, int ServicosComInsumos = 0, int ProdutosNovos = 0);
 
 /// <summary>
 /// Importa um kit de tipologia (apartamento, torre, implantação), o catálogo de serviços (com regra de quantidade e ITS)
@@ -46,15 +56,21 @@ public sealed class KitTipologiaServico(IFabricaDb fabrica, EngenhariaServico en
 
     private static string Up(string? s) => (s ?? "").Trim().ToUpperInvariant();
 
+    private static string ChaveProduto(string? nome, string? unidade) =>
+        string.Join(' ', Domain.Cadastros.CodigoProduto.Normalizar(nome ?? "").Split(' ', StringSplitOptions.RemoveEmptyEntries)) + "|" + Up(unidade);
+
     private async Task<ResumoKit> ProcessarAsync(Guid obraId, KitTipologia kit, bool aplicar, CancellationToken ct)
     {
         if (obraId == Guid.Empty) throw new RegraDeNegocioException("Escolha a obra.");
         Dictionary<string, Tipologia> existentes;
         Dictionary<string, Composicao> compsDb;
         List<(Guid Id, string Chave)> its;
+        List<Domain.Cadastros.Produto> produtos;
         await using (var db = fabrica.CriarLeitura())
         {
             if (!await db.Obras.AnyAsync(o => o.Id == obraId, ct)) throw new RegraDeNegocioException("Obra não encontrada.");
+            produtos = kit.InsumosOuVazio.Any(i => i.Tipo == TipoInsumo.Material)
+                ? await db.Produtos.Where(p => p.Ativo).ToListAsync(ct) : [];
             existentes = (await db.Tipologias.Include(t => t.Ambientes).Include(t => t.Mix).Where(t => t.ObraId == obraId).ToListAsync(ct))
                 .ToDictionary(t => t.Codigo, StringComparer.OrdinalIgnoreCase);
             compsDb = (await db.Composicoes.Include(c => c.Itens).ToListAsync(ct)).ToDictionary(c => c.Codigo, StringComparer.OrdinalIgnoreCase);
@@ -84,11 +100,43 @@ public sealed class KitTipologiaServico(IFabricaDb fabrica, EngenhariaServico en
         foreach (var g in kit.Ambientes.Where(a => a.AreaPiso == 0 && a.Perimetro == 0).GroupBy(a => a.Tipologia.Trim()))
             avisos.Add($"{g.Key}: sem medidas em {string.Join(", ", g.Select(a => a.Nome))} (serviços por área/perímetro não geram quantidade até preencher).");
 
+        var porCodigo = produtos.Where(p => !string.IsNullOrWhiteSpace(p.Codigo)).GroupBy(p => p.Codigo.Trim(), StringComparer.OrdinalIgnoreCase).ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+        var porNome = produtos.GroupBy(p => ChaveProduto(p.Nome, p.Unidade)).ToDictionary(g => g.Key, g => g.First());
+        var materiais = kit.InsumosOuVazio.Where(i => i.Tipo == TipoInsumo.Material).ToList();
+        var faltaProduto = materiais.Where(i => (i.Produto is not { Length: > 0 } c || !porCodigo.ContainsKey(c)) && !porNome.ContainsKey(ChaveProduto(i.Descricao, i.Unidade)))
+                                    .Select(i => ChaveProduto(i.Descricao, i.Unidade)).Distinct().Count();
+        foreach (var i in materiais.Where(i => i.Produto is { Length: > 0 } c && !porCodigo.ContainsKey(c)))
+            avisos.Add($"Insumos linha {i.Linha}: produto {i.Produto} não existe no cadastro; será procurado pelo nome ou criado.");
+
         var resumo = new ResumoKit(
             kit.Tipologias.Count(t => !existentes.ContainsKey(t.Codigo.Trim())), kit.Tipologias.Count(t => existentes.ContainsKey(t.Codigo.Trim())),
             kit.Ambientes.Count, kit.Servicos.Count(s => !compsDb.ContainsKey(s.Codigo.Trim())), kit.Servicos.Count(s => compsDb.ContainsKey(s.Codigo.Trim())),
-            kit.Aplicacoes.Count, itsFaltando, avisos);
+            kit.Aplicacoes.Count, itsFaltando, avisos, kit.InsumosOuVazio.Count, kit.InsumosOuVazio.Select(i => Up(i.Servico)).Distinct().Count(), faltaProduto);
         if (!aplicar) return resumo;
+
+        // 0) Produtos dos materiais que ainda não estão no cadastro (procura pelo código, depois pelo nome + unidade).
+        if (faltaProduto > 0)
+        {
+            await using var db = fabrica.Criar();
+            var cache = new CodigosProdutoServico.Cache();
+            foreach (var i in materiais)
+            {
+                if (i.Produto is { Length: > 0 } c && porCodigo.ContainsKey(c)) continue;
+                var chave = ChaveProduto(i.Descricao, i.Unidade);
+                if (porNome.ContainsKey(chave)) continue;
+                var p = new Domain.Cadastros.Produto
+                {
+                    Nome = i.Descricao.Trim(), Unidade = i.Unidade.Trim().ToUpperInvariant(), PrecoReferencia = i.CustoUnitario > 0 ? i.CustoUnitario : null,
+                    Grupo = string.IsNullOrWhiteSpace(i.GrupoProduto) ? "A Cadastrar" : i.GrupoProduto.Trim(),
+                    SubGrupo = string.IsNullOrWhiteSpace(i.SubgrupoProduto) ? "A Cadastrar" : i.SubgrupoProduto.Trim(), OrigemSistema = "Kit de tipologia"
+                };
+                await CodigosProdutoServico.AplicarAoSalvarAsync(db, p, cache, ct);
+                db.Produtos.Add(p);
+                porNome[chave] = p;
+            }
+            await db.SaveChangesAsync(ct);
+        }
+        var insumosDe = kit.InsumosOuVazio.GroupBy(i => Up(i.Servico)).ToDictionary(g => g.Key, g => g.ToList());
 
         // 1) Serviços (composições): atualiza os dados do serviço, mantém os insumos.
         var compId = new Dictionary<string, Guid>(StringComparer.OrdinalIgnoreCase);
@@ -98,6 +146,18 @@ public sealed class KitTipologiaServico(IFabricaDb fabrica, EngenhariaServico en
             c.Codigo = Up(s.Codigo); c.Descricao = s.Descricao.Trim(); c.Unidade = s.Unidade.Trim(); c.Grupo = s.Grupo?.Trim();
             c.Regra = s.Regra; c.Fator = s.Fator; c.Observacao = s.Observacao?.Trim(); c.Ativa = true;
             c.ServicoControladoId = Its(s.Its) ?? c.ServicoControladoId;
+            if (insumosDe.TryGetValue(Up(s.Codigo), out var ins))
+            {
+                // Insumos na planilha: substituem os da composição (rodar de novo atualiza custos e coeficientes).
+                var o = 0;
+                c.Itens = ins.Select(i => new ComposicaoItem
+                {
+                    ComposicaoId = c.Id, Ordem = ++o, Tipo = i.Tipo, Descricao = i.Descricao.Trim(), Unidade = i.Unidade.Trim(),
+                    Coeficiente = i.Coeficiente, PerdaPerc = i.Perda, CustoUnitario = i.CustoUnitario,
+                    ProdutoId = i.Tipo != TipoInsumo.Material ? null
+                        : i.Produto is { Length: > 0 } pc && porCodigo.TryGetValue(pc, out var pp) ? pp.Id : porNome[ChaveProduto(i.Descricao, i.Unidade)].Id
+                }).ToList();
+            }
             await orc.SalvarComposicaoAsync(c, ct);
             compId[c.Codigo] = c.Id;
         }
@@ -179,6 +239,15 @@ public sealed class KitTipologiaServico(IFabricaDb fabrica, EngenhariaServico en
             if (s.Fator <= 0) e.Add($"Serviços linha {s.Linha}: fator deve ser maior que zero.");
         }
         var servicos = kit.Servicos.Select(s => Up(s.Codigo)).ToHashSet();
+        foreach (var i in kit.InsumosOuVazio)
+        {
+            if (!servicos.Contains(Up(i.Servico))) e.Add($"Insumos linha {i.Linha}: serviço {i.Servico} não está na aba Serviços.");
+            if (string.IsNullOrWhiteSpace(i.Descricao) || string.IsNullOrWhiteSpace(i.Unidade)) e.Add($"Insumos linha {i.Linha}: informe descrição e unidade.");
+            if (i.Coeficiente <= 0) e.Add($"Insumos linha {i.Linha}: quantidade por unidade do serviço deve ser maior que zero.");
+            if (i.CustoUnitario < 0) e.Add($"Insumos linha {i.Linha}: custo não pode ser negativo.");
+            if (i.Perda is < 0 or > 100) e.Add($"Insumos linha {i.Linha}: perda entre 0 e 100%.");
+            if (i.Tipo == TipoInsumo.MaoObraPropria) e.Add($"Insumos linha {i.Linha}: mão de obra própria (horas por função) se lança na composição; na planilha use mão de obra empreitada.");
+        }
         var siglas = kit.Ambientes.Select(a => (Up(a.Tipologia), Up(a.Sigla))).ToHashSet();
         foreach (var ap in kit.Aplicacoes)
         {

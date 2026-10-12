@@ -167,6 +167,11 @@
                     <tr><td>Ambientes (cômodos e áreas comuns)</td><td class="num">@r.Ambientes</td></tr>
                     <tr><td>Serviços novos / atualizados</td><td class="num">@r.ServicosNovos / @r.ServicosAtualizados</td></tr>
                     <tr><td>Marcações de serviço (onde entra)</td><td class="num">@r.Aplicacoes</td></tr>
+                    @if (r.Insumos > 0)
+                    {
+                        <tr><td>Insumos (substituem os dos serviços listados)</td><td class="num">@r.Insumos em @r.ServicosComInsumos serviço(s)</td></tr>
+                        <tr><td>Materiais novos no cadastro de produtos</td><td class="num">@r.ProdutosNovos</td></tr>
+                    }
                 </tbody>
             </table>
             @if (r.ItsNaoEncontradas.Count > 0)
@@ -174,7 +179,7 @@
                 <div class="alerta aviso"><Icone Nome="alerta" /> <div>ITS não cadastradas em Materiais/Serviços controlados (o serviço entra sem a ITS): @string.Join(", ", r.ItsNaoEncontradas)</div></div>
             }
             @foreach (var a in r.Avisos) { <div class="alerta info"><Icone Nome="info" /> @a</div> }
-            <p class="mudo">Serviços já existentes mantêm os insumos; ambientes com a mesma sigla mantêm os locais já gerados. Depois: Estrutura e gerador › gerar as torres; Orçamento › gerar.</p>
+            <p class="mudo">Serviços já existentes mantêm os insumos (salvo os que vêm na aba Insumos); ambientes com a mesma sigla mantêm os locais já gerados. Depois: Estrutura e gerador › gerar as torres; Orçamento › gerar.</p>
         }
     </ChildContent>
     <Rodape>@if (_resumoKit is not null && _kit is not null) { <button class="btn prim" id="kit-aplicar" disabled="@Ocupado" @onclick="AplicarKit"><Icone Nome="check" Tam="16" /> Importar</button> }</Rodape>
