@@ -4,15 +4,6 @@
 @inject NavigationManager Nav
 
 <Pagina Titulo="Parcelas de contratos recorrentes" Grade="_grade" AoAtualizar="Carregar">
-    <Direita>
-        <select id="pc-contrato" class="larg-260" value="@_contratoId" @onchange="async e => { _contratoId = Guid.TryParse(e.Value?.ToString(), out var g) ? g : null; await Carregar(); }" aria-label="Contrato">
-            <option value="">Todos os contratos recorrentes</option>
-            @foreach (var c in _contratos) { <option value="@c.Id">@c.Numero – @c.Fornecedor</option> }
-        </select>
-        <button class="btn sec" id="pc-gerar" disabled="@(Ocupado || _contratoId is null)" @onclick="Gerar" title="Cria as parcelas da vigência e recalcula o previsto das que ainda não têm nota"><Icone Nome="calendario" Tam="16" /> Gerar / atualizar parcelas</button>
-        <button class="btn sec" id="pc-vincular" disabled="@Ocupado" @onclick="Vincular" title="Liga notas importadas (SIEG/XML) do fornecedor à parcela do período"><Icone Nome="corrente" Tam="16" /> Vincular notas SIEG</button>
-        @if (ContratoAtual?.FormaCobranca == FormaCobranca.Uso) { <button class="btn prim" id="pc-uso" disabled="@Ocupado" @onclick="AbrirUso"><Icone Nome="mais" Tam="16" /> Lançar uso</button> }
-    </Direita>
     <ChildContent>
         <div class="pagina">
             <div class="kpis">
@@ -21,6 +12,15 @@
                 <Kpi Rotulo="Fora da tolerância" Valor="@_linhas?.Count(l => l.Fora)" Tom="erro" />
                 <Kpi Rotulo="Vencidas sem pagamento" Valor="@_linhas?.Count(l => l.P.Vencida(Hoje))" Tom="erro" />
                 <Kpi Rotulo="Previsto no mês" Valor="@(_linhas?.Where(l => l.P.Vencimento.Year == Hoje.Year && l.P.Vencimento.Month == Hoje.Month && l.P.Status != StatusParcela.Cancelada).Sum(l => l.P.NotaValor ?? l.P.ValorPrevisto).ToString("C0", Br))" />
+            </div>
+            <div class="acoes-pagina">
+        <select id="pc-contrato" class="larg-260" value="@_contratoId" @onchange="async e => { _contratoId = Guid.TryParse(e.Value?.ToString(), out var g) ? g : null; await Carregar(); }" aria-label="Contrato">
+            <option value="">Todos os contratos recorrentes</option>
+            @foreach (var c in _contratos) { <option value="@c.Id">@c.Numero – @c.Fornecedor</option> }
+        </select>
+        <button class="btn sec" id="pc-gerar" disabled="@(Ocupado || _contratoId is null)" @onclick="Gerar" title="Cria as parcelas da vigência e recalcula o previsto das que ainda não têm nota"><Icone Nome="calendario" Tam="16" /> Gerar / atualizar parcelas</button>
+        <button class="btn sec" id="pc-vincular" disabled="@Ocupado" @onclick="Vincular" title="Liga notas importadas (SIEG/XML) do fornecedor à parcela do período"><Icone Nome="corrente" Tam="16" /> Vincular notas SIEG</button>
+        @if (ContratoAtual?.FormaCobranca == FormaCobranca.Uso) { <button class="btn prim" id="pc-uso" disabled="@Ocupado" @onclick="AbrirUso"><Icone Nome="mais" Tam="16" /> Lançar uso</button> }
             </div>
             <Grade T="Linha" @ref="_grade" Itens="_linhas" AoClicar="l => Abrir(l.P.Id)" NomeExportacao="parcelas-contratos" Vazio="Nenhuma parcela. Marque o contrato como recorrente e use “Gerar / atualizar parcelas”.">
                 <Colunas>
@@ -69,7 +69,7 @@
                     }
                 }
                 @if (_p.Status == StatusParcela.Liberada) { <Campo Rotulo="Pago em" Classe="s4"><input id="pc-pago" type="date" @bind="_pagoEm" /></Campo> }
-                @if (_p.Status is StatusParcela.Conferida or StatusParcela.Aprovada) { <Campo Rotulo="Motivo (para devolver)" Classe="s12"><input id="pc-motivo" @bind="_motivo" /></Campo> }
+                @if (_p.Status is StatusParcela.Conferida or StatusParcela.Aprovada or StatusParcela.Prevista) { <Campo Rotulo="@(_p.Status == StatusParcela.Prevista ? "Motivo (para cancelar a parcela)" : "Motivo (para devolver)")" Classe="s12"><input id="pc-motivo" @bind="_motivo" /></Campo> }
             </div>
             @if (!string.IsNullOrWhiteSpace(_p.Justificativa)) { <p class="mudo">Justificativa: @_p.Justificativa</p> }
             <p class="mudo">
@@ -81,8 +81,9 @@
             @if (_usos.Count > 0)
             {
                 <div class="secao"><Icone Nome="lista" /> Usos lançados no período</div>
-                <table class="itens"><thead><tr><th>Data</th><th>Item</th><th class="num">Qtde</th><th>Documento</th></tr></thead>
-                    <tbody>@foreach (var u in _usos) { <tr><td>@Data(u.Data)</td><td>@(_ct.Itens.FirstOrDefault(i => i.Id == u.ContratoItemId)?.Descricao)</td><td class="num">@u.Quantidade.ToString("N2", Br)</td><td>@u.Documento</td></tr> }</tbody>
+                <table class="itens"><thead><tr><th>Data</th><th>Item</th><th class="num">Qtde</th><th>Documento</th><th></th></tr></thead>
+                    <tbody>@foreach (var u in _usos) { <tr><td>@Data(u.Data)</td><td>@(_ct.Itens.FirstOrDefault(i => i.Id == u.ContratoItemId)?.Descricao)</td><td class="num">@u.Quantidade.ToString("N2", Br)</td><td>@u.Documento</td>
+                        <td>@if (_p.Status == StatusParcela.Prevista) { <button class="icone-btn" title="Excluir este uso" aria-label="Excluir uso" @onclick="() => ExcluirUso(u)"><Icone Nome="lixeira" Tam="15" /></button> }</td></tr> }</tbody>
                 </table>
             }
         }
@@ -90,6 +91,7 @@
     <Rodape>
         @if (_p is not null)
         {
+            @if (_p.Status == StatusParcela.Prevista) { <button class="btn perigo" id="pc-cancelar" disabled="@Ocupado" @onclick="CancelarParcela">Cancelar parcela</button> }
             @if (_p.Status == StatusParcela.Prevista) { <button class="btn prim" id="pc-lancar" disabled="@Ocupado" @onclick="LancarNota"><Icone Nome="arquivo" Tam="16" /> Lançar nota</button> }
             @if (_p.Status is StatusParcela.Conferida or StatusParcela.Aprovada) { <button class="btn perigo" disabled="@Ocupado" @onclick="Devolver">Devolver</button> }
             @if (_p.Status == StatusParcela.Conferida && Perfil(PerfilUsuario.Engenharia, PerfilUsuario.Diretoria)) { <button class="btn ok" id="pc-aprovar" disabled="@Ocupado" @onclick="Aprovar"><Icone Nome="check" Tam="16" /> Aprovar</button> }
@@ -208,6 +210,17 @@
         if (string.IsNullOrWhiteSpace(_motivo)) { ErrosForm = ["Informe o motivo da devolução."]; return; }
         if (await Executar(() => RecSrv.DevolverAsync(_p!.Id, _motivo, Cancelamento), "Parcela devolvida.")) await Depois();
     }
+
+    private async Task CancelarParcela()
+    {
+        if (string.IsNullOrWhiteSpace(_motivo)) { ErrosForm = ["Informe o motivo do cancelamento."]; return; }
+        if (await Executar(() => RecSrv.CancelarParcelaAsync(_p!.Id, _motivo, Cancelamento), "Parcela cancelada.")) { _aberto = false; await Carregar(); }
+    }
+
+    private void ExcluirUso(UsoContrato u) => Confirmar($"Excluir o uso de {Data(u.Data)} ({u.Quantidade:N2})? O previsto da parcela é recalculado.", async () =>
+    {
+        if (await Executar(() => RecSrv.ExcluirUsoAsync(u.Id, Cancelamento), "Uso excluído.")) await Depois();
+    });
 
     private async Task AbrirUso()
     {

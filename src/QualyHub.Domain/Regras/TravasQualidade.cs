@@ -68,6 +68,8 @@ public static class TravasQualidade
         var itensVencedor = c.Itens.Where(i => i.FornecedorId == c.FornecedorVencedorId).ToList();
         foreach (var i in itensVencedor.Where(i => i.MaterialControlado && i.AtendeEspecificacao != true))
             b.Add($"{i.Descricao}: confirme que o ofertado atende à especificação técnica.");
+        foreach (var i in itensVencedor)
+            if (i.ErroMarca(c.Tipo == TipoRequisicao.Material, i.RequisicaoItem?.Marca, i.RequisicaoItem?.MesmaMarca == true) is { } em) b.Add(em);
         if (c.FornecedorVencedor is { } v)
         {
             var materiais = itensVencedor.Select(i => i.RequisicaoItem?.MaterialControladoId);

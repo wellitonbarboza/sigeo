@@ -5,7 +5,7 @@
 
 <Pagina Titulo="Kits de material" Grade="GradeAtiva" AoNovo="NovoKit" AoAtualizar="Carregar">
     <Direita>
-        <select id="kit-obra" class="larg-200" value="@_obraId" @onchange="async e => { _obraId = Guid.TryParse(e.Value?.ToString(), out var g) ? g : null; await TrocarObra(); }" aria-label="Obra">
+        <select id="kit-obra" class="larg-260" value="@_obraId" @onchange="async e => { _obraId = Guid.TryParse(e.Value?.ToString(), out var g) ? g : null; await TrocarObra(); }" aria-label="Obra">
             @foreach (var o in _obras) { <option value="@o.Id">@o.Texto</option> }
         </select>
     </Direita>
@@ -156,7 +156,8 @@
             }
         }
     </ChildContent>
-    <Rodape><button class="btn prim" id="kit-salvar" disabled="@Ocupado" @onclick="SalvarKit"><Icone Nome="check" Tam="16" /> Salvar</button></Rodape>
+    <Rodape><BotaoExcluir Tipo="typeof(KitMaterial)" Id="@(_kit?.CriadoEm == default ? Guid.Empty : _kit.Id)" IdBotao="exc-kit" AoExcluir="async () => { _abertoKit = false; await Carregar(); }" />
+            <button class="btn prim" id="kit-salvar" disabled="@Ocupado" @onclick="SalvarKit"><Icone Nome="check" Tam="16" /> Salvar</button></Rodape>
 </Modal>
 
 <Modal @bind-Aberto="_abertoEnt" Titulo="@($"Entregar kit · {_aptoEnt?.Texto}")">

@@ -92,6 +92,7 @@
         @if (_turma is not null && _turma.Status == StatusTurma.Programada)
         {
             @if (_turma.CriadoEm != default) { <button class="btn ok" disabled="@Ocupado" @onclick="Concluir"><Icone Nome="check" Tam="16" /> Concluir turma</button> }
+            <BotaoExcluir Tipo="typeof(Turma)" Id="@(_turma?.CriadoEm == default ? Guid.Empty : _turma.Id)" IdBotao="exc-turma" AoExcluir="async () => { _abertoT = false; await Carregar(); }" />
             <button class="btn prim" disabled="@Ocupado" @onclick="SalvarTurma"><Icone Nome="check" Tam="16" /> Salvar</button>
         }
     </Rodape>
@@ -113,7 +114,8 @@
             </div>
         }
     </ChildContent>
-    <Rodape><button class="btn prim" disabled="@Ocupado" @onclick="SalvarCatalogo"><Icone Nome="check" Tam="16" /> Salvar</button></Rodape>
+    <Rodape><BotaoExcluir Tipo="typeof(Treinamento)" Id="@(_t?.CriadoEm == default ? Guid.Empty : _t.Id)" IdBotao="exc-t" AoExcluir="async () => { _abertoC = false; await Carregar(); }" />
+            <button class="btn prim" disabled="@Ocupado" @onclick="SalvarCatalogo"><Icone Nome="check" Tam="16" /> Salvar</button></Rodape>
 </Modal>
 
 @code {

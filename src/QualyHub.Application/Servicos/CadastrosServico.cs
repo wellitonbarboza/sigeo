@@ -132,6 +132,7 @@ public sealed class CadastrosServico(IFabricaDb fabrica)
         await using var db = fabrica.Criar();
         p.MaterialControlado = null; // só a FK conta; evita reinserir o material carregado na tela
         await CodigosProdutoServico.AplicarAoSalvarAsync(db, p, new CodigosProdutoServico.Cache(), ct);
+        p.Marca = MarcasServico.Oficial(await MarcasServico.NormalizarAsync(db, [p.Marca], ct), p.Marca);
         await Grafo.SalvarAsync(db, p);
         await db.SaveChangesAsync(ct);
         // Requisições e cotações em andamento passam a mostrar o cadastro atualizado.

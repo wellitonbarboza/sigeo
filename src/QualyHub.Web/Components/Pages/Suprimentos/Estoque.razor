@@ -4,12 +4,6 @@
 @inject NavigationManager Nav
 
 <Pagina Titulo="Estoque e almoxarifados" Grade="GradeAtiva" AoAtualizar="Recarregar">
-    <Direita>
-        <select id="est-almox" class="larg-200" value="@_almoxId" @onchange="async e => { _almoxId = Guid.TryParse(e.Value?.ToString(), out var g) ? g : null; await Recarregar(); }" aria-label="Almoxarifado">
-            @foreach (var a in _almoxs.Where(a => a.Ativo)) { <option value="@a.Id">@(a.Tipo == TipoAlmoxarifado.Central ? "Central · " : "")@a.Nome</option> }
-        </select>
-        <button class="btn prim" id="est-lancar" disabled="@(_almox is null)" @onclick="AbrirLancamento"><Icone Nome="mais" Tam="16" /> Lançar</button>
-    </Direita>
     <ChildContent>
         <div class="pagina">
             @if (_almoxs.Count == 0)
@@ -22,6 +16,12 @@
                 <Kpi Rotulo="No ponto de pedido" Valor="@_saldos?.Count(s => s.Situacao == "Ponto de pedido")" Tom="aviso" />
                 <Kpi Rotulo="Abaixo do mínimo" Valor="@_saldos?.Count(s => s.Situacao == "Abaixo do mínimo")" Tom="erro" />
                 <Kpi Rotulo="Em quarentena (FVM)" Valor="@_saldos?.Count(s => s.Bloqueado > 0)" Tom="aviso" />
+            </div>
+            <div class="acoes-pagina">
+        <select id="est-almox" class="larg-260" value="@_almoxId" @onchange="async e => { _almoxId = Guid.TryParse(e.Value?.ToString(), out var g) ? g : null; await Recarregar(); }" aria-label="Almoxarifado">
+                    @foreach (var a in _almoxs.Where(a => a.Ativo)) { <option value="@a.Id">@(a.Tipo == TipoAlmoxarifado.Central ? "Central · " : "")@a.Nome</option> }
+                </select>
+                <button class="btn prim" id="est-lancar" disabled="@(_almox is null)" @onclick="AbrirLancamento"><Icone Nome="mais" Tam="16" /> Lançar</button>
             </div>
             <Abas Itens="_abas" @bind-Ativa="_aba" />
             @if (_aba == "saldos")
@@ -67,6 +67,7 @@
                         <Coluna T="LinhaMov" Titulo="Para quem" Valor="l => l.Para" />
                         <Coluna T="LinhaMov" Titulo="Por" Valor="l => l.Por" Visivel="false" />
                     </Colunas>
+                    <Acoes>@if (context.Estornavel) { <button class="btn pq" title="Estornar este lançamento (movimento inverso)" @onclick="() => AbrirEstorno(context)" @onclick:stopPropagation="true">Estornar</button> }</Acoes>
                 </Grade>
             }
             else if (_aba == "inventario")
@@ -187,7 +188,7 @@
             }
             <div class="tabela-rolavel">
                 <table class="itens" id="inv-itens">
-                    <thead><tr><th>Produto</th><th>Un.</th><th class="num">Sistema</th><th class="num">Contado</th>@if (impl) { <th class="num">Custo unit.</th> }<th class="num">Diferença</th><th>Motivo / observação</th></tr></thead>
+                    <thead><tr><th>Produto</th><th>Un.</th><th class="num">Sistema</th><th class="num">Contado</th>@if (impl) { <th class="num">Custo unit.</th> }<th class="num">Diferença</th><th>Motivo / observação</th><th></th></tr></thead>
                     <tbody>
                         @foreach (var i in _inv.Itens.OrderBy(i => NomeProduto(i.ProdutoId)))
                         {
@@ -195,7 +196,8 @@
                                 <td class="larg-110"><input type="number" step="0.001" @bind="i.Contado" disabled="@(!editavel)" /></td>
                                 @if (impl) { <td class="larg-110"><input type="number" step="0.01" @bind="i.CustoUnitario" disabled="@(!editavel)" /></td> }
                                 <td class="num @(i.Diferenca < 0 ? "neg" : "")">@i.Diferenca.ToString("N3", Br)</td>
-                                <td><input @bind="i.Observacao" disabled="@(!editavel)" /></td></tr>
+                                <td><input @bind="i.Observacao" disabled="@(!editavel)" /></td>
+                                <td>@if (editavel) { <button class="icone-btn" title="Tirar da contagem" aria-label="Tirar da contagem" @onclick="() => TirarDoInventario(i)"><Icone Nome="lixeira" Tam="15" /></button> }</td></tr>
                         }
                     </tbody>
                 </table>
@@ -215,6 +217,15 @@
         }
         @if (_inv is { Status: StatusInventario.EmContagem or StatusInventario.AguardandoAprovacao }) { <button class="btn" disabled="@Ocupado" @onclick="CancelarInventario">Cancelar inventário</button> }
     </Rodape>
+</Modal>
+
+<Modal @bind-Aberto="_abertoEst" Titulo="Estornar lançamento" Tamanho="pequena">
+    <ChildContent>
+        <Erros Lista="ErrosForm" />
+        @if (_est is not null) { <p class="mudo">@De(_est.Tipo) · @_est.Produto · @_est.Quantidade.ToString("N3", Br) · @_est.Documento</p> }
+        <div class="form"><Campo Rotulo="Motivo" Obrigatorio="true" Classe="s12"><input id="est-motivo" @bind="_motivoEst" /></Campo></div>
+    </ChildContent>
+    <Rodape><button class="btn perigo" id="est-ok" disabled="@Ocupado" @onclick="Estornar">Estornar</button></Rodape>
 </Modal>
 
 @* ───── Almoxarifado ───── *@
@@ -238,7 +249,7 @@
 @code {
     private sealed record LinhaSaldo(Guid ProdutoId, string Codigo, string Produto, string Unidade, decimal Disponivel, decimal Bloqueado, decimal CustoMedio, decimal Valor,
         decimal Minimo, decimal PontoPedido, decimal Maximo, decimal NoCentral, string Situacao, decimal Reposicao);
-    private sealed record LinhaMov(DateTimeOffset Data, TipoMovimentoEstoque Tipo, string Produto, decimal Quantidade, decimal Custo, decimal Valor, decimal SaldoApos,
+    private sealed record LinhaMov(Guid Id, bool Estornavel, DateTimeOffset Data, TipoMovimentoEstoque Tipo, string Produto, decimal Quantidade, decimal Custo, decimal Valor, decimal SaldoApos,
         string Documento, string? Aplicacao, string? Para, string? Por);
     private sealed record LinhaInv(Guid Id, int Numero, DateOnly Data, TipoInventario Tipo, int Itens, int ComDiferenca, string? AprovadoPor, StatusInventario Status);
     private sealed class Lanc
@@ -344,7 +355,9 @@
         var comps = _composicoes.ToDictionary(c => c.Id, c => c.Texto);
         var colabs = _colabs.ToDictionary(c => c.Id, c => c.Texto);
         var forns = _fornecedores.ToDictionary(c => c.Id, c => c.Texto);
-        _movs = lista.Select(m => new LinhaMov(m.Data, m.Tipo, NomeProduto(m.ProdutoId), m.Quantidade, m.CustoUnitario, m.Valor, m.SaldoApos, m.Documento,
+        var estornados = lista.Where(m => m.OrigemTipo == "Estorno" && m.OrigemId != null).Select(m => m.OrigemId!.Value).ToHashSet();
+        _movs = lista.Select(m => new LinhaMov(m.Id, m.Tipo is TipoMovimentoEstoque.Saida or TipoMovimentoEstoque.Devolucao or TipoMovimentoEstoque.Perda or TipoMovimentoEstoque.EntregaEpi
+                && m.OrigemTipo != "Estorno" && !estornados.Contains(m.Id), m.Data, m.Tipo, NomeProduto(m.ProdutoId), m.Quantidade, m.CustoUnitario, m.Valor, m.SaldoApos, m.Documento,
             string.Join(" · ", new[] { m.LocalId is { } l ? locs.GetValueOrDefault(l) : null, m.ComposicaoId is { } c ? comps.GetValueOrDefault(c) : null }.Where(x => !string.IsNullOrEmpty(x))),
             m.EntreguePara ?? (m.ColaboradorId is { } co ? colabs.GetValueOrDefault(co) : null) ?? (m.FornecedorId is { } f ? forns.GetValueOrDefault(f) : null),
             m.CriadoPor)).ToList();
@@ -405,6 +418,22 @@
         var info = new EstoqueServico.SaidaInfo(_almoxId!.Value, _lc.ProdutoId.Value, _lc.Quantidade, _lc.Tipo, _lc.LocalId, _lc.ComposicaoId, _lc.ColaboradorId, _lc.FornecedorId, _lc.EntreguePara, _lc.Observacao);
         if (await Executar(() => EstoqueSrv.LancarAsync(info, Cancelamento), "Lançado no estoque."))
         { _abertoLanc = false; await CarregarSaldos(); await CarregarMovimentos(); }
+    }
+
+    // ───── Estorno ─────
+    private LinhaMov? _est;
+    private bool _abertoEst;
+    private string? _motivoEst;
+    private void AbrirEstorno(LinhaMov l) { _est = l; _motivoEst = null; ErrosForm = null; _abertoEst = true; }
+    private async Task Estornar()
+    {
+        if (await Executar(() => EstoqueSrv.EstornarAsync(_est!.Id, _motivoEst ?? "", Cancelamento), "Lançamento estornado."))
+        { _abertoEst = false; await CarregarSaldos(); await CarregarMovimentos(); }
+    }
+
+    private async Task TirarDoInventario(InventarioItem i)
+    {
+        if (await Executar(() => EstoqueSrv.RemoverItemInventarioAsync(_inv!.Id, i.ProdutoId, Cancelamento))) _inv!.Itens.Remove(i);
     }
 
     // ───── Inventário ─────

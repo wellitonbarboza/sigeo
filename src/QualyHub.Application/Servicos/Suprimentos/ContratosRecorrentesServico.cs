@@ -73,6 +73,29 @@ public sealed class ContratosRecorrentesServico(IFabricaDb fabrica, IUsuarioAtua
         await GerarParcelasAsync(c.Id, ct);
     }
 
+    /// <summary>Exclui um uso lançado por engano e recalcula o previsto (só enquanto a parcela do período não tem nota).</summary>
+    public async Task ExcluirUsoAsync(Guid usoId, CancellationToken ct = default)
+    {
+        await using var db = fabrica.Criar();
+        var u = await db.UsosContrato.FirstAsync(x => x.Id == usoId, ct);
+        if (await db.ParcelasContrato.AnyAsync(p => p.ContratoId == u.ContratoId && p.Inicio <= u.Data && p.Fim >= u.Data && p.Status != StatusParcela.Prevista && p.Status != StatusParcela.Cancelada, ct))
+            throw new RegraDeNegocioException("A parcela deste período já tem nota: devolva a parcela antes de excluir o uso.");
+        db.UsosContrato.Remove(u);
+        await db.SaveChangesAsync(ct);
+        await GerarParcelasAsync(u.ContratoId, ct);
+    }
+
+    /// <summary>Cancela uma parcela prevista (ex.: mês sem cobrança combinado com o fornecedor).</summary>
+    public async Task CancelarParcelaAsync(Guid parcelaId, string motivo, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(motivo)) throw new RegraDeNegocioException("Informe o motivo do cancelamento.");
+        await using var db = fabrica.Criar();
+        var p = await db.ParcelasContrato.FirstAsync(x => x.Id == parcelaId, ct);
+        if (p.Status != StatusParcela.Prevista) throw new RegraDeNegocioException("Só parcela prevista (sem nota) é cancelada. Com nota: devolva antes.");
+        p.Status = StatusParcela.Cancelada; p.Observacao = string.IsNullOrWhiteSpace(p.Observacao) ? $"Cancelada: {motivo.Trim()}" : $"{p.Observacao} · Cancelada: {motivo.Trim()}";
+        await db.SaveChangesAsync(ct);
+    }
+
     public async Task LancarNotaAsync(Guid parcelaId, string numero, decimal valor, CancellationToken ct = default)
     {
         await using var db = fabrica.Criar();

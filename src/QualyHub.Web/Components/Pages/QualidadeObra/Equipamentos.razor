@@ -129,7 +129,8 @@
             }
         }
     </ChildContent>
-    <Rodape><button class="btn prim" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="16" /> Salvar</button></Rodape>
+    <Rodape><BotaoExcluir Tipo="typeof(EquipamentoMedicao)" Id="@(_e?.CriadoEm == default ? Guid.Empty : _e.Id)" IdBotao="exc-e" AoExcluir="async () => { _aberto = false; await Carregar(); }" />
+            <button class="btn prim" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="16" /> Salvar</button></Rodape>
 </Modal>
 
 <Modal @bind-Aberto="_abertoTipo" Titulo="@(_t?.Nome is { Length: > 0 } n ? n : "Novo tipo")">
@@ -148,7 +149,8 @@
             </div>
         }
     </ChildContent>
-    <Rodape><button class="btn prim" id="tm-salvar" disabled="@Ocupado" @onclick="SalvarTipo"><Icone Nome="check" Tam="16" /> Salvar</button></Rodape>
+    <Rodape><BotaoExcluir Tipo="typeof(TipoEquipamentoMedicao)" Id="@(_t?.CriadoEm == default ? Guid.Empty : _t.Id)" IdBotao="exc-t" AoExcluir="async () => { _abertoTipo = false; await Carregar(); }" />
+            <button class="btn prim" id="tm-salvar" disabled="@Ocupado" @onclick="SalvarTipo"><Icone Nome="check" Tam="16" /> Salvar</button></Rodape>
 </Modal>
 
 @code {

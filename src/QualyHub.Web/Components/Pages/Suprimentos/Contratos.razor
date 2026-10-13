@@ -263,7 +263,8 @@
             }
             @if (_k.Status == StatusContrato.AguardandoAssinaturas) { <button class="btn ok" disabled="@Ocupado" @onclick="Ativar"><Icone Nome="check" Tam="16" /> Ativar contrato</button> }
             @if (Editavel && !string.IsNullOrEmpty(_k.Numero)) { <button class="btn ok" disabled="@Ocupado" @onclick="Enviar"><Icone Nome="enviar" Tam="16" /> Enviar p/ aprovação</button> }
-            @if (Editavel) { <button class="btn prim" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="16" /> Salvar</button> }
+            @if (Editavel) { <BotaoExcluir Tipo="typeof(Contrato)" Id="@(_k?.CriadoEm == default ? Guid.Empty : _k.Id)" IdBotao="exc-k" AoExcluir="async () => { _aberto = false; await Carregar(); }" />
+            <button class="btn prim" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="16" /> Salvar</button> }
         }
     </Rodape>
 </Modal>

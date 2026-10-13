@@ -108,7 +108,8 @@
             </div>
         }
     </ChildContent>
-    <Rodape>@if (Perfil()) { <button class="btn prim" disabled="@Ocupado" @onclick="() => SalvarSimples(() => Sistema.SalvarItemListaAsync(_l!, Cancelamento), () => _abertoL = false)"><Icone Nome="check" Tam="16" /> Salvar</button> }</Rodape>
+    <Rodape>@if (Perfil()) { <BotaoExcluir Tipo="typeof(ItemLista)" Id="@(_l?.CriadoEm == default ? Guid.Empty : _l.Id)" IdBotao="exc-l" AoExcluir="async () => { _abertoL = false; await Carregar(); }" />
+            <button class="btn prim" disabled="@Ocupado" @onclick="() => SalvarSimples(() => Sistema.SalvarItemListaAsync(_l!, Cancelamento), () => _abertoL = false)"><Icone Nome="check" Tam="16" /> Salvar</button> }</Rodape>
 </Modal>
 
 <Modal @bind-Aberto="_abertoT" Titulo="Tipo de documento exigido" Tamanho="media">
@@ -147,7 +148,8 @@
             </div>
         }
     </ChildContent>
-    <Rodape>@if (Perfil()) { <button class="btn prim" disabled="@Ocupado" @onclick="() => SalvarSimples(() => Sistema.SalvarTipoDocumentoAsync(_t!, Cancelamento), () => _abertoT = false)"><Icone Nome="check" Tam="16" /> Salvar</button> }</Rodape>
+    <Rodape>@if (Perfil()) { <BotaoExcluir Tipo="typeof(TipoDocumentoExigido)" Id="@(_t?.CriadoEm == default ? Guid.Empty : _t.Id)" IdBotao="exc-t" AoExcluir="async () => { _abertoT = false; await Carregar(); }" />
+            <button class="btn prim" disabled="@Ocupado" @onclick="() => SalvarSimples(() => Sistema.SalvarTipoDocumentoAsync(_t!, Cancelamento), () => _abertoT = false)"><Icone Nome="check" Tam="16" /> Salvar</button> }</Rodape>
 </Modal>
 
 <Modal @bind-Aberto="_abertoN" Titulo="@($"Notificação — {_n?.Evento}")" Tamanho="media">
@@ -166,7 +168,8 @@
             </div>
         }
     </ChildContent>
-    <Rodape>@if (Perfil()) { <button class="btn prim" disabled="@Ocupado" @onclick="() => SalvarSimples(() => Sistema.SalvarRegraNotificacaoAsync(_n!, Cancelamento), () => _abertoN = false)"><Icone Nome="check" Tam="16" /> Salvar</button> }</Rodape>
+    <Rodape>@if (Perfil()) { <BotaoExcluir Tipo="typeof(RegraNotificacao)" Id="@(_n?.CriadoEm == default ? Guid.Empty : _n.Id)" IdBotao="exc-n" AoExcluir="async () => { _abertoN = false; await Carregar(); }" />
+            <button class="btn prim" disabled="@Ocupado" @onclick="() => SalvarSimples(() => Sistema.SalvarRegraNotificacaoAsync(_n!, Cancelamento), () => _abertoN = false)"><Icone Nome="check" Tam="16" /> Salvar</button> }</Rodape>
 </Modal>
 
 @code {

@@ -66,6 +66,7 @@
         }
         else
         {
+            <BotaoExcluir Tipo="typeof(FornecedorDocumento)" Id="@(_d?.CriadoEm == default ? Guid.Empty : _d.Id)" IdBotao="exc-d" AoExcluir="async () => { _aberto = false; await Carregar(); }" />
             <button class="btn prim" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="16" /> Salvar</button>
         }
     </Rodape>

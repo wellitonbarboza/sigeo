@@ -98,7 +98,7 @@
             }
             <table class="itens">
                 <thead><tr>
-                    <th class="min-220">@(_r.Tipo == TipoRequisicao.Material ? "Produto" : "Serviço (ITS) / descrição")</th><th>UN</th><th>Quant.</th>
+                    <th class="min-220">@(_r.Tipo == TipoRequisicao.Material ? "Produto" : "Serviço (ITS) / descrição")</th><th>UN</th><th>Quant.</th>@if (_r.Tipo == TipoRequisicao.Material) { <th title="Opcional. Marque 'só esta' quando não aceitar similar">Marca (opcional)</th> }
                     <th>Material controlado</th><th>Especificação técnica</th><th>Documentos exigidos</th><th>Status</th><th></th>
                 </tr></thead>
                 <tbody>
@@ -129,15 +129,20 @@
                                     <div class="saldo-estoque" title="Saldo disponível em estoque">Estoque: obra @_saldoObra.GetValueOrDefault(pe).ToString("0.##", Br)@(_central is null ? "" : $" · central {_saldoCentral.GetValueOrDefault(pe).ToString("0.##", Br)}")</div>
                                 }
                             </td>
+                            @if (_r.Tipo == TipoRequisicao.Material)
+                            {
+                                <td class="larg-160"><input list="req-marcas" aria-label="Marca" @bind="i.Marca" disabled="@(!Editavel)" placeholder="@(_prodMarca.GetValueOrDefault(i.ProdutoId ?? Guid.Empty) ?? "qualquer")" />
+                                    <label class="check fonte-12" title="Não aceita similar: a cotação tem de vir nesta marca"><input type="checkbox" @bind="i.MesmaMarca" disabled="@(!Editavel || string.IsNullOrWhiteSpace(i.Marca))" /> só esta</label></td>
+                            }
                             <td>@if (i.MaterialControlado) { <Selo Texto="Sim" Tom="info" /> } else { <Selo Texto="Não" /> }</td>
                             <td><input @bind="i.EspecificacaoTecnica" disabled="@(!Editavel)" placeholder="@(i.MaterialControlado ? "obrigatória" : "—")" /></td>
                             <td><input @bind="i.DocumentosExigidos" disabled="@(!Editavel)" /></td>
                             <td><Selo Texto="@De(i.Status)" /></td>
                             <td>@if (Editavel) { <button class="icone-btn" title="Remover" @onclick="() => _r.Itens.Remove(i)"><Icone Nome="lixeira" Tam="16" /></button> }</td>
                         </tr>
-                        @if (aberto) { <tr class="linha-locais" @key="(i, 1)"><td colspan="8"><PainelLocais Linhas="locaisItem!" Unidade="@i.Unidade" /></td></tr> }
+                        @if (aberto) { <tr class="linha-locais" @key="(i, 1)"><td colspan="@(_r.Tipo == TipoRequisicao.Material ? 9 : 8)"><PainelLocais Linhas="locaisItem!" Unidade="@i.Unidade" /></td></tr> }
                     }
-                    @if (_r.Itens.Count == 0) { <tr><td colspan="8" class="mudo">Inclua os itens.</td></tr> }
+                    @if (_r.Itens.Count == 0) { <tr><td colspan="@(_r.Tipo == TipoRequisicao.Material ? 9 : 8)" class="mudo">Inclua os itens.</td></tr> }
                 </tbody>
             </table>
 
@@ -164,6 +169,7 @@
         }
     </ChildContent>
     <Rodape>
+        <datalist id="req-marcas">@foreach (var m in _marcas) { <option>@m</option> }</datalist>
         @if (_r is not null)
         {
             @if (_central is not null && _almoxObra is not null && _r.Numero > 0 && _r.Status is not (StatusRequisicao.Cancelada or StatusRequisicao.Concluida or StatusRequisicao.NaoAutorizada)
@@ -257,6 +263,9 @@
     {
         _obras = await Cat.ObrasAsync(); _spes = await Cat.SpesAsync(); _ccs = await Cat.CentrosCustoAsync(); _produtos = await Cat.ProdutosBuscaAsync(); _servicos = await Cat.ServicosAsync();
         _estabs = await Cat.EstabelecimentosAsync(); _grupos = await Cat.GruposProdutoAsync();
+        _marcas = await Cat.MarcasAsync();
+        await using (var dbm = Fabrica.CriarLeitura())
+            _prodMarca = await dbm.Produtos.AsNoTracking().Where(p => p.Marca != null).ToDictionaryAsync(p => p.Id, p => p.Marca, Cancelamento);
         _atividades = await Cat.ListaAsync(TipoLista.Atividade); _categorias = await Cat.ListaAsync(TipoLista.CategoriaServico);
         await Carregar();
         if (Nav.Uri.Contains("?id=") && Guid.TryParse(Nav.Uri.Split("?id=")[1], out var id)) await Abrir(id);
@@ -282,6 +291,8 @@
 
     private Dictionary<Guid, decimal> _saldoObra = [], _saldoCentral = [];
     private bool _obraPropria;
+    private List<string> _marcas = [];
+    private Dictionary<Guid, string?> _prodMarca = [];
     private Almoxarifado? _central, _almoxObra;
 
     /// <summary>Saldo em estoque (obra e central) para mostrar ao lado de cada item: o comprador vê se dá para atender por transferência.</summary>

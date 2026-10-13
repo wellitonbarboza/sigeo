@@ -73,6 +73,7 @@
                                 var aberto = locaisItem is not null && _abertos.Contains(primeiro.RequisicaoItemId!.Value);
                                 <tr @key="primeiro.Id">
                                     <td><b>@primeiro.Descricao</b> @if (primeiro.MaterialControlado) { <Selo Texto="controlado" Tom="info" /> }
+                                        @if (primeiro.RequisicaoItemId is { } rqm && _pedidas.TryGetValue(rqm, out var mp) && !string.IsNullOrWhiteSpace(mp.Marca)) { <br /><small class="mudo">Pedida: @mp.Marca@(mp.Mesma ? " (somente esta)" : " ou similar")</small> }
                                         @if (locaisItem is not null) { <br /><button type="button" class="pl-toggle" aria-expanded="@(aberto ? "true" : "false")" @onclick="() => AlternarLocais(primeiro.RequisicaoItemId!.Value)">@(aberto ? "▾" : "▸") <span class="pl-ico">▦</span> Locais: @QuadroLocais.Resumo(locaisItem, primeiro.Unidade)</button> }</td>
                                     <td>@primeiro.Unidade</td><td class="num">@Num(primeiro.Quantidade, 3)</td>
                                     <td class="num mudo">@(primeiro.PrecoUltimo is { } pu ? Moeda(pu) : "—")</td>
@@ -83,6 +84,7 @@
                                         if (it is null) { <td></td><td></td><td></td> continue; }
                                         var melhor = it.ValorUnitarioFinal > 0 && it.ValorUnitarioFinal == menor;
                                         <td class="larg-110 @(melhor ? "melhor" : "")"><input type="number" step="0.01" aria-label="@($"Ofertado {Nome(f.FornecedorId)} – {primeiro.Descricao}")" @bind="it.ValorOfertado" @bind:after="Recalcular" disabled="@(!Editavel)" />
+                                            @if (_c.Tipo == TipoRequisicao.Material) { <input class="mt-4 @(it.ValorOfertado > 0 && string.IsNullOrWhiteSpace(it.Marca) ? "invalido" : "")" list="mapa-marcas" placeholder="marca" aria-label="@($"Marca {Nome(f.FornecedorId)} – {primeiro.Descricao}")" @bind="it.Marca" disabled="@(!Editavel)" /> }
                                             @if (it.Entrega is { } en) { <small class="mudo">entrega @en.ToString("dd/MM")</small> }
                                             @if (it.MaterialControlado) { <small class="@(it.AtendeEspecificacao == true ? "" : "texto-erro")">@(it.AtendeEspecificacao switch { true => "atende espec.", false => "não atende espec.", _ => "espec. não avaliada" })</small> }</td>
                                         <td class="larg-110"><input type="number" step="0.01" aria-label="@($"Negociado {Nome(f.FornecedorId)} – {primeiro.Descricao}")" @bind="it.ValorNegociado" @bind:after="Recalcular" disabled="@(!Editavel)" />
@@ -100,7 +102,8 @@
                         </tfoot>
                     </table>
                 </div>
-                <p class="mudo">Verde = menor valor do item (negociado, se houver). Valores preenchidos pelo fornecedor na Área do Fornecedor entram aqui sozinhos; os demais são lançados nesta tela.</p>
+                <datalist id="mapa-marcas">@foreach (var nomeMarca in _marcas) { <option>@nomeMarca</option> }</datalist>
+                <p class="mudo">Marca obrigatória em cada item de material com preço (vai para o pedido). Verde = menor valor do item (negociado, se houver). Valores preenchidos pelo fornecedor na Área do Fornecedor entram aqui sozinhos; os demais são lançados nesta tela.</p>
 
                 <AnaliseIaCotacao Cotacao="_c" AntesDeAnalisar="SalvarAntesDaIa" AoConcluir="Carregar" />
             }
@@ -137,6 +140,9 @@
         ? _c.Itens.Where(i => i.FornecedorId == v)
         : _grupos.Select(g => g.Where(i => i.ValorUnitarioFinal > 0).OrderBy(i => i.ValorTotal).FirstOrDefault()).OfType<CotacaoItem>());
 
+    private Dictionary<Guid, (string? Marca, bool Mesma)> _pedidas = [];
+    private List<string> _marcas = [];
+
     protected override async Task OnInitializedAsync()
     {
         await using (var db = Fabrica.CriarLeitura()) _p = await ParametrosServico.CarregarAsync(db, Cancelamento);
@@ -155,6 +161,8 @@
         _nomes = await db.Fornecedores.AsNoTracking().Where(f => ids.Contains(f.Id)).ToDictionaryAsync(f => f.Id, f => f.NomeFantasia ?? f.RazaoSocial, Cancelamento);
         var rids = _c.Itens.Where(i => i.RequisicaoItemId != null).Select(i => i.RequisicaoItemId!.Value).Distinct().ToList();
         _locaisItem = await QuadroLocais.CarregarAsync(db, rids, Cancelamento);
+        _pedidas = await db.Set<RequisicaoItem>().AsNoTracking().Where(r => rids.Contains(r.Id)).ToDictionaryAsync(r => r.Id, r => (r.Marca, r.MesmaMarca), Cancelamento);
+        _marcas = await Cat.MarcasAsync();
         _c.Recalcular(_p!);
         await CotacoesServico.PrecosReferenciaAsync(db, _c, Cancelamento);
         _grupos = _c.Itens.GroupBy(i => i.RequisicaoItemId).ToList();
@@ -214,6 +222,7 @@
                 if (it is null) continue;
                 var b = fixos.Length + 1 + k * 3;
                 wi.Cell(r, b).Value = it.ValorOfertado;
+                if (!string.IsNullOrWhiteSpace(it.Marca)) wi.Cell(r, b).GetComment().AddText($"Marca: {it.Marca}");
                 if (it.ValorNegociado is { } n) wi.Cell(r, b + 1).Value = n;
                 wi.Cell(r, b + 2).Value = it.ValorTotal;
             }

@@ -70,9 +70,10 @@ public sealed class UsuarioAtualWeb(IHttpContextAccessor http, AuthenticationSta
     public string EmpresaNome => Claim(ClaimsQh.EmpresaNome) ?? "";
     public string Perfil => Claim(ClaimsQh.Perfil) ?? "";
     public string? Funcao => Claim(ClaimsQh.Funcao);
-    public bool AcessoTodasObras => Claim(ClaimsQh.TodasObras) == "1";
-    public IReadOnlyCollection<Guid> ObrasPermitidas =>
-        (Claim(ClaimsQh.Obras) ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries).Select(Guid.Parse).ToList();
+    // Mudança feita pelo administrador vale na hora (AcessoObrasAoVivo); sem mudança, vale o que foi gravado no login.
+    public bool AcessoTodasObras => UsuarioId is { } u && AcessoObrasAoVivo.Obter(u, out var t, out _) ? t : Claim(ClaimsQh.TodasObras) == "1";
+    public IReadOnlyCollection<Guid> ObrasPermitidas => UsuarioId is { } u && AcessoObrasAoVivo.Obter(u, out _, out var o) ? o
+        : (Claim(ClaimsQh.Obras) ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries).Select(Guid.Parse).ToList();
     public string Origem => "Web";
     public string? CorrelationId => http.HttpContext?.TraceIdentifier;
 }

@@ -7,7 +7,7 @@
 
 <PageTitle>Minhas pendências · QualyHub</PageTitle>
 <div class="tela">
-    <div class="topo"><h1>Minhas pendências</h1><div class="direita"><button class="btn sec pq" @onclick="AbrirDelegacao"><Icone Nome="pessoa" Tam="14" /> Delegar aprovações (férias/ausência)</button></div></div>
+    <div class="topo"><h1>Minhas pendências</h1></div>
     <div class="miolo">
         <div class="pagina toque">
             <p class="mb-10"><b>@Saudacao(), @Usuario.Nome.Split(' ')[0]</b> <span class="mudo">· @(Rotulos.De(Enum.TryParse<PerfilUsuario>(Usuario.Perfil, out var pf) ? pf : PerfilUsuario.Campo)) · @Usuario.EmpresaNome · @Data(Hoje)</span></p>
@@ -19,6 +19,7 @@
                 <Kpi Rotulo="Mensagens não lidas" Valor="@_msgs.Count(m => m.NaoLidas > 0)" Sub="conversas com novidade" Tom="@(_msgs.Any(m => m.NaoLidas > 0) ? "aviso" : "ok")" />
                 <Kpi Rotulo="Minhas leituras" Valor="@_leituras.Count" Sub="@(_leituras.Count == 0 ? "em dia" : $"prazo {_leituras.Min(l => l.Prazo):dd/MM}")" />
             </div>
+            <div class="acoes-pagina"><button class="btn sec pq" @onclick="AbrirDelegacao"><Icone Nome="pessoa" Tam="14" /> Delegar aprovações (férias/ausência)</button></div>
             <Abas Itens="Abas" @bind-Ativa="_aba" />
             @if (_aba == "aprovar" || _aba == "pagar")
             {

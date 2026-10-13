@@ -55,17 +55,17 @@
             </div>
             <div class="secao"><Icone Nome="lista" /> Itens</div>
             <table class="itens">
-                <thead><tr><th>Descrição</th><th>UN</th><th class="num">Quant.</th><th class="num">Unit.</th><th class="num">Total</th><th>Especificação técnica</th><th>Documentos exigidos</th><th class="num">Recebido</th></tr></thead>
+                <thead><tr><th>Descrição</th><th>Marca</th><th>UN</th><th class="num">Quant.</th><th class="num">Unit.</th><th class="num">Total</th><th>Especificação técnica</th><th>Documentos exigidos</th><th class="num">Recebido</th></tr></thead>
                 <tbody>
                     @foreach (var i in _p.Itens)
                     {
                         var locaisItem = i.RequisicaoItemId is { } rid && _locaisItem.TryGetValue(rid, out var ls) ? ls : null;
                         var aberto = locaisItem is not null && _abertos.Contains(i.Id);
                         <tr @key="i" class="@(aberto ? "com-locais" : "")"><td><b>@i.Descricao</b> @if (i.MaterialControladoId is not null) { <Selo Texto="controlado" Tom="info" /> }
-                                @if (locaisItem is not null) { <br /><button type="button" class="pl-toggle" aria-expanded="@(aberto ? "true" : "false")" @onclick="() => { if (!_abertos.Remove(i.Id)) _abertos.Add(i.Id); }">@(aberto ? "▾" : "▸") <span class="pl-ico">▦</span> Locais: @QuadroLocais.Resumo(locaisItem, i.Unidade)</button> }</td><td>@i.Unidade</td>
+                                @if (locaisItem is not null) { <br /><button type="button" class="pl-toggle" aria-expanded="@(aberto ? "true" : "false")" @onclick="() => { if (!_abertos.Remove(i.Id)) _abertos.Add(i.Id); }">@(aberto ? "▾" : "▸") <span class="pl-ico">▦</span> Locais: @QuadroLocais.Resumo(locaisItem, i.Unidade)</button> }</td><td>@i.Marca</td><td>@i.Unidade</td>
                             <td class="num">@Num(i.Quantidade, 3)</td><td class="num">@Moeda(i.ValorUnitario)</td><td class="num">@Moeda(i.ValorTotal)</td>
                             <td>@i.EspecificacaoTecnica</td><td>@i.DocumentosExigidos</td><td class="num">@Num(i.QuantidadeRecebidaAceita, 3)</td></tr>
-                        @if (aberto) { <tr class="linha-locais" @key="(i, 1)"><td colspan="8"><PainelLocais Linhas="locaisItem!" Unidade="@i.Unidade" /></td></tr> }
+                        @if (aberto) { <tr class="linha-locais" @key="(i, 1)"><td colspan="9"><PainelLocais Linhas="locaisItem!" Unidade="@i.Unidade" /></td></tr> }
                     }
                     <tr class="total"><td colspan="4">Total (com frete @Moeda(_p.ValorFrete))</td><td class="num">@Moeda(_p.Valor)</td><td colspan="3"></td></tr>
                 </tbody>

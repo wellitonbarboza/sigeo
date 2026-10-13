@@ -72,7 +72,7 @@ public sealed class MensagensServico(IFabricaDb fabrica, IUsuarioAtual usuario, 
             {
                 "u:" when Guid.TryParse(valor, out var id) => usuarios.Where(u => u.Id == id),
                 "p:" when Enum.TryParse<PerfilUsuario>(valor, out var p) => usuarios.Where(u => u.Perfil == p),
-                "o:" when Guid.TryParse(valor, out var o) => usuarios.Where(u => u.AcessoTodasObras || u.Obras.Any(x => x.ObraId == o)),
+                "o:" when Guid.TryParse(valor, out var o) => usuarios.Where(u => u.VeTodasObras || u.Obras.Any(x => x.ObraId == o)),
                 _ => throw new RegraDeNegocioException("Destinatário inválido.")
             };
             r.AddRange(q.Select(u => (u.Id, u.Nome)));

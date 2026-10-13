@@ -87,11 +87,25 @@ public class CotacaoItem : Entidade
     public bool MaterialControlado { get; set; }
     /// <summary>Confirma que o ofertado atende à especificação técnica (obrigatório em item controlado).</summary>
     public bool? AtendeEspecificacao { get; set; }
+    /// <summary>Marca cotada (obrigatória em item de material com preço).</summary>
+    public string? Marca { get; set; }
 
     /// <summary>Último preço unitário pago pelo mesmo produto (pedido anterior) — fotografado ao abrir/salvar.</summary>
     public decimal? PrecoUltimo { get; set; }
     /// <summary>Preço de referência do produto na data da cotação.</summary>
     public decimal? PrecoReferencia { get; set; }
+
+    /// <summary>
+    /// Marca do item cotado: obrigatória em material com preço; se a requisição pediu "somente esta marca", tem de ser a mesma.
+    /// </summary>
+    public string? ErroMarca(bool material, string? marcaRequisitada, bool somenteEssaMarca)
+    {
+        if (!material || ValorOfertado <= 0) return null;
+        if (string.IsNullOrWhiteSpace(Marca)) return $"{Descricao}: informe a marca cotada.";
+        if (somenteEssaMarca && !string.IsNullOrWhiteSpace(marcaRequisitada) && Cadastros.Marca.Chave(Marca) != Cadastros.Marca.Chave(marcaRequisitada))
+            return $"{Descricao}: a requisição pede somente a marca {marcaRequisitada}.";
+        return null;
+    }
 
     public decimal ValorUnitarioFinal => ValorNegociado ?? ValorOfertado;
     public decimal ValorTotal => Math.Round(ValorUnitarioFinal * Quantidade, 2);
@@ -182,5 +196,7 @@ public class PedidoItem : Entidade
     public MaterialControlado? MaterialControlado { get; set; }
     public string? EspecificacaoTecnica { get; set; }
     public string? DocumentosExigidos { get; set; }
+    /// <summary>Marca comprada (vem da cotação vencedora).</summary>
+    public string? Marca { get; set; }
     public decimal QuantidadeRecebidaAceita { get; set; }
 }

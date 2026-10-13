@@ -159,7 +159,7 @@ public static class AvisosServico
     public static List<Guid> AprovadoresDaEtapa(EtapaAprovacao etapa, SolicitacaoAprovacao s, IEnumerable<Usuario> usuarios)
     {
         if (etapa.UsuarioAprovadorId is { } u) return [u];
-        return usuarios.Where(x => x.Ativo && x.Perfil == etapa.PerfilAprovador && (x.AcessoTodasObras || s.ObraId is null || x.Obras.Any(o => o.ObraId == s.ObraId)))
+        return usuarios.Where(x => x.Ativo && x.Perfil == etapa.PerfilAprovador && (x.VeTodasObras || s.ObraId is null || x.Obras.Any(o => o.ObraId == s.ObraId)))
                        .Select(x => x.Id).ToList();
     }
 

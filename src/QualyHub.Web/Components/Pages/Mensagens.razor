@@ -6,10 +6,9 @@
 
 <PageTitle>Mensagens · QualyHub</PageTitle>
 <div class="tela">
-    <div class="topo"><h1>Mensagens</h1>
-        <div class="direita"><button class="btn prim" id="msg-nova" @onclick="() => _nova = true"><Icone Nome="mais" Tam="16" /> Nova mensagem</button></div>
-    </div>
+    <div class="topo"><h1>Mensagens</h1></div>
     <div class="miolo">
+        <div class="acoes-pagina"><button class="btn prim" id="msg-nova" @onclick="() => _nova = true"><Icone Nome="mais" Tam="16" /> Nova mensagem</button></div>
         <div class="caixa-msg @(_aberta is not null ? "lendo" : "")">
             <nav class="pastas-msg" aria-label="Pastas">
                 @foreach (var (p, texto, icone) in Pastas)

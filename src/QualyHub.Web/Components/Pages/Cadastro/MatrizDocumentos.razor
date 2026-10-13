@@ -67,7 +67,8 @@
             </fieldset>
         }
     </ChildContent>
-    <Rodape>@if (_podeEditar) { <button class="btn prim" id="mat-salvar" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="16" /> Salvar</button> }</Rodape>
+    <Rodape>@if (_podeEditar) { <BotaoExcluir Tipo="typeof(TipoDocumentoExigido)" Id="@(_t?.CriadoEm == default ? Guid.Empty : _t.Id)" IdBotao="exc-t" AoExcluir="async () => { _aberto = false; await Carregar(); }" />
+            <button class="btn prim" id="mat-salvar" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="16" /> Salvar</button> }</Rodape>
 </Modal>
 
 @code {

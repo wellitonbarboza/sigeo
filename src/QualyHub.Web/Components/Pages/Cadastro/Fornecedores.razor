@@ -163,7 +163,8 @@
     </ChildContent>
     <Rodape>
         @if (!_novo) { <div class="esq"><button class="btn sec" id="forn-convite" title="Convida o fornecedor para a Área do Fornecedor (entra com CNPJ + código)" @onclick="() => AbrirConvite(AssuntoCadastro)"><Icone Nome="enviar" Tam="16" /> Enviar convite</button></div> }
-        <button class="btn prim" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="16" /> Salvar</button>
+        <BotaoExcluir Tipo="typeof(Fornecedor)" Id="@(_f?.CriadoEm == default ? Guid.Empty : _f.Id)" IdBotao="exc-f" AoExcluir="async () => { _aberto = false; await Carregar(); }" />
+            <button class="btn prim" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="16" /> Salvar</button>
     </Rodape>
 </Modal>
 

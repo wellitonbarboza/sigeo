@@ -28,6 +28,10 @@ public sealed record PropostaPortal(string EmpresaNome, string FornecedorNome, i
 {
     /// <summary>Quebra por local de cada item da proposta (torre › pavimento › apto › cômodo): item → linhas.</summary>
     public IReadOnlyDictionary<Guid, List<Comum.LocalQuantidade>> Locais { get; init; } = new Dictionary<Guid, List<Comum.LocalQuantidade>>();
+    /// <summary>Cotação de material: a marca de cada item cotado é obrigatória.</summary>
+    public bool Material { get; init; }
+    /// <summary>Marca pedida na requisição por item da proposta (e se aceita similar).</summary>
+    public IReadOnlyDictionary<Guid, (string Marca, bool Somente)> MarcasPedidas { get; init; } = new Dictionary<Guid, (string, bool)>();
 }
 
 /// <summary>Dados cadastrais que o fornecedor completa pelo portal (pré-cadastro).</summary>
@@ -51,7 +55,7 @@ public sealed class DadosPortal
     public string? ContatoTelefone { get; set; }
 }
 
-public sealed record ItemPropostaPortal(Guid ItemId, decimal ValorUnitario, DateOnly? Entrega);
+public sealed record ItemPropostaPortal(Guid ItemId, decimal ValorUnitario, DateOnly? Entrega, string? Marca = null);
 
 /// <summary>Funcionário da empresa terceira visto no portal (aba Funcionários): só nome, função e pendências — sem CPF.</summary>
 public sealed record ColaboradorPortal(Guid Id, string Nome, string Funcao, string Situacao, string? Pendencias);
@@ -287,7 +291,10 @@ public sealed class PortalServico(IFabricaSistema sistema, IFabricaDb fabrica, I
         var reqItens = itens.Where(i => i.RequisicaoItemId != null).Select(i => i.RequisicaoItemId!.Value).ToList();
         var locs = await Comum.QuadroLocais.CarregarAsync(db, reqItens, ct);
         var porItem = itens.Where(i => i.RequisicaoItemId is { } r && locs.ContainsKey(r)).ToDictionary(i => i.Id, i => locs[i.RequisicaoItemId!.Value]);
-        return new PropostaPortal(emp, forn, c.Numero, c.Nome, c.EnderecoEntrega, c.Frete, CotacaoAberta(c) && conv.Status != StatusConvite.Declinou, conv, itens, fat, destino) { Locais = porItem };
+        var pedidas = await db.Set<RequisicaoItem>().AsNoTracking().Where(r => reqItens.Contains(r.Id) && r.Marca != null).ToDictionaryAsync(r => r.Id, r => (r.Marca!, r.MesmaMarca), ct);
+        var marcas = itens.Where(i => i.RequisicaoItemId is { } r && pedidas.ContainsKey(r)).ToDictionary(i => i.Id, i => pedidas[i.RequisicaoItemId!.Value]);
+        return new PropostaPortal(emp, forn, c.Numero, c.Nome, c.EnderecoEntrega, c.Frete, CotacaoAberta(c) && conv.Status != StatusConvite.Declinou, conv, itens, fat, destino)
+            { Locais = porItem, Material = c.Tipo == TipoRequisicao.Material, MarcasPedidas = marcas };
     }
 
     public async Task EnviarPropostaAsync(Guid token, IReadOnlyList<ItemPropostaPortal> itens, decimal? frete, string? condicao, DateOnly? validade,
@@ -309,6 +316,15 @@ public sealed class PortalServico(IFabricaSistema sistema, IFabricaDb fabrica, I
             if (it.Entrega is { } e && e < hoje) erros.Add($"{ci.Descricao}: entrega no passado.");
         }
         if (!itens.Any(i => i.ValorUnitario > 0)) erros.Add("Informe o preço de pelo menos um item.");
+        var reqIds = meus.Values.Where(i => i.RequisicaoItemId != null).Select(i => i.RequisicaoItemId!.Value).ToList();
+        var pedidas = await db.Set<RequisicaoItem>().IgnoreQueryFilters().AsNoTracking().Where(r => reqIds.Contains(r.Id)).ToDictionaryAsync(r => r.Id, r => (r.Marca, r.MesmaMarca), ct);
+        foreach (var it in itens.Where(i => meus.ContainsKey(i.ItemId)))
+        {
+            var ci = meus[it.ItemId];
+            var pr = ci.RequisicaoItemId is { } rq && pedidas.TryGetValue(rq, out var x) ? x : (null, false);
+            var teste = new CotacaoItem { Descricao = ci.Descricao, ValorOfertado = it.ValorUnitario, Marca = it.Marca };
+            if (teste.ErroMarca(c.Tipo == TipoRequisicao.Material, pr.Item1, pr.Item2) is { } em) erros.Add(em);
+        }
         if (frete is < 0) erros.Add("Frete negativo.");
         if (validade is { } v && v < hoje) erros.Add("Validade da proposta no passado.");
         ValidacaoException.Se(erros);
@@ -318,7 +334,10 @@ public sealed class PortalServico(IFabricaSistema sistema, IFabricaDb fabrica, I
             var ci = meus[it.ItemId];
             ci.ValorOfertado = Math.Round(it.ValorUnitario, 4);
             ci.Entrega = it.Entrega ?? prazoEntrega;
+            ci.Marca = string.IsNullOrWhiteSpace(it.Marca) ? ci.Marca : it.Marca.Trim();
         }
+        var marcas = await MarcasServico.NormalizarAsync(db, meus.Values.Select(i => i.Marca), ct);
+        foreach (var ci in meus.Values) ci.Marca = MarcasServico.Oficial(marcas, ci.Marca);
         conv.ValorFrete = c.Frete == TipoFrete.NaoSeAplica ? null : frete; conv.CondicaoPagamento = string.IsNullOrWhiteSpace(condicao) ? null : condicao.Trim();
         conv.ValidadeProposta = validade; conv.PrazoEntregaOfertado = prazoEntrega;
         conv.Status = StatusConvite.Respondido; conv.DataResposta = hoje;

@@ -18,7 +18,7 @@
                         <Coluna T="Usuario" Titulo="Acesso" Valor="u => SituacaoAcesso(u.Id)" />
                         <Coluna T="Usuario" Titulo="Perfil" Valor="u => u.Perfil" />
                         <Coluna T="Usuario" Titulo="Função" Valor="u => u.Funcao" />
-                        <Coluna T="Usuario" Titulo="Obras" Valor='u => u.AcessoTodasObras ? "Todas" : string.Join(", ", u.Obras.Select(o => NomeObra(o.ObraId)))' />
+                        <Coluna T="Usuario" Titulo="Obras" Valor='u => u.VeTodasObras ? "Todas" : u.Obras.Count == 0 ? "(nenhuma)" : string.Join(", ", u.Obras.Select(o => NomeObra(o.ObraId)))' />
                         <Coluna T="Usuario" Titulo="Limites" Valor='u => string.Join(" · ", u.LimitesAprovacao.Where(l => l.Ativo).Select(l => $"{De(l.Entidade)} {Moeda(l.ValorMaximo)}"))' />
                         <Coluna T="Usuario" Titulo="Ativo" Valor="u => u.Ativo" />
                     </Colunas>
@@ -43,7 +43,7 @@
                     </Colunas>
                 </Grade>
             }
-            else
+            else if (_aba == "delegacoes")
             {
                 <Grade T="DelegacaoAprovacao" @ref="_gD" Itens="_delegacoes" AoClicar="d => { _d = d; ErrosForm = null; _abertoD = true; }" NomeExportacao="delegacoes">
                     <Colunas>
@@ -56,6 +56,29 @@
                         <Coluna T="DelegacaoAprovacao" Titulo="Situação" Valor='d => d.Revogada ? "Revogada" : d.Fim < DateTimeOffset.Now ? "Encerrada" : "Vigente"' />
                     </Colunas>
                 </Grade>
+            }
+            @if (_aba == "obras")
+            {
+                <div class="form">
+                    <Campo Rotulo="Obra" Classe="s6"><select id="ao-obra" @bind="_obraAcesso" @bind:after="CarregarAcessoObra"><option value="">Selecione…</option>@foreach (var o in _obras) { <option value="@o.Id">@o.Texto</option> }</select></Campo>
+                </div>
+                @if (_obraAcesso is not null)
+                {
+                    <table class="itens" id="ao-usuarios">
+                        <thead><tr><th>Acessa</th><th>Usuário</th><th>Perfil</th><th>Função</th><th>Situação</th></tr></thead>
+                        <tbody>
+                            @foreach (var u in (_usuarios ?? []).Where(u => u.Ativo).OrderBy(u => u.Nome))
+                            {
+                                var todas = u.VeTodasObras;
+                                <tr><td>@if (todas) { <span title="Acessa todas as obras">✓ todas</span> } else { <input type="checkbox" checked="@_acesso.GetValueOrDefault(u.Id)" disabled="@(!Perfil())" @onchange="e => _acesso[u.Id] = (bool)e.Value!" aria-label="@($"Acesso de {u.Nome}")" /> }</td>
+                                    <td>@u.Nome</td><td>@De(u.Perfil)</td><td>@u.Funcao</td>
+                                    <td>@(todas ? (QualyHub.Domain.Estrutura.Usuario.PerfilVeTodas(u.Perfil) ? "Perfil vê todas as obras" : "Marcado \"todas as obras\"") : _acesso.GetValueOrDefault(u.Id) ? "Com acesso" : "Sem acesso")</td></tr>
+                            }
+                        </tbody>
+                    </table>
+                    @if (Perfil()) { <div class="linha-botoes"><button class="btn prim" id="ao-salvar" disabled="@Ocupado" @onclick="SalvarAcessoObra"><Icone Nome="check" Tam="16" /> Salvar acessos desta obra</button></div> }
+                    <div class="alerta info"><Icone Nome="info" /> Vale na hora, sem novo login. Administrador e Diretoria sempre acessam todas as obras; os demais perfis só as obras marcadas (ou todas, se marcado no cadastro do usuário).</div>
+                }
             }
         </div>
     </ChildContent>
@@ -77,8 +100,12 @@
                 <Campo Rotulo="" Classe="s3"><label><input type="checkbox" @bind="_u.Ativo" disabled="@(!Perfil())" /> Ativo</label></Campo>
                 <Campo Rotulo="Acesso às obras" Classe="s12">
                     <div class="checks">
+                        @if (QualyHub.Domain.Estrutura.Usuario.PerfilVeTodas(_u.Perfil)) { <span class="mudo">Perfil @De(_u.Perfil): acessa todas as obras.</span> }
+                        else
+                        {
                         <label><input type="checkbox" @bind="_u.AcessoTodasObras" disabled="@(!Perfil())" /> <b>Todas as obras</b></label>
-                        @if (!_u.AcessoTodasObras)
+                        }
+                        @if (!_u.VeTodasObras)
                         {
                             @foreach (var o in _obras)
                             {
@@ -129,7 +156,8 @@
             </table>
         }
     </ChildContent>
-    <Rodape>@if (Perfil()) { <button class="btn prim" disabled="@Ocupado" @onclick="SalvarUsuario"><Icone Nome="check" Tam="16" /> Salvar</button> }</Rodape>
+    <Rodape>@if (Perfil()) { <BotaoExcluir Tipo="typeof(Usuario)" Id="@(_u?.CriadoEm == default ? Guid.Empty : _u.Id)" IdBotao="exc-u" AoExcluir="async () => { _abertoU = false; await Carregar(); }" />
+            <button class="btn prim" disabled="@Ocupado" @onclick="SalvarUsuario"><Icone Nome="check" Tam="16" /> Salvar</button> }</Rodape>
 </Modal>
 
 <Modal @bind-Aberto="_abertoA" Titulo="Etapa de alçada" Tamanho="media">
@@ -155,7 +183,8 @@
             </div>
         }
     </ChildContent>
-    <Rodape>@if (Perfil()) { <button class="btn prim" disabled="@Ocupado" @onclick="SalvarAlcada"><Icone Nome="check" Tam="16" /> Salvar</button> }</Rodape>
+    <Rodape>@if (Perfil()) { <BotaoExcluir Tipo="typeof(Alcada)" Id="@(_a?.CriadoEm == default ? Guid.Empty : _a.Id)" IdBotao="exc-a" AoExcluir="async () => { _abertoA = false; await Carregar(); }" />
+            <button class="btn prim" disabled="@Ocupado" @onclick="SalvarAlcada"><Icone Nome="check" Tam="16" /> Salvar</button> }</Rodape>
 </Modal>
 
 <Modal @bind-Aberto="_abertoD" Titulo="Delegação de aprovação" Tamanho="media">
@@ -185,7 +214,7 @@
 <Confirmacao Pergunta="@PerguntaConfirmacao" AoSim="ConfirmacaoSim" AoNao="ConfirmacaoNao" TextoSim="Revogar" />
 
 @code {
-    private IGrade? GradeAtual => _aba switch { "usuarios" => _gU, "alcadas" => _gA, _ => _gD };
+    private IGrade? GradeAtual => _aba switch { "usuarios" => _gU, "alcadas" => _gA, "delegacoes" => _gD, _ => null };
     private Grade<Usuario>? _gU;
     private Grade<Alcada>? _gA;
     private Grade<DelegacaoAprovacao>? _gD;
@@ -199,7 +228,20 @@
     private string _aba = "usuarios";
     private List<Opcao> _obras = [], _usuariosOp = [];
     private List<string> _funcoes = [];
-    private static readonly List<(string, string)> _abas = [("usuarios", "Usuários e limites"), ("alcadas", "Alçadas (etapas)"), ("delegacoes", "Delegações")];
+    private static readonly List<(string, string)> _abas = [("usuarios", "Usuários e limites"), ("alcadas", "Alçadas (etapas)"), ("delegacoes", "Delegações"), ("obras", "Acesso por obra")];
+    private Guid? _obraAcesso;
+    private Dictionary<Guid, bool> _acesso = [];
+
+    private void CarregarAcessoObra()
+    {
+        _acesso = (_usuarios ?? []).Where(u => !u.VeTodasObras).ToDictionary(u => u.Id, u => _obraAcesso is { } o && u.Obras.Any(x => x.ObraId == o));
+    }
+
+    private async Task SalvarAcessoObra()
+    {
+        if (await Executar(() => Sistema.DefinirAcessoObraAsync(_obraAcesso!.Value, _acesso, Cancelamento), "Acessos da obra salvos."))
+        { await Carregar(); CarregarAcessoObra(); }
+    }
 
     private string NomeObra(Guid id) => _obras.FirstOrDefault(o => o.Id == id)?.Texto ?? "?";
     private string NomeUsuario(Guid id) => _usuarios?.FirstOrDefault(u => u.Id == id)?.Nome ?? "?";
@@ -228,7 +270,7 @@
         {
             case "usuarios": _u = new Usuario { Perfil = PerfilUsuario.Campo }; _senhaGerada = null; _abertoU = true; break;
             case "alcadas": _a = new Alcada { Entidade = EntidadeAprovavel.Pedido, Ordem = 1, PerfilAprovador = PerfilUsuario.Diretoria }; _abertoA = true; break;
-            default: _d = new DelegacaoAprovacao { Inicio = DateTimeOffset.Now, Fim = DateTimeOffset.Now.AddDays(15) }; _abertoD = true; break;
+            case "delegacoes": _d = new DelegacaoAprovacao { Inicio = DateTimeOffset.Now, Fim = DateTimeOffset.Now.AddDays(15) }; _abertoD = true; break;
         }
     }
 

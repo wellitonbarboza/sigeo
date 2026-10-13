@@ -6,6 +6,7 @@
 @inject CodigosProdutoServico Codigos
 @inject CadastrosServico Cad
 @inject IJSRuntime JS
+@inject MarcasServico MarcasSrv
 
 @* Catálogo com milhares de itens: a lista é paginada no banco (a Grade filtra/agrupa em memória, por isso não é usada aqui). *@
 <Pagina Titulo="Produtos (insumos)" AoNovo="Novo" AoAtualizar="Carregar">
@@ -80,7 +81,7 @@
                 }
                 <Campo Rotulo="NCM" Classe="s2" Ajuda="8 dígitos"><input @bind="_p.Ncm" maxlength="10" inputmode="numeric" /></Campo>
                 <Campo Rotulo="Qtd. por embalagem" Classe="s2" Ajuda="Pacote/caixa"><input type="number" step="0.001" @bind="_p.QuantidadePorEmbalagem" /></Campo>
-                <Campo Rotulo="Marca" Classe="s4"><input @bind="_p.Marca" /></Campo>
+                <Campo Rotulo="Marca de referência" Classe="s4" Ajuda="Do cadastro de marcas (a requisição sugere esta)"><input id="prod-marca" @bind="_p.Marca" list="marcas-prod" /><datalist id="marcas-prod">@foreach (var m in _marcas) { <option>@m</option> }</datalist></Campo>
                 <Campo Rotulo="Referência do fabricante" Classe="s4"><input @bind="_p.Referencia" /></Campo>
                 <Campo Rotulo="EAN (código de barras)" Classe="s4"><input @bind="_p.Ean" maxlength="14" inputmode="numeric" /></Campo>
                 <Campo Rotulo="Lead time (dias)" Classe="s3"><input type="number" @bind="_p.LeadTimeDias" /></Campo>
@@ -88,9 +89,24 @@
                 <Campo Rotulo="Material controlado" Classe="s9"><select @bind="_p.MaterialControladoId"><option value="">(não controlado)</option>@foreach (var m in _materiais) { <option value="@m.Id">@m.Texto</option> }</select></Campo>
                 <Campo Rotulo="" Classe="s12"><label><input type="checkbox" @bind="_p.Ativo" /> Ativo</label></Campo>
             </div>
+            @if (_compras.Count > 0)
+            {
+                <div class="secao"><Icone Nome="grafico" /> Compras por marca</div>
+                <table class="itens" id="prod-marcas">
+                    <thead><tr><th>Marca</th><th class="num">Pedidos</th><th class="num">Quantidade</th><th class="num">Preço médio</th><th class="num">Último preço</th><th>Última compra</th><th class="num">Menor cotado</th></tr></thead>
+                    <tbody>
+                        @foreach (var c in _compras)
+                        {
+                            <tr><td>@c.Marca</td><td class="num">@c.Pedidos</td><td class="num">@c.Quantidade.ToString("N2", Br)</td><td class="num">@c.PrecoMedio.ToString("N2", Br)</td>
+                                <td class="num">@c.UltimoPreco.ToString("N2", Br)</td><td>@DataHora(c.UltimaCompra)</td><td class="num">@(c.MenorCotado?.ToString("N2", Br) ?? "—")</td></tr>
+                        }
+                    </tbody>
+                </table>
+            }
         }
     </ChildContent>
-    <Rodape><button class="btn prim" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="16" /> Salvar</button></Rodape>
+    <Rodape><BotaoExcluir Tipo="typeof(Produto)" Id="@(_p?.CriadoEm == default ? Guid.Empty : _p.Id)" IdBotao="exc-p" AoExcluir="async () => { _aberto = false; await Carregar(); }" />
+            <button class="btn prim" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="16" /> Salvar</button></Rodape>
 </Modal>
 
 <Modal @bind-Aberto="_abertoPad" Titulo="Padronizar códigos de produto" Tamanho="media">
@@ -264,7 +280,9 @@
         });
     }
 
-    private void Novo() { _p = new Produto(); ErrosForm = null; _iaMsg = null; _aberto = true; }
+    private List<string> _marcas = [];
+    private List<MarcasServico.CompraPorMarca> _compras = [];
+    private void Novo() { _p = new Produto(); _compras = []; ErrosForm = null; _iaMsg = null; _aberto = true; }
 
     private bool _iaOcupado;
     private string? _iaMsg;
@@ -291,6 +309,8 @@
         if (!await Executar(async () => p = await Cad.ObterProdutoAsync(id, Cancelamento))) return;
         if (p is null) { Notif.Erro("Produto não encontrado (pode ter sido excluído)."); await CarregarPagina(); return; }
         _p = p; ErrosForm = null; _iaMsg = null; _aberto = true;
+        _marcas = await Cat.MarcasAsync();
+        _compras = await MarcasSrv.ComprasPorMarcaAsync(p.Id, Cancelamento);
     }
 
     private async Task Salvar()

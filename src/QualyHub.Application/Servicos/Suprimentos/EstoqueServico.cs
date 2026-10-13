@@ -152,6 +152,29 @@ public sealed class EstoqueServico(IFabricaDb fabrica, IUsuarioAtual usuario, Ti
         return m.Id;
     }
 
+    /// <summary>
+    /// Estorna um lançamento manual (saída, devolução ou perda) com o movimento inverso — o kardex não apaga nada.
+    /// Cada lançamento só pode ser estornado uma vez.
+    /// </summary>
+    public async Task EstornarAsync(Guid movimentoId, string motivo, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(motivo)) throw new RegraDeNegocioException("Informe o motivo do estorno.");
+        await using var db = fabrica.Criar();
+        var m = await db.MovimentosEstoque.AsNoTracking().FirstAsync(x => x.Id == movimentoId, ct);
+        if (m.Tipo is not (TipoMovimentoEstoque.Saida or TipoMovimentoEstoque.Devolucao or TipoMovimentoEstoque.Perda or TipoMovimentoEstoque.EntregaEpi))
+            throw new RegraDeNegocioException("Só saída, devolução, perda ou entrega de EPI são estornadas aqui. Recebimento, transferência e inventário têm fluxo próprio (cancelar/ajustar).");
+        if (m.OrigemTipo == "Estorno") throw new RegraDeNegocioException("Este movimento já é um estorno.");
+        if (await db.MovimentosEstoque.AnyAsync(x => x.OrigemTipo == "Estorno" && x.OrigemId == m.Id, ct)) throw new RegraDeNegocioException("Lançamento já estornado.");
+        await MotorEstoque.MovimentarAsync(db, new MovimentoEstoque
+        {
+            AlmoxarifadoId = m.AlmoxarifadoId, ProdutoId = m.ProdutoId, Data = relogio.GetUtcNow(), Tipo = m.Quantidade < 0 ? TipoMovimentoEstoque.Devolucao : TipoMovimentoEstoque.Saida,
+            Quantidade = -m.Quantidade, CustoUnitario = m.CustoUnitario, LocalId = m.LocalId, ComposicaoId = m.ComposicaoId, KitId = m.KitId,
+            ColaboradorId = m.ColaboradorId, FornecedorId = m.FornecedorId, EntreguePara = m.EntreguePara,
+            Documento = $"Estorno · {m.Documento}", OrigemTipo = "Estorno", OrigemId = m.Id, Observacao = motivo.Trim()
+        }, ct);
+        await db.SaveChangesAsync(ct);
+    }
+
     // ───────── Mínimos ─────────
 
     public async Task SalvarMinimosAsync(Guid almoxarifadoId, Guid produtoId, decimal minimo, decimal pontoPedido, decimal maximo, CancellationToken ct = default)
@@ -286,6 +309,16 @@ public sealed class EstoqueServico(IFabricaDb fabrica, IUsuarioAtual usuario, Ti
                 throw new RegraDeNegocioException("Diferença entre o contado e o sistema: descreva o motivo em cada item.");
             inv.Status = StatusInventario.AguardandoAprovacao;
         }
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>Tira um item da contagem (incluído por engano) enquanto o inventário está em contagem.</summary>
+    public async Task RemoverItemInventarioAsync(Guid inventarioId, Guid produtoId, CancellationToken ct = default)
+    {
+        await using var db = fabrica.Criar();
+        var inv = await db.Inventarios.Include(i => i.Itens).FirstAsync(i => i.Id == inventarioId, ct);
+        if (inv.Status != StatusInventario.EmContagem) throw new RegraDeNegocioException("Inventário não está em contagem.");
+        foreach (var it in inv.Itens.Where(i => i.ProdutoId == produtoId).ToList()) { inv.Itens.Remove(it); db.InventarioItens.Remove(it); }
         await db.SaveChangesAsync(ct);
     }
 

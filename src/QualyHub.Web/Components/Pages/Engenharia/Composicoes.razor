@@ -81,6 +81,7 @@
         @if (_c is not null)
         {
             @if (_c.CriadoEm != default) { <div class="esq"><button class="btn sec" disabled="@Ocupado" @onclick="Copiar"><Icone Nome="mais" Tam="14" /> Copiar</button></div> }
+            <BotaoExcluir Tipo="typeof(Composicao)" Id="@(_c?.CriadoEm == default ? Guid.Empty : _c.Id)" IdBotao="exc-c" AoExcluir="async () => { _aberto = false; await Carregar(); }" />
             <button class="btn prim" id="comp-salvar" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="16" /> Salvar</button>
         }
     </Rodape>

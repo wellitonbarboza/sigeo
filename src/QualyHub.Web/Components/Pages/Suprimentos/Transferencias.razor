@@ -46,17 +46,18 @@
             </div>
             <div class="tabela-rolavel">
                 <table class="itens" id="tr-itens">
-                    <thead><tr><th>Material</th><th>Un.</th><th>Lote</th><th class="num">Enviado</th><th class="num">Custo unit.</th><th class="num">Valor</th><th class="num">Conferido na obra</th></tr></thead>
+                    <thead><tr><th>Material</th><th>Un.</th><th>Lote</th><th class="num">Enviado</th><th class="num">Custo unit.</th><th class="num">Valor</th><th class="num">Conferido na obra</th><th></th></tr></thead>
                     <tbody>
                         @foreach (var i in _t.Itens)
                         {
                             <tr @key="(i.Id, _versaoConf)"><td>@i.Descricao</td><td>@i.Unidade</td><td>@i.Lote</td>
                                 <td class="larg-100"><input type="number" step="0.001" @bind="i.Quantidade" disabled="@(_t.Status != StatusTransferencia.Rascunho)" /></td>
                                 <td class="num">@i.CustoUnitario.ToString("N2", Br)</td><td class="num">@i.Valor.ToString("N2", Br)</td>
-                                <td class="larg-110">@if (_t.Status == StatusTransferencia.Enviada) { <input type="number" step="0.001" value="@(_conf.GetValueOrDefault(i.Id, i.Quantidade).ToString(System.Globalization.CultureInfo.InvariantCulture))" @onchange="e => DefinirConferido(i, e.Value)" /> } else { @i.QuantidadeRecebida?.ToString("N3", Br) }</td></tr>
+                                <td class="larg-110">@if (_t.Status == StatusTransferencia.Enviada) { <input type="number" step="0.001" value="@(_conf.GetValueOrDefault(i.Id, i.Quantidade).ToString(System.Globalization.CultureInfo.InvariantCulture))" @onchange="e => DefinirConferido(i, e.Value)" /> } else { @i.QuantidadeRecebida?.ToString("N3", Br) }</td>
+                                <td>@if (_t.Status == StatusTransferencia.Rascunho && _t.Itens.Count > 1) { <button class="icone-btn" title="Remover item (salve para gravar)" aria-label="Remover item" @onclick="() => _t.Itens.Remove(i)"><Icone Nome="lixeira" Tam="15" /></button> }</td></tr>
                         }
                     </tbody>
-                    <tfoot><tr><td colspan="5" class="texto-dir">Total</td><td class="num"><b>@_t.Valor.ToString("N2", Br)</b></td><td></td></tr></tfoot>
+                    <tfoot><tr><td colspan="5" class="texto-dir">Total</td><td class="num"><b>@_t.Valor.ToString("N2", Br)</b></td><td></td><td></td></tr></tfoot>
                 </table>
             </div>
             @if (_t.ConferidoEm is { } ce) { <p class="mudo">Conferido por @_t.ConferidoPor em @ce.ToLocalTime().ToString("dd/MM/yyyy HH:mm").</p> }

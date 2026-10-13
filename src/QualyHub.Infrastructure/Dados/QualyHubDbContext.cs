@@ -45,6 +45,7 @@ public class QualyHubDbContext(DbContextOptions<QualyHubDbContext> options, IUsu
     public DbSet<ServicoControlado> ServicosControlados => Set<ServicoControlado>();
     public DbSet<MaterialControlado> MateriaisControlados => Set<MaterialControlado>();
     public DbSet<Produto> Produtos => Set<Produto>();
+    public DbSet<Marca> Marcas => Set<Marca>();
     // Suprimentos (T01–T18)
     public DbSet<Requisicao> Requisicoes => Set<Requisicao>();
     public DbSet<RequisicaoItem> RequisicaoItens => Set<RequisicaoItem>();

@@ -202,6 +202,9 @@ public class Usuario : EntidadeAuditavel
     /// <summary>Função exibida e usada em distribuição/leitura obrigatória (ex.: Engenheiro da Obra, Comprador).</summary>
     public string? Funcao { get; set; }
     public bool AcessoTodasObras { get; set; }
+    /// <summary>Administrador e Diretoria veem todas as obras; os demais perfis, só as liberadas (ou todas, se marcado).</summary>
+    public static bool PerfilVeTodas(PerfilUsuario p) => p is PerfilUsuario.Administrador or PerfilUsuario.Diretoria;
+    public bool VeTodasObras => AcessoTodasObras || PerfilVeTodas(Perfil);
     public bool Ativo { get; set; } = true;
     /// <summary>
     /// Acesso a outra construtora: este cadastro (nesta empresa, com perfil e obras próprios) usa o login e a senha da conta

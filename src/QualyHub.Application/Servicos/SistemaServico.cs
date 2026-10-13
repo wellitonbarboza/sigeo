@@ -100,7 +100,32 @@ public sealed class SistemaServico(IFabricaDb fabrica, TimeProvider relogio)
         // Perfil, desativação ou troca do usuário valem nas aprovações em andamento (aprovador nominal inativo → substituto/perfil).
         if (await AprovacaoServico.RecalcularPendentesAsync(db, x => true, ct) > 0) await db.SaveChangesAsync(ct);
         AcessoServico.Invalidar(); // perfil do usuário muda o acesso por tela na hora
+        AcessoObrasAoVivo.Definir(u.Id, u.VeTodasObras, u.Obras.Select(o => o.ObraId)); // e as obras liberadas também
         return u.Id;
+    }
+
+    /// <summary>
+    /// Acesso por obra: marca quem acessa a obra (usuários com "todas as obras" ou perfil Administrador/Diretoria não mudam).
+    /// </summary>
+    public async Task DefinirAcessoObraAsync(Guid obraId, IReadOnlyDictionary<Guid, bool> usuarios, CancellationToken ct = default)
+    {
+        await using var db = fabrica.Criar();
+        await Permissoes.ExigirAsync(db, Usuario, "alterar usuários");
+        var ids = usuarios.Keys.ToList();
+        var lista = await db.Usuarios.Include(u => u.Obras).Where(u => ids.Contains(u.Id)).ToListAsync(ct);
+        foreach (var u in lista.Where(u => !u.VeTodasObras))
+        {
+            var tem = u.Obras.FirstOrDefault(o => o.ObraId == obraId);
+            if (usuarios[u.Id] && tem is null)
+            {
+                var novo = new Domain.Estrutura.UsuarioObra { UsuarioId = u.Id, ObraId = obraId };
+                db.UsuariosObras.Add(novo); // Id já gerado: adicionar pelo DbSet (pela coleção o EF trataria como existente)
+                u.Obras.Add(novo);
+            }
+            else if (!usuarios[u.Id] && tem is not null) { u.Obras.Remove(tem); db.Remove(tem); }
+        }
+        await db.SaveChangesAsync(ct);
+        foreach (var u in lista) AcessoObrasAoVivo.Definir(u.Id, u.VeTodasObras, u.Obras.Select(o => o.ObraId));
     }
 
     public async Task SalvarAlcadaAsync(Alcada a, CancellationToken ct = default)

@@ -31,7 +31,7 @@
         }
         <div class="tabela-rolavel">
             <table class="itens">
-                <thead><tr><th>Item</th><th>UN</th><th class="num">Quant.</th><th>Preço unitário (R$)</th><th>Entrega</th><th class="num">Total</th></tr></thead>
+                <thead><tr><th>Item</th><th>UN</th><th class="num">Quant.</th><th>Preço unitário (R$)</th>@if (_s.Material) { <th>Marca <span class="req">*</span></th> }<th>Entrega</th><th class="num">Total</th></tr></thead>
                 <tbody>
                     @foreach (var l in _linhas)
                     {
@@ -42,16 +42,18 @@
                                 @if (ls is not null)
                                 {
                                     <br /><button type="button" class="pl-toggle" aria-expanded="@(aberto ? "true" : "false")" @onclick="() => { if (!_abertos.Remove(l.Id)) _abertos.Add(l.Id); }">@(aberto ? "▾" : "▸") <span class="pl-ico">▦</span> Locais: @QuadroLocais.Resumo(ls, l.Unidade)</button>
-                                }</td><td>@l.Unidade</td><td class="num">@Rotulos.Num(l.Quantidade, 3)</td>
+                                }
+                                @if (_s.MarcasPedidas.TryGetValue(l.Id, out var mp)) { <br /><small class="mudo">Marca pedida: @mp.Marca@(mp.Somente ? " (somente esta)" : " ou similar")</small> }</td><td>@l.Unidade</td><td class="num">@Rotulos.Num(l.Quantidade, 3)</td>
                             <td class="larg-150"><input type="number" step="0.01" min="0" @bind="l.Valor" disabled="@(!_s.Aberta)" /></td>
+                            @if (_s.Material) { <td class="larg-160"><input @bind="l.Marca" maxlength="120" placeholder="marca do item" aria-label="@($"Marca – {l.Descricao}")" disabled="@(!_s.Aberta)" /></td> }
                             <td class="larg-150"><input type="date" @bind="l.Entrega" disabled="@(!_s.Aberta)" /></td>
                             <td class="num">@Rotulos.Moeda(Math.Round(l.Valor * l.Quantidade, 2))</td>
                         </tr>
-                        @if (aberto) { <tr class="linha-locais" @key="(l.Id, 1)"><td colspan="6"><PainelLocais Linhas="ls!" Unidade="@l.Unidade" /></td></tr> }
+                        @if (aberto) { <tr class="linha-locais" @key="(l.Id, 1)"><td colspan="@(_s.Material ? 7 : 6)"><PainelLocais Linhas="ls!" Unidade="@l.Unidade" /></td></tr> }
                     }
-                    @if (_linhas.Count == 0) { <tr><td colspan="6" class="mudo">Nenhum item nesta cotação para a sua empresa.</td></tr> }
+                    @if (_linhas.Count == 0) { <tr><td colspan="@(_s.Material ? 7 : 6)" class="mudo">Nenhum item nesta cotação para a sua empresa.</td></tr> }
                 </tbody>
-                <tfoot><tr><td colspan="5" class="num"><b>Total dos itens</b></td><td class="num"><b>@Rotulos.Moeda(_linhas.Sum(l => Math.Round(l.Valor * l.Quantidade, 2)))</b></td></tr></tfoot>
+                <tfoot><tr><td colspan="@(_s.Material ? 6 : 5)" class="num"><b>Total dos itens</b></td><td class="num"><b>@Rotulos.Moeda(_linhas.Sum(l => Math.Round(l.Valor * l.Quantidade, 2)))</b></td></tr></tfoot>
             </table>
         </div>
         <div class="form mt-12">
@@ -89,6 +91,7 @@
         public decimal Quantidade { get; init; }
         public decimal Valor { get; set; }
         public DateOnly? Entrega { get; set; }
+        public string? Marca { get; set; }
     }
 
     protected override async Task OnInitializedAsync() => await Abrir();
@@ -98,7 +101,7 @@
         _s = await Portal.AbrirPropostaAsync(Token);
         if (_s is not null)
         {
-            _linhas = _s.Itens.Select(i => new LinhaProp { Id = i.Id, Descricao = i.Descricao, Unidade = i.Unidade, Quantidade = i.Quantidade, Valor = i.ValorOfertado, Entrega = i.Entrega }).ToList();
+            _linhas = _s.Itens.Select(i => new LinhaProp { Id = i.Id, Descricao = i.Descricao, Unidade = i.Unidade, Quantidade = i.Quantidade, Valor = i.ValorOfertado, Entrega = i.Entrega, Marca = i.Marca }).ToList();
             _frete = _s.Convite.ValorFrete; _prazo = _s.Convite.PrazoEntregaOfertado; _condicao = _s.Convite.CondicaoPagamento; _validade = _s.Convite.ValidadeProposta;
         }
         _carregando = false;
@@ -109,7 +112,7 @@
         _enviando = true; _msg = null; _erros = null;
         try
         {
-            await Portal.EnviarPropostaAsync(Token, _linhas.Select(l => new ItemPropostaPortal(l.Id, l.Valor, l.Entrega)).ToList(), _frete, _condicao, _validade, _prazo);
+            await Portal.EnviarPropostaAsync(Token, _linhas.Select(l => new ItemPropostaPortal(l.Id, l.Valor, l.Entrega, l.Marca)).ToList(), _frete, _condicao, _validade, _prazo);
             _ok = true; _msg = "Proposta enviada. Obrigado! O comprador já pode ver seus preços.";
             await Abrir();
         }

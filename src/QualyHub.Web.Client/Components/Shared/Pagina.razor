@@ -31,9 +31,9 @@
             @if (AoNovo.HasDelegate) { <span class="sep"></span><button class="icone-btn" title="Novo" @onclick="AoNovo"><Icone Nome="mais" Tam="20" /></button> }
         </div>
     }
-    @if (Direita is not null) { <div class="direita">@Direita</div> }
 </div>
-<div class="miolo">@ChildContent</div>
+@* Ações e filtros da tela ficam abaixo do título (não no canto superior direito, onde cortavam botões). *@
+<div class="miolo">@if (Direita is not null) { <div class="acoes-pagina">@Direita</div> }@ChildContent</div>
 @if (Faixa is not null)
 {
     <div class="faixa fixa-base">@Faixa</div>

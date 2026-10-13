@@ -112,7 +112,7 @@ public static class Autenticacao
             new(ClaimsQh.EmpresaNome, empresaNome),
             new(ClaimsQh.Perfil, u.Perfil.ToString()),
             new(ClaimsQh.Funcao, u.Funcao ?? ""),
-            new(ClaimsQh.TodasObras, u.AcessoTodasObras || u.Perfil is Domain.Common.PerfilUsuario.Administrador or Domain.Common.PerfilUsuario.Diretoria or Domain.Common.PerfilUsuario.Qualidade ? "1" : "0"),
+            new(ClaimsQh.TodasObras, u.VeTodasObras ? "1" : "0"),
             new(ClaimsQh.Obras, string.Join(',', u.Obras.Select(o => o.ObraId))),
             new(ClaimTypes.Role, u.Perfil.ToString()),
         };

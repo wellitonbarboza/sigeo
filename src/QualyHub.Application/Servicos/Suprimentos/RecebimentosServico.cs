@@ -20,6 +20,8 @@ public sealed class RecebimentosServico(IFabricaDb fabrica, IUsuarioAtual usuari
     public async Task<Guid> RegistrarRecebimentoAsync(Recebimento r, CancellationToken ct = default)
     {
         await using var db = fabrica.Criar();
+        var marcas = await MarcasServico.NormalizarAsync(db, r.Itens.Select(i => i.Marca), ct);
+        foreach (var i in r.Itens) i.Marca = MarcasServico.Oficial(marcas, i.Marca);
         if (r.PedidoId is { } pid)
         {
             var ped = await db.Pedidos.Include(p => p.Itens).FirstAsync(p => p.Id == pid, ct);

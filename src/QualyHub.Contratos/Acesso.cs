@@ -55,7 +55,7 @@ public static class CatalogoTelas
             T("cad", "fornecedores", "Fornecedores", "predio"), T("cad", "fornecedores/qualificacao", "Qualificação Fornec.", "selo", "VIEAX"),
             T("cad", "fornecedores/documentos", "Docs. do Fornecedor", "arquivo", "VIEAX"), T("cad", "fornecedores/exigencias", "Matriz de Documentos", "tabela"),
             T("cad", "cadastros/controlados", "Materiais/Serv. Control.", "escudo-check"), T("cad", "cadastros/estabelecimentos", "Estabelecimentos (CNPJs)", "predio"),
-            T("cad", "cadastros/centros-custo", "Centros de Custo", "tabela"), T("cad", "cadastros/produtos", "Produtos", "caixa"),
+            T("cad", "cadastros/centros-custo", "Centros de Custo", "tabela"), T("cad", "cadastros/produtos", "Produtos", "caixa"), T("cad", "cadastros/marcas", "Marcas", "medalha"),
             T("cad", "cadastros/categorias", "Categorias de Produto", "lista")]),
         new("eng", "Engenharia", "regua", false, [
             T("eng", "engenharia/obras", "Obras e Empreendimentos", "predio"), T("eng", "engenharia/tipologias", "Tipologias", "cubo"),

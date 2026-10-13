@@ -105,5 +105,7 @@ public class RecebimentoItem : Entidade
     public bool MaterialControlado { get; set; }
     public Guid? MaterialControladoId { get; set; }
     public string? Lote { get; set; }
+    /// <summary>Marca recebida (confere com a do pedido; diferente é divergência).</summary>
+    public string? Marca { get; set; }
     public bool DocumentosRecebidos { get; set; }
 }

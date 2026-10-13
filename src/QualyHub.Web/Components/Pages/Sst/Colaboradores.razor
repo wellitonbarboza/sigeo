@@ -92,6 +92,7 @@
         @if (_c is not null)
         {
             @if (_c.CriadoEm != default) { <a class="btn sec" href="sst/treinamentos"><Icone Nome="livro" Tam="16" /> Inscrever em treinamento</a> }
+            <BotaoExcluir Tipo="typeof(Colaborador)" Id="@(_c?.CriadoEm == default ? Guid.Empty : _c.Id)" IdBotao="exc-c" AoExcluir="async () => { _aberto = false; await Carregar(); }" />
             <button class="btn prim" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="16" /> Salvar</button>
         }
     </Rodape>

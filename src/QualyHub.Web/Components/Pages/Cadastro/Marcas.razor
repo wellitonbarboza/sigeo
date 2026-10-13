@@ -1,0 +1,82 @@
+@page "/cadastros/marcas"
+@inherits PaginaBase
+@inject MarcasServico MarcasSrv
+
+<Pagina Titulo="Marcas" Grade="_grade" AoNovo="Novo" AoAtualizar="Carregar">
+    <ChildContent>
+        <div class="pagina">
+            <div class="kpis">
+                <Kpi Rotulo="Marcas ativas" Valor="@_itens?.Count(m => m.Ativa)" />
+                <Kpi Rotulo="Cadastradas na cotação" Valor="@_itens?.Count(m => m.Automatica)" Sub="revise a grafia" Tom="aviso" />
+            </div>
+            <Grade T="Linha" @ref="_grade" Itens="_itens" AoClicar="Abrir" NomeExportacao="marcas" Vazio="Nenhuma marca. Elas também são cadastradas sozinhas quando o fornecedor informa na cotação.">
+                <Colunas>
+                    <Coluna T="Linha" Titulo="Marca" Valor="l => l.Nome" />
+                    <Coluna T="Linha" Titulo="Fabricante" Valor="l => l.Fabricante" />
+                    <Coluna T="Linha" Titulo="Itens cotados" Valor="l => l.Cotados" Alinhar="num" />
+                    <Coluna T="Linha" Titulo="Itens comprados" Valor="l => l.Comprados" Alinhar="num" />
+                    <Coluna T="Linha" Titulo="Observação" Valor="l => l.Observacao" />
+                    <Coluna T="Linha" Titulo="Situação" Valor="l => l.Ativa"><Modelo><Selo Texto="@(context.Ativa ? "Ativa" : "Inativa")" Tom="@(context.Ativa ? "ok" : "neutro")" /></Modelo></Coluna>
+                </Colunas>
+            </Grade>
+            <div class="alerta info"><Icone Nome="info" /> Na requisição a marca é opcional (com "somente esta marca" quando não aceita similar). Da cotação em diante é obrigatória em material: o fornecedor informa a marca de cada item cotado, o pedido leva a marca vencedora e o recebimento confere a marca entregue. No cadastro do produto, "Compras por marca" compara os preços.</div>
+        </div>
+    </ChildContent>
+    <Faixa><b>Marcas</b><span>Opcional na requisição · obrigatória da cotação em diante</span><span>Preço por especificação + marca</span></Faixa>
+</Pagina>
+
+<Modal @bind-Aberto="_aberto" Titulo="@(_m?.CriadoEm == default ? "Nova marca" : $"Marca {_m?.Nome}")" Tamanho="media">
+    <ChildContent>
+        @if (_m is not null)
+        {
+            <Erros Lista="ErrosForm" />
+            <div class="form">
+                <Campo Rotulo="Marca" Obrigatorio Classe="s6"><input id="mar-nome" @bind="_m.Nome" maxlength="120" /></Campo>
+                <Campo Rotulo="Fabricante (razão social)" Classe="s6"><input @bind="_m.Fabricante" /></Campo>
+                <Campo Rotulo="Observação" Classe="s9"><input @bind="_m.Observacao" /></Campo>
+                <Campo Rotulo="" Classe="s3"><label class="check"><input type="checkbox" @bind="_m.Ativa" /> Ativa</label></Campo>
+            </div>
+            @if (_m.CriadoEm != default) { <p class="mudo">Mudar o nome não altera cotações e pedidos já gravados (ficam com a grafia da época).</p> }
+        }
+    </ChildContent>
+    <Rodape>
+        <BotaoExcluir Tipo="typeof(Marca)" Id="@(_m?.CriadoEm == default ? Guid.Empty : _m.Id)" IdBotao="exc-marca" AoExcluir="async () => { _aberto = false; await Carregar(); }" />
+        <button class="btn prim" id="mar-salvar" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="16" /> Salvar</button>
+    </Rodape>
+</Modal>
+
+@code {
+    private sealed record Linha(Guid Id, string Nome, string? Fabricante, string? Observacao, bool Ativa, bool Automatica, int Cotados, int Comprados);
+    private Grade<Linha>? _grade;
+    private List<Linha>? _itens;
+    private Marca? _m;
+    private bool _aberto;
+
+    protected override Task OnInitializedAsync() => Carregar();
+
+    private async Task Carregar()
+    {
+        await using var db = Fabrica.CriarLeitura();
+        var marcas = await db.Marcas.AsNoTracking().OrderBy(m => m.Nome).ToListAsync(Cancelamento);
+        var cot = (await db.Set<CotacaoItem>().AsNoTracking().Where(i => i.Marca != null && i.ValorOfertado > 0).Select(i => i.Marca!).ToListAsync(Cancelamento))
+            .GroupBy(Marca.Chave).ToDictionary(g => g.Key, g => g.Count());
+        var com = (await db.PedidoItens.AsNoTracking().Where(i => i.Marca != null).Select(i => i.Marca!).ToListAsync(Cancelamento))
+            .GroupBy(Marca.Chave).ToDictionary(g => g.Key, g => g.Count());
+        _itens = marcas.Select(m => new Linha(m.Id, m.Nome, m.Fabricante, m.Observacao, m.Ativa, m.Observacao?.StartsWith("Cadastrada automaticamente") == true,
+            cot.GetValueOrDefault(Marca.Chave(m.Nome)), com.GetValueOrDefault(Marca.Chave(m.Nome)))).ToList();
+    }
+
+    private void Novo() { _m = new Marca(); ErrosForm = null; _aberto = true; }
+
+    private async Task Abrir(Linha l)
+    {
+        await using var db = Fabrica.CriarLeitura();
+        _m = await db.Marcas.AsNoTracking().FirstAsync(m => m.Id == l.Id, Cancelamento);
+        ErrosForm = null; _aberto = true;
+    }
+
+    private async Task Salvar()
+    {
+        if (await Executar(() => MarcasSrv.SalvarAsync(_m!, Cancelamento), "Marca salva.")) { _aberto = false; Cat.Invalidar(); await Carregar(); }
+    }
+}

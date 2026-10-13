@@ -5,9 +5,9 @@
 
 <PageTitle>Categorias de produto · QualyHub</PageTitle>
 <div class="tela">
-    <div class="topo"><h1>Categorias de produto e siglas</h1>
-        <div class="direita"><button class="btn sec pq" disabled="@Ocupado" @onclick="GerarDosProdutos" title="Cria os grupos/subgrupos que aparecem nos produtos, com sigla sugerida (não altera códigos)"><Icone Nome="mais" Tam="14" /> Gerar a partir dos produtos</button></div></div>
+    <div class="topo"><h1>Categorias de produto e siglas</h1></div>
     <div class="miolo"><div class="pagina">
+        <div class="acoes-pagina"><button class="btn sec pq" disabled="@Ocupado" @onclick="GerarDosProdutos" title="Cria os grupos/subgrupos que aparecem nos produtos, com sigla sugerida (não altera códigos)"><Icone Nome="mais" Tam="14" /> Gerar a partir dos produtos</button></div>
         <div class="alerta info"><Icone Nome="info" /> Código do produto = <b>SIGLA DO GRUPO</b>-<b>SIGLA DO SUBGRUPO</b>-<b>0000</b> (ex.: HID-CNX-0001). Ao mudar uma sigla, os produtos ainda não usados são recodificados; os já usados mantêm o código (fica o anterior guardado). Subgrupos duplicados por grafia podem ser mesclados.</div>
         <Erros Lista="ErrosForm" />
         <table class="itens">

@@ -173,6 +173,13 @@ public sealed class Catalogos(IFabricaDb fabrica, QualyHub.Web.Seguranca.Usuario
             .Select(o => new ProdutoBusca(o.Id, o.Codigo, o.Nome, o.Unidade, o.Grupo, o.SubGrupo, o.MaterialControladoId != null, o.PrecoReferencia)).ToListAsync();
     });
 
+    /// <summary>Nomes das marcas ativas (sugestões nos campos de marca).</summary>
+    public Task<List<string>> MarcasAsync() => Cache("marcas", async () =>
+    {
+        await using var db = fabrica.CriarLeitura();
+        return await db.Marcas.AsNoTracking().Where(m => m.Ativa).OrderBy(m => m.Nome).Select(m => m.Nome).ToListAsync();
+    });
+
     /// <summary>Estabelecimentos ativos; Extra = tipo.</summary>
     public Task<List<Opcao>> EstabelecimentosAsync() => Cache("estab", async () =>
     {

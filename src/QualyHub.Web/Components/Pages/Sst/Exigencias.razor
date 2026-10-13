@@ -57,7 +57,8 @@
             </div>
         }
     </ChildContent>
-    <Rodape><button class="btn prim" disabled="@Ocupado" @onclick="SalvarExigencia"><Icone Nome="check" Tam="16" /> Salvar</button></Rodape>
+    <Rodape><BotaoExcluir Tipo="typeof(Exigencia)" Id="@(_e?.CriadoEm == default ? Guid.Empty : _e.Id)" IdBotao="exc-e" AoExcluir="async () => { _abertoE = false; await Carregar(); }" />
+            <button class="btn prim" disabled="@Ocupado" @onclick="SalvarExigencia"><Icone Nome="check" Tam="16" /> Salvar</button></Rodape>
 </Modal>
 
 <Modal @bind-Aberto="_abertoF" Titulo="Função" Tamanho="pequena">
@@ -73,7 +74,8 @@
             </div>
         }
     </ChildContent>
-    <Rodape><button class="btn prim" disabled="@Ocupado" @onclick="SalvarFuncao"><Icone Nome="check" Tam="16" /> Salvar</button></Rodape>
+    <Rodape><BotaoExcluir Tipo="typeof(FuncaoObra)" Id="@(_f?.CriadoEm == default ? Guid.Empty : _f.Id)" IdBotao="exc-f" AoExcluir="async () => { _abertoF = false; await Carregar(); }" />
+            <button class="btn prim" disabled="@Ocupado" @onclick="SalvarFuncao"><Icone Nome="check" Tam="16" /> Salvar</button></Rodape>
 </Modal>
 
 @code {

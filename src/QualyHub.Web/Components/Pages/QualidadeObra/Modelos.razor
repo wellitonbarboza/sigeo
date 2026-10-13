@@ -143,6 +143,7 @@
         @if (_m is not null && Editavel)
         {
             <button class="btn ok" disabled="@Ocupado" @onclick="Publicar"><Icone Nome="check" Tam="16" /> @(_m.Situacao == SituacaoModelo.EmRevisao ? "Publicar nova revisão" : "Tornar vigente")</button>
+            <BotaoExcluir Tipo="typeof(ModeloInspecao)" Id="@(_m?.CriadoEm == default ? Guid.Empty : _m.Id)" IdBotao="exc-m" AoExcluir="async () => { _aberto = false; await Carregar(); }" />
             <button class="btn prim" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="16" /> Salvar</button>
         }
     </Rodape>

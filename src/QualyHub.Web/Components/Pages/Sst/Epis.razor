@@ -79,7 +79,8 @@
             </div>
         }
     </ChildContent>
-    <Rodape><button class="btn prim" disabled="@Ocupado" @onclick="SalvarEpi"><Icone Nome="check" Tam="16" /> Salvar</button></Rodape>
+    <Rodape><BotaoExcluir Tipo="typeof(Epi)" Id="@(_epi?.CriadoEm == default ? Guid.Empty : _epi.Id)" IdBotao="exc-epi" AoExcluir="async () => { _abertoC = false; await Carregar(); }" />
+            <button class="btn prim" disabled="@Ocupado" @onclick="SalvarEpi"><Icone Nome="check" Tam="16" /> Salvar</button></Rodape>
 </Modal>
 
 @code {

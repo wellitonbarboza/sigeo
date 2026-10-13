@@ -70,6 +70,8 @@ public sealed class RequisicoesServico(IFabricaDb fabrica, AprovacaoServico apro
         if (statusAtual is not (StatusRequisicao.Rascunho or StatusRequisicao.DevolvidaAjuste))
             throw new RegraDeNegocioException("Requisição já enviada: não pode ser alterada.");
         r.RecalcularPrazo();
+        var marcas = await MarcasServico.NormalizarAsync(db, r.Itens.Select(i => i.Marca), ct);
+        foreach (var i in r.Itens) { i.Marca = MarcasServico.Oficial(marcas, i.Marca); if (i.Marca is null) i.MesmaMarca = false; }
         // Obra própria (sem SPE): o CNPJ da construtora dono da obra é o "Faturar para" padrão.
         if (r.EstabelecimentoFaturamentoId is null)
             r.EstabelecimentoFaturamentoId = await db.Obras.Where(o => o.Id == r.ObraId && o.DonoCusto == DonoCustoObra.Construtora).Select(o => o.EstabelecimentoDonoId).FirstOrDefaultAsync(ct);

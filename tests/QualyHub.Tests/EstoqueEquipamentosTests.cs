@@ -175,4 +175,21 @@ public class EstoqueEquipamentosTests
         q.MarcarPaga(new DateOnly(2026, 10, 15));
         Assert.Equal(StatusParcela.Paga, q.Status);
     }
+
+    // ───── Marca ─────
+
+    [Fact]
+    public void Marca_obrigatoria_no_item_cotado_de_material_e_somente_esta_marca()
+    {
+        var i = new CotacaoItem { Descricao = "Cimento", ValorOfertado = 30 };
+        Assert.Contains("marca", i.ErroMarca(true, null, false));
+        Assert.Null(i.ErroMarca(false, null, false));                       // serviço: sem marca
+        Assert.Null(new CotacaoItem { Descricao = "x", ValorOfertado = 0 }.ErroMarca(true, null, false)); // não cotado
+        i.Marca = "votoran";
+        Assert.Contains("somente a marca", i.ErroMarca(true, "Votorantim", true));
+        Assert.Null(i.ErroMarca(true, "Votorantim", false));                // aceita similar
+        i.Marca = "  VOTORÂNTIM ";
+        Assert.Null(i.ErroMarca(true, "Votorantim", true));
+        Assert.Equal("TIGRE PVC", QualyHub.Domain.Cadastros.Marca.Chave(" tigre   pvc "));
+    }
 }

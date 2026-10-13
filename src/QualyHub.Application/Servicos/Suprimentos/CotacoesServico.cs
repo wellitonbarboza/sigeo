@@ -36,7 +36,7 @@ public sealed class CotacoesServico(IFabricaDb fabrica, AprovacaoServico aprovac
                 c.Itens.Add(new CotacaoItem
                 {
                     FornecedorId = f.Id, RequisicaoItemId = i.Id, Descricao = i.Descricao, Unidade = i.Unidade, Quantidade = i.Quantidade,
-                    Entrega = i.DataNecessidade ?? r.DataEntrega, MaterialControlado = i.MaterialControlado
+                    Entrega = i.DataNecessidade ?? r.DataEntrega, MaterialControlado = i.MaterialControlado, Marca = i.Marca
                 });
         }
         foreach (var i in r.Itens) i.Status = StatusItemRequisicao.Orcado;
@@ -54,6 +54,14 @@ public sealed class CotacoesServico(IFabricaDb fabrica, AprovacaoServico aprovac
         foreach (var f in c.Fornecedores)
             if (f.Status == StatusConvite.Convidado && c.Itens.Any(i => i.FornecedorId == f.FornecedorId && i.ValorOfertado > 0))
             { f.Status = StatusConvite.Respondido; f.DataResposta ??= Hoje; }
+        // Marca: obrigatória em item de material com preço (da cotação em diante); mesma grafia do cadastro de marcas.
+        var marcas = await MarcasServico.NormalizarAsync(db, c.Itens.Select(i => i.Marca), ct);
+        foreach (var i in c.Itens) i.Marca = MarcasServico.Oficial(marcas, i.Marca);
+        var reqIds = c.Itens.Where(i => i.RequisicaoItemId != null).Select(i => i.RequisicaoItemId!.Value).Distinct().ToList();
+        var pedidas = await db.Set<RequisicaoItem>().AsNoTracking().Where(r => reqIds.Contains(r.Id)).ToDictionaryAsync(r => r.Id, r => (r.Marca, r.MesmaMarca), ct);
+        ValidacaoException.Se(c.Itens.Select(i => i.ErroMarca(c.Tipo == TipoRequisicao.Material,
+            i.RequisicaoItemId is { } rq && pedidas.TryGetValue(rq, out var m) ? m.Marca : null, i.RequisicaoItemId is { } rq2 && pedidas.TryGetValue(rq2, out var m2) && m2.MesmaMarca))
+            .OfType<string>().Distinct().ToList());
         c.Recalcular(p);
         await PrecosReferenciaAsync(db, c, ct);
         await Grafo.SalvarAsync(db, c, nameof(Cotacao.Fornecedores), nameof(Cotacao.Itens));
@@ -198,7 +206,7 @@ public sealed class CotacoesServico(IFabricaDb fabrica, AprovacaoServico aprovac
                 RequisicaoItemId = i.RequisicaoItemId, ProdutoId = i.RequisicaoItem?.ProdutoId, Descricao = i.Descricao, Unidade = i.Unidade,
                 Quantidade = i.Quantidade, ValorUnitario = i.ValorUnitarioFinal, ValorTotal = i.ValorTotal,
                 MaterialControladoId = i.RequisicaoItem?.MaterialControladoId, EspecificacaoTecnica = i.RequisicaoItem?.EspecificacaoTecnica,
-                DocumentosExigidos = i.RequisicaoItem?.DocumentosExigidos
+                DocumentosExigidos = i.RequisicaoItem?.DocumentosExigidos, Marca = i.Marca
             });
         p.EspecificacoesIncluidas = p.Itens.Where(i => i.MaterialControladoId is not null).All(i => !string.IsNullOrWhiteSpace(i.EspecificacaoTecnica));
         c.Status = StatusCotacao.PedidoGerado; c.Concluido = true;

@@ -43,7 +43,8 @@
             </div>
         }
     </ChildContent>
-    <Rodape><button class="btn prim" id="cc-salvar" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="16" /> Salvar</button></Rodape>
+    <Rodape><BotaoExcluir Tipo="typeof(CentroCusto)" Id="@(_c?.CriadoEm == default ? Guid.Empty : _c.Id)" IdBotao="exc-c" AoExcluir="async () => { _aberto = false; await Carregar(); }" />
+            <button class="btn prim" id="cc-salvar" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="16" /> Salvar</button></Rodape>
 </Modal>
 
 @code {

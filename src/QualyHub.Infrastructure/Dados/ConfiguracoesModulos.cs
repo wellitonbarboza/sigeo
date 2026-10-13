@@ -144,6 +144,16 @@ internal sealed class CategoriaProdutoCfg : IEntityTypeConfiguration<CategoriaPr
     }
 }
 
+internal sealed class MarcaCfg : IEntityTypeConfiguration<Marca>
+{
+    public void Configure(EntityTypeBuilder<Marca> b)
+    {
+        b.ToTable("Marcas");
+        b.Property(x => x.Nome).HasMaxLength(120);
+        b.HasIndex(x => new { x.EmpresaId, x.Nome }).IsUnique().HasFilter("[Excluido] = 0");
+    }
+}
+
 internal sealed class ProdutoCfg : IEntityTypeConfiguration<Produto>
 {
     public void Configure(EntityTypeBuilder<Produto> b)

@@ -60,6 +60,7 @@ public interface IQualyHubDb : IDisposable, IAsyncDisposable
     DbSet<ServicoControlado> ServicosControlados { get; }
     DbSet<MaterialControlado> MateriaisControlados { get; }
     DbSet<Produto> Produtos { get; }
+    DbSet<Marca> Marcas { get; }
     DbSet<Requisicao> Requisicoes { get; }
     DbSet<RequisicaoItem> RequisicaoItens { get; }
     DbSet<Cotacao> Cotacoes { get; }

@@ -1241,6 +1241,72 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                     b.ToTable("LinksPortal", "qh");
                 });
 
+            modelBuilder.Entity("QualyHub.Domain.Cadastros.Marca", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset?>("AlteradoEm")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("AlteradoPor")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<bool>("Ativa")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTimeOffset>("CriadoEm")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("CriadoPor")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("Excluido")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTimeOffset?>("ExcluidoEm")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("ExcluidoPor")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("Fabricante")
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<string>("Observacao")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EmpresaId");
+
+                    b.HasIndex("EmpresaId", "Nome")
+                        .IsUnique()
+                        .HasFilter("[Excluido] = 0");
+
+                    b.ToTable("Marcas", "qh");
+                });
+
             modelBuilder.Entity("QualyHub.Domain.Cadastros.MaterialControlado", b =>
                 {
                     b.Property<Guid>("Id")
@@ -11649,6 +11715,10 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                     b.Property<Guid>("FornecedorId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("Marca")
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
+
                     b.Property<bool>("MaterialControlado")
                         .HasColumnType("bit");
 
@@ -13343,6 +13413,10 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                     b.Property<string>("EspecificacaoTecnica")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("Marca")
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
+
                     b.Property<Guid?>("MaterialControladoId")
                         .HasColumnType("uniqueidentifier");
 
@@ -13805,6 +13879,10 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                         .HasColumnType("bit");
 
                     b.Property<string>("Lote")
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
+
+                    b.Property<string>("Marca")
                         .HasMaxLength(400)
                         .HasColumnType("nvarchar(400)");
 

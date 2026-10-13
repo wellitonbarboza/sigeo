@@ -205,7 +205,8 @@
             <button class="btn sec" id="eq-corretiva" disabled="@Ocupado" @onclick="() => { _corrDesc = null; _corrParado = true; ErrosForm = null; _abertoCorr = true; }"><Icone Nome="ferramenta" Tam="16" /> Abrir corretiva</button>
             <button class="btn sec" disabled="@Ocupado" @onclick="() => Nav.NavigateTo(UrlEtiquetas([_e.Id]))"><Icone Nome="qr" Tam="16" /> Etiqueta</button>
         }
-        <button class="btn prim" id="eq-salvar" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="16" /> Salvar</button>
+        <BotaoExcluir Tipo="typeof(Equipamento)" Id="@(_e?.CriadoEm == default ? Guid.Empty : _e.Id)" IdBotao="exc-e" AoExcluir="async () => { _aberto = false; await Carregar(); }" />
+            <button class="btn prim" id="eq-salvar" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="16" /> Salvar</button>
     </Rodape>
 </Modal>
 
@@ -285,7 +286,8 @@
     </ChildContent>
     <Rodape>
         @if (_pl is not null && _planos?.Any(p => p.Plano.Id == _pl.Id) == true) { <button class="btn sec" id="pl-os" disabled="@Ocupado" @onclick="GerarOsDoPlano"><Icone Nome="ferramenta" Tam="16" /> Gerar OS agora</button> }
-        <button class="btn prim" id="pl-salvar" disabled="@Ocupado" @onclick="SalvarPlano"><Icone Nome="check" Tam="16" /> Salvar</button>
+        <BotaoExcluir Tipo="typeof(PlanoManutencao)" Id="@(_pl?.CriadoEm == default ? Guid.Empty : _pl.Id)" IdBotao="exc-pl" AoExcluir="async () => { _abertoPlano = false; await Carregar(); }" />
+            <button class="btn prim" id="pl-salvar" disabled="@Ocupado" @onclick="SalvarPlano"><Icone Nome="check" Tam="16" /> Salvar</button>
     </Rodape>
 </Modal>
 
@@ -362,7 +364,8 @@
             </div>
         }
     </ChildContent>
-    <Rodape><button class="btn prim" id="fam-salvar" disabled="@Ocupado" @onclick="SalvarFamilia"><Icone Nome="check" Tam="16" /> Salvar</button></Rodape>
+    <Rodape><BotaoExcluir Tipo="typeof(FamiliaEquipamento)" Id="@(_fam?.CriadoEm == default ? Guid.Empty : _fam.Id)" IdBotao="exc-fam" AoExcluir="async () => { _abertoFam = false; await Carregar(); }" />
+            <button class="btn prim" id="fam-salvar" disabled="@Ocupado" @onclick="SalvarFamilia"><Icone Nome="check" Tam="16" /> Salvar</button></Rodape>
 </Modal>
 
 <Confirmacao Pergunta="@PerguntaConfirmacao" AoSim="ConfirmacaoSim" AoNao="ConfirmacaoNao" />

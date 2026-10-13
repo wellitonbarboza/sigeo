@@ -32,6 +32,7 @@ public static class DependencyInjection
         services.AddScoped<ImportadorFornecedores>();
         services.AddSingleton<IFabricaSistema>(new Servicos.FabricaSistema(connectionString));
         services.AddScoped<IFabricaDb, Servicos.FabricaDb>();
+        services.AddScoped<IExclusao, Servicos.Exclusao>();
         services.AddScoped<AprovacaoServico>();
         services.AddScoped<Application.Consultas.PaineisConsultas>();
         services.AddScoped<Application.Consultas.EngenhariaConsultas>();
@@ -44,6 +45,7 @@ public static class DependencyInjection
         services.AddScoped<RecebimentosServico>();
         services.AddScoped<TransferenciasServico>();
         services.AddScoped<EstoqueServico>();
+        services.AddScoped<MarcasServico>();
         services.AddScoped<EquipamentosServico>();
         services.AddScoped<ContratosRecorrentesServico>();
         services.AddScoped<MedicoesServico>();

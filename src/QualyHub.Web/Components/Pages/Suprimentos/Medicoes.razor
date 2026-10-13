@@ -111,7 +111,8 @@
             @if (Editavel)
             {
                 <button class="btn ok" disabled="@Ocupado" @onclick="Enviar"><Icone Nome="enviar" Tam="16" /> Enviar p/ aprovação</button>
-                <button class="btn prim" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="16" /> Salvar e calcular</button>
+                <BotaoExcluir Tipo="typeof(Medicao)" Id="@(_m?.CriadoEm == default ? Guid.Empty : _m.Id)" IdBotao="exc-m" AoExcluir="async () => { _aberto = false; await Carregar(); }" />
+            <button class="btn prim" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="16" /> Salvar e calcular</button>
             }
         }
     </Rodape>

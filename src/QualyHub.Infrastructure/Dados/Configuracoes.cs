@@ -125,6 +125,7 @@ internal sealed class UsuarioCfg : IEntityTypeConfiguration<Usuario>
         b.HasMany(x => x.LimitesAprovacao).WithOne().HasForeignKey(x => x.UsuarioId);
         b.HasIndex(x => x.ContaId);
         b.Property(x => x.ExcecoesAcesso).HasMaxLength(2000);
+        b.Ignore(x => x.VeTodasObras);
         b.HasOne<PerfilAcesso>().WithMany().HasForeignKey(x => x.PerfilAcessoId).OnDelete(DeleteBehavior.Restrict);
     }
 }
