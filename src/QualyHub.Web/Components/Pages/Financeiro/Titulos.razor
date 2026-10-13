@@ -1,0 +1,266 @@
+@page "/financeiro/pagar"
+@page "/financeiro/receber"
+@inherits PaginaBase
+@using QualyHub.Domain.Financeiro
+@inject FinanceiroServico Fin
+@inject NavigationManager Nav
+
+<Pagina Titulo="@(Pagar ? "Contas a pagar" : "Contas a receber")" Grade="_grade" AoNovo="Novo" AoAtualizar="Carregar">
+    <ChildContent>
+        <div class="pagina">
+            <div class="barra-filtro">
+                <SeletorObra Id="fin-obra" Valor="_obraId" ValorChanged="async v => { _obraId = v; await Carregar(); }" PermitirTodas TextoTodas="Todas as obras" />
+                <label>De <input id="fin-de" type="date" @bind="_de" @bind:after="Carregar" /></label>
+                <label>Até <input id="fin-ate" type="date" @bind="_ate" @bind:after="Carregar" /></label>
+                <label class="check"><input id="fin-pagas" type="checkbox" @bind="_pagas" @bind:after="Carregar" /> Mostrar @(Pagar ? "pagas" : "recebidas")</label>
+            </div>
+            <div class="kpis">
+                <Kpi Rotulo="Em aberto" Valor="@Moeda(_linhas.Where(l => l.Status == StatusParcelaTitulo.Aberta).Sum(l => l.Valor))" Sub="@($"{_linhas.Count(l => l.Status == StatusParcelaTitulo.Aberta)} parcelas")" Tom="info" />
+                <Kpi Rotulo="Vencido" Valor="@Moeda(_linhas.Where(l => l.DiasAtraso > 0).Sum(l => l.Valor))" Sub="@($"{_linhas.Count(l => l.DiasAtraso > 0)} parcelas")" Tom="@(_linhas.Any(l => l.DiasAtraso > 0) ? "erro" : "")" />
+                <Kpi Rotulo="Vence em 7 dias" Valor="@Moeda(_linhas.Where(l => l.Status == StatusParcelaTitulo.Aberta && l.DiasAtraso == 0 && l.Vencimento <= Hoje.AddDays(7)).Sum(l => l.Valor))" Tom="aviso" />
+                <Kpi Rotulo="@(Pagar ? "Pago no período" : "Recebido no período")" Valor="@Moeda(_linhas.Where(l => l.Status == StatusParcelaTitulo.Paga).Sum(l => l.ValorPago))" Sub="@(_pagas ? "" : "marque para listar")" />
+            </div>
+            <Grade T="LinhaParcelaFin" @ref="_grade" Itens="_linhas" AoClicar="l => AbrirTitulo(l.TituloId)" NomeExportacao="@(Pagar ? "contas-a-pagar" : "contas-a-receber")"
+                   ClasseLinha="@(l => l.DiasAtraso > 0 ? "linha-erro" : null)" Vazio="Nada no período. Use Novo para lançar um título.">
+                <Colunas>
+                    <Coluna T="LinhaParcelaFin" Titulo="Vencimento" Valor="l => l.Vencimento" Formato="dd/MM/yyyy" Largura="105px" />
+                    <Coluna T="LinhaParcelaFin" Titulo="Título" Valor="@(l => $"{l.Numero}/{l.Parcela}")" Largura="80px" />
+                    <Coluna T="LinhaParcelaFin" Titulo="@(Pagar ? "Fornecedor" : "Cliente")" Valor="l => l.Pessoa" />
+                    <Coluna T="LinhaParcelaFin" Titulo="Descrição" Valor="l => l.Descricao" />
+                    <Coluna T="LinhaParcelaFin" Titulo="Documento" Valor="l => l.Documento" Largura="120px" />
+                    <Coluna T="LinhaParcelaFin" Titulo="Obra" Valor="l => l.Obra" />
+                    <Coluna T="LinhaParcelaFin" Titulo="Conta gerencial" Valor="l => l.Conta" />
+                    <Coluna T="LinhaParcelaFin" Titulo="Valor" Valor="l => l.Valor" Formato="N2" Alinhar="num" Largura="110px" />
+                    <Coluna T="LinhaParcelaFin" Titulo="Situação" Valor="l => Situacao(l)" Largura="130px"><Modelo><Selo Texto="@Situacao(context)" Tom="@(context.Status == StatusParcelaTitulo.Paga ? "ok" : context.DiasAtraso > 0 ? "erro" : "info")" /></Modelo></Coluna>
+                    <Coluna T="LinhaParcelaFin" Titulo="Pago em" Valor="l => l.DataPagamento" Formato="dd/MM/yyyy" Largura="100px" />
+                    <Coluna T="LinhaParcelaFin" Titulo="Valor pago" Valor="l => l.ValorPago" Formato="N2" Alinhar="num" Largura="110px" />
+                    <Coluna T="LinhaParcelaFin" Titulo="Conta" Valor="l => l.ContaBancaria" />
+                </Colunas>
+                <Acoes>
+                    @if (context.Status == StatusParcelaTitulo.Aberta)
+                    {
+                        <button class="btn sec pq" @onclick="() => AbrirBaixa(context)" @onclick:stopPropagation="true"><Icone Nome="check" Tam="14" /> @(Pagar ? "Pagar" : "Receber")</button>
+                    }
+                    else
+                    {
+                        <button class="btn sec pq" @onclick="() => _estornar = context" @onclick:stopPropagation="true" title="Desfaz a baixa (apaga o movimento da conta)">Estornar</button>
+                    }
+                </Acoes>
+            </Grade>
+        </div>
+    </ChildContent>
+</Pagina>
+
+<Modal @bind-Aberto="_abertoTit" Titulo="@(_t is null ? "" : _t.Numero == 0 ? (Pagar ? "Nova conta a pagar" : "Nova conta a receber") : $"Título {_t.Numero}")" Tamanho="media">
+    <ChildContent>
+        @if (_t is not null)
+        {
+            <Erros Lista="ErrosForm" />
+            @if (_t.Origem != OrigemTitulo.Manual) { <div class="alerta info"><Icone Nome="info" /> Gerado por @NomeOrigem(_t.Origem)@(_t.Historico ? " (histórico, antes do corte)" : "").</div> }
+            @if (TemPaga) { <div class="alerta aviso"><Icone Nome="alerta" /> Há parcela baixada: muda só descrição, conta, obra e observação.</div> }
+            <div class="form">
+                @if (Pagar)
+                {
+                    <Campo Rotulo="Fornecedor" Classe="s6"><select id="tit-forn" value="@(_t.FornecedorId?.ToString() ?? "")" disabled="@TemPaga" @onchange="e => _t.FornecedorId = Guid.TryParse(e.Value?.ToString(), out var g) ? g : null"><option value="">(outro — informe ao lado)</option>@foreach (var f in _fornecedores) { <option value="@f.Id">@f.Texto</option> }</select></Campo>
+                    <Campo Rotulo="Ou pagar a" Classe="s6" Ajuda="Órgão público, pessoa física…"><input @bind="_t.Pessoa" disabled="@TemPaga" maxlength="200" /></Campo>
+                }
+                else
+                {
+                    <Campo Rotulo="Receber de" Obrigatorio Classe="s12"><input id="tit-pessoa" @bind="_t.Pessoa" disabled="@TemPaga" maxlength="200" /></Campo>
+                }
+                <Campo Rotulo="Descrição" Obrigatorio Classe="s8"><input id="tit-desc" @bind="_t.Descricao" maxlength="300" /></Campo>
+                <Campo Rotulo="Documento" Classe="s2"><input @bind="_t.DocumentoTipo" placeholder="NF, boleto…" disabled="@TemPaga" maxlength="40" /></Campo>
+                <Campo Rotulo="Nº" Classe="s2"><input @bind="_t.DocumentoNumero" disabled="@TemPaga" maxlength="60" /></Campo>
+                <Campo Rotulo="Obra" Classe="s4"><select value="@(_t.ObraId?.ToString() ?? "")" @onchange="e => _t.ObraId = Guid.TryParse(e.Value?.ToString(), out var g) ? g : null"><option value="">(administração / sem obra)</option>@foreach (var o in _obras) { <option value="@o.Id">@o.Texto</option> }</select></Campo>
+                <Campo Rotulo="Conta gerencial" Classe="s5"><select id="tit-conta" value="@(_t.ContaGerencialId?.ToString() ?? "")" @onchange="e => _t.ContaGerencialId = Guid.TryParse(e.Value?.ToString(), out var g) ? g : null"><option value="">(escolha)</option>@foreach (var c in _contas.Where(c => c.Natureza == (Pagar ? NaturezaConta.Despesa : NaturezaConta.Receita) && !_contas.Any(f => ContaGerencial.CodigoPai(f.Codigo) == c.Codigo))) { <option value="@c.Id">@c.Rotulo</option> }</select></Campo>
+                <Campo Rotulo="Emissão" Obrigatorio Classe="s3"><input type="date" @bind="_t.Emissao" disabled="@TemPaga" /></Campo>
+                <Campo Rotulo="Valor bruto" Obrigatorio Classe="s3"><input id="tit-valor" type="number" step="0.01" @bind="_t.ValorBruto" disabled="@TemPaga" /></Campo>
+                @if (Pagar)
+                {
+                    <Campo Rotulo="ISS retido" Classe="s2"><input type="number" step="0.01" @bind="_t.RetencaoIss" disabled="@TemPaga" /></Campo>
+                    <Campo Rotulo="INSS retido" Classe="s2"><input type="number" step="0.01" @bind="_t.RetencaoInss" disabled="@TemPaga" /></Campo>
+                    <Campo Rotulo="IR retido" Classe="s2"><input type="number" step="0.01" @bind="_t.RetencaoIr" disabled="@TemPaga" /></Campo>
+                    <Campo Rotulo="PIS/COFINS/CSLL" Classe="s2"><input type="number" step="0.01" @bind="_t.RetencaoPcc" disabled="@TemPaga" /></Campo>
+                }
+                <Campo Rotulo="Valor líquido" Classe="s3"><input readonly value="@_t.ValorLiquido.ToString("N2", Br)" /></Campo>
+                <Campo Rotulo="Observação" Classe="s12"><textarea @bind="_t.Observacao" rows="2"></textarea></Campo>
+            </div>
+            <h3>Parcelas</h3>
+            @if (!TemPaga)
+            {
+                <div class="barra-acoes">
+                    <select id="tit-cond" class="larg-200" @bind="_condId" aria-label="Condição de pagamento"><option value="">Condição de pagamento…</option>@foreach (var c in _condicoes.Where(c => c.Ativa)) { <option value="@c.Id">@c.Nome</option> }</select>
+                    <button class="btn sec pq" id="tit-gerar" @onclick="GerarParcelas"><Icone Nome="raio" Tam="14" /> Gerar parcelas</button>
+                    <button class="btn sec pq" @onclick="AddParcela"><Icone Nome="mais" Tam="14" /> Parcela</button>
+                </div>
+            }
+            <table class="itens" id="tit-parcelas">
+                <thead><tr><th>#</th><th>Vencimento</th><th class="num">Valor</th><th>Situação</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var p in _t.Parcelas.Where(p => p.Status != StatusParcelaTitulo.Cancelada).OrderBy(p => p.Vencimento))
+                    {
+                        var parc = p;
+                        <tr @key="parc.Id">
+                            <td>@parc.Numero</td>
+                            <td><input type="date" @bind="parc.Vencimento" disabled="@(parc.Status != StatusParcelaTitulo.Aberta || TemPaga)" /></td>
+                            <td class="num"><input type="number" step="0.01" class="larg-110" @bind="parc.Valor" disabled="@(parc.Status != StatusParcelaTitulo.Aberta || TemPaga)" /></td>
+                            <td>@(parc.Status == StatusParcelaTitulo.Paga ? $"Paga em {parc.DataPagamento:dd/MM/yyyy} ({parc.ValorPago:N2})" : "Aberta")</td>
+                            <td>@if (!TemPaga) { <button class="icone-btn" title="Remover" @onclick="() => _t.Parcelas.Remove(parc)"><Icone Nome="lixeira" Tam="16" /></button> }</td>
+                        </tr>
+                    }
+                </tbody>
+                <tfoot><tr><td colspan="2" class="texto-dir">Soma</td><td class="num"><b>@_t.Parcelas.Where(p => p.Status != StatusParcelaTitulo.Cancelada).Sum(p => p.Valor).ToString("N2", Br)</b></td><td colspan="2"></td></tr></tfoot>
+            </table>
+        }
+    </ChildContent>
+    <Rodape>
+        @if (_t is not null && _t.Numero > 0 && !TemPaga && !_t.Cancelado)
+        {
+            <button class="btn perigo" id="tit-cancelar" @onclick="() => _cancelar = true"><Icone Nome="x" Tam="16" /> Cancelar título</button>
+        }
+        <button class="btn prim" id="tit-salvar" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="16" /> Salvar</button>
+    </Rodape>
+</Modal>
+
+<Modal @bind-Aberto="_abertoBaixa" Titulo="@(Pagar ? "Pagar parcela" : "Receber parcela")" Tamanho="pequena">
+    <ChildContent>
+        @if (_baixa is not null)
+        {
+            <Erros Lista="ErrosForm" />
+            <p><b>@_baixa.Pessoa</b> — @_baixa.Descricao<br />Parcela @_baixa.Numero/@_baixa.Parcela · vence @_baixa.Vencimento.ToString("dd/MM/yyyy") · @Moeda(_baixa.Valor)</p>
+            <div class="form">
+                <Campo Rotulo="Data" Obrigatorio Classe="s6"><input id="bx-data" type="date" @bind="_bxData" /></Campo>
+                <Campo Rotulo="Forma" Classe="s6"><select id="bx-forma" @bind="_bxForma">@foreach (var f in Enum.GetValues<FormaPagamento>()) { <option value="@f">@RegrasFinanceiro.NomeForma(f)</option> }</select></Campo>
+                @if (!RegrasFinanceiro.SemMovimento(_bxForma))
+                {
+                    <Campo Rotulo="Conta bancária / caixa" Obrigatorio Classe="s12"><select id="bx-conta" @bind="_bxConta"><option value="">(escolha)</option>@foreach (var c in _bancos) { <option value="@c.Id">@c.Rotulo</option> }</select></Campo>
+                }
+                @if (!Pagar) { <Campo Rotulo="Correção" Classe="s3"><input type="number" step="0.01" @bind="_bxCorrecao" /></Campo> }
+                <Campo Rotulo="Juros" Classe="s3"><input type="number" step="0.01" @bind="_bxJuros" /></Campo>
+                <Campo Rotulo="Multa" Classe="s3"><input type="number" step="0.01" @bind="_bxMulta" /></Campo>
+                <Campo Rotulo="Desconto" Classe="s3"><input type="number" step="0.01" @bind="_bxDesconto" /></Campo>
+                <Campo Rotulo="Comprovante / identificador" Classe="s12"><input @bind="_bxComprovante" maxlength="200" /></Campo>
+                <Campo Rotulo="Total" Classe="s6"><input readonly value="@((_baixa.Valor + _bxCorrecao + _bxJuros + _bxMulta - _bxDesconto).ToString("N2", Br))" /></Campo>
+            </div>
+        }
+    </ChildContent>
+    <Rodape><button class="btn prim" id="bx-confirmar" disabled="@Ocupado" @onclick="Baixar"><Icone Nome="check" Tam="16" /> Confirmar</button></Rodape>
+</Modal>
+
+<Confirmacao Pergunta="@(_estornar is null ? null : $"Estornar a baixa da parcela {_estornar.Numero}/{_estornar.Parcela} ({Moeda(_estornar.ValorPago)})? O movimento da conta é apagado e a parcela volta a ficar em aberto.")" Titulo="Estornar baixa" TextoSim="Estornar" AoSim="Estornar" AoNao="() => _estornar = null" />
+<Modal @bind-Aberto="_cancelar" Titulo="Cancelar título" Tamanho="pequena">
+    <ChildContent><Erros Lista="ErrosForm" /><Campo Rotulo="Motivo" Obrigatorio><input id="tit-motivo" @bind="_motivo" /></Campo></ChildContent>
+    <Rodape><button class="btn perigo" id="tit-cancelar-ok" disabled="@Ocupado" @onclick="Cancelar">Cancelar título</button></Rodape>
+</Modal>
+
+@code {
+    private bool Pagar => Nav.Uri.Contains("/financeiro/pagar", StringComparison.OrdinalIgnoreCase);
+    private TipoTitulo Tipo => Pagar ? TipoTitulo.Pagar : TipoTitulo.Receber;
+    private Grade<LinhaParcelaFin>? _grade;
+    private Guid? _obraId;
+    private DateOnly? _de, _ate;
+    private bool _pagas;
+    private List<LinhaParcelaFin> _linhas = [];
+    private List<Opcao> _fornecedores = [], _obras = [];
+    private List<ContaGerencial> _contas = [];
+    private List<CondicaoPagamento> _condicoes = [];
+    private List<ContaBancaria> _bancos = [];
+    private Titulo? _t;
+    private bool _abertoTit, _abertoBaixa, _cancelar;
+    private string _condId = "", _motivo = "";
+    private LinhaParcelaFin? _baixa, _estornar;
+    private DateOnly _bxData;
+    private FormaPagamento _bxForma = FormaPagamento.Pix;
+    private string _bxConta = "";
+    private decimal _bxCorrecao, _bxJuros, _bxMulta, _bxDesconto;
+    private string? _bxComprovante;
+    private bool TemPaga => _t?.Parcelas.Any(p => p.Status == StatusParcelaTitulo.Paga) == true;
+
+    private static string NomeOrigem(OrigemTitulo o) => o switch
+    {
+        OrigemTitulo.LiberacaoPagamento => "liberação de pagamento", OrigemTitulo.ImportacaoErp => "importação do ERP", OrigemTitulo.VendaUnidade => "venda de unidade",
+        OrigemTitulo.Comissao => "comissão de venda", OrigemTitulo.ApuracaoRet => "apuração do RET", OrigemTitulo.Distrato => "distrato", _ => "lançamento manual"
+    };
+
+    private string Situacao(LinhaParcelaFin l) => l.Status == StatusParcelaTitulo.Paga ? (Pagar ? "Paga" : "Recebida") : l.DiasAtraso > 0 ? $"Vencida {l.DiasAtraso}d" : "A vencer";
+
+    protected override async Task OnInitializedAsync()
+    {
+        _fornecedores = await Cat.FornecedoresAsync();
+        _obras = await Cat.ObrasAsync();
+        _contas = await Fin.ContasGerenciaisAsync(true, Cancelamento);
+        _condicoes = await Fin.CondicoesAsync(Cancelamento);
+        _bancos = await Fin.ContasBancariasAsync(true, Cancelamento);
+    }
+
+    private TipoTitulo _tipoCarregado;
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_tipoCarregado != Tipo) { _tipoCarregado = Tipo; await Carregar(); }
+    }
+
+    private async Task Carregar() => _linhas = await Fin.ParcelasAsync(Tipo, _obraId, _de, _ate, _pagas, Cancelamento);
+
+    private void Novo()
+    {
+        ErrosForm = null; _condId = "";
+        _t = new Titulo { Tipo = Tipo, Emissao = Hoje, ObraId = _obraId };
+        _abertoTit = true;
+    }
+
+    private async Task AbrirTitulo(Guid id)
+    {
+        ErrosForm = null; _condId = "";
+        _t = await Fin.ObterTituloAsync(id, Cancelamento);
+        _abertoTit = _t is not null;
+    }
+
+    private void GerarParcelas()
+    {
+        if (_t is null) return;
+        var c = _condicoes.FirstOrDefault(x => x.Id.ToString() == _condId);
+        if (c is null) { Notif.Erro("Escolha a condição de pagamento."); return; }
+        if (_t.ValorLiquido <= 0) { Notif.Erro("Informe o valor antes."); return; }
+        _t.Parcelas = FinanceiroServico.ParcelasPorCondicao(c, _t.ValorLiquido, _t.Emissao);
+    }
+
+    private void AddParcela()
+    {
+        if (_t is null) return;
+        var resto = _t.ValorLiquido - _t.Parcelas.Where(p => p.Status != StatusParcelaTitulo.Cancelada).Sum(p => p.Valor);
+        _t.Parcelas.Add(new TituloParcela { Numero = _t.Parcelas.Count + 1, Vencimento = _t.Parcelas.Count == 0 ? _t.Emissao : _t.Parcelas.Max(p => p.Vencimento).AddMonths(1), Valor = Math.Max(resto, 0) });
+    }
+
+    private async Task Salvar()
+    {
+        if (_t is null) return;
+        if (await Executar(() => Fin.SalvarTituloAsync(_t, Cancelamento), "Título salvo.")) { _abertoTit = false; await Carregar(); }
+    }
+
+    private async Task Cancelar()
+    {
+        if (_t is null) return;
+        if (await Executar(() => Fin.CancelarTituloAsync(_t.Id, _motivo, Cancelamento), "Título cancelado.")) { _cancelar = false; _abertoTit = false; _motivo = ""; await Carregar(); }
+    }
+
+    private void AbrirBaixa(LinhaParcelaFin l)
+    {
+        ErrosForm = null; _baixa = l; _bxData = Hoje; _bxCorrecao = _bxJuros = _bxMulta = _bxDesconto = 0; _bxComprovante = null;
+        _bxConta = _bancos.Count == 1 ? _bancos[0].Id.ToString() : "";
+        _abertoBaixa = true;
+    }
+
+    private async Task Baixar()
+    {
+        if (_baixa is null) return;
+        var b = new BaixaParcela(_baixa.ParcelaId, _bxData, Guid.TryParse(_bxConta, out var c) ? c : null, _bxForma, _bxCorrecao, _bxJuros, _bxMulta, _bxDesconto, _bxComprovante);
+        if (await Executar(() => Fin.BaixarAsync(b, Cancelamento), Pagar ? "Pagamento registrado." : "Recebimento registrado.")) { _abertoBaixa = false; await Carregar(); }
+    }
+
+    private async Task Estornar()
+    {
+        if (_estornar is null) return;
+        var id = _estornar.ParcelaId; _estornar = null;
+        if (await Executar(() => Fin.EstornarBaixaAsync(id, Cancelamento), "Baixa estornada.")) await Carregar();
+    }
+}

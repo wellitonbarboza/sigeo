@@ -168,6 +168,8 @@ public sealed class PlataformaServico(IFabricaSistema sistema, IUsuarioAtual usu
         e.NomeFantasia = string.IsNullOrWhiteSpace(e.NomeFantasia) ? e.RazaoSocial : e.NomeFantasia.Trim();
         e.Cnpj = (e.Cnpj ?? "").Trim(); e.Codigo = e.Codigo?.Trim(); e.Ativa = true; e.CriadaEm = relogio.GetUtcNow();
         e.ModeloEstrutura = n.Estrutura.Modelo; e.NomesNiveis = n.Estrutura.Serializar();
+        // Módulos adicionais (Financeiro, Incorporação) nascem bloqueados: a plataforma libera quando a construtora contratar.
+        e.TelasBloqueadas = string.Join(';', Bloqueadas(e.TelasBloqueadas).Union(Contratos.CatalogoTelas.RotasAdicionais).Order(StringComparer.Ordinal));
         await using var tdb = Db(e.Id);
         var existente = await tdb.Usuarios.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(u => u.Login == login && u.ContaId == null && !u.Excluido, ct);
         tdb.Empresas.Add(e);

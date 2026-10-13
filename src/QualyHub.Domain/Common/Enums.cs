@@ -226,4 +226,4 @@ public enum TipoCusto { Material = 1, Equipamento = 2, MaoObra = 3, Servico = 4,
 /// <summary>De onde veio o lançamento de custo realizado.</summary>
 public enum OrigemCusto { Manual = 1, ImportacaoErp = 2, Recebimento = 3, Medicao = 4 }
 /// <summary>De-para de importação: o que está sendo ligado (o texto do sistema de origem → o cadastro do QualyHub).</summary>
-public enum TipoVinculoOrigem { Produto = 1, Fornecedor = 2, Fase = 3, Local = 4 }
+public enum TipoVinculoOrigem { Produto = 1, Fornecedor = 2, Fase = 3, Local = 4, ContaGerencial = 5, ContaBancaria = 6 }

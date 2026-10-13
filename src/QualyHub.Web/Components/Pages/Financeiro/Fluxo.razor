@@ -1,0 +1,106 @@
+@page "/financeiro/fluxo"
+@inherits PaginaBase
+@using QualyHub.Domain.Financeiro
+@inject FinanceiroServico Fin
+
+<Pagina Titulo="Fluxo de caixa e DRE" AoAtualizar="Carregar">
+    <ChildContent>
+        <div class="pagina">
+            <div class="barra-filtro">
+                <SeletorObra Id="fx-obra" Valor="_obraId" ValorChanged="async v => { _obraId = v; await Carregar(); }" PermitirTodas TextoTodas="Todas as obras" />
+                <label>De <input id="fx-de" type="month" value="@_de.ToString("yyyy-MM")" @onchange="TrocarDe" /></label>
+                <label>Até <input id="fx-ate" type="month" value="@_ate.ToString("yyyy-MM")" @onchange="TrocarAte" /></label>
+            </div>
+            <div class="kpis">
+                <Kpi Rotulo="Entradas realizadas" Valor="@Moeda(_fluxo.Sum(f => f.EntradasRealizadas))" Tom="ok" />
+                <Kpi Rotulo="Saídas realizadas" Valor="@Moeda(_fluxo.Sum(f => f.SaidasRealizadas))" Tom="erro" />
+                <Kpi Rotulo="A receber (previsto)" Valor="@Moeda(_fluxo.Sum(f => f.EntradasPrevistas))" Tom="info" />
+                <Kpi Rotulo="A pagar (previsto)" Valor="@Moeda(_fluxo.Sum(f => f.SaidasPrevistas))" Tom="aviso" />
+            </div>
+            <Abas Itens="_abas" @bind-Ativa="_aba" />
+            @if (_aba == "fluxo")
+            {
+                <p class="mudo fonte-13">Realizado = pagamentos e recebimentos pela data da baixa (mais lançamentos avulsos nas contas). Previsto = parcelas em aberto pelo vencimento; as vencidas entram no mês atual.</p>
+                <div class="tabela-rolavel"><table class="itens" id="fx-tabela">
+                    <thead><tr><th>Mês</th><th class="num">Entradas previstas</th><th class="num">Saídas previstas</th><th class="num">Saldo previsto</th><th class="num">Entradas realizadas</th><th class="num">Saídas realizadas</th><th class="num">Saldo realizado</th><th class="num">Acumulado</th></tr></thead>
+                    <tbody>
+                        @{ decimal acum = 0; }
+                        @foreach (var f in _fluxo)
+                        {
+                            acum += f.SaldoRealizado + f.SaldoPrevisto;
+                            <tr><td>@f.Mes.ToString("MM/yyyy")</td><td class="num">@f.EntradasPrevistas.ToString("N2", Br)</td><td class="num">@f.SaidasPrevistas.ToString("N2", Br)</td>
+                                <td class="num">@f.SaldoPrevisto.ToString("N2", Br)</td><td class="num">@f.EntradasRealizadas.ToString("N2", Br)</td><td class="num">@f.SaidasRealizadas.ToString("N2", Br)</td>
+                                <td class="num">@f.SaldoRealizado.ToString("N2", Br)</td><td class="num @(acum < 0 ? "texto-erro" : "")"><b>@acum.ToString("N2", Br)</b></td></tr>
+                        }
+                    </tbody>
+                </table></div>
+            }
+            else if (_aba == "aging")
+            {
+                <div class="grade-2">
+                    @foreach (var tipo in new[] { TipoTitulo.Pagar, TipoTitulo.Receber })
+                    {
+                        <div>
+                            <h3>@(tipo == TipoTitulo.Pagar ? "A pagar" : "A receber") por vencimento</h3>
+                            <table class="itens" id="@($"fx-aging-{tipo}")"><thead><tr><th>Faixa</th><th class="num">Parcelas</th><th class="num">Valor</th></tr></thead><tbody>
+                                @foreach (var a in _aging.Where(a => a.Tipo == tipo)) { <tr><td>@a.Faixa</td><td class="num">@a.Parcelas</td><td class="num">@a.Valor.ToString("N2", Br)</td></tr> }
+                                @if (!_aging.Any(a => a.Tipo == tipo)) { <tr><td colspan="3" class="mudo">Nada em aberto.</td></tr> }
+                            </tbody></table>
+                        </div>
+                    }
+                </div>
+            }
+            else if (_aba == "dre")
+            {
+                <p class="mudo fonte-13">DRE gerencial por regime de caixa: o que foi pago e recebido no período, por conta gerencial (os níveis somam as contas de baixo).</p>
+                <div class="tabela-rolavel"><table class="itens" id="fx-dre">
+                    <thead><tr><th>Conta</th><th class="num">Valor</th></tr></thead>
+                    <tbody>
+                        @foreach (var l in _dre)
+                        {
+                            <tr><td style="padding-left:@((l.Nivel - 1) * 18 + 8)px">@if (l.Nivel == 1) { <b>@l.Codigo @l.Conta</b> } else { <span>@l.Codigo @l.Conta</span> }</td>
+                                <td class="num">@if (l.Nivel == 1) { <b>@l.Valor.ToString("N2", Br)</b> } else { @l.Valor.ToString("N2", Br) }</td></tr>
+                        }
+                        @if (_dre.Count == 0) { <tr><td colspan="2" class="mudo">Sem pagamentos/recebimentos no período.</td></tr> }
+                    </tbody>
+                    <tfoot>
+                        <tr><td>Receitas</td><td class="num">@ReceitasDre.ToString("N2", Br)</td></tr>
+                        <tr><td>Despesas e custos</td><td class="num">@DespesasDre.ToString("N2", Br)</td></tr>
+                        <tr><td><b>Resultado de caixa</b></td><td class="num"><b>@((ReceitasDre - DespesasDre).ToString("N2", Br))</b></td></tr>
+                    </tfoot>
+                </table></div>
+            }
+        </div>
+    </ChildContent>
+</Pagina>
+
+@code {
+    private Guid? _obraId;
+    private DateOnly _de, _ate;
+    private List<LinhaFluxo> _fluxo = [];
+    private List<LinhaAging> _aging = [];
+    private List<LinhaDre> _dre = [];
+    private string _aba = "fluxo";
+    private readonly List<(string, string)> _abas = [("fluxo", "Fluxo de caixa"), ("aging", "Vencimentos (aging)"), ("dre", "DRE gerencial")];
+    private decimal ReceitasDre => _dre.Where(l => l.Nivel == 1 && l.Natureza == NaturezaConta.Receita).Sum(l => l.Valor);
+    private decimal DespesasDre => _dre.Where(l => l.Nivel == 1 && l.Natureza == NaturezaConta.Despesa).Sum(l => l.Valor);
+
+    protected override async Task OnInitializedAsync()
+    {
+        var m = new DateOnly(Hoje.Year, Hoje.Month, 1);
+        _de = m.AddMonths(-5); _ate = m.AddMonths(6);
+        await Carregar();
+    }
+
+    private static DateOnly? Mes(object? v) => DateOnly.TryParseExact($"{v}-01", "yyyy-MM-dd", out var d) ? d : null;
+    private async Task TrocarDe(ChangeEventArgs e) { if (Mes(e.Value) is { } d) { _de = d; await Carregar(); } }
+    private async Task TrocarAte(ChangeEventArgs e) { if (Mes(e.Value) is { } d) { _ate = d; await Carregar(); } }
+
+    private async Task Carregar()
+    {
+        if (_ate < _de) (_de, _ate) = (_ate, _de);
+        _fluxo = await Fin.FluxoAsync(_obraId, _de, _ate, Cancelamento);
+        _aging = await Fin.AgingAsync(_obraId, Cancelamento);
+        _dre = await Fin.DreAsync(_obraId, _de, _ate.AddMonths(1).AddDays(-1), Cancelamento);
+    }
+}

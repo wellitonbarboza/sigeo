@@ -91,11 +91,24 @@ public static class CatalogoTelas
             T("sst", "sst/epi", "Entrega de EPI", "escudo"), T("sst", "sst/inspecoes", "Inspeções de Segurança", "prancheta"),
             T("sst", "sst/pt", "Permissão de Trabalho", "chave", "VIEAX"), T("sst", "sst/ocorrencias", "Ocorrências e Acidentes", "alerta"),
             T("sst", "sst/painel", "Painel SST", "grafico", "VX")]),
+        // Módulos adicionais (contratados à parte): nascem bloqueados na construtora; a plataforma libera.
+        new("fin", "Financeiro", "dinheiro", false, [
+            T("fin", "financeiro/pagar", "Contas a Pagar", "dinheiro", "VIEAX"), T("fin", "financeiro/receber", "Contas a Receber", "dinheiro", "VIEX"),
+            T("fin", "financeiro/fluxo", "Fluxo de Caixa e DRE", "grafico", "VX"), T("fin", "financeiro/bancos", "Contas Bancárias", "predio"),
+            T("fin", "financeiro/cadastros", "Plano de Contas e Condições", "lista")]),
+        new("inc", "Incorporação", "casa", false, [
+            T("inc", "incorporacao/empreendimento", "Incorporação e RET", "predio"), T("inc", "incorporacao/espelho", "Espelho de Vendas", "tabela"),
+            T("inc", "incorporacao/vendas", "Vendas e Contratos", "contrato"), T("inc", "incorporacao/carteira", "Carteira de Recebíveis", "grafico", "VIX"),
+            T("inc", "incorporacao/ret", "Apuração do RET", "calculadora")]),
         new("sis", "Sistema", "engrenagem", true, [
             T("sis", "sistema/usuarios", "Usuários e Alçadas", "pessoa"), T("sis", "sistema/perfis", "Perfis de Acesso", "cadeado", "VI"),
             T("sis", "sistema/parametros", "Parâmetros e Notificações", "ferramenta", "VI"), T("sis", "sistema/permissoes", "Permissões SGQ", "escudo", "VI"),
             T("sis", "sistema/log", "Log de Auditoria", "relogio", "VX")]),
     ];
+
+    /// <summary>Módulos adicionais: a construtora nova nasce com eles bloqueados (a plataforma libera quando contratar).</summary>
+    public static readonly string[] Adicionais = ["fin", "inc"];
+    public static IEnumerable<string> RotasAdicionais => Modulos.Where(m => Adicionais.Contains(m.Id)).SelectMany(m => m.Telas).Select(t => t.Rota);
 
     public static readonly IReadOnlyDictionary<string, TelaSistema> Telas =
         Modulos.SelectMany(m => m.Telas).ToDictionary(t => t.Rota, StringComparer.OrdinalIgnoreCase);
@@ -203,6 +216,7 @@ public static class PerfisPadrao
                 break;
             case PerfilUsuario.Diretoria:
                 Ver(); foreach (var m in Operacao) Modulo(m, "A");
+                Modulo("fin", "VAX"); Modulo("inc", "VAX");
                 Dar("engenharia/cronograma", "I"); Dar("sgq/documentos", "I"); Dar("sistema/log", "VX");
                 break;
             case PerfilUsuario.Engenharia:
@@ -221,6 +235,7 @@ public static class PerfisPadrao
             case PerfilUsuario.Financeiro:
                 Ver(); Dar("pagamentos", "IEA"); Dar("notas-fiscais", "IE"); Dar("medicoes", "A"); Dar("contratos/parcelas", "IA");
                 Dar("cadastros/centros-custo", "IE"); Dar("cadastros/estabelecimentos", "IE"); Dar("engenharia/custo-realizado", "IE");
+                Modulo("fin", AcaoTela.Todas); Modulo("inc", AcaoTela.Todas);
                 break;
             case PerfilUsuario.Campo:
                 Ver();

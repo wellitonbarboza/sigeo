@@ -41,6 +41,8 @@ public static class TravasQualidade
         var b = new List<string>();
         if (!f.Ativo || f.StatusQualificacao == StatusQualificacao.Desqualificado)
             b.Add($"Fornecedor {f.NomeExibicao} desqualificado/inativo.");
+        if (string.IsNullOrWhiteSpace(f.CpfCnpj))
+            b.Add($"Fornecedor {f.NomeExibicao} sem CPF/CNPJ (cadastro importado incompleto): complete o cadastro antes de comprar.");
 
         foreach (var m in (materiais ?? []).Where(m => m is not null).Distinct())
             if (f.QualificacaoVigente(hoje, materialId: m) is null)

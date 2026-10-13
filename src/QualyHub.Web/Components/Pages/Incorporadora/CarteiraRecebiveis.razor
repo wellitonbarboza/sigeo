@@ -1,0 +1,167 @@
+@page "/incorporacao/carteira"
+@inherits PaginaBase
+@using QualyHub.Domain.Incorporacao
+@using QualyHub.Domain.Financeiro
+@inject IncorporacaoServico Inc
+@inject FinanceiroServico Fin
+
+<Pagina Titulo="Carteira de recebíveis" Grade="GradeAtiva" AoAtualizar="Carregar">
+    <ChildContent>
+        <div class="pagina">
+            <div class="barra-filtro">
+                <SeletorObra Id="ct-obra" Valor="_obraId" ValorChanged="async v => { _obraId = v; await Carregar(); }" Inicial="ObraQuery" />
+                <label class="check"><input type="checkbox" @bind="_soAbertas" /> Só em aberto</label>
+            </div>
+            @if (_obraId is null) { <div class="alerta info"><Icone Nome="info" /> Escolha a obra.</div> }
+            else if (_painel is not null)
+            {
+                <div class="kpis">
+                    <Kpi Rotulo="Recebido" Valor="@Moeda(_painel.Recebido)" Tom="ok" />
+                    <Kpi Rotulo="A receber (corrigido)" Valor="@Moeda(_painel.AReceber)" Tom="info" />
+                    <Kpi Rotulo="Inadimplente" Valor="@Moeda(_painel.Inadimplente)" Tom="@(_painel.Inadimplente > 0 ? "erro" : "")" Sub="@($"{_linhas.Count(l => l.DiasAtraso > 0)} parcelas vencidas")" />
+                    <Kpi Rotulo="VGV vendido" Valor="@Moeda(_painel.VgvVendido)" Sub="@($"{_painel.Vendidas} unidades")" />
+                </div>
+                @if (_painel.MesesSemIndice.Count > 0)
+                {
+                    <div class="alerta aviso"><Icone Nome="alerta" /> Sem índice informado em @string.Join(", ", _painel.MesesSemIndice.TakeLast(6).Select(m => m.ToString("MM/yy")))@(_painel.MesesSemIndice.Count > 6 ? "…" : ""): a correção conta 0% nesses meses. Informe em Incorporação e RET › Índices.</div>
+                }
+                <Abas Itens="_abas" @bind-Ativa="_aba" />
+                @if (_aba == "parcelas")
+                {
+                    <Grade T="LinhaCarteira" @ref="_grade" Itens="Filtradas" NomeExportacao="carteira-recebiveis" ClasseLinha="@(l => l.DiasAtraso > 0 ? "linha-erro" : null)" Vazio="Sem parcelas. As vendas geram as parcelas.">
+                        <Colunas>
+                            <Coluna T="LinhaCarteira" Titulo="Vencimento" Valor="l => l.Vencimento" Formato="dd/MM/yyyy" Largura="105px" />
+                            <Coluna T="LinhaCarteira" Titulo="Contrato" Valor="l => l.Contrato" Largura="80px" />
+                            <Coluna T="LinhaCarteira" Titulo="Unidade" Valor="l => l.Unidade" />
+                            <Coluna T="LinhaCarteira" Titulo="Comprador" Valor="l => l.Comprador" />
+                            <Coluna T="LinhaCarteira" Titulo="Tipo" Valor="l => NomesVenda.Bloco(l.Tipo)" />
+                            <Coluna T="LinhaCarteira" Titulo="#" Valor="l => l.Numero" Largura="50px" />
+                            <Coluna T="LinhaCarteira" Titulo="Valor base" Valor="l => l.ValorBase" Formato="N2" Alinhar="num" />
+                            <Coluna T="LinhaCarteira" Titulo="Corrigido hoje / pago" Valor="l => l.ValorCorrigido" Formato="N2" Alinhar="num" />
+                            <Coluna T="LinhaCarteira" Titulo="Situação" Valor="l => Sit(l)" Largura="130px"><Modelo><Selo Texto="@Sit(context)" Tom="@(context.Status == StatusParcelaTitulo.Paga ? "ok" : context.DiasAtraso > 0 ? "erro" : "info")" /></Modelo></Coluna>
+                        </Colunas>
+                        <Acoes>
+                            @if (context.Status == StatusParcelaTitulo.Aberta)
+                            {
+                                <button class="btn sec pq" @onclick="() => AbrirBaixa(context)" @onclick:stopPropagation="true"><Icone Nome="check" Tam="14" /> Receber</button>
+                            }
+                        </Acoes>
+                    </Grade>
+                }
+                else if (_aba == "proj")
+                {
+                    <div class="grade-2">
+                        <div>
+                            <h3>Recebimentos previstos (corrigidos)</h3>
+                            <table class="itens" id="ct-proj"><tbody>
+                                @foreach (var p in _painel.ProjecaoRecebimentos) { <tr><td>@p.Mes.ToString("MM/yyyy")</td><td class="num">@p.Valor.ToString("N2", Br)</td></tr> }
+                                @if (_painel.ProjecaoRecebimentos.Count == 0) { <tr><td class="mudo">Nada a receber.</td></tr> }
+                            </tbody></table>
+                        </div>
+                        <div>
+                            <h3>Velocidade de vendas (VSO)</h3>
+                            <table class="itens" id="ct-vso"><thead><tr><th>Mês</th><th class="num">Vendas</th><th class="num">Valor</th><th class="num">VSO</th></tr></thead><tbody>
+                                @{ var estoqueIni = _painel.Unidades; }
+                                @foreach (var v in _painel.Vso)
+                                {
+                                    <tr><td>@v.Mes.ToString("MM/yyyy")</td><td class="num">@v.Vendas</td><td class="num">@v.Valor.ToString("N2", Br)</td><td class="num">@(estoqueIni == 0 ? "—" : (v.Vendas * 100m / estoqueIni).ToString("N1", Br) + "%")</td></tr>
+                                    estoqueIni -= v.Vendas;
+                                }
+                                @if (_painel.Vso.Count == 0) { <tr><td colspan="4" class="mudo">Sem vendas.</td></tr> }
+                            </tbody></table>
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+    </ChildContent>
+</Pagina>
+
+<Modal @bind-Aberto="_abertoBaixa" Titulo="Receber parcela" Tamanho="pequena">
+    <ChildContent>
+        @if (_sel is not null)
+        {
+            <Erros Lista="ErrosForm" />
+            <p><b>@_sel.Comprador</b> — contrato @_sel.Contrato · @_sel.Unidade<br />@NomesVenda.Bloco(_sel.Tipo) @_sel.Numero · vence @_sel.Vencimento.ToString("dd/MM/yyyy")</p>
+            <div class="form">
+                <Campo Rotulo="Data do recebimento" Classe="s6"><input id="cb-data" type="date" value="@_data.ToString("yyyy-MM-dd")" @onchange="TrocarData" /></Campo>
+                <Campo Rotulo="Forma" Classe="s6"><select id="cb-forma" @bind="_forma">@foreach (var f in Enum.GetValues<FormaPagamento>()) { <option value="@f">@RegrasFinanceiro.NomeForma(f)</option> }</select></Campo>
+                @if (!RegrasFinanceiro.SemMovimento(_forma))
+                {
+                    <Campo Rotulo="Conta" Obrigatorio Classe="s12"><select id="cb-conta" @bind="_conta"><option value="">(escolha)</option>@foreach (var c in _bancos) { <option value="@c.Id">@c.Rotulo</option> }</select></Campo>
+                }
+                <Campo Rotulo="Valor base" Classe="s4"><input readonly value="@_calc?.ValorBase.ToString("N2", Br)" /></Campo>
+                <Campo Rotulo="Correção" Classe="s4" Ajuda="Pelo índice do contrato"><input type="number" step="0.01" @bind="_correcao" /></Campo>
+                <Campo Rotulo="Juros (após chaves)" Classe="s4"><input type="number" step="0.01" @bind="_juros" /></Campo>
+                <Campo Rotulo="Multa/juros de atraso" Classe="s4"><input type="number" step="0.01" @bind="_multa" /></Campo>
+                <Campo Rotulo="Desconto" Classe="s4"><input type="number" step="0.01" @bind="_desconto" /></Campo>
+                <Campo Rotulo="Total" Classe="s4"><input readonly value="@(((_calc?.ValorBase ?? 0) + _correcao + _juros + _multa - _desconto).ToString("N2", Br))" /></Campo>
+                @if (_calc?.MesesSemIndice.Count > 0) { <div class="s12 alerta aviso"><Icone Nome="alerta" /> @_calc.MesesSemIndice.Count meses sem índice informado (contados como 0%).</div> }
+            </div>
+        }
+    </ChildContent>
+    <Rodape><button class="btn prim" id="cb-ok" disabled="@Ocupado" @onclick="Receber"><Icone Nome="check" Tam="16" /> Confirmar recebimento</button></Rodape>
+</Modal>
+
+@code {
+    [SupplyParameterFromQuery(Name = "obra")] public Guid? ObraQuery { get; set; }
+    private Grade<LinhaCarteira>? _grade;
+    private IGrade? GradeAtiva => _aba == "parcelas" ? _grade : null;
+    private IGrade? _gradeVista;
+    protected override void OnAfterRender(bool firstRender) { if (!ReferenceEquals(_gradeVista, GradeAtiva)) { _gradeVista = GradeAtiva; StateHasChanged(); } }
+
+    private Guid? _obraId;
+    private bool _soAbertas = true;
+    private string _aba = "parcelas";
+    private readonly List<(string, string)> _abas = [("parcelas", "Parcelas"), ("proj", "Projeção e VSO")];
+    private List<LinhaCarteira> _linhas = [];
+    private PainelVendas? _painel;
+    private List<ContaBancaria> _bancos = [];
+    private LinhaCarteira? _sel;
+    private CalculoParcela? _calc;
+    private bool _abertoBaixa;
+    private DateOnly _data;
+    private FormaPagamento _forma = FormaPagamento.Pix;
+    private string _conta = "";
+    private decimal _correcao, _juros, _multa, _desconto;
+
+    private List<LinhaCarteira> Filtradas => _soAbertas ? _linhas.Where(l => l.Status == StatusParcelaTitulo.Aberta).ToList() : _linhas;
+    private static string Sit(LinhaCarteira l) => l.Status == StatusParcelaTitulo.Paga ? $"Recebida {l.DataPagamento:dd/MM/yy}" : l.DiasAtraso > 0 ? $"Vencida {l.DiasAtraso}d" : "A vencer";
+
+    protected override async Task OnInitializedAsync() => _bancos = await Fin.ContasBancariasAsync(true, Cancelamento);
+
+    private async Task Carregar()
+    {
+        if (_obraId is not { } o) { _linhas = []; _painel = null; return; }
+        _linhas = await Inc.CarteiraAsync(o, Cancelamento);
+        _painel = await Inc.PainelAsync(o, Cancelamento);
+    }
+
+    private async Task AbrirBaixa(LinhaCarteira l)
+    {
+        ErrosForm = null; _sel = l; _data = Hoje; _multa = _desconto = 0;
+        _conta = _bancos.Count == 1 ? _bancos[0].Id.ToString() : "";
+        _forma = l.Tipo switch { TipoParcelaVenda.Permuta => FormaPagamento.Permuta, TipoParcelaVenda.Financiamento => FormaPagamento.Financiamento, _ => FormaPagamento.Pix };
+        await Calcular();
+        _abertoBaixa = true;
+    }
+
+    private async Task TrocarData(ChangeEventArgs e)
+    {
+        if (DateOnly.TryParse(e.Value?.ToString(), out var d)) { _data = d; await Calcular(); }
+    }
+
+    private async Task Calcular()
+    {
+        if (_sel is null) return;
+        _calc = await Inc.CalcularParcelaAsync(_sel.ParcelaId, _data, Cancelamento);
+        _correcao = _calc.Correcao; _juros = _calc.Juros;
+    }
+
+    private async Task Receber()
+    {
+        if (_sel is null) return;
+        var b = new BaixaParcela(_sel.ParcelaId, _data, Guid.TryParse(_conta, out var c) ? c : null, _forma, _correcao, _juros, _multa, _desconto, null);
+        if (await Executar(() => Fin.BaixarAsync(b, Cancelamento), "Recebimento registrado.")) { _abertoBaixa = false; await Carregar(); }
+    }
+}

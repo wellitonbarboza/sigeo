@@ -80,6 +80,7 @@ public sealed class CustoRealizadoImportacaoTests(BancoFixture f)
             new("medicao-oc.xlsx", MedicaoOc(sufixo)),
             new("fornecedores.xlsx", Fornecedores(sufixo, cnpj)),
             new("insumos.xlsx", Insumos(sufixo)),
+            new("documentos.xlsx", Documentos(sufixo)),
         };
 
         // Sem data de corte: simula, mas não confirma.
@@ -109,7 +110,17 @@ public sealed class CustoRealizadoImportacaoTests(BancoFixture f)
         var res = await Importador.ConfirmarAsync(lote);
         Assert.Equal(4, res.Custos);
         Assert.Equal(2, res.Pedidos);
-        Assert.Equal(2, res.FornecedoresCriados); // com CNPJ do relatório e sem CNPJ (em qualificação)
+        Assert.Equal(3, res.FornecedoresCriados); // com CNPJ do relatório e sem CNPJ (em qualificação)
+        Assert.Equal(2, res.Titulos); // contas a pagar (o módulo Financeiro está liberado na construtora de teste)
+        Assert.Equal(1, res.ContasBancariasCriadas);
+        var fin = new FinanceiroServico(f.Fabrica, f.Relogio);
+        var parcelas = await fin.ParcelasAsync(QualyHub.Domain.Financeiro.TipoTitulo.Pagar, obra, null, null, true);
+        Assert.Equal(3, parcelas.Count(p => p.Origem == QualyHub.Domain.Financeiro.OrigemTitulo.ImportacaoErp));
+        var paga = parcelas.Single(p => p.Status == QualyHub.Domain.Financeiro.StatusParcelaTitulo.Paga);
+        Assert.Equal(new DateOnly(2026, 3, 15), paga.DataPagamento);
+        Assert.StartsWith("2.3", paga.Conta);
+        Assert.DoesNotContain("11111", paga.ContaBancaria); // número mascarado
+        Assert.Contains(parcelas, p => p.Conta!.StartsWith("3.6") && p.Status == QualyHub.Domain.Financeiro.StatusParcelaTitulo.Aberta);
 
         var custos = await Custos.ListarAsync(obra, null, null);
         Assert.Equal(4, custos.Count);
@@ -139,6 +150,7 @@ public sealed class CustoRealizadoImportacaoTests(BancoFixture f)
         var res2 = await Importador.ConfirmarAsync(lote2);
         Assert.Equal(0, res2.Custos);
         Assert.Equal(0, res2.Pedidos);
+        Assert.Equal(0, res2.Titulos);
         Assert.Equal(4, (await Custos.ListarAsync(obra, null, null)).Count);
     }
 
@@ -191,6 +203,15 @@ public sealed class CustoRealizadoImportacaoTests(BancoFixture f)
     private static byte[] Fornecedores(string s, string cnpj) => Planilha("Fornecedores",
         ["Razão social", "Nome fantasia", "CPF/CNPJ", "Cidade/UF", "Bairro", "Telefone", "E-mail"],
         [[$"Aço Ficticio {s} Ltda", "Aço Ficticio", cnpj, "Cidade Teste/PR", "Centro", "(00) 0000-0000", "contato@exemplo.com"]]);
+
+    private static byte[] Documentos(string s) => Planilha("Relatório de documentos financeiros",
+        ["Fornecedor", "CPF/CNPJ Fornecedor", "Número", "Doc.", "Tipo", "Descri.", "Emissão", "Venc.", "Parc.", "C. gerencial", "Vlr.bruto (R$)", "Situação", "Dt. pago.",
+         "C. banc. (parcela)", "Juros/ multa/ outros", "Desconto (R$)", "Retenções (R$)", "Total líquido (R$)", "Total pago (R$)", "Forma pgto."],
+        [
+            [$"Aço Ficticio {s} Ltda", null, "101", $"9{s}", "Nota Fiscal", "Aço", new DateTime(2026, 3, 10), new DateTime(2026, 3, 15), "1/2", "2.1.3 - Custo com materiais aplicados em OBRAS", 2000m, "Liquidado", new DateTime(2026, 3, 15), "BANCO FICTICIO - 11111-1", 0m, 0m, 0m, 2000m, 2000m, "Boleto"],
+            [$"Aço Ficticio {s} Ltda", null, "101", $"9{s}", "Nota Fiscal", "Aço", new DateTime(2026, 3, 10), new DateTime(2026, 4, 15), "2/2", "2.1.3 - Custo com materiais aplicados em OBRAS", 2000m, "Aberto", null, "BANCO FICTICIO - 11111-1", 0m, 0m, 0m, 2000m, 0m, null],
+            [$"Concessionaria Ficticia {s}", null, null, $"8{s}", "Boleto", "ENERGIA", new DateTime(2026, 9, 30), new DateTime(2026, 10, 30), "1/1", "2.2.1.22 - Energia", 401.3m, "Aberto", null, null, 0m, 0m, 0m, 401.3m, 0m, null],
+        ]);
 
     private static byte[] Insumos(string s) => Planilha("Insumos cadastrados",
         ["Código", "Nome", "Categoria", "Tipo de custo", "Unidade", "Vlr. Unitário (R$)"],

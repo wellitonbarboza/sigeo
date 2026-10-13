@@ -220,6 +220,48 @@ public static partial class SugestoesImportacao
         return "A Cadastrar";
     }
 
+
+    // Conta gerencial do ERP → conta do plano padrão (código). Primeiro o código antigo conhecido, depois palavras-chave.
+    private static readonly (string[] Chaves, string Codigo)[] RegrasConta =
+    [
+        (["CUSTO COM MO", "MAO DE OBRA", "MO APLICADA"], "2.1"), (["TERRENO"], "2.2"), (["MATERIAIS APLICADOS", "CUSTO COM MATERIAIS", "MATERIAL DE CONSTRUCAO"], "2.3"),
+        (["SERVICOS APLICADOS", "CUSTO COM SERVICOS", "TERRAPLANAGEM", "TERRAPLENAGEM", "EMPREITADA"], "2.4"), (["ALUGUEL EQUIP", "LOCACAO", "EQUIPAMENTO"], "2.5"),
+        (["FRETE"], "2.6"), (["PROJETO", "ART", "ALVARA", "LICENCA"], "3.1"),
+        (["SALARIO", "DIARIA", "BONIFICACAO", "GRATIFICACAO", "RESCIS", "FERIAS", "13 SALARIO", "VALE TRANSPORTE"], "3.2"),
+        (["EXAME", "SEGURANCA DO TRABALHO", "EQUIPAMENTO SEGURANCA", "EPI", "EPC"], "3.4"), (["SEGURO", "VIGILANCIA"], "3.5"),
+        (["ENERGIA", "AGUA", "INTERNET", "TELEFON", "LUZ"], "3.6"), (["ENSAIO", "LABORATORIO"], "3.7"),
+        (["COMBUSTIVEL", "ALIMENTACAO", "MANUTENCAO", "MATERIAL GRAFICO", "ESCRITORIO", "LIMPEZA", "OUTROS"], "3.8"),
+        (["COMISS"], "4.1"), (["MARKETING", "PUBLICIDADE", "PROPAGANDA"], "4.2"), (["CONSULTORIA", "HONORARIO", "CONTABIL", "ADVOCAT"], "5.2"),
+        (["INSS"], "6.2"), (["FGTS", "DAS"], "6.3"), (["IMPOSTO", "TAXA", "IPTU", "ISS", "SINDICATO", "CONTRIBUICAO"], "6.4"),
+        (["JUROS", "MULTA"], "7.1"), (["TARIFA"], "7.2"), (["EMPRESTIMO", "FINANCIAMENTO"], "7.3"), (["ACAO TRABALHISTA"], "5.5"),
+        (["RECEBIMENTO DE CLIENTES", "VENDA"], "1.1"), (["PRESTACAO DE SERVICO"], "1.3"),
+    ];
+
+    /// <summary>Código do plano padrão sugerido para a conta gerencial do ERP (null = sem sugestão: o usuário escolhe).</summary>
+    public static string? SugerirContaGerencial(string? contaOrigem, IReadOnlyCollection<string> codigosDisponiveis)
+    {
+        var chave = Chave(contaOrigem);
+        if (chave.Length == 0) return null;
+        var semCodigo = Regex.Replace(chave, @"^[\d ]+", "").Trim();
+        // Vence quem aparece primeiro; empate = a palavra-chave mais longa ("EQUIPAMENTO SEGURANÇA" ganha de "EQUIPAMENTO").
+        var melhor = RegrasConta.SelectMany((r, ordem) => r.Chaves
+                .Select(k => (r.Codigo, ordem, Tam: k.Length, M: Regex.Match(semCodigo, $@"(^|\s){Regex.Escape(k)}"))))
+            .Where(x => x.M.Success && codigosDisponiveis.Contains(x.Codigo))
+            .OrderBy(x => x.M.Index).ThenByDescending(x => x.Tam).ThenBy(x => x.ordem).FirstOrDefault();
+        return melhor.Codigo;
+    }
+
+    /// <summary>Conta bancária do ERP ("BANCO X - 12345-6") → nome sem o número e o número (só dígitos e traço) à parte.</summary>
+    public static (string Nome, string? Numero) SepararContaBancaria(string? texto)
+    {
+        var t = (texto ?? "").Trim();
+        var m = Regex.Match(t, @"^(.*?)[\s\-\(\)]*([\d][\d\-\s\(\)]{3,})$");
+        if (!m.Success) return (t, null);
+        var nome = m.Groups[1].Value.Trim(' ', '-', '(');
+        var num = Regex.Replace(m.Groups[2].Value, @"[^\d\-]", "").Trim('-');
+        return (nome.Length == 0 ? t : nome, num.Length == 0 ? null : num);
+    }
+
     [GeneratedRegex(@"(\d)\s+(MM|CM|M|KG|G|L|ML|M2|M3|POL)\b")] private static partial Regex NumeroUnidade();
     [GeneratedRegex(@"[^A-Z0-9 ]")] private static partial Regex NaoAlfanum();
     [GeneratedRegex(@"\s+")] private static partial Regex Espacos();

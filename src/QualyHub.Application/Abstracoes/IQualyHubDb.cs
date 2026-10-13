@@ -181,6 +181,21 @@ public interface IQualyHubDb : IDisposable, IAsyncDisposable
     DbSet<LayoutImportacao> LayoutsImportacao { get; }
     DbSet<LoteImportacao> LotesImportacao { get; }
     DbSet<VinculoOrigem> VinculosOrigem { get; }
+    DbSet<Domain.Financeiro.ContaGerencial> ContasGerenciais { get; }
+    DbSet<Domain.Financeiro.ContaBancaria> ContasBancarias { get; }
+    DbSet<Domain.Financeiro.CondicaoPagamento> CondicoesPagamento { get; }
+    DbSet<Domain.Financeiro.Titulo> Titulos { get; }
+    DbSet<Domain.Financeiro.TituloParcela> TituloParcelas { get; }
+    DbSet<Domain.Financeiro.MovimentoBancario> MovimentosBancarios { get; }
+    DbSet<Domain.Incorporacao.IncorporacaoObra> Incorporacoes { get; }
+    DbSet<Domain.Incorporacao.AliquotaRegime> AliquotasRegime { get; }
+    DbSet<Domain.Incorporacao.IndiceEconomico> IndicesEconomicos { get; }
+    DbSet<Domain.Incorporacao.UnidadeComercial> UnidadesComerciais { get; }
+    DbSet<Domain.Incorporacao.Comprador> Compradores { get; }
+    DbSet<Domain.Incorporacao.ContratoVenda> ContratosVenda { get; }
+    DbSet<Domain.Incorporacao.BlocoCondicaoVenda> BlocosCondicaoVenda { get; }
+    DbSet<Domain.Incorporacao.ComissaoVenda> ComissoesVenda { get; }
+    DbSet<Domain.Incorporacao.ApuracaoRet> ApuracoesRet { get; }
     DbSet<LinhaImportacao> LinhasImportacao { get; }
     DbSet<RegistroAuditoria> Auditoria { get; }
     DbSet<CodigoAcessoFornecedor> CodigosAcessoFornecedor { get; }

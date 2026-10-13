@@ -202,7 +202,7 @@ public static class CargaPadrao
     /// Versão da carga padrão. Suba quando incluir itens novos nas listas/cadastros padrão: empresas existentes recebem a carga
     /// uma vez por versão (itens que o usuário renomeou ou excluiu não voltam a cada reinício do app).
     /// </summary>
-    public const int Versao = 6;
+    public const int Versao = 7;
     private const string ChaveVersao = "Sistema:CargaPadrao";
 
     /// <summary>Aplica a carga só se a empresa ainda não recebeu esta versão (usado na inicialização do app).</summary>
@@ -222,6 +222,8 @@ public static class CargaPadrao
         var existentes = await db.Parametros.IgnoreQueryFilters().Where(p => p.EmpresaId == empresaId).Select(p => p.Chave).ToListAsync(ct);
         foreach (var (chave, v) in Parametros.Padrao.Where(k => !existentes.Contains(k.Key)))
             db.Parametros.Add(new Parametro { EmpresaId = empresaId, Chave = chave, Valor = v.Valor, Unidade = v.Unidade, Descricao = v.Descricao, Grupo = v.Grupo });
+
+        await CargaFinanceiro.AplicarAsync(db, empresaId, ct);
 
         var listas = await db.Listas.IgnoreQueryFilters().Where(l => l.EmpresaId == empresaId).Select(l => new { l.Tipo, l.Nome }).ToListAsync(ct);
         void Lista(TipoLista tipo, IEnumerable<string> nomes)

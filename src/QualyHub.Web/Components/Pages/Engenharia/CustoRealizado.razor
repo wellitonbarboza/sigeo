@@ -47,8 +47,8 @@
                             <Coluna T="LinhaCustoRealizado" Titulo="Descrição" Valor="l => l.Descricao" />
                             <Coluna T="LinhaCustoRealizado" Titulo="Fornecedor" Valor="l => l.Fornecedor" />
                             <Coluna T="LinhaCustoRealizado" Titulo="Tipo" Valor="l => TiposCusto.Nome(l.Tipo)" Largura="110px" />
-                            <Coluna T="LinhaCustoRealizado" Titulo="Qtd." Valor="l => l.Quantidade" Formato="N2" Alinhar="dir" Largura="90px" />
-                            <Coluna T="LinhaCustoRealizado" Titulo="Valor" Valor="l => l.Valor" Formato="N2" Alinhar="dir" Largura="120px" />
+                            <Coluna T="LinhaCustoRealizado" Titulo="Qtd." Valor="l => l.Quantidade" Formato="N2" Alinhar="num" Largura="90px" />
+                            <Coluna T="LinhaCustoRealizado" Titulo="Valor" Valor="l => l.Valor" Formato="N2" Alinhar="num" Largura="120px" />
                             <Coluna T="LinhaCustoRealizado" Titulo="Documento" Valor="l => l.Documento" Largura="120px" />
                             <Coluna T="LinhaCustoRealizado" Titulo="Pedido" Valor="l => l.Pedido" Largura="90px" />
                             <Coluna T="LinhaCustoRealizado" Titulo="Origem" Valor="@(l => NomeOrigem(l.Origem) + (l.Historico ? " · histórico" : ""))" Largura="150px" />

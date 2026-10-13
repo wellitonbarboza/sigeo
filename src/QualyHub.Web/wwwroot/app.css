@@ -693,3 +693,18 @@ pre.composicao { white-space: pre-wrap; font-family: inherit; font-size: 13px; b
 @media (max-width: 760px) { .acoes-pagina { padding: 10px 12px 0; } .acoes-pagina select, .acoes-pagina input { min-width: 0; width: 100%; } }
 .invalido { border-color: var(--erro) !important; }
 .fonte-12 { font-size: 12px; }
+
+/* Espelho de vendas (Incorporação) */
+.legenda-esp { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.chip-esp { padding: 2px 10px; border-radius: 12px; font-size: 12px; }
+.espelho { display: flex; flex-direction: column; gap: 4px; overflow-x: auto; }
+.esp-linha { display: flex; gap: 4px; align-items: stretch; }
+.esp-pav { min-width: 120px; font-size: 12px; color: var(--texto-suave, #666); display: flex; align-items: center; }
+.esp-unid { min-width: 92px; padding: 6px; border-radius: 6px; border: 1px solid transparent; display: flex; flex-direction: column; align-items: center; cursor: pointer; font-size: 12px; }
+.esp-unid small { opacity: .8; }
+.s-disp { background: color-mix(in srgb, #2e9d5b 18%, transparent); border-color: #2e9d5b; }
+.s-res { background: color-mix(in srgb, #d9a400 22%, transparent); border-color: #d9a400; }
+.s-prop { background: color-mix(in srgb, #2f7bd8 18%, transparent); border-color: #2f7bd8; }
+.s-vend { background: color-mix(in srgb, #c0392b 18%, transparent); border-color: #c0392b; }
+.s-perm { background: color-mix(in srgb, #8e44ad 18%, transparent); border-color: #8e44ad; }
+.s-bloq { background: color-mix(in srgb, #777 18%, transparent); border-color: #777; }

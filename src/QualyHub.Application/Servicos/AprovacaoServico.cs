@@ -211,7 +211,11 @@ public sealed class AprovacaoServico(IUsuarioAtual usuario, TimeProvider relogio
                 break;
             case EntidadeAprovavel.Pagamento:
                 var l = await db.Pagamentos.FirstAsync(x => x.Id == s.EntidadeId, ct);
-                if (aprovado) { l.LiberadoPor = nome; l.LiberadoEm = agora; l.Status = StatusPagamento.Liberado; }
+                if (aprovado)
+                {
+                    l.LiberadoPor = nome; l.LiberadoEm = agora; l.Status = StatusPagamento.Liberado;
+                    await FinanceiroServico.GerarDaLiberacaoAsync(db, l, ct); // com o Financeiro contratado, vira conta a pagar
+                }
                 else if (reprovado || devolvido) l.Status = StatusPagamento.Bloqueado;
                 break;
         }

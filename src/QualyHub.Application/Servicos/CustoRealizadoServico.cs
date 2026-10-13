@@ -174,6 +174,19 @@ public sealed class CustoRealizadoServico(IFabricaDb fabrica)
                 });
             }
         }
+        // Frete do pedido: entra uma vez, no primeiro recebimento (fase do primeiro item).
+        if (ped.ValorFrete is > 0 && !await db.CustosRealizados.AnyAsync(x => x.ObraId == r.ObraId && x.ChaveOrigem == $"FRETE:{ped.Id:N}", ct)
+            && !db.CustosRealizados.Local.Any(x => x.ChaveOrigem == $"FRETE:{ped.Id:N}"))
+        {
+            var fase = db.CustosRealizados.Local.FirstOrDefault(x => x.RecebimentoId == r.Id)?.Fase ?? CustoRealizado.FaseAApropriar;
+            db.CustosRealizados.Add(new CustoRealizado
+            {
+                ObraId = r.ObraId, Data = data, Historico = corte is { } dc2 && data < dc2, TipoCusto = TipoCusto.Frete, Fase = fase,
+                FornecedorId = ped.FornecedorId, FornecedorNome = ped.Transportadora ?? ped.Fornecedor.NomeFantasia ?? ped.Fornecedor.RazaoSocial,
+                Descricao = $"Frete do pedido {ped.Numero}", Quantidade = 1, Valor = ped.ValorFrete.Value, DocumentoTipo = "NF", DocumentoNumero = r.NumeroNotaFiscal,
+                PedidoId = ped.Id, RecebimentoId = r.Id, Origem = OrigemCusto.Recebimento, ChaveOrigem = $"FRETE:{ped.Id:N}"
+            });
+        }
     }
 
     /// <summary>Medição aprovada vira custo de serviço por item × local (fase = grupo da composição contratada). Idempotente.</summary>
