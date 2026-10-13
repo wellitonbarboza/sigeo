@@ -95,6 +95,12 @@ public class Obra : EntidadeAuditavel, IOrigemErp
     /// <summary>Estabelecimento (Matriz/Filial) dono do custo na obra própria — vira o "Faturar para" padrão.</summary>
     public Guid? EstabelecimentoDonoId { get; set; }
 
+    /// <summary>
+    /// Data de corte do sistema: antes dela os dados vêm do ERP como histórico (só leitura, sem aprovações nem registros de qualidade);
+    /// a partir dela tudo é lançado no QualyHub com os fluxos completos.
+    /// </summary>
+    public DateOnly? DataCorteSistema { get; set; }
+
     public bool ObraPropria => DonoCusto == DonoCustoObra.Construtora;
 
     public ICollection<Local> Locais { get; set; } = [];

@@ -74,6 +74,9 @@ public static class DependencyInjection
         services.AddScoped<MensagensServico>();
         services.AddSingleton<QualyHub.Application.Comum.CanalAvisos>();
         services.AddScoped<MaoObraServico>();
+        services.AddScoped<CustoRealizadoServico>();
+        services.AddScoped<Importacao.ImportadorHistoricoErp>();
+
         services.AddScoped<EstabelecimentosServico>();
         services.AddScoped<FornecedoresServico>();
         services.AddScoped<Importacao.ImportadorEspecificacao>();

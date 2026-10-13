@@ -303,3 +303,44 @@ internal sealed class CodigoAcessoFornecedorCfg : IEntityTypeConfiguration<Codig
         b.HasOne<Fornecedor>().WithMany().HasForeignKey(x => x.FornecedorId);
     }
 }
+
+internal sealed class CustoRealizadoCfg : IEntityTypeConfiguration<CustoRealizado>
+{
+    public void Configure(EntityTypeBuilder<CustoRealizado> b)
+    {
+        b.ToTable("CustosRealizados");
+        b.Property(x => x.Fase).HasMaxLength(120);
+        b.Property(x => x.FornecedorNome).HasMaxLength(200);
+        b.Property(x => x.Descricao).HasMaxLength(300);
+        b.Property(x => x.Unidade).HasMaxLength(10);
+        b.Property(x => x.DocumentoTipo).HasMaxLength(40);
+        b.Property(x => x.DocumentoNumero).HasMaxLength(60);
+        b.Property(x => x.ChaveOrigem).HasMaxLength(200);
+        b.Property(x => x.Quantidade).HasPrecision(18, 4);
+        b.Property(x => x.Valor).HasPrecision(18, 2);
+        b.Ignore(x => x.ValorUnitario);
+        b.Ignore(x => x.ValorTravado);
+        b.HasOne<Local>().WithMany().HasForeignKey(x => x.LocalId);
+        b.HasOne<Domain.Cadastros.Fornecedor>().WithMany().HasForeignKey(x => x.FornecedorId);
+        b.HasOne<Domain.Cadastros.Produto>().WithMany().HasForeignKey(x => x.ProdutoId);
+        b.HasOne<Domain.Suprimentos.Pedido>().WithMany().HasForeignKey(x => x.PedidoId);
+        b.HasIndex(x => new { x.ObraId, x.Data });
+        b.HasIndex(x => new { x.ObraId, x.Fase });
+        b.HasIndex(x => x.RecebimentoId);
+        b.HasIndex(x => x.MedicaoId);
+        b.HasIndex(x => new { x.ObraId, x.ChaveOrigem }).IsUnique().HasFilter("[Excluido] = 0 AND [ChaveOrigem] IS NOT NULL");
+    }
+}
+
+internal sealed class VinculoOrigemCfg : IEntityTypeConfiguration<Domain.Importacao.VinculoOrigem>
+{
+    public void Configure(EntityTypeBuilder<Domain.Importacao.VinculoOrigem> b)
+    {
+        b.ToTable("VinculosOrigem");
+        b.Property(x => x.Sistema).HasMaxLength(40);
+        b.Property(x => x.Chave).HasMaxLength(300);
+        b.Property(x => x.TextoOrigem).HasMaxLength(400);
+        b.Property(x => x.DestinoTexto).HasMaxLength(120);
+        b.HasIndex(x => new { x.EmpresaId, x.Sistema, x.Tipo, x.ObraId, x.Chave }).IsUnique().HasFilter("[Excluido] = 0");
+    }
+}

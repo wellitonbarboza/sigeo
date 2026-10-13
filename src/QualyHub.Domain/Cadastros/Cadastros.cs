@@ -366,6 +366,8 @@ public class Produto : EntidadeAuditavel, IOrigemErp
     public string Unidade { get; set; } = "UN";
     public string? Grupo { get; set; }
     public string? SubGrupo { get; set; }
+    /// <summary>Natureza do custo (material, equipamento, mão de obra, serviço, frete, outros) — curva ABC e custo por tipo.</summary>
+    public TipoCusto? TipoCusto { get; set; }
     /// <summary>Descrição completa (especificação resumida). A "genérica" é o Nome — nunca com marca.</summary>
     public string? DescricaoCompleta { get; set; }
     /// <summary>NCM (8 dígitos) — casa o produto com os itens da NF-e.</summary>

@@ -68,10 +68,11 @@
             <div class="form">
                 <Campo Rotulo="Código" Classe="s3" Ajuda="@(_p.CriadoEm == default ? "Gerado ao salvar: GRUPO-SUBGRUPO-0000" : _p.CodigoAnterior is null ? "Fixo após o 1º uso" : $"Anterior: {_p.CodigoAnterior}")"><input readonly value="@(string.IsNullOrEmpty(_p.Codigo) ? "(automático)" : _p.Codigo)" /></Campo>
                 <Campo Rotulo="Descrição genérica" Obrigatorio Classe="s7" Ajuda="Nunca coloque a marca na descrição genérica."><input @bind="_p.Nome" /></Campo>
-                <Campo Rotulo="Unidade" Obrigatorio Classe="s2"><input @bind="_p.Unidade" list="unidades" /><datalist id="unidades">@foreach (var u in new[] { "UN", "PC", "KG", "M", "M2", "M3", "L", "CX", "RL", "SC", "PAR", "BR", "GL", "CJ", "JG", "TON", "VB", "H" }) { <option>@u</option> }</datalist></Campo>
+                <Campo Rotulo="Unidade" Obrigatorio Classe="s2"><input @bind="_p.Unidade" list="unidades" /><datalist id="unidades">@foreach (var u in QualyHub.Domain.Cadastros.UnidadesPadrao.Lista) { <option>@u</option> }</datalist></Campo>
                 <Campo Rotulo="Descrição completa" Classe="s12"><textarea @bind="_p.DescricaoCompleta" rows="2"></textarea></Campo>
                 <Campo Rotulo="Grupo" Classe="s4"><input @bind="_p.Grupo" list="grupos" /><datalist id="grupos">@foreach (var g in _grupos) { <option>@g</option> }</datalist></Campo>
                 <Campo Rotulo="Subgrupo" Classe="s4"><input @bind="_p.SubGrupo" list="subgrupos" /><datalist id="subgrupos">@foreach (var g in _subgrupos.Where(x => x.Grupo == _p.Grupo)) { <option>@g.Sub</option> }</datalist></Campo>
+                <Campo Rotulo="Tipo de custo" Classe="s4" Ajuda="Curva ABC e custo realizado por tipo"><select id="prod-tipo-custo" value="@(_p.TipoCusto?.ToString() ?? "")" @onchange="e => _p.TipoCusto = Enum.TryParse<TipoCusto>(e.Value?.ToString(), out var t) ? t : null"><option value="">(não informado)</option>@foreach (var t in QualyHub.Domain.Engenharia.TiposCusto.Todos) { <option value="@t">@QualyHub.Domain.Engenharia.TiposCusto.Nome(t)</option> }</select></Campo>
                 @if (Assistente.Configurado)
                 {
                     <div class="s12" aria-live="polite">

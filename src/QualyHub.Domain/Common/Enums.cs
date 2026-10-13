@@ -183,7 +183,7 @@ public enum StatusSolicitacaoDoc { Enviada = 1, Acessada = 2, Parcial = 3, Concl
 [Flags] public enum CanalNotificacao { Nenhum = 0, Pendencias = 1, Email = 2, WhatsApp = 4 }
 
 // ───────── Importação ─────────
-public enum TipoImportacao { Fornecedores = 1, Funcionarios = 2, Pedidos = 3, Medicoes = 4, Servicos = 5, Materiais = 6, Produtos = 7 }
+public enum TipoImportacao { Fornecedores = 1, Funcionarios = 2, Pedidos = 3, Medicoes = 4, Servicos = 5, Materiais = 6, Produtos = 7, HistoricoObraErp = 8 }
 
 public enum StatusImportacao { Enviada = 1, EmValidacao = 2, ComErros = 3, AguardandoConfirmacao = 4, Concluida = 5, Cancelada = 6 }
 
@@ -219,3 +219,11 @@ public enum FrequenciaDocumento { NoCadastro = 1, Validade = 2, Mensal = 3, PorC
 public enum TipoEstabelecimento { Matriz = 1, Filial = 2, Spe = 3, Outro = 4 }
 public enum TipoFluxo { Transferencia = 1, Venda = 2, Rateio = 3, TaxaAdministracao = 4, Remessa = 5 }
 public enum StatusTransferencia { Rascunho = 1, Enviada = 2, Recebida = 3, Cancelada = 4 }
+
+// ───────── Custo realizado ─────────
+/// <summary>Natureza do custo (curva ABC, custo por tipo e, depois, plano de contas).</summary>
+public enum TipoCusto { Material = 1, Equipamento = 2, MaoObra = 3, Servico = 4, Frete = 5, Outros = 6 }
+/// <summary>De onde veio o lançamento de custo realizado.</summary>
+public enum OrigemCusto { Manual = 1, ImportacaoErp = 2, Recebimento = 3, Medicao = 4 }
+/// <summary>De-para de importação: o que está sendo ligado (o texto do sistema de origem → o cadastro do QualyHub).</summary>
+public enum TipoVinculoOrigem { Produto = 1, Fornecedor = 2, Fase = 3, Local = 4 }

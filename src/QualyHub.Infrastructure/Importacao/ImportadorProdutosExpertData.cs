@@ -31,22 +31,8 @@ public sealed record PreviaImportacaoProdutos(IReadOnlyList<LinhaProdutoPlanilha
 /// </summary>
 public sealed class ImportadorProdutosExpertData(IFabricaDb fabrica)
 {
-    private static readonly Dictionary<string, string> Unidades = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ["UND"] = "UN", ["UNID"] = "UN", ["UNI"] = "UN", ["UNIDADE"] = "UN", ["U"] = "UN",
-        ["PEC"] = "PC", ["PECA"] = "PC", ["PEÇ"] = "PC", ["PEÇA"] = "PC", ["PCS"] = "PC",
-        ["MT"] = "M", ["MTS"] = "M", ["METRO"] = "M", ["MTL"] = "M",
-        ["PARES"] = "PAR", ["PR"] = "PAR", ["PARE"] = "PAR",
-        ["M²"] = "M2", ["MT2"] = "M2", ["M³"] = "M3", ["MT3"] = "M3",
-        ["LT"] = "L", ["LTS"] = "L", ["LITRO"] = "L", ["KGS"] = "KG", ["QUILO"] = "KG",
-        ["CXA"] = "CX", ["CAIXA"] = "CX", ["ROLO"] = "RL", ["SACO"] = "SC", ["GALAO"] = "GL", ["BARRA"] = "BR",
-    };
-
-    public static string Unidade(string? un)
-    {
-        var u = (un ?? "").Trim().ToUpperInvariant();
-        return u.Length == 0 ? "UN" : Unidades.TryGetValue(u, out var p) ? p : u;
-    }
+    /// <summary>Unidade padronizada (mesma regra do cadastro: <see cref="UnidadesPadrao"/>).</summary>
+    public static string Unidade(string? un) => UnidadesPadrao.Normalizar(un);
 
     public static string Chave(string nome, string un)
     {

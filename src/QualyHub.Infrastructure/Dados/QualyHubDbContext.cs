@@ -155,6 +155,7 @@ public class QualyHubDbContext(DbContextOptions<QualyHubDbContext> options, IUsu
     public DbSet<EquipeMembro> EquipeMembros => Set<EquipeMembro>();
     public DbSet<CustoMaoObraMes> CustosMaoObra => Set<CustoMaoObraMes>();
     public DbSet<Apropriacao> Apropriacoes => Set<Apropriacao>();
+    public DbSet<CustoRealizado> CustosRealizados => Set<CustoRealizado>();
     public DbSet<Estabelecimento> Estabelecimentos => Set<Estabelecimento>();
     public DbSet<FluxoEstabelecimento> FluxosEstabelecimento => Set<FluxoEstabelecimento>();
     public DbSet<FornecedorGrupo> FornecedorGrupos => Set<FornecedorGrupo>();
@@ -196,6 +197,7 @@ public class QualyHubDbContext(DbContextOptions<QualyHubDbContext> options, IUsu
     public DbSet<DelegacaoAprovacao> DelegacoesAprovacao => Set<DelegacaoAprovacao>();
     public DbSet<LayoutImportacao> LayoutsImportacao => Set<LayoutImportacao>();
     public DbSet<LoteImportacao> LotesImportacao => Set<LoteImportacao>();
+    public DbSet<VinculoOrigem> VinculosOrigem => Set<VinculoOrigem>();
     public DbSet<LinhaImportacao> LinhasImportacao => Set<LinhaImportacao>();
     public DbSet<RegistroAuditoria> Auditoria => Set<RegistroAuditoria>();
     public DbSet<CodigoAcessoFornecedor> CodigosAcessoFornecedor => Set<CodigoAcessoFornecedor>();

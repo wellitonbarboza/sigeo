@@ -202,7 +202,7 @@ public static class CargaPadrao
     /// Versão da carga padrão. Suba quando incluir itens novos nas listas/cadastros padrão: empresas existentes recebem a carga
     /// uma vez por versão (itens que o usuário renomeou ou excluiu não voltam a cada reinício do app).
     /// </summary>
-    public const int Versao = 5;
+    public const int Versao = 6;
     private const string ChaveVersao = "Sistema:CargaPadrao";
 
     /// <summary>Aplica a carga só se a empresa ainda não recebeu esta versão (usado na inicialização do app).</summary>
@@ -245,7 +245,8 @@ public static class CargaPadrao
         Lista(TipoLista.TipoTarefa, TiposTarefa);
         Lista(TipoLista.TipoAgrupamento, TiposAgrupamento);
         Lista(TipoLista.TipoComodo, TiposComodo);
-        Lista(TipoLista.GrupoServico, GruposServico);
+        // Fases indiretas (canteiro, equipe, projetos…) completam a EAP de custo: o custo realizado é apropriado por grupo de serviço.
+        Lista(TipoLista.GrupoServico, GruposServico.Concat(Domain.Importacao.SugestoesImportacao.FasesIndiretas));
         Lista(TipoLista.CategoriaDocumento, CategoriasDocumento);
         Lista(TipoLista.Disciplina, Disciplinas);
         Lista(TipoLista.ModoFalha, ModosFalha);

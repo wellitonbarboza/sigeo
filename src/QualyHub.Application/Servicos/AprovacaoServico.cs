@@ -193,7 +193,11 @@ public sealed class AprovacaoServico(IUsuarioAtual usuario, TimeProvider relogio
                 break;
             case EntidadeAprovavel.Medicao:
                 var m = await db.Medicoes.FirstAsync(x => x.Id == s.EntidadeId, ct);
-                if (aprovado) { m.AprovadoDiretorPor = nome; m.AprovadoDiretorEm = agora; m.Status = StatusMedicao.Aprovada; }
+                if (aprovado)
+                {
+                    m.AprovadoDiretorPor = nome; m.AprovadoDiretorEm = agora; m.Status = StatusMedicao.Aprovada;
+                    await CustoRealizadoServico.GerarDaMedicaoAsync(db, m.Id, ct); // serviço medido vira custo realizado
+                }
                 else if (reprovado || devolvido) { m.Status = StatusMedicao.Reprovada; m.MotivoReprovacao = just; }
                 break;
             case EntidadeAprovavel.Aditivo:

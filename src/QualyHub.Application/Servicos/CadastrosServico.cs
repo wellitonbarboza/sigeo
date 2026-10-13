@@ -114,6 +114,7 @@ public sealed class CadastrosServico(IFabricaDb fabrica)
     {
         var e = new List<string>();
         if (string.IsNullOrWhiteSpace(p.Nome)) e.Add("Informe a descrição genérica.");
+        p.Unidade = UnidadesPadrao.Normalizar(p.Unidade);
         if (!string.IsNullOrWhiteSpace(p.Grupo) && !p.AClassificar && string.IsNullOrWhiteSpace(p.SubGrupo)) e.Add("Informe o subgrupo (o código usa grupo + subgrupo).");
         if (p.LeadTimeDias < 0) e.Add("Lead time não pode ser negativo.");
         if (p.PrecoReferencia is < 0) e.Add("Preço de referência não pode ser negativo.");

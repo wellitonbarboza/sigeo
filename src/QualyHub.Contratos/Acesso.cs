@@ -63,7 +63,8 @@ public static class CatalogoTelas
             T("eng", "engenharia/planejamento", "Planejamento", "grafico", "VX"),
             T("eng", "engenharia/cronograma", "Cronograma (edição)", "calendario", "VIEAX"), T("eng", "engenharia/last-planner", "Last Planner", "alvo"),
             T("eng", "engenharia/diario", "Diário de Obra (RDO)", "prancheta", "VIEAX"),
-            T("eng", "engenharia/mao-de-obra", "Mão de Obra Própria", "pessoa")]),
+            T("eng", "engenharia/mao-de-obra", "Mão de Obra Própria", "pessoa"),
+            T("eng", "engenharia/custo-realizado", "Custo Realizado", "dinheiro"), T("eng", "engenharia/importar-erp", "Importar Histórico (ERP)", "upload")]),
         new("sup", "Suprimentos", "carrinho", false, [
             T("sup", "requisicoes", "Requisição", "prancheta", "VIEAX"), T("sup", "cotacoes", "Orçamentos", "calculadora", "VIEAX"),
             T("sup", "pedidos", "Pedidos", "sacola", "VIEAX"), T("sup", "contratos", "Contratos", "contrato", "VIEAX"),
@@ -219,7 +220,7 @@ public static class PerfisPadrao
                 break;
             case PerfilUsuario.Financeiro:
                 Ver(); Dar("pagamentos", "IEA"); Dar("notas-fiscais", "IE"); Dar("medicoes", "A"); Dar("contratos/parcelas", "IA");
-                Dar("cadastros/centros-custo", "IE"); Dar("cadastros/estabelecimentos", "IE");
+                Dar("cadastros/centros-custo", "IE"); Dar("cadastros/estabelecimentos", "IE"); Dar("engenharia/custo-realizado", "IE");
                 break;
             case PerfilUsuario.Campo:
                 Ver();

@@ -19,6 +19,7 @@ public static class RegrasExclusao
         OrdemServico => "OS não é excluída: cancele.",
         ParcelaContrato => "Parcela não é excluída: cancele ou devolva.",
         Usuario { Perfil: PerfilUsuario.Administrador } u when u.Ativo => "Administrador ativo não é excluído: inative antes (e garanta outro administrador).",
+        Domain.Engenharia.CustoRealizado { Origem: not OrigemCusto.Manual } => "Custo que veio do recebimento, da medição ou do ERP não é excluído aqui: reclassifique fase/local ou estorne o documento de origem.",
         _ => null
     };
 }

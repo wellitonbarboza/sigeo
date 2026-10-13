@@ -140,6 +140,7 @@ public interface IQualyHubDb : IDisposable, IAsyncDisposable
     DbSet<EquipeMembro> EquipeMembros { get; }
     DbSet<CustoMaoObraMes> CustosMaoObra { get; }
     DbSet<Apropriacao> Apropriacoes { get; }
+    DbSet<CustoRealizado> CustosRealizados { get; }
     DbSet<Estabelecimento> Estabelecimentos { get; }
     DbSet<FluxoEstabelecimento> FluxosEstabelecimento { get; }
     DbSet<FornecedorGrupo> FornecedorGrupos { get; }
@@ -179,6 +180,7 @@ public interface IQualyHubDb : IDisposable, IAsyncDisposable
     DbSet<DelegacaoAprovacao> DelegacoesAprovacao { get; }
     DbSet<LayoutImportacao> LayoutsImportacao { get; }
     DbSet<LoteImportacao> LotesImportacao { get; }
+    DbSet<VinculoOrigem> VinculosOrigem { get; }
     DbSet<LinhaImportacao> LinhasImportacao { get; }
     DbSet<RegistroAuditoria> Auditoria { get; }
     DbSet<CodigoAcessoFornecedor> CodigosAcessoFornecedor { get; }
