@@ -31,7 +31,7 @@ public static class Dados
         return resto < 2 ? 0 : 11 - resto;
     }
 
-    private static string Sufixo() => Convert.ToHexString(RandomNumberGenerator.GetBytes(3));
+    public static string Sufixo() => Convert.ToHexString(RandomNumberGenerator.GetBytes(3));
 
     public static async Task<Guid> CriarObraAsync(BancoFixture f)
     {

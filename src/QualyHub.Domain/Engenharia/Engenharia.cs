@@ -189,10 +189,11 @@ public static class GeradorEmpreendimento
     /// <summary>Níveis criados pelo gerador (não podem ser criados à mão).</summary>
     public static readonly string[] Gerados = [TipoCondominio, TipoTorre, TipoPavimento, TipoApartamento, TipoComodo];
 
-    public static IReadOnlyList<string> Validar(Quadra quadra, Guid? speId, IReadOnlyList<TorreGerar> torres, IReadOnlyDictionary<Guid, Tipologia> aptos)
+    /// <param name="obraPropria">Obra própria (dono do custo = construtora): gera sem SPE; os locais ficam sem SPE até ela ser constituída.</param>
+    public static IReadOnlyList<string> Validar(Quadra quadra, Guid? speId, IReadOnlyList<TorreGerar> torres, IReadOnlyDictionary<Guid, Tipologia> aptos, bool obraPropria = false)
     {
         var e = new List<string>();
-        if (speId is null || speId == Guid.Empty) e.Add($"{quadra.Nome}: vincule a SPE do condomínio antes de gerar.");
+        if ((speId is null || speId == Guid.Empty) && !obraPropria) e.Add($"{quadra.Nome}: vincule a SPE do condomínio antes de gerar (ou marque a obra como própria, com o custo na construtora).");
         if (torres.Count == 0) e.Add("Informe ao menos uma torre.");
         foreach (var t in torres)
         {
@@ -213,7 +214,7 @@ public static class GeradorEmpreendimento
     /// Monta a árvore. Apartamento: número = pavimento×100 + sequência (101, 102…). Torres numeradas a partir de <paramref name="ordemTorreInicial"/>+1.
     /// </summary>
     /// <param name="condominioExistente">Local do condomínio já gerado (acrescenta torres); nulo cria o condomínio e as áreas comuns dele.</param>
-    public static List<Local> Gerar(Guid obraId, Quadra quadra, Guid speId, Tipologia? implantacao, IReadOnlyList<TorreGerar> torres,
+    public static List<Local> Gerar(Guid obraId, Quadra quadra, Guid? speId, Tipologia? implantacao, IReadOnlyList<TorreGerar> torres,
         IReadOnlyDictionary<Guid, Tipologia> aptos, Local? condominioExistente = null, int ordemTorreInicial = 0, string prefixoUnidade = "Apto")
     {
         prefixoUnidade = string.IsNullOrWhiteSpace(prefixoUnidade) ? "Apto" : prefixoUnidade.Trim();

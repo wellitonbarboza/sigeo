@@ -60,6 +60,10 @@
                         <select id="req-spe" @bind="_r.SpeId" disabled="@(!Editavel || TemLocais)"><option value="">Selecione…</option>@foreach (var s in SpesDaObra) { <option value="@s.Id">@s.Texto</option> }</select>
                     </Campo>
                 }
+                else if (_obraPropria)
+                {
+                    <Campo Rotulo="Destino do custo" Classe="s6" Ajuda="Obra própria: sem SPE, o custo fica no CNPJ da construtora"><input id="req-propria" readonly value="Construtora (obra própria)" /></Campo>
+                }
                 <Campo Rotulo="Data de entrega" Obrigatorio Classe="s2"><input type="date" @bind="_r.DataEntrega" disabled="@(!Editavel)" /></Campo>
                 <Campo Rotulo="Prazo cronograma (dias)" Classe="s2" Ajuda="Maior lead time dos itens"><input readonly value="@_r.PrazoCronogramaDias" /></Campo>
                 @if (_r.Tipo == TipoRequisicao.Servico)
@@ -270,20 +274,23 @@
     {
         _r = new Requisicao { DataEntrega = Hoje.AddDays(15), ObraId = _obras.Count == 1 ? _obras[0].Id : Guid.Empty };
         await CarregarEstoque();
+        if (_r.ObraId != Guid.Empty) await EnderecoDaObra();
         _locaisObra = [];
         if (SpesDaObra.Count() == 1) _r.SpeId = SpesDaObra.First().Id;
         ErrosForm = null; _aberto = true;
     }
 
     private Dictionary<Guid, decimal> _saldoObra = [], _saldoCentral = [];
+    private bool _obraPropria;
     private Almoxarifado? _central, _almoxObra;
 
     /// <summary>Saldo em estoque (obra e central) para mostrar ao lado de cada item: o comprador vê se dá para atender por transferência.</summary>
     private async Task CarregarEstoque()
     {
         _saldoObra = []; _saldoCentral = []; _almoxObra = null;
-        if (_r is null || _r.ObraId == Guid.Empty) return;
+        if (_r is null || _r.ObraId == Guid.Empty) { _obraPropria = false; return; }
         await using var db = Fabrica.CriarLeitura();
+        _obraPropria = await db.Obras.AsNoTracking().AnyAsync(o => o.Id == _r.ObraId && o.DonoCusto == DonoCustoObra.Construtora, Cancelamento);
         _central = await db.Almoxarifados.AsNoTracking().FirstOrDefaultAsync(a => a.Tipo == TipoAlmoxarifado.Central && a.Ativo, Cancelamento);
         _almoxObra = await db.Almoxarifados.AsNoTracking().FirstOrDefaultAsync(a => a.ObraId == _r.ObraId, Cancelamento);
         if (_almoxObra is { } ao) _saldoObra = await db.SaldosEstoque.AsNoTracking().Where(x => x.AlmoxarifadoId == ao.Id && x.Disponivel > 0).ToDictionaryAsync(x => x.ProdutoId, x => x.Disponivel, Cancelamento);
@@ -334,9 +341,11 @@
         var spes = SpesDaObra.ToList();
         if (_r!.SpeId is { } sp && !spes.Any(s => s.Id == sp)) _r.SpeId = null;
         if (spes.Count == 1) _r.SpeId = spes[0].Id;
-        if (!string.IsNullOrWhiteSpace(_r!.EnderecoEntrega)) return;
         await using var db = Fabrica.CriarLeitura();
-        _r.EnderecoEntrega = await db.Obras.Where(o => o.Id == _r.ObraId).Select(o => o.EnderecoEntrega).FirstOrDefaultAsync(Cancelamento);
+        var obra = await db.Obras.AsNoTracking().Where(o => o.Id == _r!.ObraId).Select(o => new { o.EnderecoEntrega, o.DonoCusto, o.EstabelecimentoDonoId }).FirstOrDefaultAsync(Cancelamento);
+        _obraPropria = obra?.DonoCusto == DonoCustoObra.Construtora;
+        if (_obraPropria && _r!.EstabelecimentoFaturamentoId is null) _r.EstabelecimentoFaturamentoId = obra!.EstabelecimentoDonoId;
+        if (string.IsNullOrWhiteSpace(_r!.EnderecoEntrega)) _r.EnderecoEntrega = obra?.EnderecoEntrega;
     }
 
     private async Task AbrirOrcamento()

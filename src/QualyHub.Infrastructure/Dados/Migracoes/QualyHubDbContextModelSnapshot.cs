@@ -5692,6 +5692,13 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                     b.Property<DateOnly?>("DataPrevistaTermino")
                         .HasColumnType("date");
 
+                    b.Property<string>("DonoCusto")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)")
+                        .HasDefaultValue("Spe");
+
                     b.Property<Guid>("EmpresaId")
                         .HasColumnType("uniqueidentifier");
 
@@ -5704,6 +5711,9 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                         .HasColumnType("nvarchar(400)");
 
                     b.Property<Guid?>("EngenheiroId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("EstabelecimentoDonoId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<bool>("Excluido")
@@ -5749,6 +5759,8 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                     b.HasKey("Id");
 
                     b.HasIndex("EmpresaId");
+
+                    b.HasIndex("EstabelecimentoDonoId");
 
                     b.HasIndex("EmpresaId", "Codigo")
                         .IsUnique()
@@ -15182,6 +15194,14 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("LocalPai");
+                });
+
+            modelBuilder.Entity("QualyHub.Domain.Estrutura.Obra", b =>
+                {
+                    b.HasOne("QualyHub.Domain.Estrutura.Estabelecimento", null)
+                        .WithMany()
+                        .HasForeignKey("EstabelecimentoDonoId")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("QualyHub.Domain.Estrutura.Usuario", b =>

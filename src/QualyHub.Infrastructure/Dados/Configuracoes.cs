@@ -37,6 +37,8 @@ internal sealed class ObraCfg : IEntityTypeConfiguration<Obra>
         b.Property(x => x.Uf).HasMaxLength(2);
         b.HasIndex(x => new { x.EmpresaId, x.Codigo }).IsUnique().HasFilter("[Excluido] = 0");
         b.HasMany(x => x.Locais).WithOne().HasForeignKey(l => l.ObraId);
+        b.Property(x => x.DonoCusto).HasDefaultValue(DonoCustoObra.Spe).HasSentinel((DonoCustoObra)0);
+        b.HasOne<Estabelecimento>().WithMany().HasForeignKey(x => x.EstabelecimentoDonoId).OnDelete(DeleteBehavior.Restrict);
     }
 }
 

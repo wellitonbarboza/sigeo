@@ -70,6 +70,9 @@ public sealed class RequisicoesServico(IFabricaDb fabrica, AprovacaoServico apro
         if (statusAtual is not (StatusRequisicao.Rascunho or StatusRequisicao.DevolvidaAjuste))
             throw new RegraDeNegocioException("Requisição já enviada: não pode ser alterada.");
         r.RecalcularPrazo();
+        // Obra própria (sem SPE): o CNPJ da construtora dono da obra é o "Faturar para" padrão.
+        if (r.EstabelecimentoFaturamentoId is null)
+            r.EstabelecimentoFaturamentoId = await db.Obras.Where(o => o.Id == r.ObraId && o.DonoCusto == DonoCustoObra.Construtora).Select(o => o.EstabelecimentoDonoId).FirstOrDefaultAsync(ct);
         if (r.EstabelecimentoFaturamentoId is null && r.Tipo == TipoRequisicao.Material)
             r.EstabelecimentoFaturamentoId = await EstabelecimentosServico.PadraoFaturamentoAsync(db, ct);
         // SPE beneficiária sai dos locais escolhidos (todos do mesmo condomínio).

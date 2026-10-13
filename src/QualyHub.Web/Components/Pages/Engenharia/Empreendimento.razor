@@ -34,7 +34,16 @@
                             <Campo Rotulo="UF" Classe="s2"><input @bind="_o.Uf" maxlength="2" class="maiusc" /></Campo>
                             <Campo Rotulo="Código no ERP" Classe="s3"><input @bind="_o.CodigoErp" /></Campo>
                             <Campo Rotulo="PQO (Plano da Qualidade)" Classe="s3"><select @bind="_o.PqoDocumentoId"><option value="">—</option>@foreach (var d in _docs) { <option value="@d.Id">@d.Texto</option> }</select></Campo>
-                            <Campo Rotulo="Engenheiro (só obras sem SPE)" Classe="s4" Ajuda="O 1º nível de aprovação usa o engenheiro da SPE"><select id="obra-eng" @bind="_o.EngenheiroId"><option value="">—</option>@foreach (var u in _usuarios) { <option value="@u.Id">@u.Texto</option> }</select></Campo>
+                            <Campo Rotulo="Dono do custo" Classe="s4" Ajuda="Obra própria: sem SPE, custo e faturamento no CNPJ da construtora">
+                                <select id="obra-dono" @bind="_o.DonoCusto"><option value="@DonoCustoObra.Spe">SPE por @_n.Condominio.ToLower()</option><option value="@DonoCustoObra.Construtora">Construtora (obra própria)</option></select>
+                            </Campo>
+                            @if (_o.DonoCusto == DonoCustoObra.Construtora)
+                            {
+                                <Campo Rotulo="CNPJ da construtora (Matriz/Filial)" Obrigatorio Classe="s8" Ajuda="@(_estabsProprios.Count == 0 ? "Nenhuma Matriz/Filial: cadastre em Cadastro › Estabelecimentos" : "Vira o Faturar para padrão das requisições e contratos da obra")">
+                                    <select id="obra-estab" @bind="_o.EstabelecimentoDonoId"><option value="">Selecione…</option>@foreach (var e in _estabsProprios) { <option value="@e.Id">@e.Texto</option> }</select>
+                                </Campo>
+                            }
+                            <Campo Rotulo="Engenheiro (obra sem SPE / obra própria)" Classe="s4" Ajuda="O 1º nível de aprovação usa o engenheiro da SPE; sem SPE, este"><select id="obra-eng" @bind="_o.EngenheiroId"><option value="">—</option>@foreach (var u in _usuarios) { <option value="@u.Id">@u.Texto</option> }</select></Campo>
                             <Campo Rotulo="Administrativo de obra" Classe="s4"><select @bind="_o.AdministrativoId"><option value="">—</option>@foreach (var u in _usuarios) { <option value="@u.Id">@u.Texto</option> }</select></Campo>
                             <Campo Rotulo="Almoxarife" Classe="s4"><select @bind="_o.AlmoxarifeId"><option value="">—</option>@foreach (var u in _usuarios) { <option value="@u.Id">@u.Texto</option> }</select></Campo>
                             <Campo Rotulo="Observações" Classe="s12"><textarea rows="2" @bind="_o.Observacoes"></textarea></Campo>
@@ -88,6 +97,10 @@
                             @if (_spes.Count == 0) { <tr><td colspan="9" class="mudo">Nenhuma SPE. Ela é criada junto com o condomínio.</td></tr> }
                         </tbody>
                     </table>
+                    @if (ObraPropria)
+                    {
+                        <div class="alerta info" id="obra-propria-info"><Icone Nome="info" /> Obra própria: o custo fica na construtora (@(_estabsProprios.FirstOrDefault(e => e.Id == _o?.EstabelecimentoDonoId)?.Texto ?? "CNPJ não escolhido")). Ao constituir a SPE, informe-a no @_n.Condominio.ToLower() (Editar): os locais e os documentos em aberto (requisições, pedidos, contratos, transferências) passam para ela; o que já foi pago fica na construtora. Com todos os @Pl(_n.Condominio).ToLower() com SPE, a obra deixa de ser própria.</div>
+                    }
                 }
                 else if (_aba == "ger")
                 {
@@ -114,7 +127,7 @@
                     <div class="alerta info"><Icone Nome="info" /> Editar muda o nome (o código fica, é a chave das FVS, requisições e QR). Excluir leva pavimentos, apartamentos, cômodos, áreas comuns, a distribuição do orçamento e os locais das redes de planejamento; é bloqueado se já houver FVS, RNC, requisição, contrato, medição, apropriação, SST ou cronograma nesses locais.</div>
 
                     <div class="secao"><Icone Nome="mais" /> Gerar @Pl(_n.Torre).ToLower() · @_n.Condominio</div>
-                    @if (_quadras.Count == 0 || !_tips.Any(t => t.Tipo == TipoTipologia.Torre)) { <div class="alerta aviso"><Icone Nome="info" /> Cadastre o condomínio (com a SPE) e as tipologias de apartamento e de torre antes de gerar.</div> }
+                    @if (_quadras.Count == 0 || !_tips.Any(t => t.Tipo == TipoTipologia.Torre)) { <div class="alerta aviso"><Icone Nome="info" /> Cadastre o condomínio (@(ObraPropria ? "a SPE é opcional na obra própria" : "com a SPE")) e as tipologias de apartamento e de torre antes de gerar.</div> }
                     else
                     {
                         <div class="form">
@@ -279,10 +292,11 @@
     private List<Obra> _todasObras = [];
     /// <summary>O cadastro lista todas as obras (inclusive inativas), não só as do catálogo.</summary>
     private List<Opcao> _opcoesObras = [];
+    private bool ObraPropria => _o?.DonoCusto == DonoCustoObra.Construtora;
     private Obra? _o;
     private Local? _l;
     private List<Local> _locais = [];
-    private List<Opcao> _usuarios = [], _docs = [];
+    private List<Opcao> _usuarios = [], _docs = [], _estabsProprios = [];
     [SupplyParameterFromQuery(Name = "obra")] public Guid? ObraQuery { get; set; }
     private const int TamPag = 200;
     private static readonly string[] UnidadesRef = ["m²", "m", "m³", "un", "kg", "vb"];
@@ -362,6 +376,7 @@
     {
         _n = await Cat.EstruturaAsync();
         _usuarios = await Cat.UsuariosAsync(); _docs = await Cat.DocumentosSgqAsync();
+        _estabsProprios = (await Cat.EstabelecimentosAsync()).Where(e => e.Extra is "Matriz" or "Filial").ToList();
         _tiposAgrup = await Cat.ListaAsync(TipoLista.TipoAgrupamento);
         if (_tiposAgrup.Count == 0) _tiposAgrup = [.. CargaPadrao.TiposAgrupamento];
         // A obra inicial (?obra= ou a única permitida) vem do SeletorObra, que chama TrocarObra; aqui só a lista do seletor.

@@ -3,6 +3,7 @@ using QualyHub.Domain.Aprovacoes;
 using QualyHub.Domain.Common;
 using QualyHub.Domain.Engenharia;
 using QualyHub.Domain.Estrutura;
+using QualyHub.Domain.Suprimentos;
 
 namespace QualyHub.Application.Servicos;
 
@@ -24,6 +25,8 @@ public sealed class EngenhariaServico(IFabricaDb fabrica)
         if (string.IsNullOrWhiteSpace(o.Codigo)) e.Add("Informe o código.");
         if (string.IsNullOrWhiteSpace(o.Nome)) e.Add("Informe o nome.");
         if (string.IsNullOrWhiteSpace(o.EnderecoEntrega)) e.Add("Informe o endereço de entrega padrão.");
+        if (o.ObraPropria && o.EstabelecimentoDonoId is null) e.Add("Obra própria: escolha o CNPJ da construtora (Matriz/Filial) dono do custo.");
+        if (!o.ObraPropria) o.EstabelecimentoDonoId = null;
         o.Uf = o.Uf?.Trim().ToUpperInvariant();
         return e;
     }
@@ -100,6 +103,38 @@ public sealed class EngenhariaServico(IFabricaDb fabrica)
         var nova = await Arvore(s.QuadraId);
         foreach (var l in locais.Where(l => nova.Contains(l.Id))) l.SpeId = s.Id;
         if (nova.Count > 0) await db.ServicosLocais.Where(c => nova.Contains(c.LocalId)).ExecuteUpdateAsync(u => u.SetProperty(c => c.SpeId, (Guid?)s.Id), ct);
+        await ConstituirSpeAsync(db, s, nova, ct);
+    }
+
+    /// <summary>
+    /// Obra própria que ganhou SPE: os documentos ainda em aberto (sem SPE) passam para a SPE nova — requisições, pedidos,
+    /// contratos e transferências. Com um condomínio só, passa tudo; com vários, passa o que tem local no condomínio da SPE
+    /// (e os pedidos dessas requisições). O que já foi pago/encerrado fica na construtora. Quando todos os condomínios ativos
+    /// têm SPE, a obra deixa de ser própria.
+    /// </summary>
+    internal static async Task<int> ConstituirSpeAsync(IQualyHubDb db, Spe s, IReadOnlySet<Guid> locaisDaSpe, CancellationToken ct)
+    {
+        var obra = await db.Obras.FirstOrDefaultAsync(o => o.Id == s.ObraId, ct);
+        if (obra is null || !obra.ObraPropria || !s.Ativa) return 0;
+        var unico = await db.Quadras.CountAsync(q => q.ObraId == s.ObraId && q.Ativa, ct) <= 1;
+        var n = 0;
+        var reqs = await db.Requisicoes.Include(r => r.Itens).ThenInclude(i => i.Locais)
+            .Where(r => r.ObraId == s.ObraId && r.SpeId == null && r.Status != StatusRequisicao.Concluida && r.Status != StatusRequisicao.Cancelada && r.Status != StatusRequisicao.NaoAutorizada)
+            .ToListAsync(ct);
+        var reqMovidas = new HashSet<Guid>();
+        foreach (var r in reqs.Where(r => unico || r.Itens.Any(i => i.Locais.Any(l => locaisDaSpe.Contains(l.LocalId)))))
+        { r.SpeId = s.Id; reqMovidas.Add(r.Id); n++; }
+        foreach (var p in await db.Pedidos.Where(p => p.ObraId == s.ObraId && p.SpeId == null && p.Status != StatusPedido.Entregue && p.Status != StatusPedido.Cancelado).ToListAsync(ct))
+            if (unico || p.RequisicaoId is { } rq && reqMovidas.Contains(rq)) { p.SpeId = s.Id; n++; }
+        var ctrs = await db.Contratos.Include(k => k.Itens).ThenInclude(i => i.Locais)
+            .Where(k => k.ObraId == s.ObraId && k.SpeId == null && k.Status != StatusContrato.Encerrado && k.Status != StatusContrato.Rescindido).ToListAsync(ct);
+        foreach (var k in ctrs.Where(k => unico || k.Itens.Any(i => i.Locais.Any(l => locaisDaSpe.Contains(l.LocalId))))) { k.SpeId = s.Id; n++; }
+        if (unico)
+            foreach (var t in await db.Transferencias.Where(t => t.ObraId == s.ObraId && t.SpeId == null && (t.Status == StatusTransferencia.Rascunho || t.Status == StatusTransferencia.Enviada)).ToListAsync(ct))
+            { t.SpeId = s.Id; n++; }
+        var semSpe = await db.Quadras.Where(q => q.ObraId == s.ObraId && q.Ativa && q.Id != s.QuadraId).AnyAsync(q => !db.Spes.Any(x => x.QuadraId == q.Id && x.Ativa), ct);
+        if (!semSpe) obra.DonoCusto = DonoCustoObra.Spe;
+        return n;
     }
 
     public async Task SalvarQuadraAsync(Quadra q, CancellationToken ct = default)
@@ -210,18 +245,19 @@ public sealed class EngenhariaServico(IFabricaDb fabrica)
         var tips = await db.Tipologias.AsNoTracking().Include(t => t.Ambientes).Include(t => t.Mix).Where(t => t.ObraId == obraId).ToDictionaryAsync(t => t.Id, ct);
         foreach (var t in tips.Values) t.CompletarSiglas();
         var specs = torres.Select(t => new TorreGerar(t.Nome, tips.TryGetValue(t.TipologiaTorreId, out var tt) ? tt : new Tipologia { Nome = "?", Tipo = TipoTipologia.Apartamento })).ToList();
-        var e = GeradorEmpreendimento.Validar(quadra, spe?.Id, specs, tips).ToList();
+        var propria = await db.Obras.AsNoTracking().Where(o => o.Id == obraId).Select(o => o.DonoCusto == DonoCustoObra.Construtora).FirstOrDefaultAsync(ct);
+        var e = GeradorEmpreendimento.Validar(quadra, spe?.Id, specs, tips, propria).ToList();
         Tipologia? impl = quadra.ImplantacaoId is { } im ? tips.GetValueOrDefault(im) : null;
         Local? cond = quadra.LocalId is { } lid ? await db.Locais.FirstOrDefaultAsync(l => l.Id == lid, ct) : null;
         var existentes = cond is null ? [] : await db.Locais.Where(l => l.LocalPaiId == cond.Id && l.Tipo == GeradorEmpreendimento.TipoTorre).Select(l => l.Nome).ToListAsync(ct);
         if (specs.Any(s => existentes.Contains(s.Nome.Trim(), StringComparer.OrdinalIgnoreCase))) e.Add("Já existe torre com este nome no condomínio.");
-        if (spe is null) e.Add("Cadastre a SPE do condomínio antes de gerar as torres.");
+        if (spe is null && !propria) e.Add("Cadastre a SPE do condomínio antes de gerar as torres.");
         ValidacaoException.Se(e);
         // Próximo número = maior já usado + 1 (torre excluída não libera o código, evita QA-T03 repetido).
         var ordem = cond is null ? 0 : await db.Locais.IgnoreQueryFilters([FiltrosNomes.Obra]).Where(l => l.LocalPaiId == cond.Id && l.Tipo == GeradorEmpreendimento.TipoTorre).MaxAsync(l => (int?)l.Ordem, ct) ?? 0;
         var emp = await db.Empresas.AsNoTracking().Where(x => x.Id == fabrica.Usuario.EmpresaId).Select(x => new { x.ModeloEstrutura, x.NomesNiveis }).FirstOrDefaultAsync(ct);
         var estrutura = EstruturaLocais.De(emp?.ModeloEstrutura, emp?.NomesNiveis);
-        var locais = GeradorEmpreendimento.Gerar(obraId, quadra, spe!.Id, impl, specs, tips, cond, ordem, estrutura.PrefixoUnidade);
+        var locais = GeradorEmpreendimento.Gerar(obraId, quadra, spe?.Id, impl, specs, tips, cond, ordem, estrutura.PrefixoUnidade);
         if (cond is null) quadra.LocalId = locais[0].Id;
         var idQuadra = quadra.Id; var raiz = quadra.LocalId;
         await fabrica.EmTransacaoAsync(async tdb =>

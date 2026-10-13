@@ -24,6 +24,9 @@ public sealed class ContratosServico(IFabricaDb fabrica, AprovacaoServico aprova
             k.Numero = $"CT-{Hoje.Year}-{await Numerador.ProximoAsync(db, $"Contrato-{Hoje.Year}", ct):000}";
         var statusAtual = await db.Contratos.Where(x => x.Id == k.Id).Select(x => (StatusContrato?)x.Status).FirstOrDefaultAsync(ct) ?? k.Status;
         if (statusAtual is not StatusContrato.EmElaboracao) throw new RegraDeNegocioException("Contrato fora de elaboração: use aditivo.");
+        // Obra própria (sem SPE): o contrato fica no CNPJ da construtora dono da obra.
+        if (k.EstabelecimentoFaturamentoId is null && k.SpeId is null)
+            k.EstabelecimentoFaturamentoId = await db.Obras.Where(o => o.Id == k.ObraId && o.DonoCusto == DonoCustoObra.Construtora).Select(o => o.EstabelecimentoDonoId).FirstOrDefaultAsync(ct);
         // Quebra por local (netos): se a quantidade do item mudou e os locais ainda somam a quantidade antiga, reescalona proporcionalmente.
         var qtdAntiga = await db.ContratoItens.Where(i => i.ContratoId == k.Id).ToDictionaryAsync(i => i.Id, i => i.Quantidade, ct);
         var locais = new Dictionary<Guid, List<ContratoItemLocal>>();

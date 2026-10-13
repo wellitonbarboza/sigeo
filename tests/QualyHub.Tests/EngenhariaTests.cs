@@ -292,4 +292,18 @@ public class EngenhariaTests
         t.Conferir("Almoxarife", DateTimeOffset.Now, new Dictionary<Guid, decimal> { [i.Id] = 95 });
         Assert.Equal(StatusTransferencia.Recebida, t.Status);
     }
+
+    [Fact]
+    public void Obra_propria_gera_sem_spe_e_obra_com_spe_exige()
+    {
+        var a = Apto(); var t = Torre(a);
+        var q = new Quadra { Codigo = "QP", Nome = "Condomínio Próprio" };
+        var torres = new List<TorreGerar> { new("Torre 01", t) };
+        var aptos = new Dictionary<Guid, Tipologia> { [a.Id] = a };
+        Assert.Contains(GeradorEmpreendimento.Validar(q, null, torres, aptos), e => e.Contains("SPE"));
+        Assert.Empty(GeradorEmpreendimento.Validar(q, null, torres, aptos, obraPropria: true));
+        var l = GeradorEmpreendimento.Gerar(Obra, q, null, null, torres, aptos);
+        Assert.NotEmpty(l);
+        Assert.All(l, x => Assert.Null(x.SpeId));
+    }
 }

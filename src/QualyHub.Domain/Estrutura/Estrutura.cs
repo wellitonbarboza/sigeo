@@ -68,6 +68,9 @@ public sealed record EstruturaLocais(string Modelo, string Condominio, string To
     };
 }
 
+/// <summary>Quem é dono do custo da obra: uma SPE por condomínio (padrão) ou a própria construtora (obra própria, sem SPE).</summary>
+public enum DonoCustoObra { Spe = 1, Construtora = 2 }
+
 public class Obra : EntidadeAuditavel, IOrigemErp
 {
     public string Codigo { get; set; } = string.Empty;
@@ -87,6 +90,12 @@ public class Obra : EntidadeAuditavel, IOrigemErp
     public bool Ativa { get; set; } = true;
     public string? CodigoErp { get; set; }
     public Guid? UltimaImportacaoId { get; set; }
+    /// <summary>Obra própria: o custo fica na construtora (Matriz/Filial), sem SPE. Quando a SPE for constituída, os locais e os documentos em aberto passam para ela.</summary>
+    public DonoCustoObra DonoCusto { get; set; } = DonoCustoObra.Spe;
+    /// <summary>Estabelecimento (Matriz/Filial) dono do custo na obra própria — vira o "Faturar para" padrão.</summary>
+    public Guid? EstabelecimentoDonoId { get; set; }
+
+    public bool ObraPropria => DonoCusto == DonoCustoObra.Construtora;
 
     public ICollection<Local> Locais { get; set; } = [];
 }
