@@ -10,7 +10,7 @@ namespace QualyHub.Application.Servicos;
 public sealed record PermissaoEfetiva(bool Ver, bool Baixar, bool Imprimir, bool Editar, bool Aprovar, bool VerObsoletos);
 
 /// <summary>Casos de uso do controle de documentos do SGQ (D01–D13), com log permanente de eventos (D09).</summary>
-public sealed class DocumentosServico(IFabricaDb fabrica, IUsuarioAtual usuario, IArmazenamento armazenamento, TimeProvider relogio)
+public sealed partial class DocumentosServico(IFabricaDb fabrica, IUsuarioAtual usuario, IArmazenamento armazenamento, TimeProvider relogio)
 {
     private DateTimeOffset Agora => relogio.GetUtcNow();
     private DateOnly Hoje => DateOnly.FromDateTime(relogio.GetLocalNow().Date);

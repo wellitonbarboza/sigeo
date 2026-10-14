@@ -9,8 +9,8 @@
             @if (!Sst && Perfil(PerfilUsuario.Qualidade))
             {
                 <div class="barra-filtro">
-                    <label class="btn sec arquivo" id="kit-modelos" style="cursor:@(Ocupado ? "wait" : "pointer")" title="Planilha com as abas Modelos, Itens e Ensaios (FVS e FVM juntos; atualiza por código)">
-                        <Icone Nome="upload" Tam="14" /> Importar modelos (xlsx)<InputFile OnChange="PreverKit" accept=".xlsx" disabled="@Ocupado" class="so-leitor" /></label>
+                    <label class="btn sec arquivo" id="kit-modelos" style="cursor:@(Ocupado ? "wait" : "pointer")" title="Planilha de kit (abas Modelos, Itens e Ensaios) ou as fichas FVS da empresa (aba BANCO DE DADOS) — pode selecionar vários arquivos; atualiza por código">
+                        <Icone Nome="upload" Tam="14" /> Importar modelos (xlsx)<InputFile OnChange="PreverKit" accept=".xlsx,.xlsm" multiple disabled="@Ocupado" class="so-leitor" /></label>
                 </div>
             }
             <Grade T="ModeloInspecao" @ref="_grade" Itens="_itens" AoClicar="Abrir" NomeExportacao="@($"modelos-{TipoRota}")" CriadoPor="m => m.CriadoPor">
@@ -161,6 +161,7 @@
             </tbody></table>
             @if (r.ItsCriadas.Count > 0) { <div class="alerta info"><Icone Nome="info" /> <div>ITS que serão criadas em Serviços controlados: @string.Join("; ", r.ItsCriadas)</div></div> }
             @if (r.ItsRenomeadas.Count > 0) { <details class="mb-10"><summary>ITS que passam a ter o nome do documento da empresa (@r.ItsRenomeadas.Count)</summary><ul>@foreach (var x in r.ItsRenomeadas) { <li>@x</li> }</ul></details> }
+            @if (r.DocumentosVinculados.Count > 0) { <div class="alerta info"><Icone Nome="info" /> <div>ITS que passam a apontar para o documento do SGQ de mesmo código: @string.Join(", ", r.DocumentosVinculados)</div></div> }
             @if (r.MateriaisCriados.Count > 0) { <div class="alerta info"><Icone Nome="info" /> <div>Materiais controlados que serão criados: @string.Join("; ", r.MateriaisCriados)</div></div> }
             @if (r.Mantidos.Count > 0) { <div class="alerta aviso"><Icone Nome="alerta" /> <div>Já têm fichas preenchidas — só o cabeçalho é atualizado (itens mantidos): @string.Join(", ", r.Mantidos)</div></div> }
             @foreach (var a in r.Avisos) { <div class="alerta aviso"><Icone Nome="alerta" /> @a</div> }
@@ -181,10 +182,14 @@
         _kit = null; _resumoKit = null;
         await Executar(async () =>
         {
-            using var ms = new MemoryStream();
-            await e.File.OpenReadStream(10 * 1024 * 1024).CopyToAsync(ms, Cancelamento);
-            ms.Position = 0;
-            _kit = QualyHub.Infrastructure.Importacao.LeitorKitModelos.Ler(ms);
+            var arquivos = new List<(string, byte[])>();
+            foreach (var f in e.GetMultipleFiles(100))
+            {
+                using var ms = new MemoryStream();
+                await f.OpenReadStream(10 * 1024 * 1024).CopyToAsync(ms, Cancelamento);
+                arquivos.Add((f.Name, ms.ToArray()));
+            }
+            _kit = QualyHub.Infrastructure.Importacao.LeitorKitModelos.LerVarios(arquivos);
             _resumoKit = await KitMod.AnalisarAsync(_kit, Cancelamento);
         });
         _abertoKit = true;

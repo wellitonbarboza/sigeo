@@ -24,6 +24,7 @@
                     @if (Gestor) { <div class="mudo marg-topo-8" @onclick="() => { _novaPasta = new Pasta(); _abertoPasta = true; }"><Icone Nome="mais" Tam="14" /> Nova pasta</div> }
                 </aside>
                 <div class="flex-1">
+                    @if (Gestor) { <div class="acoes-pagina"><button class="btn sec" id="sgq-lote" @onclick="AbrirLote" title="Traz vários documentos já elaborados (.docx/.xlsx e o PDF) — cada um entra com a revisão do arquivo, em elaboração"><Icone Nome="upload" Tam="16" /> Importar em lote</button></div> }
                     <Grade T="Linha" @ref="_grade" Itens="_itens" AoClicar="l => Abrir(l.Id)" NomeExportacao="documentos-sgq" CriadoPor="l => l.CriadoPor">
                         <Colunas>
                             <Coluna T="Linha" Titulo="Código" Valor="l => l.Codigo" Largura="110px" />
@@ -89,6 +90,40 @@
         }
     </ChildContent>
     <Rodape><button class="btn prim" disabled="@Ocupado" @onclick="Criar"><Icone Nome="check" Tam="16" /> Criar (abre R00 em elaboração)</button></Rodape>
+</Modal>
+
+<Modal @bind-Aberto="_abertoLote" Titulo="Importar documentos em lote" Tamanho="grande">
+    <ChildContent>
+        <Erros Lista="ErrosForm" />
+        <p class="mudo">Selecione os editáveis (.docx/.xlsx) e, se tiver, os PDFs. O código, o título e a revisão vêm do conteúdo do arquivo
+            (propriedades, cabeçalho "Identificação/Versão" ou aba BANCO DE DADOS) — o nome do arquivo só é usado na falta deles.
+            Cada documento entra com a revisão do arquivo <b>em elaboração</b>: a análise crítica, a aprovação e a publicação seguem o fluxo normal.</p>
+        <div class="form">
+            <Campo Rotulo="Pasta (processo/área)" Obrigatorio Classe="s6"><select id="lote-pasta" @bind="_lotePasta"><option value="@Guid.Empty">Selecione…</option>@foreach (var p in _pastas) { <option value="@p.Id">@p.Nome</option> }</select></Campo>
+            <Campo Rotulo="Tipo" Classe="s6"><select id="lote-tipo" @bind="_loteTipo"><option value="">Pelo código (PEIS/ITS → ITS; FVS/FVM → ficha…)</option>@foreach (var t in _tipos) { <option>@t</option> }</select></Campo>
+            <Campo Rotulo="Arquivos" Classe="s12"><InputFile id="lote-arquivos" OnChange="LerLote" multiple accept=".docx,.xlsx,.xlsm,.pdf" disabled="@Ocupado" /></Campo>
+        </div>
+        @if (_lote is { } r)
+        {
+            <p><b>@r.Criar</b> novos · <b>@r.Revisoes</b> revisões · <b>@r.Ignorados</b> ignorados</p>
+            @if (r.SemCodigo.Count > 0) { <div class="alerta aviso"><Icone Nome="alerta" /> <div>Sem código identificado (não entram): @string.Join(", ", r.SemCodigo)</div></div> }
+            <table class="itens" id="lote-resumo">
+                <thead><tr><th>Código</th><th>Título</th><th>Tipo</th><th>Rev.</th><th>Editável</th><th>PDF</th><th>Ação</th><th>Serviço controlado</th></tr></thead>
+                <tbody>
+                    @foreach (var i in r.Itens)
+                    {
+                        <tr>
+                            <td>@i.Codigo</td><td>@i.Titulo</td><td>@i.Tipo</td><td>R@(i.Revisao.ToString("00"))</td>
+                            <td class="mudo">@i.Editavel</td><td class="mudo">@(i.Pdf ?? "—")</td>
+                            <td><Selo Texto="@AcaoLote(i.Acao)" Tom="@(i.Acao == AcaoLoteSgq.Ignorar ? "aviso" : "ok")" /> <small class="mudo">@i.Observacao</small></td>
+                            <td class="mudo">@(i.ServicoVinculado ?? "—")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </ChildContent>
+    <Rodape>@if (_lote is { } l && l.Itens.Any(i => i.Acao != AcaoLoteSgq.Ignorar)) { <button class="btn prim" id="lote-importar" disabled="@Ocupado" @onclick="ImportarLote"><Icone Nome="check" Tam="16" /> Importar</button> }</Rodape>
 </Modal>
 
 <Modal @bind-Aberto="_aberto" Titulo="@($"{_d?.Codigo} — {_d?.Titulo}")" Tamanho="grande">
@@ -312,6 +347,50 @@
         _novo.AprovadorNome = _usuarios.FirstOrDefault(u => u.Id == _novo.AprovadorUsuarioId)?.Texto;
         Guid id = default;
         if (await Executar(async () => id = await Docs.CriarDocumentoAsync(_novo, Cancelamento), "Documento criado — R00 em elaboração.")) { _abertoNovo = false; await Carregar(); await Abrir(id); }
+    }
+
+    // ───────── Importação em lote ─────────
+    private bool _abertoLote;
+    private Guid _lotePasta;
+    private string? _loteTipo;
+    private List<ArquivoLoteSgq> _loteArquivos = [];
+    private ResumoLoteSgq? _lote;
+
+    private void AbrirLote() { ErrosForm = null; _lote = null; _loteArquivos = []; _lotePasta = _pasta ?? Guid.Empty; _abertoLote = true; }
+
+    private static string AcaoLote(AcaoLoteSgq a) => a switch
+    {
+        AcaoLoteSgq.Criar => "Criar", AcaoLoteSgq.NovaRevisao => "Nova revisão", AcaoLoteSgq.AnexarNaRevisao => "Anexar", _ => "Ignorar"
+    };
+
+    private async Task LerLote(InputFileChangeEventArgs e)
+    {
+        _lote = null;
+        await Executar(async () =>
+        {
+            var lista = new List<ArquivoLoteSgq>();
+            foreach (var f in e.GetMultipleFiles(200))
+            {
+                using var ms = new MemoryStream();
+                await f.OpenReadStream(30 * 1024 * 1024, Cancelamento).CopyToAsync(ms, Cancelamento);
+                var bytes = ms.ToArray();
+                var id = QualyHub.Infrastructure.Importacao.LeitorDocumentoSgq.Identificar(new MemoryStream(bytes), f.Name);
+                lista.Add(new ArquivoLoteSgq(f.Name, bytes, id));
+            }
+            _loteArquivos = lista;
+            _lote = await Docs.AnalisarLoteAsync(_lotePasta, _loteTipo, _tipos, _loteArquivos, Cancelamento);
+        });
+    }
+
+    private async Task ImportarLote()
+    {
+        ResumoLoteSgq? r = null;
+        if (await Executar(async () => r = await Docs.ImportarLoteAsync(_lotePasta, _loteTipo, _tipos, _loteArquivos, Cancelamento)))
+        {
+            Notif.Sucesso($"{r!.Criar} documentos criados, {r.Revisoes} revisões abertas — siga a análise crítica, aprovação e publicação de cada um.");
+            _abertoLote = false; _loteArquivos = []; _lote = null;
+            await Carregar();
+        }
     }
 
     private async Task SalvarPasta()

@@ -26,6 +26,34 @@ public static class LeitorKitModelos
         return new KitModelos(modelos, itens, ensaios);
     }
 
+    /// <summary>
+    /// Lê vários arquivos de uma vez: planilhas de kit (abas Modelos/Itens/Ensaios) e fichas FVS da empresa (aba BANCO DE DADOS),
+    /// uma ficha por arquivo. Tudo vira um só kit para análise e importação.
+    /// </summary>
+    public static KitModelos LerVarios(IReadOnlyList<(string Nome, byte[] Conteudo)> arquivos)
+    {
+        var modelos = new List<KitModelo>(); var itens = new List<KitItem>(); var ensaios = new List<KitEnsaio>();
+        var erros = new List<string>();
+        foreach (var (nome, conteudo) in arquivos)
+        {
+            try
+            {
+                if (LeitorDocumentoSgq.LerFichaFvs(new MemoryStream(conteudo), nome, modelos.Count + 1) is { } ficha)
+                {
+                    if (ficha.Itens.Count == 0) erros.Add($"{nome}: ficha {ficha.Modelo.Codigo} sem itens na tabela (Nº | Item | Método | Critério).");
+                    modelos.Add(ficha.Modelo); itens.AddRange(ficha.Itens);
+                    continue;
+                }
+                var kit = Ler(new MemoryStream(conteudo));
+                modelos.AddRange(kit.Modelos); itens.AddRange(kit.Itens); ensaios.AddRange(kit.Ensaios);
+            }
+            catch (ValidacaoException e) { erros.AddRange(e.Erros.Select(x => $"{nome}: {x}")); }
+            catch (RegraDeNegocioException e) { erros.Add($"{nome}: {e.Message}"); }
+        }
+        ValidacaoException.Se(erros);
+        return new KitModelos(modelos, itens, ensaios);
+    }
+
     private static readonly Dictionary<string, TipoModelo> Tipos = new() { ["fvs"] = TipoModelo.FVS, ["fvm"] = TipoModelo.FVM };
     private static readonly Dictionary<string, FotoItem> Fotos = new()
     { ["opcional"] = FotoItem.Opcional, ["obrigatoria"] = FotoItem.Obrigatoria, ["sempre"] = FotoItem.Obrigatoria, ["senaoconforme"] = FotoItem.SoEmNaoConformidade, ["soemnaoconformidade"] = FotoItem.SoEmNaoConformidade, [""] = FotoItem.SoEmNaoConformidade };

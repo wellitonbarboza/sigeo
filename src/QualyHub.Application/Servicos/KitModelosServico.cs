@@ -19,7 +19,11 @@ public sealed record KitEnsaio(int Linha, string Modelo, string Ensaio, string? 
     ExecutanteEnsaio Executante, string Criterio, AcaoReprovacaoEnsaio Acao);
 
 public sealed record ResumoKitModelos(int Novos, int Atualizados, int Itens, int Ensaios, IReadOnlyList<string> ItsCriadas, IReadOnlyList<string> ItsRenomeadas, IReadOnlyList<string> MateriaisCriados,
-    IReadOnlyList<string> Mantidos, IReadOnlyList<string> Avisos);
+    IReadOnlyList<string> Mantidos, IReadOnlyList<string> Avisos)
+{
+    /// <summary>ITS que passam a apontar para o documento do SGQ de mesmo código.</summary>
+    public IReadOnlyList<string> DocumentosVinculados { get; init; } = [];
+}
 
 /// <summary>
 /// Importa modelos de FVS (ligados à ITS) e de FVM (ligados ao material controlado) com itens, critérios e ensaios.
@@ -32,6 +36,20 @@ public sealed class KitModelosServico(IFabricaDb fabrica, QualidadeObraServico q
     public Task<ResumoKitModelos> AplicarAsync(KitModelos kit, CancellationToken ct = default) => ProcessarAsync(kit, true, ct);
 
     private static string Up(string? s) => (s ?? "").Trim().ToUpperInvariant();
+
+    /// <summary>
+    /// Código da ITS criada: "ITS 03.02" quando a planilha usa o padrão ITS; outros padrões da empresa (PEIS.03, PES-12…) ficam como vieram.
+    /// </summary>
+    private static string ChaveDoc(string? c) => System.Text.RegularExpressions.Regex.Replace((c ?? "").ToUpperInvariant(), "[^0-9A-Z]", "");
+
+    public static string CodigoIts(string? its)
+    {
+        var bruto = (its ?? "").Trim();
+        if (!System.Text.RegularExpressions.Regex.IsMatch(bruto, @"^\s*(ITS|FVS)?[\s.\-]*\d", System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+            return System.Text.RegularExpressions.Regex.Replace(bruto.ToUpperInvariant(), @"\s+", " ");
+        var ch = KitTipologiaServico.ChaveIts(bruto);
+        return "ITS " + string.Join('.', ch.Length >= 4 ? [ch[..2], ch[2..4]] : [ch]);
+    }
 
     private static string SemAcento(string? s)
     {
@@ -96,6 +114,9 @@ public sealed class KitModelosServico(IFabricaDb fabrica, QualidadeObraServico q
             return nome.Length == 0 ? null : materiais.FirstOrDefault(m => SemAcento(m.Nome) == nome);
         }
 
+        var docsIts = (await db.Documentos.Select(d => new { d.Id, d.Codigo }).ToListAsync(ct))
+            .GroupBy(d => ChaveDoc(d.Codigo)).ToDictionary(g => g.Key, g => (Guid?)g.First().Id);
+        var vinculados = new List<string>();
         var itsCriadas = new List<string>();
         var itsRenomeadas = new List<string>();
         var matsCriados = new List<string>();
@@ -114,8 +135,8 @@ public sealed class KitModelosServico(IFabricaDb fabrica, QualidadeObraServico q
             }
             if (k.Tipo == TipoModelo.FVS && srv is null)
             {
-                var cod = "ITS " + string.Join('.', KitTipologiaServico.ChaveIts(k.Its) is var ch && ch.Length >= 4 ? [ch[..2], ch[2..4]] : [ch]);
-                srv = new ServicoControlado { Codigo = cod, Nome = k.NomeIts?.Trim() is { Length: > 0 } n ? n : k.Titulo.Trim(), Sigla = null };
+                srv = new ServicoControlado { Codigo = CodigoIts(k.Its), Nome = k.NomeIts?.Trim() is { Length: > 0 } n ? n : k.Titulo.Trim(), Sigla = null };
+                var cod = srv.Codigo;
                 servicos.Add(srv);
                 if (aplicar) db.ServicosControlados.Add(srv);
                 itsCriadas.Add($"{cod} – {srv.Nome}");
@@ -128,6 +149,12 @@ public sealed class KitModelosServico(IFabricaDb fabrica, QualidadeObraServico q
                 materiais.Add(mat);
                 if (aplicar) db.MateriaisControlados.Add(mat);
                 matsCriados.Add($"{mat.Codigo} – {mat.Nome}");
+            }
+            if (srv is { DocumentoItsId: null } && docsIts.GetValueOrDefault(ChaveDoc(srv.Codigo)) is { } docIts)
+            {
+                // Documento do SGQ com o mesmo código (ex.: PEIS.03 importada em lote) vira a ITS do serviço.
+                if (aplicar) srv.DocumentoItsId = docIts;
+                if (!vinculados.Contains(srv.Codigo)) vinculados.Add(srv.Codigo);
             }
             var m = porCodigo.GetValueOrDefault(Up(k.Codigo));
             if (m is null) { m = new ModeloInspecao { Tipo = k.Tipo, Codigo = k.Codigo.Trim() }; novos++; if (aplicar) db.ModelosInspecao.Add(m); porCodigo[Up(k.Codigo)] = m; }
@@ -165,7 +192,8 @@ public sealed class KitModelosServico(IFabricaDb fabrica, QualidadeObraServico q
                 if (erros.Count > 0) avisos.AddRange(erros.Select(er => $"{k.Codigo}: {er}"));
             }
         }
-        var resumo = new ResumoKitModelos(novos, atualizados, kit.Itens.Count, kit.Ensaios.Count, itsCriadas, itsRenomeadas.Distinct().ToList(), matsCriados, mantidos, avisos);
+        var resumo = new ResumoKitModelos(novos, atualizados, kit.Itens.Count, kit.Ensaios.Count, itsCriadas, itsRenomeadas.Distinct().ToList(), matsCriados, mantidos, avisos)
+            { DocumentosVinculados = vinculados };
         if (!aplicar) return resumo;
         await db.SaveChangesAsync(ct);
 
