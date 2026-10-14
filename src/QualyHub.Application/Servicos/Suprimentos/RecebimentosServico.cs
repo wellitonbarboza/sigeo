@@ -40,6 +40,8 @@ public sealed class RecebimentosServico(IFabricaDb fabrica, IUsuarioAtual usuari
             if (r.AlmoxarifadoCentral) r.EstabelecimentoId ??= almox.EstabelecimentoId;
             else if (almox.ObraId is { } ao && ao != r.ObraId) throw new RegraDeNegocioException("O almoxarifado escolhido é de outra obra: receba no da obra do pedido ou no central e transfira depois.");
         }
+        var par = await ParametrosServico.CarregarAsync(db, ct);
+        r.AplicarNotas(par[Parametros.PesoIdfPrazo], par[Parametros.PesoIdfQualidade], par[Parametros.PesoIdfDocumentacao], par[Parametros.IdfMinimo]);
         r.AplicarChecklist();
         ValidacaoException.Se(r.Validar());
         r.Numero = await Numerador.ProximoAsync(db, "Recebimento", ct);

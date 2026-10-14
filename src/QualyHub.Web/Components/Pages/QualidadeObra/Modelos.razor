@@ -9,7 +9,7 @@
             @if (!Sst && Perfil(PerfilUsuario.Qualidade))
             {
                 <div class="barra-filtro">
-                    <label class="btn sec arquivo" id="kit-modelos" style="cursor:@(Ocupado ? "wait" : "pointer")" title="Planilha de kit (abas Modelos, Itens e Ensaios) ou as fichas FVS da empresa (aba BANCO DE DADOS) — pode selecionar vários arquivos; atualiza por código">
+                    <label class="btn sec arquivo" id="kit-modelos" style="cursor:@(Ocupado ? "wait" : "pointer")" title="Planilha de kit (abas Materiais, Modelos, Itens e Ensaios), fichas FVS/FVM da empresa (aba BANCO DE DADOS) ou lista de requisitos de materiais — pode selecionar vários arquivos; atualiza por código">
                         <Icone Nome="upload" Tam="14" /> Importar modelos (xlsx)<InputFile OnChange="PreverKit" accept=".xlsx,.xlsm" multiple disabled="@Ocupado" class="so-leitor" /></label>
                 </div>
             }
@@ -162,6 +162,8 @@
             @if (r.ItsCriadas.Count > 0) { <div class="alerta info"><Icone Nome="info" /> <div>ITS que serão criadas em Serviços controlados: @string.Join("; ", r.ItsCriadas)</div></div> }
             @if (r.ItsRenomeadas.Count > 0) { <details class="mb-10"><summary>ITS que passam a ter o nome do documento da empresa (@r.ItsRenomeadas.Count)</summary><ul>@foreach (var x in r.ItsRenomeadas) { <li>@x</li> }</ul></details> }
             @if (r.DocumentosVinculados.Count > 0) { <div class="alerta info"><Icone Nome="info" /> <div>ITS que passam a apontar para o documento do SGQ de mesmo código: @string.Join(", ", r.DocumentosVinculados)</div></div> }
+            @if (r.MateriaisAtualizados.Count > 0) { <details class="mb-10"><summary>Materiais controlados que recebem norma, documentos, armazenamento e forma de qualificação (@r.MateriaisAtualizados.Count)</summary><ul>@foreach (var x in r.MateriaisAtualizados) { <li>@x</li> }</ul></details> }
+            @if (r.CodigosLiberados.Count > 0) { <details class="mb-10"><summary>Materiais antigos que cedem o código à lista da empresa (ficam com -ANT; produtos e históricos mantidos) (@r.CodigosLiberados.Count)</summary><ul>@foreach (var x in r.CodigosLiberados) { <li>@x</li> }</ul></details> }
             @if (r.MateriaisCriados.Count > 0) { <div class="alerta info"><Icone Nome="info" /> <div>Materiais controlados que serão criados: @string.Join("; ", r.MateriaisCriados)</div></div> }
             @if (r.Mantidos.Count > 0) { <div class="alerta aviso"><Icone Nome="alerta" /> <div>Já têm fichas preenchidas — só o cabeçalho é atualizado (itens mantidos): @string.Join(", ", r.Mantidos)</div></div> }
             @foreach (var a in r.Avisos) { <div class="alerta aviso"><Icone Nome="alerta" /> @a</div> }

@@ -364,6 +364,11 @@ public static class Parametros
     public const string NotaPlanoCompleto = "AVAL.NOTA_PLANO_COMPLETO";
     public const string NotaPlanoPontual = "AVAL.NOTA_PLANO_PONTUAL";
     public const string PeriodicidadeAvaliacaoMeses = "AVAL.PERIODICIDADE_MESES";
+    public const string PesoIdfPrazo = "AVAL.IDF_PESO_PRAZO";
+    public const string PesoIdfQualidade = "AVAL.IDF_PESO_QUALIDADE";
+    public const string PesoIdfDocumentacao = "AVAL.IDF_PESO_DOCUMENTACAO";
+    public const string IdfPreferencial = "AVAL.IDF_PREFERENCIAL";
+    public const string IdfMinimo = "AVAL.IDF_MINIMO";
     public const string AlertaVencimentoDocDias = "DOC.ALERTA_VENCIMENTO_DIAS";
     public const string PeriodicidadeAnaliseCriticaMeses = "SGQ.PERIODICIDADE_ANALISE_MESES";
     public const string AlertaAnaliseCriticaDias = "SGQ.ALERTA_ANALISE_DIAS";
@@ -419,7 +424,12 @@ public static class Parametros
             [PesoDocSeg] = (0.10m, "", "Peso – Documentação e segurança do trabalho", "Avaliação do prestador"),
             [NotaPlanoCompleto] = (7m, "", "Nota abaixo disto → reunião + plano de ação completo", "Avaliação do prestador"),
             [NotaPlanoPontual] = (9m, "", "Nota abaixo disto → plano de ação pontual", "Avaliação do prestador"),
-            [PeriodicidadeAvaliacaoMeses] = (6m, "meses", "Periodicidade da avaliação consolidada de fornecedores", "Avaliação do prestador"),
+            [PeriodicidadeAvaliacaoMeses] = (6m, "meses", "Periodicidade da avaliação consolidada de fornecedores (3 = trimestral, 6 = semestral)", "Avaliação do prestador"),
+            [PesoIdfPrazo] = (0.4m, "", "IDF da entrega – peso do prazo (nota 0 a 10)", "Avaliação do prestador"),
+            [PesoIdfQualidade] = (0.4m, "", "IDF da entrega – peso da qualidade (nota 0 a 10)", "Avaliação do prestador"),
+            [PesoIdfDocumentacao] = (0.2m, "", "IDF da entrega – peso da documentação/atendimento (nota 0 a 10)", "Avaliação do prestador"),
+            [IdfPreferencial] = (8m, "", "IDF a partir do qual o fornecedor é preferencial", "Avaliação do prestador"),
+            [IdfMinimo] = (6m, "", "IDF abaixo disto: critério reprovado na entrega e fornecedor desqualificado na consolidação", "Avaliação do prestador"),
             [AlertaVencimentoDocDias] = (30m, "dias", "Alerta de vencimento de documento de fornecedor", "Suprimentos"),
             [RetencaoPadraoPerc] = (5m, "%", "Retenção contratual padrão", "Contratos"),
             [PeriodicidadeAnaliseCriticaMeses] = (12m, "meses", "Periodicidade padrão de análise crítica de documento", "Documentos do SGQ"),

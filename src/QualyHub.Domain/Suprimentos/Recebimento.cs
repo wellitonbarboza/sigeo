@@ -26,6 +26,13 @@ public class Recebimento : EntidadeDaObra, IHistoricoTemporal
     public ResultadoCriterio FvmPrazo { get; set; }
     public ResultadoCriterio FvmQualidade { get; set; }
     public ResultadoCriterio FvmAtendimento { get; set; }
+    /// <summary>Notas de 0 a 10 da entrega (avaliação do fornecedor). Quando informadas, definem o resultado de cada critério e o IDF.</summary>
+    public decimal? NotaPrazo { get; set; }
+    public decimal? NotaQualidade { get; set; }
+    /// <summary>Nota do 3º critério (documentação / atendimento).</summary>
+    public decimal? NotaDocumentacao { get; set; }
+    /// <summary>Índice de desempenho do fornecedor na entrega (média ponderada das 3 notas).</summary>
+    public decimal? Idf { get; set; }
     public string? Ocorrencia { get; set; }
     public DestinoRecebimento Destino { get; set; } = DestinoRecebimento.Aceito;
     public string? ComunicadoA { get; set; }
@@ -38,6 +45,24 @@ public class Recebimento : EntidadeDaObra, IHistoricoTemporal
     public ICollection<Qualidade.FvmItem> FvmItens { get; set; } = [];
     public ICollection<Qualidade.EnsaioRecebimento> Ensaios { get; set; } = [];
     public ICollection<Qualidade.AplicacaoLote> Aplicacoes { get; set; } = [];
+
+    /// <summary>
+    /// Avaliação por nota (0–10): nota ≥ mínimo aprova o critério, abaixo reprova. IDF = média ponderada pelos pesos
+    /// (só com as 3 notas). Rodar antes do checklist: item bloqueante não conforme continua reprovando a qualidade.
+    /// </summary>
+    public void AplicarNotas(decimal pesoPrazo, decimal pesoQualidade, decimal pesoDocumentacao, decimal minimo)
+    {
+        foreach (var n in new[] { NotaPrazo, NotaQualidade, NotaDocumentacao })
+            if (n is < 0 or > 10) throw new Aprovacoes.RegraDeNegocioException("As notas da avaliação vão de 0 a 10.");
+        static ResultadoCriterio R(decimal? n, decimal min, ResultadoCriterio atual) => n is null ? atual : n >= min ? ResultadoCriterio.Aprovado : ResultadoCriterio.Reprovado;
+        FvmPrazo = R(NotaPrazo, minimo, FvmPrazo);
+        FvmQualidade = R(NotaQualidade, minimo, FvmQualidade);
+        FvmAtendimento = R(NotaDocumentacao, minimo, FvmAtendimento);
+        var soma = pesoPrazo + pesoQualidade + pesoDocumentacao;
+        Idf = NotaPrazo is { } p && NotaQualidade is { } q && NotaDocumentacao is { } d && soma > 0
+            ? Math.Round((pesoPrazo * p + pesoQualidade * q + pesoDocumentacao * d) / soma, 2)
+            : null;
+    }
 
     /// <summary>Checklist do modelo com item bloqueante não conforme reprova a FVM (critério "qualidade").</summary>
     public void AplicarChecklist()
@@ -61,8 +86,8 @@ public class Recebimento : EntidadeDaObra, IHistoricoTemporal
             : FvmPrazo == ResultadoCriterio.Aprovado && FvmQualidade == ResultadoCriterio.Aprovado && FvmAtendimento == ResultadoCriterio.Aprovado;
 
     /// <summary>Nota da entrega (0–10) usada na avaliação consolidada: % de critérios aprovados.</summary>
-    public decimal? NotaEntrega => FvmAprovada is null ? null
-        : Math.Round(10m * new[] { FvmPrazo, FvmQualidade, FvmAtendimento }.Count(c => c == ResultadoCriterio.Aprovado) / 3m, 2);
+    public decimal? NotaEntrega => Idf ?? (FvmAprovada is null ? null
+        : Math.Round(10m * new[] { FvmPrazo, FvmQualidade, FvmAtendimento }.Count(c => c == ResultadoCriterio.Aprovado) / 3m, 2));
 
     public bool TemDivergencia => Itens.Any(i => i.QtdRecebida != i.QtdPedida);
 

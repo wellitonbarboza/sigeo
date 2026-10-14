@@ -109,19 +109,22 @@
             else if (Novo_ && _r.Itens.Any(i => i.MaterialControlado)) { <div class="alerta aviso"><Icone Nome="alerta" /> Material controlado sem modelo de FVM vigente: cadastre em Qualidade da Obra › Modelos de FVM.</div> }
             <div class="secao"><Icone Nome="escudo-check" /> Ficha de verificação de material (FVM)</div>
             <div class="criterios">
-                @foreach (var (nome, desc, get, set) in Criterios())
+                @foreach (var (nome, desc, get, set, nota, setNota) in Criterios())
                 {
                     var v = get();
+                    var n = nota();
                     <div class="criterio @(v == ResultadoCriterio.Aprovado ? "ok" : v == ResultadoCriterio.Reprovado ? "erro" : "")">
                         <b>@nome</b><span>@desc</span>
                         <div class="botoes">
-                            <button class="btn pq @(v == ResultadoCriterio.Aprovado ? "ok" : "sec")" disabled="@(!Novo_)" @onclick="() => set(ResultadoCriterio.Aprovado)">Aprovado</button>
-                            <button class="btn pq @(v == ResultadoCriterio.Reprovado ? "perigo" : "sec")" disabled="@(!Novo_)" @onclick="() => set(ResultadoCriterio.Reprovado)">Reprovado</button>
+                            <button class="btn pq @(v == ResultadoCriterio.Aprovado ? "ok" : "sec")" disabled="@(!Novo_ || n is not null)" @onclick="() => set(ResultadoCriterio.Aprovado)">Aprovado</button>
+                            <button class="btn pq @(v == ResultadoCriterio.Reprovado ? "perigo" : "sec")" disabled="@(!Novo_ || n is not null)" @onclick="() => set(ResultadoCriterio.Reprovado)">Reprovado</button>
+                            <input class="nota-criterio" type="number" min="0" max="10" step="0.5" placeholder="nota 0–10" title="Nota de 0 a 10 (IDF). Com nota, o critério é aprovado a partir do mínimo dos parâmetros."
+                                   value="@(n?.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture))" disabled="@(!Novo_)" @onchange="e => Nota(nota, setNota, set, e.Value?.ToString())" />
                         </div>
                     </div>
                 }
                 <div class="criterio resultado @(_r.FvmAprovada == true ? "ok" : _r.FvmAprovada == false ? "erro" : "")">
-                    <b>Resultado</b><span>@(_r.FvmAprovada switch { true => "FVM aprovada", false => "FVM reprovada", _ => "avalie os 3 critérios" })</span>
+                    <b>Resultado</b><span>@(_r.FvmAprovada switch { true => "FVM aprovada", false => "FVM reprovada", _ => "avalie os 3 critérios" })@(_r.Idf is not null ? " · IDF" : "")</span>
                     <div class="nota">@Num(_r.NotaEntrega)</div>
                 </div>
             </div>
@@ -201,12 +204,24 @@
     private List<Opcao> _pedidos = [];
     private bool Novo_ => _r is { Numero: 0 };
 
-    private IEnumerable<(string, string, Func<ResultadoCriterio>, Action<ResultadoCriterio>)> Criterios() =>
+    private IEnumerable<(string, string, Func<ResultadoCriterio>, Action<ResultadoCriterio>, Func<decimal?>, Action<decimal?>)> Criterios() =>
     [
-        ("Prazo", "Entregue na data combinada", () => _r!.FvmPrazo, v => _r!.FvmPrazo = v),
-        ("Qualidade", "Conforme especificação, sem avarias, documentos", () => _r!.FvmQualidade, v => _r!.FvmQualidade = v),
-        ("Atendimento", "Quantidade correta, descarga, postura", () => _r!.FvmAtendimento, v => _r!.FvmAtendimento = v),
+        ("Prazo", "Entregue na data combinada", () => _r!.FvmPrazo, v => _r!.FvmPrazo = v, () => _r!.NotaPrazo, v => _r!.NotaPrazo = v),
+        ("Qualidade", "Conforme especificação, sem avarias (1ª inspeção)", () => _r!.FvmQualidade, v => _r!.FvmQualidade = v, () => _r!.NotaQualidade, v => _r!.NotaQualidade = v),
+        ("Documentação / atendimento", "Documentos completos no ato, quantidade, descarga", () => _r!.FvmAtendimento, v => _r!.FvmAtendimento = v, () => _r!.NotaDocumentacao, v => _r!.NotaDocumentacao = v),
     ];
+
+    private ParametrosVigentes? _par;
+
+    /// <summary>Nota digitada (0–10) define o critério na hora, como o servidor fará ao salvar.</summary>
+    private void Nota(Func<decimal?> get, Action<decimal?> set, Action<ResultadoCriterio> res, string? texto)
+    {
+        decimal? v = decimal.TryParse((texto ?? "").Replace(',', '.'), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var d) ? Math.Clamp(d, 0, 10) : null;
+        set(v);
+        if (v is { } n) res(n >= (_par?[Parametros.IdfMinimo] ?? 6m) ? ResultadoCriterio.Aprovado : ResultadoCriterio.Reprovado);
+        var p = _par ?? ParametrosVigentes.Padrao;
+        _r!.AplicarNotas(p[Parametros.PesoIdfPrazo], p[Parametros.PesoIdfQualidade], p[Parametros.PesoIdfDocumentacao], p[Parametros.IdfMinimo]);
+    }
 
     private List<Almoxarifado> _almoxs = [];
     private List<string> _marcas = [];
@@ -217,6 +232,7 @@
     protected override async Task OnInitializedAsync()
     {
         _almoxs = await EstoqueSrv.AlmoxarifadosAsync(Cancelamento);
+        await using (var dbp = Fabrica.CriarLeitura()) _par = await ParametrosServico.CarregarAsync(dbp, Cancelamento);
         _marcas = await Cat.MarcasAsync();
         await Carregar();
         if (Nav.Uri.Contains("?pedido=") && Guid.TryParse(Nav.Uri.Split("?pedido=")[1], out var pid)) { await Novo(); await EscolherPedido(pid.ToString()); }

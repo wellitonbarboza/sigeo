@@ -1,6 +1,7 @@
 using ClosedXML.Excel;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
+using QualyHub.Domain.Cadastros;
 using QualyHub.Domain.Common;
 using QualyHub.Domain.Documentos;
 using QualyHub.Infrastructure.Importacao;
@@ -101,6 +102,72 @@ public sealed class ImportacaoSgqLoteTests(BancoFixture f)
             Assert.Equal(srv.Id, m.ServicoControladoId);
             Assert.Equal(2, m.Itens.Count);
             Assert.Equal("Serviço fictício", m.Titulo);
+        }
+    }
+
+    [FatoComBanco]
+    public async Task Kit_com_materiais_atualiza_cadastro_e_idf_da_entrega_entra_na_avaliacao_trimestral()
+    {
+        var suf = Dados.Sufixo();
+        var nome = $"Material ficticio {suf}";
+        var kit = new KitModelos(
+            [new KitModelo(1, QualyHub.Domain.Common.TipoModelo.FVM, $"FVM-X{suf}", nome, 0, null, null, "99", nome, "NBR ficticia", "Toda entrega", "No recebimento", null,
+                false, false, true, "Armazenamento: coberto", true)],
+            [new KitItem(1, $"FVM-X{suf}", 1, "Embalagem", "Visual", "Íntegra", false, QualyHub.Domain.Common.FotoItem.SoEmNaoConformidade, true, null, null)], [])
+        {
+            Materiais = [new KitMaterialControlado("99", nome, "NBR ficticia", "NF; ficha técnica", null, "Local coberto", "A ou C", "PSQ ou histórico", "PEIS.01")]
+        };
+        // Material antigo com o código da lista oficial: cede o código (vira -ANT).
+        var codigo = $"Z{suf}"[..Math.Min(9, suf.Length + 1)];
+        kit = kit with { Materiais = [kit.Materiais[0] with { Codigo = codigo }] };
+        await using (var db = f.Fabrica.Criar()) { db.MateriaisControlados.Add(new MaterialControlado { Codigo = codigo, Nome = $"Generico {suf}" }); await db.SaveChangesAsync(); }
+        var kitSvc = new KitModelosServico(f.Fabrica, new QualidadeObraServico(f.Fabrica, f.Usuario, f.Relogio));
+        var res = await kitSvc.AplicarAsync(kit);
+        Assert.Contains(res.MateriaisCriados, x => x == $"{codigo} – {nome}");
+        Assert.Contains(res.CodigosLiberados, x => x.EndsWith($"{codigo}-ANT"));
+        await using (var db = f.Fabrica.CriarLeitura())
+            Assert.Equal($"{codigo}-ANT", (await db.MateriaisControlados.SingleAsync(x => x.Nome == $"Generico {suf}")).Codigo);
+        Guid matId;
+        await using (var db = f.Fabrica.CriarLeitura())
+        {
+            var m = await db.MateriaisControlados.SingleAsync(x => x.Nome == nome);
+            matId = m.Id;
+            Assert.Equal(("A ou C", "Local coberto", "NBR ficticia", "PEIS.01"), (m.FormasQualificacao, m.Armazenamento, m.Norma, m.ServicosQueUtilizam));
+            var modelo = await db.ModelosInspecao.SingleAsync(x => x.Codigo == $"FVM-X{suf}");
+            Assert.Equal(m.Id, modelo.MaterialControladoId);
+            Assert.True(modelo.RastrearAplicacao);
+        }
+        // Segunda importação: mesmo material (pelo nome) é atualizado, não duplicado.
+        var segunda = await kitSvc.AplicarAsync(kit with { } );
+        Assert.Contains(segunda.MateriaisAtualizados, x => x.EndsWith(nome));
+
+        // Entrega com notas: IDF = 0,4×9 + 0,4×8 + 0,2×10 = 8,8 (pesos padrão).
+        var obra = await Dados.CriarObraAsync(f);
+        var forn = await Dados.CriarFornecedorAsync(f);
+        var prod = await Dados.CriarProdutoAsync(f, $"Produto ficticio {suf}", 10m);
+        var pedido = new QualyHub.Domain.Suprimentos.Pedido { ObraId = obra, Numero = Random.Shared.Next(100_000, 900_000), FornecedorId = forn, Entrega = DateOnly.FromDateTime(DateTime.Today), Status = QualyHub.Domain.Common.StatusPedido.EnviadoFornecedor };
+        var pi = new QualyHub.Domain.Suprimentos.PedidoItem { PedidoId = pedido.Id, ProdutoId = prod.Id, Descricao = prod.Nome, Unidade = "UN", Quantidade = 10, ValorUnitario = 10 };
+        pedido.Itens.Add(pi);
+        await using (var db = f.Fabrica.Criar()) { db.Pedidos.Add(pedido); await db.SaveChangesAsync(); }
+        var r = new QualyHub.Domain.Suprimentos.Recebimento
+        {
+            PedidoId = pedido.Id, NumeroNotaFiscal = "3001", DataRecebimento = DateTimeOffset.Now, NotaPrazo = 9, NotaQualidade = 8, NotaDocumentacao = 10,
+            Itens = [new QualyHub.Domain.Suprimentos.RecebimentoItem { PedidoItemId = pi.Id, Descricao = pi.Descricao, Unidade = "UN", QtdPedida = 10, QtdRecebida = 10 }]
+        };
+        await new RecebimentosServico(f.Fabrica, f.Usuario, f.Relogio).RegistrarRecebimentoAsync(r);
+        await using (var db = f.Fabrica.CriarLeitura())
+        {
+            var salvo = await db.Recebimentos.SingleAsync(x => x.Id == r.Id);
+            Assert.Equal(8.8m, salvo.Idf);
+            Assert.True(salvo.FvmAprovada);
+        }
+        var periodo = QualyHub.Domain.Suprimentos.AvaliacaoSemestral.PeriodoDe(DateOnly.FromDateTime(DateTime.Today), 3);
+        await new AvaliacaoFornecedoresServico(f.Fabrica, f.Usuario, f.Relogio).ConsolidarSemestreAsync(periodo);
+        await using (var db = f.Fabrica.CriarLeitura())
+        {
+            var a = await db.AvaliacoesSemestrais.SingleAsync(x => x.Periodo == periodo && x.FornecedorId == forn);
+            Assert.Equal(8.8m, a.IdfMedio);
+            Assert.Equal(1, a.QtdEntregasIdf);
         }
     }
 }

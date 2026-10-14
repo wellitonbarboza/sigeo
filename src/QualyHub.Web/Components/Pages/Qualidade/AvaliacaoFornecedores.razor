@@ -13,6 +13,7 @@
                 <Kpi Rotulo="Fornecedores avaliados" Valor="@_itens?.Count" />
                 <Kpi Rotulo="Decisão pendente" Valor="@_itens?.Count(a => a.Decisao == null)" Tom="aviso" />
                 <Kpi Rotulo="@($"Nota média < {Num(_p?[Parametros.NotaPlanoCompleto])}")" Valor="@_itens?.Count(a => a.NotaMedia < _p?[Parametros.NotaPlanoCompleto])" Tom="erro" />
+                <Kpi Rotulo="@($"IDF < {Num(_p?[Parametros.IdfMinimo])}")" Valor="@_itens?.Count(a => a.IdfMedio < _p?[Parametros.IdfMinimo])" Tom="erro" />
                 <Kpi Rotulo="Desqualificados" Valor="@_itens?.Count(a => a.Decisao == DecisaoSemestral.Desqualificar)" Tom="erro" />
             </div>
             <Grade T="AvaliacaoSemestral" @ref="_grade" Itens="_itens" AoClicar="a => { _a = a; _decidida = a.Decisao is not null; ErrosForm = null; _aberto = true; }" NomeExportacao="avaliacao-fornecedores">
@@ -20,6 +21,8 @@
                     <Coluna T="AvaliacaoSemestral" Titulo="Fornecedor" Valor="a => a.Fornecedor.RazaoSocial" />
                     <Coluna T="AvaliacaoSemestral" Titulo="FVM" Valor="a => a.QtdFvm" Alinhar="num" />
                     <Coluna T="AvaliacaoSemestral" Titulo="% FVM aprovadas" Valor="a => a.PercFvmAprovadas" Alinhar="num" />
+                    <Coluna T="AvaliacaoSemestral" Titulo="IDF (entregas)" Valor="a => a.IdfMedio" Alinhar="num"><Modelo>@if (context.IdfMedio is { } idf) { <b class="@(idf < _p?[Parametros.IdfMinimo] ? "texto-erro" : "")">@Num(idf)</b> <small class="mudo">(@context.QtdEntregasIdf)</small> } else { <span class="mudo">—</span> }</Modelo></Coluna>
+                    <Coluna T="AvaliacaoSemestral" Titulo="Classificação IDF" Valor="a => Classe(a)"><Modelo>@if (Classe(context) is { } c) { <Selo Texto="@c" Tom="@(c == "Preferencial" ? "ok" : c == "Desqualificado" ? "erro" : "aviso")" /> }</Modelo></Coluna>
                     <Coluna T="AvaliacaoSemestral" Titulo="Medições" Valor="a => a.QtdMedicoes" Alinhar="num" />
                     <Coluna T="AvaliacaoSemestral" Titulo="Nota média" Valor="a => a.NotaMedia" Alinhar="num"><Modelo><b class="@(context.NotaMedia < _p?[Parametros.NotaPlanoCompleto] ? "texto-erro" : "")">@Num(context.NotaMedia)</b></Modelo></Coluna>
                     <Coluna T="AvaliacaoSemestral" Titulo="Planos abertos" Valor="a => a.PlanosAbertos" Alinhar="num" />
@@ -29,7 +32,7 @@
             </Grade>
         </div>
     </ChildContent>
-    <Faixa><b>Avaliação semestral</b><span>Consolida FVM (materiais) e notas de medição (serviços) do período</span><span>Decisão em reunião: manter · manter com plano · desqualificar (inativa o fornecedor)</span></Faixa>
+    <Faixa><b>Avaliação periódica</b><span>Consolida FVM e IDF das entregas (materiais) e notas de medição (serviços) do período</span><span>Decisão em reunião: manter · manter com plano · desqualificar (inativa o fornecedor)</span></Faixa>
 </Pagina>
 
 <Modal @bind-Aberto="_aberto" Titulo="@($"{_a?.Fornecedor.RazaoSocial} — {_a?.Periodo}")" Tamanho="media">
@@ -40,6 +43,7 @@
             <div class="kpis">
                 <Kpi Rotulo="% FVM aprovadas" Valor="@(_a.PercFvmAprovadas is null ? "—" : $"{_a.PercFvmAprovadas:0.#}%")" Sub="@($"{_a.QtdFvm} entregas")" />
                 <Kpi Rotulo="Nota média" Valor="@Num(_a.NotaMedia)" Sub="@($"{_a.QtdMedicoes} medições")" />
+                <Kpi Rotulo="IDF médio" Valor="@Num(_a.IdfMedio)" Sub="@(Classe(_a) ?? $"{_a.QtdEntregasIdf} entregas com nota")" />
                 <Kpi Rotulo="Planos abertos" Valor="@_a.PlanosAbertos" />
             </div>
             <div class="form">
@@ -68,13 +72,15 @@
     protected override async Task OnInitializedAsync()
     {
         await using (var db = Fabrica.CriarLeitura()) _p = await ParametrosServico.CarregarAsync(db, Cancelamento);
-        var atual = AvaliacaoSemestral.PeriodoDe(Hoje);
-        var anterior = AvaliacaoSemestral.PeriodoDe(Hoje.AddMonths(-6));
-        var antigo = AvaliacaoSemestral.PeriodoDe(Hoje.AddMonths(-12));
-        _periodos = [atual, anterior, antigo];
-        _periodo = anterior;
+        // Periodicidade em parâmetro: 3 meses = trimestral (2026-T4), 6 = semestral (2026-S2).
+        var meses = _p.Int(Parametros.PeriodicidadeAvaliacaoMeses) <= 3 ? 3 : 6;
+        _periodos = Enumerable.Range(0, meses == 3 ? 5 : 3).Select(i => AvaliacaoSemestral.PeriodoDe(Hoje.AddMonths(-meses * i), meses)).Distinct().ToList();
+        _periodo = _periodos[1];
         await Carregar();
     }
+
+    private string? Classe(AvaliacaoSemestral a) =>
+        _p is null ? null : AvaliacaoSemestral.ClassificarIdf(a.IdfMedio, _p[Parametros.IdfPreferencial], _p[Parametros.IdfMinimo]);
 
     private async Task Carregar()
     {

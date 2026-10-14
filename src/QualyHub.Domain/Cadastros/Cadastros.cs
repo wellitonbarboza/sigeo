@@ -335,6 +335,16 @@ public class MaterialControlado : EntidadeAuditavel, IOrigemErp
     public string? SubGrupos { get; set; }
     public string? Ensaios { get; set; }
     public string ConstaPsq { get; set; } = "Verificar";
+    /// <summary>Norma / especificação de referência do material (ex.: ABNT NBR 7480:2024).</summary>
+    public string? Norma { get; set; }
+    /// <summary>Formas de qualificação aceitas para o fornecedor (ex.: "A ou B": PSQ, certificação, histórico, ensaio/visita).</summary>
+    public string? FormasQualificacao { get; set; }
+    /// <summary>Critério / observação da qualificação do fornecedor deste material.</summary>
+    public string? CriterioQualificacao { get; set; }
+    /// <summary>Armazenamento e preservação na obra (procedimento de inspeção e armazenamento).</summary>
+    public string? Armazenamento { get; set; }
+    /// <summary>Serviços (ITS/procedimentos) que aplicam o material, separados por " · ".</summary>
+    public string? ServicosQueUtilizam { get; set; }
     public bool Ativo { get; set; } = true;
     public string? CodigoErp { get; set; }
     public Guid? UltimaImportacaoId { get; set; }

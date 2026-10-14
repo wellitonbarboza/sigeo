@@ -166,13 +166,34 @@ public class AvaliacaoSemestral : EntidadeAuditavel, IHistoricoTemporal
     public DateOnly? DataReuniao { get; set; }
     public DateOnly? DataComunicado { get; set; }
 
-    public static string PeriodoDe(DateOnly d) => $"{d.Year}-S{(d.Month <= 6 ? 1 : 2)}";
+    /// <summary>IDF médio das entregas avaliadas por nota no período (0,4 prazo + 0,4 qualidade + 0,2 documentação, pesos em parâmetros).</summary>
+    public decimal? IdfMedio { get; set; }
+    public int QtdEntregasIdf { get; set; }
+
+    /// <summary>Período semestral ("2026-S2") ou trimestral ("2026-T4"), conforme a periodicidade da avaliação (meses).</summary>
+    public static string PeriodoDe(DateOnly d, int meses = 6) => meses <= 3
+        ? $"{d.Year}-T{(d.Month - 1) / 3 + 1}"
+        : $"{d.Year}-S{(d.Month <= 6 ? 1 : 2)}";
 
     public static (DateOnly Inicio, DateOnly Fim) Intervalo(string periodo)
     {
         var ano = int.Parse(periodo[..4]);
+        if (periodo.Length >= 7 && periodo[5] == 'T' && int.TryParse(periodo[6..], out var t) && t is >= 1 and <= 4)
+        {
+            var ini = new DateOnly(ano, (t - 1) * 3 + 1, 1);
+            return (ini, ini.AddMonths(3).AddDays(-1));
+        }
         return periodo.EndsWith("S1") ? (new DateOnly(ano, 1, 1), new DateOnly(ano, 6, 30)) : (new DateOnly(ano, 7, 1), new DateOnly(ano, 12, 31));
     }
+
+    /// <summary>Classificação pelo IDF: ≥ preferencial → Preferencial; ≥ mínimo → Sob acompanhamento; abaixo → Desqualificado.</summary>
+    public static string? ClassificarIdf(decimal? idf, decimal preferencial, decimal minimo) => idf switch
+    {
+        null => null,
+        var v when v >= preferencial => "Preferencial",
+        var v when v >= minimo => "Sob acompanhamento",
+        _ => "Desqualificado"
+    };
 
     /// <summary>Consolida os indicadores do fornecedor no semestre.</summary>
     public void Consolidar(IEnumerable<Recebimento> recebimentos, IEnumerable<Medicao> medicoes, IEnumerable<PlanoAcaoFornecedor> planos)
@@ -182,6 +203,11 @@ public class AvaliacaoSemestral : EntidadeAuditavel, IHistoricoTemporal
                                           && DateOnly.FromDateTime(r.DataRecebimento.Date) >= ini && DateOnly.FromDateTime(r.DataRecebimento.Date) <= fim).ToList();
         QtdFvm = fvm.Count;
         PercFvmAprovadas = QtdFvm == 0 ? null : Math.Round(100m * fvm.Count(r => r.FvmAprovada == true) / QtdFvm, 1);
+        var idf = recebimentos.Where(r => r.FornecedorId == FornecedorId && !r.Excluido && r.Idf is not null
+                                          && DateOnly.FromDateTime(r.DataRecebimento.Date) >= ini && DateOnly.FromDateTime(r.DataRecebimento.Date) <= fim)
+            .Select(r => r.Idf!.Value).ToList();
+        QtdEntregasIdf = idf.Count;
+        IdfMedio = idf.Count == 0 ? null : Math.Round(idf.Average(), 2);
         var med = medicoes.Where(m => m.Contrato.FornecedorId == FornecedorId && !m.Excluido && m.NotaFinal is not null
                                       && m.PeriodoFim >= ini && m.PeriodoFim <= fim).ToList();
         QtdMedicoes = med.Count;

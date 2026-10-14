@@ -129,6 +129,11 @@ internal sealed class MaterialCfg : IEntityTypeConfiguration<MaterialControlado>
     {
         b.HasIndex(x => new { x.EmpresaId, x.Codigo }).IsUnique().HasFilter("[Excluido] = 0");
         b.HasOne<CategoriaProduto>().WithMany().HasForeignKey(x => x.CategoriaProdutoId);
+        b.Property(x => x.Norma).HasMaxLength(500);
+        b.Property(x => x.FormasQualificacao).HasMaxLength(40);
+        b.Property(x => x.CriterioQualificacao).HasMaxLength(600);
+        b.Property(x => x.Armazenamento).HasMaxLength(1000);
+        b.Property(x => x.ServicosQueUtilizam).HasMaxLength(300);
     }
 }
 

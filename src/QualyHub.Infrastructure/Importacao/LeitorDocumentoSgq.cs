@@ -155,7 +155,8 @@ public static partial class LeitorDocumentoSgq
         var c = Campos(ws);
         var codigo = c.GetValueOrDefault("identificacao") is { Length: > 0 } id ? NormalizarCodigo(id) : codNome;
         var nomeRef = NomeDepoisDoCodigo(c.GetValueOrDefault("documentodereferencia"));
-        var titulo = nomeRef is not null && Sem(nomeRef) == Sem(c.GetValueOrDefault("titulodoservico")) ? nomeRef : Frase(c.GetValueOrDefault("titulodoservico")) ?? tituloNome;
+        var titulo = nomeRef is not null && Sem(nomeRef) == Sem(c.GetValueOrDefault("titulodoservico")) ? nomeRef
+            : Frase(c.GetValueOrDefault("titulodoservico")) ?? Frase(c.GetValueOrDefault("material")) ?? tituloNome;
         int? rev = int.TryParse(c.GetValueOrDefault("revisao"), out var n) ? n : revNome;
         return new IdentificacaoArquivoSgq(nome, codigo, titulo, rev, null, c.ContainsKey("identificacao") ? "aba " + AbaFicha : "nome do arquivo");
     }
@@ -166,8 +167,16 @@ public static partial class LeitorDocumentoSgq
         ["trena", "nivel", "prumo", "esquadro", "regua", "paquimetro", "laser", "termometro", "slump", "balanca", "manometro", "multimetro",
          "megometro", "escantilhao", "teodolito", "estacao total", "medidor", "gabarito", "probe", "torquimetro", "dinamometro"];
 
-    /// <summary>Lê uma ficha FVS (pasta de trabalho com a aba BANCO DE DADOS). Retorna null se não for ficha.</summary>
-    public static (KitModelo Modelo, List<KitItem> Itens)? LerFichaFvs(Stream arquivo, string nomeArquivo, int linhaModelo)
+    /// <summary>Lê uma ficha FVS ou FVM (pasta de trabalho com a aba BANCO DE DADOS). Retorna null se não for ficha.</summary>
+    public static (KitModelo Modelo, List<KitItem> Itens)? LerFichaFvs(Stream arquivo, string nomeArquivo, int linhaModelo) =>
+        LerFicha(arquivo, nomeArquivo, linhaModelo) is { } f ? (f.Modelo, f.Itens) : null;
+
+    /// <summary>
+    /// Ficha da empresa (aba BANCO DE DADOS). FVS: cabeçalho com "Título do serviço" e "Documento de referência" (a ITS).
+    /// FVM: cabeçalho com "Material", "Norma / especificação", "Documentos exigidos", "Ensaio", "Armazenamento" e "Serviços que utilizam" —
+    /// também devolve o material controlado (código = número da FVM: FVM-02 → 02).
+    /// </summary>
+    public static (KitModelo Modelo, List<KitItem> Itens, KitMaterialControlado? Material)? LerFicha(Stream arquivo, string nomeArquivo, int linhaModelo)
     {
         using var ms = Copiar(arquivo);
         using var wb = Planilha.Abrir(ms);
@@ -175,6 +184,7 @@ public static partial class LeitorDocumentoSgq
         var c = Campos(ws);
         var codigo = c.GetValueOrDefault("identificacao") is { Length: > 0 } id ? NormalizarCodigo(id) : PeloNome(nomeArquivo).Codigo;
         if (string.IsNullOrWhiteSpace(codigo)) throw new QualyHub.Domain.Aprovacoes.RegraDeNegocioException($"{nomeArquivo}: ficha sem \"Identificação\" na aba {AbaFicha}.");
+        if (!c.ContainsKey("titulodoservico") && c.GetValueOrDefault("material") is { Length: > 0 }) return Fvm(ws, c, codigo, linhaModelo);
 
         var referencia = c.GetValueOrDefault("documentodereferencia");
         var its = CodigoNoInicio(referencia);
@@ -193,7 +203,66 @@ public static partial class LeitorDocumentoSgq
             null, c.GetValueOrDefault("amostragem"), c.GetValueOrDefault("momentodainspecao"),
             NivelDoLocal(unidade),
             LiberaMedicao: true, Quarentena: false, Rastrear: false, Limitar(orient.ToString().Trim(), 4000), Publicar: true);
-        return (modelo, Itens(ws, codigo));
+        return (modelo, Itens(ws, codigo), null);
+    }
+
+    private static (KitModelo, List<KitItem>, KitMaterialControlado?) Fvm(IXLWorksheet ws, Dictionary<string, string> c, string codigo, int linhaModelo)
+    {
+        string? Campo(string prefixo) => c.FirstOrDefault(k => k.Key.StartsWith(prefixo)).Value is { Length: > 0 } v ? v : null;
+        var nome = Frase(c["material"])!;
+        var numero = Regex.Match(codigo, @"\d+(?:\.\d+)?$").Value;
+        var norma = Campo("norma");
+        var docs = Campo("documentosexigidos");
+        var ensaio = Campo("ensaio");
+        var armaz = Campo("armazenamento");
+        var servicos = Campo("servicosqueutilizam") ?? Campo("servicos");
+        var itens = Itens(ws, codigo, out var amostras);
+        var amostragem = amostras.Count == 0 ? "Conforme cada item" : amostras.Count <= 3 ? string.Join("; ", amostras) : "Conforme cada item (ver critério)";
+        var orient = new StringBuilder();
+        if (docs is not null) orient.AppendLine($"Documentos exigidos do fornecedor: {docs}");
+        if (ensaio is not null && ensaio.Trim() is not ("—" or "-")) orient.AppendLine($"Ensaio: {ensaio}");
+        if (armaz is not null) orient.AppendLine($"Armazenamento: {armaz}");
+        if (servicos is not null) orient.AppendLine($"Serviços que utilizam: {servicos}");
+        var revisao = int.TryParse(c.GetValueOrDefault("revisao"), out var r) ? r : 0;
+        var modelo = new KitModelo(linhaModelo, TipoModelo.FVM, codigo, nome, revisao, null, null, numero.Length > 0 ? numero : codigo, nome,
+            norma, amostragem, "No recebimento", null, LiberaMedicao: false, Quarentena: false, Rastrear: false, Limitar(orient.ToString().Trim(), 4000), Publicar: true);
+        var material = new KitMaterialControlado(numero.Length > 0 ? numero : codigo, nome, norma, docs, ensaio is null or "—" or "-" ? null : ensaio, armaz, null, null, servicos);
+        return (modelo, itens, material);
+    }
+
+    /// <summary>
+    /// Aba de requisitos por material (cabeçalho com Grupo/Nº, Material, Documentos exigidos, Forma de qualificação, Critério…),
+    /// como a da lista de fornecedores qualificados. Nada encontrado → lista vazia.
+    /// </summary>
+    public static List<KitMaterialControlado> LerRequisitosMateriais(XLWorkbook wb)
+    {
+        var lista = new List<KitMaterialControlado>();
+        foreach (var ws in wb.Worksheets)
+        {
+            var ultima = Math.Min(ws.LastRowUsed()?.RowNumber() ?? 0, 30);
+            for (var l = 1; l <= ultima; l++)
+            {
+                var cab = ws.Row(l).CellsUsed().ToDictionary(x => Sem(x.GetString()), x => x.Address.ColumnNumber);
+                int Col(params string[] p) => cab.FirstOrDefault(k => p.Any(k.Key.StartsWith)).Value;
+                int cCod = Col("grupo", "nº", "no"), cNome = Col("material"), cForma = Col("formadequalificacao", "forma");
+                if (cCod == 0 || cNome == 0 || cForma == 0) continue;
+                int cDocs = Col("documentosexigidos", "documentos"), cCrit = Col("criteriodequalificacao", "criterio"), cReg = Col("registro"), cNorma = Col("norma");
+                var fim = ws.LastRowUsed()?.RowNumber() ?? l;
+                for (var k = l + 1; k <= fim; k++)
+                {
+                    var row = ws.Row(k);
+                    var cod = row.Cell(cCod).GetString().Trim();
+                    var nome = row.Cell(cNome).GetString().Trim();
+                    if (cod.Length == 0 || nome.Length == 0 || cod.Length > 8) continue;
+                    string? T(int col) => col == 0 ? null : row.Cell(col).GetString().Trim() is { Length: > 0 } v ? v : null;
+                    var reg = T(cReg);
+                    var servicos = reg is null ? null : string.Join(" · ", reg.Split('·', StringSplitOptions.TrimEntries).Where(x => !Regex.IsMatch(x, @"^(FVM|FORM|F)\b", RegexOptions.IgnoreCase)));
+                    lista.Add(new KitMaterialControlado(cod, nome, T(cNorma), T(cDocs), null, null, T(cForma), T(cCrit), string.IsNullOrWhiteSpace(servicos) ? null : servicos));
+                }
+                break;
+            }
+        }
+        return lista;
     }
 
     /// <summary>
@@ -211,9 +280,13 @@ public static partial class LeitorDocumentoSgq
         };
     }
 
-    private static List<KitItem> Itens(IXLWorksheet ws, string codigo)
+    private static List<KitItem> Itens(IXLWorksheet ws, string codigo) => Itens(ws, codigo, out _);
+
+    private static List<KitItem> Itens(IXLWorksheet ws, string codigo, out List<string> amostragens)
     {
         var itens = new List<KitItem>();
+        amostragens = [];
+        var colAmostra = 0;
         var ultima = ws.LastRowUsed()?.RowNumber() ?? 0;
         int? cab = null; int colN = 0, colItem = 0, colMet = 0, colCrit = 0;
         for (var l = 1; l <= ultima && cab is null; l++)
@@ -224,6 +297,7 @@ public static partial class LeitorDocumentoSgq
                 if (t.StartsWith("itemdeinspecao") || t.StartsWith("itemdeverificacao")) colItem = cel.Address.ColumnNumber;
                 if (t.StartsWith("metodo")) colMet = cel.Address.ColumnNumber;
                 if (t.StartsWith("criterio")) colCrit = cel.Address.ColumnNumber;
+                if (t.StartsWith("amostragem")) colAmostra = cel.Address.ColumnNumber;
             }
         if (cab is null || colItem == 0 || colCrit == 0) return itens;
         for (var l = cab.Value + 1; l <= ultima; l++)
@@ -237,6 +311,12 @@ public static partial class LeitorDocumentoSgq
             var met = colMet == 0 ? "Visual" : row.Cell(colMet).GetString().Trim();
             var metSem = Sem(met);
             var equip = Equipamentos.Any(e => metSem.Contains(e.Replace(" ", "")));
+            var amostra = colAmostra == 0 ? "" : row.Cell(colAmostra).GetString().Trim();
+            if (amostra.Length > 0)
+            {
+                if (!amostragens.Contains(amostra)) amostragens.Add(amostra);
+                crit = $"{crit} · Amostragem: {amostra}";
+            }
             itens.Add(new KitItem(l, codigo, itens.Count + 1, desc, met.Length == 0 ? "Visual" : met, crit, equip, FotoItem.SoEmNaoConformidade, true, null, null));
         }
         return itens;
@@ -300,9 +380,22 @@ public static partial class LeitorDocumentoSgq
         if (string.IsNullOrWhiteSpace(s)) return null;
         s = s.Trim();
         if (s.Any(char.IsLower)) return s;
-        var baixo = s.ToLower(new CultureInfo("pt-BR"));
-        return char.ToUpper(baixo[0], new CultureInfo("pt-BR")) + baixo[1..];
+        var br = new CultureInfo("pt-BR");
+        // Siglas curtas (PU, PVC, NBR) ficam em maiúsculas; palavras de ligação e as demais vão para minúsculas.
+        var palavras = s.Split(' ');
+        for (var i = 0; i < palavras.Length; i++)
+        {
+            var nucleo = new string(palavras[i].Where(char.IsLetter).ToArray());
+            var sigla = i > 0 && nucleo.Length is >= 2 and <= 3 && !Ligacao.Contains(nucleo.ToLower(br));
+            if (!sigla) palavras[i] = palavras[i].ToLower(br);
+        }
+        var baixo = string.Join(' ', palavras);
+        return char.ToUpper(baixo[0], br) + baixo[1..];
     }
+
+    private static readonly HashSet<string> Ligacao =
+        ["de", "do", "da", "dos", "das", "em", "no", "na", "nos", "nas", "com", "por", "para", "ou", "ao", "aos", "os", "as", "um", "uma", "sem", "sob", "e", "o", "a",
+         "aço", "uso", "via", "pó", "gás", "cal", "fio", "kit", "mão", "obra", "tubo", "piso", "teto", "laje"];
 
     /// <summary>Sem acento, sem espaço/pontuação, minúsculas.</summary>
     public static string Sem(string? s)

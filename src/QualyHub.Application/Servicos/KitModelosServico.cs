@@ -7,7 +7,20 @@ namespace QualyHub.Application.Servicos;
 
 // ───────── Kit de modelos de inspeção (FVS e FVM): abas Modelos, Itens e Ensaios ─────────
 
-public sealed record KitModelos(IReadOnlyList<KitModelo> Modelos, IReadOnlyList<KitItem> Itens, IReadOnlyList<KitEnsaio> Ensaios);
+public sealed record KitModelos(IReadOnlyList<KitModelo> Modelos, IReadOnlyList<KitItem> Itens, IReadOnlyList<KitEnsaio> Ensaios)
+{
+    /// <summary>Materiais controlados da lista da empresa (código, norma, documentos, ensaio, armazenamento, forma de qualificação).</summary>
+    public IReadOnlyList<KitMaterialControlado> Materiais { get; init; } = [];
+}
+
+/// <summary>Material controlado com os requisitos da empresa. Campos nulos não alteram o cadastro existente.</summary>
+public sealed record KitMaterialControlado(string Codigo, string Nome, string? Norma, string? DocumentosExigidos, string? Ensaios, string? Armazenamento,
+    string? FormasQualificacao, string? CriterioQualificacao, string? ServicosQueUtilizam)
+{
+    /// <summary>Junta duas leituras do mesmo material: o que esta tem prevalece; o que falta vem da outra.</summary>
+    public KitMaterialControlado Completar(KitMaterialControlado o) => new(Codigo, Nome, Norma ?? o.Norma, DocumentosExigidos ?? o.DocumentosExigidos, Ensaios ?? o.Ensaios,
+        Armazenamento ?? o.Armazenamento, FormasQualificacao ?? o.FormasQualificacao, CriterioQualificacao ?? o.CriterioQualificacao, ServicosQueUtilizam ?? o.ServicosQueUtilizam);
+}
 
 public sealed record KitModelo(int Linha, TipoModelo Tipo, string Codigo, string Titulo, int Revisao, string? Its, string? NomeIts, string? Material, string? NomeMaterial,
     string? Norma, string? Amostragem, string? Momento, string? NivelLocal, bool LiberaMedicao, bool Quarentena, bool Rastrear, string? Orientacoes, bool Publicar);
@@ -23,6 +36,10 @@ public sealed record ResumoKitModelos(int Novos, int Atualizados, int Itens, int
 {
     /// <summary>ITS que passam a apontar para o documento do SGQ de mesmo código.</summary>
     public IReadOnlyList<string> DocumentosVinculados { get; init; } = [];
+    /// <summary>Materiais controlados já cadastrados que recebem os requisitos da lista da empresa.</summary>
+    public IReadOnlyList<string> MateriaisAtualizados { get; init; } = [];
+    /// <summary>Materiais antigos que cedem o código à lista oficial da empresa (recebem o sufixo -ANT; vínculos mantidos).</summary>
+    public IReadOnlyList<string> CodigosLiberados { get; init; } = [];
 }
 
 /// <summary>
@@ -123,6 +140,45 @@ public sealed class KitModelosServico(IFabricaDb fabrica, QualidadeObraServico q
         var mantidos = new List<string>();
         var avisos = new List<string>();
         int novos = 0, atualizados = 0;
+        var matsAtualizados = new List<string>();
+        var codigosLiberados = new List<string>();
+        static string? Corte(string? v, int max) => v is null ? null : v.Length <= max ? v : v[..max];
+        foreach (var km in kit.Materiais)
+        {
+            // Pelo nome (como a FVM). O código da lista oficial da empresa passa a ser o do material.
+            var mat = materiais.FirstOrDefault(m => SemAcento(m.Nome) == SemAcento(km.Nome));
+            var codigo = km.Codigo.Trim();
+            if ((mat is null || Up(mat.Codigo) != Up(codigo)) && materiais.FirstOrDefault(x => Up(x.Codigo) == Up(codigo) && x != mat) is { } dono)
+            {
+                // O material antigo cede o código (recebe -ANT). O vínculo é pelo Id: produtos, modelos, qualificações e recebimentos seguem intactos.
+                var livre = $"{dono.Codigo}-ANT";
+                for (var n = 2; materiais.Any(x => Up(x.Codigo) == Up(livre)); n++) livre = $"{dono.Codigo}-ANT{n}";
+                codigosLiberados.Add($"{dono.Codigo} {dono.Nome} → {livre}");
+                if (aplicar) dono.Codigo = livre;
+            }
+            if (mat is null)
+            {
+                mat = new MaterialControlado { Codigo = codigo, Nome = km.Nome.Trim() };
+                materiais.Add(mat);
+                if (aplicar) db.MateriaisControlados.Add(mat);
+                matsCriados.Add($"{mat.Codigo} – {mat.Nome}");
+            }
+            else
+            {
+                matsAtualizados.Add(Up(mat.Codigo) == Up(codigo) ? $"{mat.Codigo} – {mat.Nome}" : $"{mat.Codigo} → {codigo} – {mat.Nome}");
+                if (aplicar) mat.Codigo = codigo;
+            }
+            if (!aplicar) continue;
+            mat.Norma = Corte(km.Norma, 500) ?? mat.Norma;
+            if (string.IsNullOrWhiteSpace(mat.EspecificacaoModelo)) mat.EspecificacaoModelo = Corte(km.Norma, 400);
+            mat.DocumentosExigidos = Corte(km.DocumentosExigidos, 400) ?? mat.DocumentosExigidos;
+            mat.Ensaios = Corte(km.Ensaios, 400) ?? mat.Ensaios;
+            mat.Armazenamento = Corte(km.Armazenamento, 1000) ?? mat.Armazenamento;
+            mat.FormasQualificacao = Corte(km.FormasQualificacao, 40) ?? mat.FormasQualificacao;
+            mat.CriterioQualificacao = Corte(km.CriterioQualificacao, 600) ?? mat.CriterioQualificacao;
+            mat.ServicosQueUtilizam = Corte(km.ServicosQueUtilizam, 300) ?? mat.ServicosQueUtilizam;
+            mat.Ativo = true;
+        }
         foreach (var k in kit.Modelos)
         {
             ServicoControlado? srv = null;
@@ -193,7 +249,7 @@ public sealed class KitModelosServico(IFabricaDb fabrica, QualidadeObraServico q
             }
         }
         var resumo = new ResumoKitModelos(novos, atualizados, kit.Itens.Count, kit.Ensaios.Count, itsCriadas, itsRenomeadas.Distinct().ToList(), matsCriados, mantidos, avisos)
-            { DocumentosVinculados = vinculados };
+            { DocumentosVinculados = vinculados, MateriaisAtualizados = matsAtualizados, CodigosLiberados = codigosLiberados };
         if (!aplicar) return resumo;
         await db.SaveChangesAsync(ct);
 

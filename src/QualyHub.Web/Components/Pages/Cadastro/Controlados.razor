@@ -28,6 +28,9 @@
                         <Coluna T="MaterialControlado" Titulo="Sub-grupos vinculados" Valor="m => m.SubGrupos" />
                         <Coluna T="MaterialControlado" Titulo="Documentos exigidos" Valor="m => m.DocumentosExigidos" />
                         <Coluna T="MaterialControlado" Titulo="PSQ" Valor="m => m.ConstaPsq" />
+                        <Coluna T="MaterialControlado" Titulo="Qualificação" Valor="m => m.FormasQualificacao" />
+                        <Coluna T="MaterialControlado" Titulo="Norma" Valor="m => m.Norma" Visivel="false" />
+                        <Coluna T="MaterialControlado" Titulo="Armazenamento" Valor="m => m.Armazenamento" Visivel="false" />
                         <Coluna T="MaterialControlado" Titulo="Modelo FVM" Valor="m => _fvm.GetValueOrDefault(m.Id)" />
                         <Coluna T="MaterialControlado" Titulo="Situação" Valor="m => SitMat(m)"><Modelo><Selo Texto="@SitMat(context)" Tom="@(SitMat(context) == "Completo" ? "ok" : "erro")" /></Modelo></Coluna>
                     </Colunas>
@@ -78,6 +81,11 @@
                 <Campo Rotulo="Documentos exigidos (qualificação e entrega)" Classe="s12"><textarea rows="3" @bind="_m.DocumentosExigidos"></textarea></Campo>
                 <Campo Rotulo="Ensaios (finalidade · norma: ensaios)" Classe="s10"><textarea rows="3" @bind="_m.Ensaios"></textarea></Campo>
                 <Campo Rotulo="Consta no PSQ" Classe="s2"><select @bind="_m.ConstaPsq"><option>Sim</option><option>Não</option><option>Verificar</option></select></Campo>
+                <Campo Rotulo="Norma / especificação" Classe="s12"><input @bind="_m.Norma" maxlength="500" /></Campo>
+                <Campo Rotulo="Forma de qualificação do fornecedor" Classe="s3" Ajuda="Ex.: A ou B (A = PSQ · B = certificação/selo/certificado de lote · C = histórico · D = ensaio/visita)"><input @bind="_m.FormasQualificacao" maxlength="40" /></Campo>
+                <Campo Rotulo="Critério da qualificação" Classe="s9"><input @bind="_m.CriterioQualificacao" maxlength="600" /></Campo>
+                <Campo Rotulo="Armazenamento e preservação" Classe="s12"><textarea rows="2" @bind="_m.Armazenamento" maxlength="1000"></textarea></Campo>
+                <Campo Rotulo="Serviços que utilizam" Classe="s12"><input @bind="_m.ServicosQueUtilizam" maxlength="300" placeholder="PEIS.04 · PEIS.15" /></Campo>
                 <Campo Rotulo="Modelo de FVM" Classe="s12"><input readonly value="@(_fvm.GetValueOrDefault(_m.Id) ?? "sem modelo vigente — cadastre em Qualidade da Obra › Modelos de FVM")" /></Campo>
                 <Campo Rotulo="Regras" Classe="s12">
                     <div class="checks">

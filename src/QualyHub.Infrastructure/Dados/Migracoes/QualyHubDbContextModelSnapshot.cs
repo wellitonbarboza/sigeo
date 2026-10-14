@@ -1320,6 +1320,9 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                         .HasMaxLength(150)
                         .HasColumnType("nvarchar(150)");
 
+                    b.Property<string>("Armazenamento")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<bool>("Ativo")
                         .HasColumnType("bit");
 
@@ -1350,6 +1353,10 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                         .IsRequired()
                         .HasMaxLength(150)
                         .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("CriterioQualificacao")
+                        .HasMaxLength(600)
+                        .HasColumnType("nvarchar(600)");
 
                     b.Property<string>("DocumentosExigidos")
                         .HasColumnType("nvarchar(max)");
@@ -1382,6 +1389,10 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                     b.Property<bool>("ExigeFvmParaAceite")
                         .HasColumnType("bit");
 
+                    b.Property<string>("FormasQualificacao")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
                     b.Property<string>("GrupoCatalogo")
                         .HasMaxLength(400)
                         .HasColumnType("nvarchar(400)");
@@ -1391,11 +1402,19 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                         .HasMaxLength(400)
                         .HasColumnType("nvarchar(400)");
 
+                    b.Property<string>("Norma")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
                     b.Property<byte[]>("RowVersion")
                         .IsConcurrencyToken()
                         .IsRequired()
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("rowversion");
+
+                    b.Property<string>("ServicosQueUtilizam")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
 
                     b.Property<string>("SubGrupos")
                         .HasColumnType("nvarchar(max)");
@@ -12691,6 +12710,10 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                     b.Property<Guid>("FornecedorId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<decimal?>("IdfMedio")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
                     b.Property<decimal?>("NotaMedia")
                         .HasPrecision(18, 4)
                         .HasColumnType("decimal(18,4)");
@@ -12718,6 +12741,9 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                         .HasColumnType("nvarchar(8)");
 
                     b.Property<int>("PlanosAbertos")
+                        .HasColumnType("int");
+
+                    b.Property<int>("QtdEntregasIdf")
                         .HasColumnType("int");
 
                     b.Property<int>("QtdFvm")
@@ -15359,8 +15385,24 @@ namespace QualyHub.Infrastructure.Dados.Migracoes
                         .HasMaxLength(40)
                         .HasColumnType("nvarchar(40)");
 
+                    b.Property<decimal?>("Idf")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
                     b.Property<Guid?>("ModeloFvmId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal?>("NotaDocumentacao")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal?>("NotaPrazo")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal?>("NotaQualidade")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
 
                     b.Property<int>("Numero")
                         .HasColumnType("int");

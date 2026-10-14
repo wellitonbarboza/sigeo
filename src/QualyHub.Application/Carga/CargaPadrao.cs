@@ -37,7 +37,8 @@ public static class CargaPadrao
     public static readonly string[] TiposDocumentoSgq =
     [
         "MQ – Manual da Qualidade", "PO – Política/Objetivos", "P – Procedimento", "DT – Diretriz Técnica", "ITS – Instrução Técnica de Serviço",
-        "F / FORM – Formulário", "FVS / FVM – Ficha de verificação", "PQO – Plano da Qualidade da Obra", "DE – Documento externo"
+        "F / FORM – Formulário", "FVS / FVM – Ficha de verificação", "PQO – Plano da Qualidade da Obra", "DE – Documento externo",
+        "DS – Documento de sistema"
     ];
 
     public static readonly string[] Emissores =
@@ -202,7 +203,7 @@ public static class CargaPadrao
     /// Versão da carga padrão. Suba quando incluir itens novos nas listas/cadastros padrão: empresas existentes recebem a carga
     /// uma vez por versão (itens que o usuário renomeou ou excluiu não voltam a cada reinício do app).
     /// </summary>
-    public const int Versao = 7;
+    public const int Versao = 8;
     private const string ChaveVersao = "Sistema:CargaPadrao";
 
     /// <summary>Aplica a carga só se a empresa ainda não recebeu esta versão (usado na inicialização do app).</summary>

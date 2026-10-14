@@ -45,7 +45,7 @@ public sealed partial class DocumentosServico
             "PEIS" or "ITS" or "PES" or "IT" => "ITS",
             "FVS" or "FVM" => "FVS",
             "FORM" or "F" => "F",
-            "MQ" => "MQ", "PQO" => "PQO", "DT" => "DT",
+            "MQ" => "MQ", "PQO" => "PQO", "DT" => "DT", "DS" => "DS",
             _ => null
         };
         return alvo is null ? null : tipos.FirstOrDefault(t => Regex.IsMatch(t, $@"^{alvo}\b", RegexOptions.IgnoreCase));
