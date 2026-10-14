@@ -20,12 +20,15 @@ public sealed record PreviaImportacaoFornecedores(IReadOnlyList<LinhaFornecedorP
 }
 
 /// <summary>
-/// Importa a planilha "Export" do cadastro de fornecedores do ExpertData (colunas CPF / CNPJ, NOME, CEP, CIDADE, UF,
+/// Importa a planilha de fornecedores no layout "Export" do ExpertData (também usado para cadastros vindos de outros ERPs) (colunas CPF / CNPJ, NOME, CEP, CIDADE, UF,
 /// ENDERECO, NUMERO, COMPLEMENTO, BAIRRO, TELEFONES, E-MAILS, NATUREZA JURÍDICA, PORTE, SITUAÇÃO CADASTRAL, CNAE,
 /// CAPITAL SOCIAL, FUNDAÇÃO, CRIADOR POR, CRIAÇÃO, MODIFICADO POR, MODIFICAÇÃO, FANTASIA, IE, IM, TELEFONE0800).
 /// Regras: chave = CPF/CNPJ (só dígitos, com DV válido); campo vazio na planilha nunca apaga dado do QualyHub;
 /// valores-sentinela do sistema de origem (capital 1, fundação 01/01/2001 ou 0001, "NAO CONSTA") viram vazio;
 /// tipo de fornecimento e qualificação NUNCA vêm da importação (decisão da Qualidade/Suprimentos).
+/// Linha sem CPF/CNPJ é aceita: casa pelo nome (sem acento, pontuação e sufixos LTDA/ME/EPP/EIRELI) com o cadastro e,
+/// se for nova, entra sem documento — bloqueada para compra até completar o CPF/CNPJ. Documento preenchido e inválido é erro.
+/// Coluna opcional ORIGEM grava o sistema de origem (padrão: ExpertData).
 /// </summary>
 public sealed class ImportadorFornecedoresExpertData(IFabricaDb fabrica)
 {
@@ -64,6 +67,7 @@ public sealed class ImportadorFornecedoresExpertData(IFabricaDb fabrica)
                 ["situacao"] = V("SITUACAOCADASTRAL"), ["cnae"] = V("CNAE"), ["capital"] = V("CAPITALSOCIAL"), ["fundacao"] = V("FUNDACAO"),
                 ["criadoPor"] = V("CRIADORPOR") ?? V("CRIADOPOR"), ["criadoEm"] = V("CRIACAO"), ["alteradoPor"] = V("MODIFICADOPOR"),
                 ["alteradoEm"] = V("MODIFICACAO"), ["fantasia"] = V("FANTASIA"), ["ie"] = V("IE"), ["im"] = V("IM"), ["t0800"] = V("TELEFONE0800"),
+                ["origem"] = V("ORIGEM"),
             };
             if (campos.Values.All(v => v is null)) continue;
             lista.Add(new Registro(r, Conversor.SomenteDigitos(campos["doc"]), campos));
@@ -121,7 +125,7 @@ public sealed class ImportadorFornecedoresExpertData(IFabricaDb fabrica)
         if (DataBr(c["fundacao"]) is { } fund && fund != f.DataFundacao) { f.DataFundacao = fund; mud.Add("Fundação"); }
         // Empresário individual/MEI: a Receita grava a razão social como "12.345.678 NOME DA PESSOA".
         if (!f.Mei && System.Text.RegularExpressions.Regex.IsMatch(c["nome"] ?? "", @"^\d{2}\.\d{3}\.\d{3} ")) { f.Mei = true; mud.Add("MEI"); }
-        f.OrigemSistema ??= "ExpertData";
+        f.OrigemSistema ??= Limpo(c.GetValueOrDefault("origem")) ?? "ExpertData";
         f.OrigemCriadoPor = Limpo(c["criadoPor"]) ?? f.OrigemCriadoPor;
         f.OrigemCriadoEm = DataHoraBr(c["criadoEm"]) ?? f.OrigemCriadoEm;
         f.OrigemAlteradoPor = Limpo(c["alteradoPor"]) ?? f.OrigemAlteradoPor;
@@ -129,32 +133,63 @@ public sealed class ImportadorFornecedoresExpertData(IFabricaDb fabrica)
         return mud;
     }
 
+    private static readonly System.Text.RegularExpressions.Regex Sufixos =
+        new(@"\b(LTDA|LTD|ME|EPP|EIRELI|SA|S A|MEI)\b", System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    /// <summary>Chave do nome: sem acento e pontuação, sem documento colado no início e sem sufixo societário.</summary>
+    public static string ChaveNome(string? nome)
+    {
+        var s = new string((nome ?? "").Normalize(System.Text.NormalizationForm.FormD)
+            .Where(c => CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark).ToArray()).ToUpperInvariant();
+        s = System.Text.RegularExpressions.Regex.Replace(s, @"^[\d.\-/\s]{8,}", "");
+        s = System.Text.RegularExpressions.Regex.Replace(s, "[^A-Z0-9 ]", " ");
+        s = Sufixos.Replace(s, " ");
+        return string.Join(' ', s.Split(' ', StringSplitOptions.RemoveEmptyEntries));
+    }
+
+    /// <summary>Chave da linha: documento (só dígitos) ou, sem documento, "N:" + nome normalizado.</summary>
+    private static string Chave(Registro r) => r.Doc.Length > 0 ? r.Doc : "N:" + ChaveNome(r.C["nome"]);
+
     private static List<string> Validar(Registro r, HashSet<string> vistos)
     {
         var e = new List<string>();
-        if (!(Conversor.CnpjValido(r.Doc) || Conversor.CpfValido(r.Doc))) e.Add($"CPF/CNPJ inválido ('{r.C["doc"]}')");
+        if (r.Doc.Length > 0 && !(Conversor.CnpjValido(r.Doc) || Conversor.CpfValido(r.Doc))) e.Add($"CPF/CNPJ inválido ('{r.C["doc"]}')");
         if (string.IsNullOrWhiteSpace(r.C["nome"])) e.Add("Nome vazio");
-        if (r.Doc.Length > 0 && !vistos.Add(r.Doc)) e.Add("Duplicado na planilha");
+        else if (!vistos.Add(Chave(r))) e.Add("Duplicado na planilha");
         return e;
+    }
+
+    /// <summary>Cadastro atual indexado por documento e, para quem não tem, também pelo nome normalizado.</summary>
+    private static Dictionary<string, Fornecedor> Indice(List<Fornecedor> fs)
+    {
+        var d = new Dictionary<string, Fornecedor>();
+        foreach (var f in fs)
+        {
+            var doc = Conversor.SomenteDigitos(f.CpfCnpj);
+            if (doc.Length > 0) d.TryAdd(doc, f);
+            d.TryAdd("N:" + ChaveNome(f.RazaoSocial), f);
+        }
+        return d;
     }
 
     public async Task<PreviaImportacaoFornecedores> PreverAsync(Stream arquivo, CancellationToken ct = default)
     {
         var regs = Ler(arquivo);
         await using var db = fabrica.Criar();
-        var atuais = (await db.Fornecedores.AsNoTracking().ToListAsync(ct)).GroupBy(f => Conversor.SomenteDigitos(f.CpfCnpj)).ToDictionary(g => g.Key, g => g.First());
+        var atuais = Indice(await db.Fornecedores.AsNoTracking().ToListAsync(ct));
         var vistos = new HashSet<string>();
         var linhas = new List<LinhaFornecedorPlanilha>();
         foreach (var r in regs)
         {
             var e = Validar(r, vistos);
             if (e.Count > 0) { linhas.Add(new(r.Linha, r.C["doc"] ?? "", r.C["nome"] ?? "", "Erro", e, [])); continue; }
-            if (atuais.TryGetValue(r.Doc, out var f))
+            var aviso = r.Doc.Length == 0 ? new List<string> { "Sem CPF/CNPJ: bloqueado para compra até completar" } : [];
+            if (atuais.TryGetValue(Chave(r), out var f))
             {
                 var mud = Aplicar(f, r.C);
-                linhas.Add(new(r.Linha, Formatar(r.Doc), r.C["nome"]!, mud.Count > 0 ? "Atualizar" : "Sem alteração", [], mud));
+                linhas.Add(new(r.Linha, Formatar(r.Doc), r.C["nome"]!, mud.Count > 0 ? "Atualizar" : "Sem alteração", aviso, mud));
             }
-            else linhas.Add(new(r.Linha, Formatar(r.Doc), r.C["nome"]!, "Inserir", [], []));
+            else linhas.Add(new(r.Linha, Formatar(r.Doc), r.C["nome"]!, "Inserir", aviso, []));
         }
         return new PreviaImportacaoFornecedores(linhas);
     }
@@ -164,13 +199,13 @@ public sealed class ImportadorFornecedoresExpertData(IFabricaDb fabrica)
     {
         var regs = Ler(arquivo);
         await using var db = fabrica.Criar();
-        var atuais = (await db.Fornecedores.ToListAsync(ct)).GroupBy(f => Conversor.SomenteDigitos(f.CpfCnpj)).ToDictionary(g => g.Key, g => g.First());
+        var atuais = Indice(await db.Fornecedores.ToListAsync(ct));
         var vistos = new HashSet<string>();
         int ins = 0, upd = 0;
         foreach (var r in regs)
         {
             if (Validar(r, vistos).Count > 0) continue;
-            if (atuais.TryGetValue(r.Doc, out var f))
+            if (atuais.TryGetValue(Chave(r), out var f))
             {
                 if (Aplicar(f, r.C).Count > 0) upd++;
             }
@@ -179,7 +214,7 @@ public sealed class ImportadorFornecedoresExpertData(IFabricaDb fabrica)
                 f = new Fornecedor { CpfCnpj = Formatar(r.Doc), RazaoSocial = r.C["nome"]!.Trim(), StatusQualificacao = StatusQualificacao.EmQualificacao, Ativo = true };
                 Aplicar(f, r.C);
                 db.Fornecedores.Add(f);
-                atuais[r.Doc] = f;
+                atuais[Chave(r)] = f;
                 ins++;
             }
         }
