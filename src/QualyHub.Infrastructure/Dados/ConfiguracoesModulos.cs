@@ -141,6 +141,7 @@ internal sealed class CategoriaProdutoCfg : IEntityTypeConfiguration<CategoriaPr
 {
     public void Configure(EntityTypeBuilder<CategoriaProduto> b)
     {
+        b.Property(x => x.FasePadrao).HasMaxLength(120);
         b.Property(x => x.Sigla).HasMaxLength(3);
         b.Property(x => x.Nome).HasMaxLength(120);
         b.HasOne(x => x.Pai).WithMany(x => x.Subgrupos).HasForeignKey(x => x.PaiId);

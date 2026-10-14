@@ -133,7 +133,8 @@ public sealed class CustoRealizadoServico(IFabricaDb fabrica)
     // ───────────── Geração automática ─────────────
 
     /// <summary>
-    /// Material recebido vira custo realizado ao preço do pedido. Fase = grupo da composição da requisição (senão "A apropriar");
+    /// Material recebido vira custo realizado ao preço do pedido. Fase = grupo da composição da requisição, senão a fase padrão do grupo
+    /// do produto no catálogo, senão "A apropriar";
     /// locais = quebra por local da requisição (rateio pela quantidade). Idempotente (chave por item × local).
     /// </summary>
     public static async Task GerarDoRecebimentoAsync(IQualyHubDb db, Recebimento r, CancellationToken ct = default)
@@ -145,7 +146,13 @@ public sealed class CustoRealizadoServico(IFabricaDb fabrica)
         var compIds = reqItens.Values.SelectMany(i => i.Locais.Select(l => l.ComposicaoId).Append(i.ComposicaoId)).Where(x => x != null).Select(x => x!.Value).Distinct().ToList();
         var grupos = await db.Composicoes.AsNoTracking().Where(k => compIds.Contains(k.Id)).ToDictionaryAsync(k => k.Id, k => k.Grupo, ct);
         var prodIds = ped.Itens.Where(i => i.ProdutoId != null).Select(i => i.ProdutoId!.Value).ToList();
-        var tipos = await db.Produtos.AsNoTracking().Where(p => prodIds.Contains(p.Id)).ToDictionaryAsync(p => p.Id, p => p.TipoCusto, ct);
+        var prods = await db.Produtos.AsNoTracking().Where(p => prodIds.Contains(p.Id)).Select(p => new { p.Id, p.TipoCusto, p.Grupo }).ToListAsync(ct);
+        // Padrão do grupo do catálogo: tipo de custo e fase do orçamento quando a compra não veio de composição.
+        var nomesGrupo = prods.Where(p => p.Grupo != null).Select(p => p.Grupo!).Distinct().ToList();
+        var padroes = (await db.CategoriasProduto.AsNoTracking().Where(c => c.PaiId == null && nomesGrupo.Contains(c.Nome))
+            .Select(c => new { c.Nome, c.TipoCustoPadrao, c.FasePadrao }).ToListAsync(ct)).GroupBy(c => c.Nome.ToUpperInvariant()).ToDictionary(g => g.Key, g => g.First());
+        var tipos = prods.ToDictionary(p => p.Id, p => p.TipoCusto ?? (p.Grupo is { } gn ? padroes.GetValueOrDefault(gn.ToUpperInvariant())?.TipoCustoPadrao : null));
+        var fasesGrupo = prods.ToDictionary(p => p.Id, p => p.Grupo is { } gn ? padroes.GetValueOrDefault(gn.ToUpperInvariant())?.FasePadrao : null);
         var corte = await db.Obras.Where(o => o.Id == r.ObraId).Select(o => o.DataCorteSistema).FirstOrDefaultAsync(ct);
         var data = DateOnly.FromDateTime(r.DataRecebimento.Date);
 
@@ -157,7 +164,8 @@ public sealed class CustoRealizadoServico(IFabricaDb fabrica)
             if (valor == 0) continue;
             var req = pi.RequisicaoItemId is { } rid ? reqItens.GetValueOrDefault(rid) : null;
             var compId = req?.ComposicaoId ?? req?.Locais.FirstOrDefault(l => l.ComposicaoId != null)?.ComposicaoId;
-            var fase = compId is { } c && grupos.GetValueOrDefault(c) is { Length: > 0 } g ? g : CustoRealizado.FaseAApropriar;
+            var fase = compId is { } c && grupos.GetValueOrDefault(c) is { Length: > 0 } g ? g
+                : pi.ProdutoId is { } pf && fasesGrupo.GetValueOrDefault(pf) is { Length: > 0 } fg ? fg : CustoRealizado.FaseAApropriar;
             var partes = RateioCusto.Ratear(ri.QtdRecebida, valor, req?.Locais.Select(l => (l.LocalId, l.Quantidade)).ToList() ?? []);
             foreach (var p in partes)
             {

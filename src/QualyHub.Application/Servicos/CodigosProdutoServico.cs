@@ -24,7 +24,7 @@ public sealed class CodigosProdutoServico(IFabricaDb fabrica)
     private static async Task<List<CategoriaProduto>> CategoriasAsync(IQualyHubDb db, Cache cache, CancellationToken ct) =>
         cache.Todas ??= await db.CategoriasProduto.ToListAsync(ct);
 
-    private static bool MesmoNome(string a, string b) =>
+    public static bool MesmoNome(string a, string b) =>
         string.Equals(string.Join(' ', CodigoProduto.Normalizar(a).Split(' ', StringSplitOptions.RemoveEmptyEntries)),
                       string.Join(' ', CodigoProduto.Normalizar(b).Split(' ', StringSplitOptions.RemoveEmptyEntries)), StringComparison.Ordinal);
 
@@ -102,9 +102,11 @@ public sealed class CodigosProdutoServico(IFabricaDb fabrica)
         // Uma consulta por lote (Cache), não uma por produto.
         var ligados = cache.Ligados ??= (await db.MateriaisControlados.Where(m => m.CategoriaProdutoId != null && m.Ativo).Select(m => new { m.Id, m.CategoriaProdutoId }).ToListAsync(ct))
                                        .Select(m => (m.Id, m.CategoriaProdutoId)).ToList();
-        if (ligados.Count == 0) return;
         var todas = await CategoriasAsync(db, cache, ct);
         var g = string.IsNullOrWhiteSpace(p.Grupo) ? null : todas.FirstOrDefault(c => c.PaiId == null && !c.Excluido && MesmoNome(c.Nome, p.Grupo));
+        // Produto sem tipo de custo herda o do grupo (padrão do catálogo).
+        if (p.TipoCusto is null && g?.TipoCustoPadrao is { } tc) p.TipoCusto = tc;
+        if (ligados.Count == 0) return;
         var mat = g is null ? null : ligados.Where(m => m.CategoriaProdutoId == g.Id).Select(m => (Guid?)m.Id).FirstOrDefault();
         if (mat is { } mid) p.MaterialControladoId = mid;
         else if (p.MaterialControladoId is { } atual && ligados.Any(m => m.Id == atual)) p.MaterialControladoId = null;
@@ -154,6 +156,19 @@ public sealed class CodigosProdutoServico(IFabricaDb fabrica)
         c.Sigla = novaSigla;
         await db.SaveChangesAsync(ct);
         return (await PadronizarAsync(true, ct)).Recodificados;
+    }
+
+    /// <summary>Tipo de custo e fase do orçamento herdados pelos produtos do grupo (padrão do catálogo).</summary>
+    public async Task SalvarPadraoGrupoAsync(Guid grupoId, Domain.Common.TipoCusto? tipo, string? fase, CancellationToken ct = default)
+    {
+        await using var db = fabrica.Criar();
+        var g = await db.CategoriasProduto.FirstAsync(x => x.Id == grupoId, ct);
+        if (g.PaiId is not null) throw new RegraDeNegocioException("Tipo de custo e fase são definidos no grupo.");
+        g.TipoCustoPadrao = tipo;
+        g.FasePadrao = string.IsNullOrWhiteSpace(fase) ? null : fase.Trim();
+        if (tipo is { } t)
+            foreach (var p in await db.Produtos.Where(p => p.TipoCusto == null && p.Grupo == g.Nome).ToListAsync(ct)) p.TipoCusto = t;
+        await db.SaveChangesAsync(ct);
     }
 
     /// <summary>Mescla um subgrupo em outro do mesmo grupo (ex.: "Eletrica" → "Elétricas"): move os produtos e recodifica os não usados.</summary>
