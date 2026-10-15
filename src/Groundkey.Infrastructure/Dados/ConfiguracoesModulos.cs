@@ -170,6 +170,7 @@ internal sealed class ProdutoCfg : IEntityTypeConfiguration<Produto>
         b.Property(x => x.Ean).HasMaxLength(20);
         b.Ignore(x => x.AClassificar);
         b.HasOne(x => x.MaterialControlado).WithMany().HasForeignKey(x => x.MaterialControladoId);
+        b.HasOne<Produto>().WithMany().HasForeignKey(x => x.SubstituidoPorId).OnDelete(DeleteBehavior.NoAction);
     }
 }
 

@@ -53,6 +53,7 @@ public static class DependencyInjection
         services.AddScoped<AvaliacaoFornecedoresServico>();
         services.AddScoped<PlanosAcaoServico>();
         services.AddScoped<CadastrosServico>();
+        services.AddScoped<InsumosAntigosServico>();
         services.AddScoped<SistemaServico>();
         services.AddScoped<AnexosServico>();
         services.AddScoped<AcessoFornecedorServico>();

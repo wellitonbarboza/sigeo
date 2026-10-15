@@ -7,11 +7,16 @@ namespace Groundkey.Application.Servicos;
 public enum OrdemProdutos { Codigo, Nome }
 
 /// <summary>Filtro da lista de produtos. Texto procura em código e nome; Grupo é exato; Ativo nulo = todos.</summary>
-public sealed record FiltroProdutos(string? Texto = null, string? Grupo = null, bool? Ativo = null, OrdemProdutos Ordem = OrdemProdutos.Codigo, bool Decrescente = false);
+public sealed record FiltroProdutos(string? Texto = null, string? Grupo = null, bool? Ativo = null, OrdemProdutos Ordem = OrdemProdutos.Codigo, bool Decrescente = false,
+    FiltroCadastroProduto Cadastro = FiltroCadastroProduto.Todos);
+
+/// <summary>Filtro "Cadastro" da tela de produtos: padronizados × antigos (fora do catálogo + a classificar).</summary>
+public enum FiltroCadastroProduto { Todos = 0, Padronizados = 1, Antigos = 2, AClassificar = 3, ForaDoCatalogo = 4 }
 
 /// <summary>Linha da grade de produtos: só as colunas exibidas (o catálogo tem milhares de itens).</summary>
 public sealed record LinhaProduto(Guid Id, string Codigo, string Nome, string Unidade, string? Grupo, string? SubGrupo, string? Ncm,
-    int LeadTimeDias, decimal? PrecoReferencia, string? MaterialControlado, bool Ativo);
+    int LeadTimeDias, decimal? PrecoReferencia, string? MaterialControlado, bool Ativo,
+    SituacaoCadastroProduto Situacao = SituacaoCadastroProduto.Padronizado, string? SubstituidoPor = null);
 
 /// <summary>Página da consulta; <see cref="Pagina"/> volta ajustada quando a pedida passou do fim (ex.: filtro reduziu o total).</summary>
 public sealed record PaginaProdutos(IReadOnlyList<LinhaProduto> Itens, int Total, int Pagina, int Tamanho);
@@ -21,7 +26,7 @@ public sealed record LinhaProdutoExportacao(string Codigo, string Nome, string U
     string? Marca, string? Referencia, string? Ean, decimal? QuantidadePorEmbalagem, string? CodigoAnterior, string? OrigemSistema,
     int LeadTimeDias, decimal? PrecoReferencia, string? MaterialControlado, bool Ativo);
 
-public sealed record ResumoProdutos(int Ativos, int AClassificar, int SemNcm, int Vinculados);
+public sealed record ResumoProdutos(int Ativos, int AClassificar, int SemNcm, int Vinculados, int Padronizados = 0, int ForaDoCatalogo = 0);
 
 /// <summary>
 /// Cadastros de suprimentos: produtos (insumos), categorias e materiais/serviços controlados.
@@ -33,7 +38,7 @@ public sealed class CadastrosServico(IFabricaDb fabrica)
 
     // ───────────── Produtos ─────────────
 
-    private static IQueryable<Produto> Filtrar(IQueryable<Produto> q, FiltroProdutos f)
+    private static IQueryable<Produto> Filtrar(IQueryable<Produto> q, FiltroProdutos f, IQueryable<CategoriaProduto>? cats = null)
     {
         if (!string.IsNullOrWhiteSpace(f.Texto))
         {
@@ -44,6 +49,7 @@ public sealed class CadastrosServico(IFabricaDb fabrica)
         }
         if (!string.IsNullOrWhiteSpace(f.Grupo)) q = q.Where(p => p.Grupo == f.Grupo);
         if (f.Ativo is { } a) q = q.Where(p => p.Ativo == a);
+        if (f.Cadastro != FiltroCadastroProduto.Todos && cats is not null) q = SituacaoCadastro.Filtrar(q, cats, f.Cadastro);
         // Id no desempate: sem ele a mesma linha pode aparecer em duas páginas (ordem instável no SQL).
         return (f.Ordem, f.Decrescente) switch
         {
@@ -59,13 +65,16 @@ public sealed class CadastrosServico(IFabricaDb fabrica)
     {
         tamanho = Math.Clamp(tamanho, 1, TamanhoMaximoPagina);
         await using var db = fabrica.CriarLeitura();
-        var q = Filtrar(db.Produtos, f);
+        var q = Filtrar(db.Produtos, f, db.CategoriasProduto);
         var total = await q.CountAsync(ct);
         pagina = Math.Clamp(pagina, 0, Math.Max(0, (total - 1) / tamanho));
         var itens = await q.Skip(pagina * tamanho).Take(tamanho)
             .Select(p => new LinhaProduto(p.Id, p.Codigo, p.Nome, p.Unidade, p.Grupo, p.SubGrupo, p.Ncm, p.LeadTimeDias, p.PrecoReferencia,
-                p.MaterialControlado == null ? null : p.MaterialControlado.Nome, p.Ativo))
+                p.MaterialControlado == null ? null : p.MaterialControlado.Nome, p.Ativo, SituacaoCadastroProduto.Padronizado,
+                p.SubstituidoPorId == null ? null : db.Produtos.Where(n => n.Id == p.SubstituidoPorId).Select(n => n.Codigo).FirstOrDefault()))
             .ToListAsync(ct);
+        var catalogo = await SituacaoCadastro.CatalogoAsync(db, ct);
+        itens = itens.Select(l => l with { Situacao = SituacaoCadastro.De(l.Grupo, l.SubGrupo, catalogo) }).ToList();
         return new PaginaProdutos(itens, total, pagina, tamanho);
     }
 
@@ -73,7 +82,7 @@ public sealed class CadastrosServico(IFabricaDb fabrica)
     public async Task<List<LinhaProdutoExportacao>> ExportarProdutosAsync(FiltroProdutos f, CancellationToken ct)
     {
         await using var db = fabrica.CriarLeitura();
-        return await Filtrar(db.Produtos, f)
+        return await Filtrar(db.Produtos, f, db.CategoriasProduto)
             .Select(p => new LinhaProdutoExportacao(p.Codigo, p.Nome, p.Unidade, p.Grupo, p.SubGrupo, p.Ncm, p.DescricaoCompleta, p.Marca, p.Referencia, p.Ean,
                 p.QuantidadePorEmbalagem, p.CodigoAnterior, p.OrigemSistema, p.LeadTimeDias, p.PrecoReferencia,
                 p.MaterialControlado == null ? null : p.MaterialControlado.Nome, p.Ativo))
@@ -87,9 +96,11 @@ public sealed class CadastrosServico(IFabricaDb fabrica)
         var ativos = db.Produtos.Where(p => p.Ativo);
         return new(
             await ativos.CountAsync(ct),
-            await ativos.CountAsync(p => p.Grupo == null || p.Grupo.Trim() == "" || p.Grupo == "A Cadastrar", ct),
+            await SituacaoCadastro.Filtrar(ativos, db.CategoriasProduto, FiltroCadastroProduto.AClassificar).CountAsync(ct),
             await ativos.CountAsync(p => p.Ncm == null || p.Ncm == "", ct),
-            await db.Produtos.CountAsync(p => p.MaterialControladoId != null, ct));
+            await db.Produtos.CountAsync(p => p.MaterialControladoId != null, ct),
+            await SituacaoCadastro.Filtrar(ativos, db.CategoriasProduto, FiltroCadastroProduto.Padronizados).CountAsync(ct),
+            await SituacaoCadastro.Filtrar(ativos, db.CategoriasProduto, FiltroCadastroProduto.ForaDoCatalogo).CountAsync(ct));
     }
 
     /// <summary>Grupos e subgrupos já usados no catálogo (sugestões do formulário e filtro por grupo).</summary>
