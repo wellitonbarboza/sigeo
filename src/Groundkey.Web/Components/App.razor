@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="/" />
+    <script>try { const d = document.documentElement.dataset; d.tema = localStorage.getItem('qh.tema') || 'claro'; d.menu = matchMedia('(max-width: 900px)').matches ? 'recolhido' : (localStorage.getItem('qh.menu') || 'aberto'); } catch { }</script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" />
+    <ResourcePreloader />
+    <link rel="stylesheet" href="@Assets["app.css"]" />
+    <link rel="stylesheet" href="@Assets["css/telas-cadastros-engenharia.css"]" />
+    <link rel="stylesheet" href="@Assets["css/telas-suprimentos.css"]" />
+    <link rel="stylesheet" href="@Assets["css/telas-qualidade.css"]" />
+    <link rel="stylesheet" href="@Assets["css/telas-colaboracao.css"]" />
+    <link rel="stylesheet" href="@Assets["css/telas-planejamento.css"]" />
+    <link rel="stylesheet" href="@Assets["Groundkey.Web.styles.css"]" />
+    <link rel="icon" type="image/svg+xml" href="@Assets["favicon.svg"]" />
+    <ImportMap />
+    <HeadOutlet @rendermode="ModoPagina" />
+</head>
+<body>
+    @if (ComCasca)
+    {
+        @* Casca: menu + esqueleto desenhados pelo servidor no HTML inicial. Cobre o instante em que a tela conecta
+           (servidor) ou o navegador inicia (WebAssembly) — inclusive na troca entre os dois —, sem página em branco.
+           O app.js remove a casca assim que a tela interativa aparece. *@
+        <div class="casca" aria-hidden="true">
+            <CascadingAuthenticationState><MainLayout Body="Esqueleto" /></CascadingAuthenticationState>
+        </div>
+    }
+    @if (NoNavegador)
+    {
+        <Groundkey.Web.Client.RotasNavegador @rendermode="ModoPagina" />
+    }
+    else
+    {
+        <Routes @rendermode="ModoPagina" />
+    }
+    <ReconnectModal />
+    <script src="@Assets["app.js"]"></script>
+    <script src="@Assets["js/gantt-local.js"]" defer></script>
+    <script src="@Assets["_framework/blazor.web.js"]"></script>
+</body>
+</html>
+
+@code {
+    [CascadingParameter] private HttpContext HttpContext { get; set; } = default!;
+    // Login e configuração inicial são páginas estáticas (postam formulário e gravam o cookie); o resto é interativo.
+    // Sem pré-renderização: app interno autenticado não precisa de SEO, e com ela cada tela consultava o banco duas vezes
+    // (uma para o HTML inicial e outra ao conectar o circuito) e o conteúdo piscava na troca.
+    private static readonly IComponentRenderMode Interativo = new InteractiveServerRenderMode(prerender: false);
+    // Telas que rodam no navegador (projeto Groundkey.Web.Client). Ir de uma tela do servidor para uma do navegador
+    // (e vice-versa) recarrega a página: o roteador de cada lado só conhece as suas rotas e entrega a outra ao servidor.
+    private static readonly IComponentRenderMode Navegador = new InteractiveWebAssemblyRenderMode(prerender: false);
+    private bool NoNavegador => Groundkey.Web.Client.RotasNavegador.Atende(HttpContext.Request.Path);
+    // Telas com outra moldura (login, portal do fornecedor, campo, impressão) não usam a casca do menu.
+    private static readonly string[] SemCasca = ["/login", "/conta", "/qr", "/cotacao", "/portal", "/configuracao-inicial", "/plataforma/nova-construtora", "/plataforma/ativar", "/fornecedor", "/grd", "/campo", "/engenharia/planejamento/imprimir", "/arquivos", "/api"];
+    private bool ComCasca => ModoPagina is not null && HttpContext.User.Identity?.IsAuthenticated == true
+        && !SemCasca.Any(p => HttpContext.Request.Path.StartsWithSegments(p, StringComparison.OrdinalIgnoreCase));
+    private static readonly RenderFragment Esqueleto = @<Esqueleto Tela Indicadores="4" Linhas="8" />;
+    private IComponentRenderMode? ModoPagina => !HttpContext.AcceptsInteractiveRouting() ? null : NoNavegador ? Navegador : Interativo;
+}

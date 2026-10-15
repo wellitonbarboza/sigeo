@@ -1,0 +1,207 @@
+@* Médio prazo (lookahead): atividades das próximas semanas do cronograma vigente e as restrições que impedem cada uma. *@
+@using Groundkey.Domain.Planejamento
+@inject CurtoPrazoServico Servico
+@inject Catalogos Cat
+@inject Notificacoes Notif
+@inject TimeProvider Relogio
+
+@if (_h is null) { <Esqueleto Indicadores="4" Linhas="8" /> }
+else if (_h.VersaoId is null) { <div class="alerta info"><Icone Nome="info" /> A obra ainda não tem cronograma. Gere pelas redes e aprove a LB0 para planejar o médio prazo.</div> }
+else
+{
+    var ativ = _soBloqueadas ? _h.Atividades.Where(a => !a.Livre).ToList() : _h.Atividades.ToList();
+    <div class="kpis">
+        <Kpi Rotulo="Atividades no horizonte" Valor="@_h.Atividades.Count" Sub="@($"{Data(_h.De)} a {Data(_h.Ate)}")" />
+        <Kpi Rotulo="Livres de restrição" Valor="@_h.Atividades.Count(a => a.Livre)" Sub="podem entrar no plano semanal" Tom="ok" />
+        <Kpi Rotulo="Com restrição" Valor="@_h.Atividades.Count(a => !a.Livre)" Sub="não entram no plano" Tom="@(_h.Atividades.Any(a => !a.Livre) ? "aviso" : "")" />
+        <Kpi Rotulo="Restrições vencidas" Valor="@_restr.Count(r => r.Vencida(Hoje))" Sub="data-limite passou" Tom="@(_restr.Any(r => r.Vencida(Hoje)) ? "erro" : "ok")" />
+    </div>
+    @if (!_h.Vigente) { <div class="alerta aviso"><Icone Nome="alerta" /> Usando a versão @_h.VersaoCodigo, ainda não aprovada. Depois da aprovação, o médio prazo passa a usar a vigente.</div> }
+    <Erros Lista="_erros" />
+    <div class="lp-barra">
+        <label>Horizonte
+            <select id="mp-horizonte" value="@_semanas" @onchange="TrocarHorizonte">
+                @foreach (var n in new[] { 3, 4, 6, 8, 12 }) { <option value="@n">@n semanas</option> }
+            </select>
+        </label>
+        <label class="check-linha"><input type="checkbox" @bind="_soBloqueadas" /> Só com restrição</label>
+        <span class="direita">@if (PodeEditar) { <button class="btn prim" id="mp-nova" @onclick="() => NovaRestricao(null)"><Icone Nome="mais" Tam="14" /> Nova restrição</button> }</span>
+    </div>
+    <div class="tabela-rolavel"><table class="itens lp-lookahead" id="mp-atividades">
+        <thead><tr><th>Semana</th><th>Atividade</th><th>Grupo</th><th>Início</th><th>Término</th><th>Situação</th><th></th></tr></thead>
+        <tbody>
+            @foreach (var a in ativ)
+            {
+                <tr class="@(a.Livre ? "livre" : "bloq")" @key="a.Chave">
+                    <td class="sem">@Data(PlanoSemanal.SegundaDe(a.Inicio < _h.De ? _h.De : a.Inicio))</td>
+                    <td>@a.Eap @a.Nome @if (a.Critica) { <Selo Texto="crítica" Tom="erro" /> }</td>
+                    <td class="mudo">@a.Grupo</td><td>@Data(a.Inicio)</td><td>@Data(a.Termino)</td>
+                    <td>@if (a.Livre) { <span class="lp-livre">✓ livre</span> } else { <span class="lp-bloq">✕ @a.RestricoesAbertas restrição(ões)@(a.RestricoesVencidas > 0 ? $" · {a.RestricoesVencidas} vencida(s)" : "")</span> }</td>
+                    <td>@if (PodeEditar) { <button class="btn sec pq" title="Registrar restrição desta atividade" @onclick="() => NovaRestricao(a)">+ Restrição</button> }</td>
+                </tr>
+            }
+            @if (ativ.Count == 0) { <tr><td colspan="7" class="mudo">Nenhuma atividade no horizonte.</td></tr> }
+        </tbody>
+    </table></div>
+
+    <h4 class="mt-12">Restrições <small class="mudo">(@_restr.Count(r => r.Aberta) abertas)</small>
+        <label class="check-linha fonte-13"><input type="checkbox" checked="@_todas" @onchange="AlternarTodas" /> Mostrar removidas e canceladas</label></h4>
+    <div class="tabela-rolavel"><table class="itens" id="mp-restricoes">
+        <thead><tr><th>Nº</th><th>Tipo</th><th>Restrição</th><th>Atividade</th><th>Responsável</th><th>Data-limite</th><th>Situação</th><th></th></tr></thead>
+        <tbody>
+            @foreach (var r in _restr)
+            {
+                <tr @key="r.Id" class="@(_destacar == r.Id ? "destaque" : "")">
+                    <td>@r.Numero</td><td>@De(r.Tipo)</td><td>@r.Descricao @if (r.Resolucao is { Length: > 0 } res) { <div class="mudo fonte-13">@res</div> }</td>
+                    <td>@r.AtividadeNome</td><td>@r.ResponsavelNome</td>
+                    <td class="@(r.Vencida(Hoje) ? "texto-erro" : "")">@Data(r.DataLimite)</td>
+                    <td><Selo Texto="@(r.Vencida(Hoje) ? "Vencida" : De(r.Status))" Tom="@(r.Vencida(Hoje) ? "erro" : Tom(r.Status))" /></td>
+                    <td class="nowrap">@if (PodeEditar && r.Aberta)
+                        {
+                            <button class="btn ok pq" title="Restrição removida" @onclick="() => AbrirEncerrar(r, true)">Removida</button>
+                            <button class="icone-btn" title="Editar" @onclick="() => Editar(r)"><Icone Nome="editar" Tam="15" /></button>
+                            <button class="icone-btn" title="Cancelar" @onclick="() => AbrirEncerrar(r, false)"><Icone Nome="x" Tam="15" /></button>
+                        }</td>
+                </tr>
+            }
+            @if (_restr.Count == 0) { <tr><td colspan="8" class="mudo">Nenhuma restrição registrada. Revise o horizonte com a equipe toda semana: projeto, material, mão de obra, contrato, equipamento.</td></tr> }
+        </tbody>
+    </table></div>
+}
+
+<Modal @bind-Aberto="_aberto" Titulo="@(_r?.Numero > 0 ? $"Restrição {_r.Numero}" : "Nova restrição")" Tamanho="media toque">
+    <ChildContent>
+        @if (_r is not null)
+        {
+            <Erros Lista="_errosModal" />
+            <div class="form">
+                <Campo Rotulo="Atividade do cronograma" Obrigatorio Classe="s12">
+                    <select id="rs-atividade" value="@_r.AtividadeChave" @onchange="EscolherAtividade">
+                        <option value="">Selecione…</option>
+                        @if (_r.AtividadeChave is { Length: > 0 } k && _h?.Atividades.All(a => a.Chave != k) == true) { <option value="@k">@_r.AtividadeNome</option> }
+                        @foreach (var a in _h?.Atividades ?? []) { <option value="@a.Chave">@a.Eap @a.Nome (@Data(a.Inicio))</option> }
+                    </select>
+                </Campo>
+                <Campo Rotulo="Tipo" Classe="s4"><select id="rs-tipo" @bind="_r.Tipo">@foreach (var t in Enum.GetValues<TipoRestricao>()) { <option value="@t">@De(t)</option> }</select></Campo>
+                <Campo Rotulo="Responsável por remover" Obrigatorio Classe="s4">
+                    <select id="rs-resp" value="@_r.ResponsavelId" @onchange="e => _r.ResponsavelId = Guid.TryParse(e.Value?.ToString(), out var g) ? g : null">
+                        <option value="">Selecione…</option>@foreach (var u in _usuarios) { <option value="@u.Id">@u.Texto</option> }
+                    </select>
+                </Campo>
+                <Campo Rotulo="Data-limite" Obrigatorio Classe="s4"><input id="rs-limite" type="date" @bind="_r.DataLimite" /></Campo>
+                <Campo Rotulo="O que impede" Obrigatorio Classe="s12"><textarea id="rs-desc" rows="3" @bind="_r.Descricao" placeholder="Ex.: projeto de esquadrias sem revisão final; cimento sem pedido aprovado"></textarea></Campo>
+            </div>
+            <p class="mudo fonte-13">Enquanto aberta, a atividade não entra no plano semanal. O responsável recebe aviso por e-mail perto da data-limite (regra "Restrição do planejamento vencendo").</p>
+        }
+    </ChildContent>
+    <Rodape><button class="btn prim" id="rs-salvar" disabled="@_ocupado" @onclick="Salvar"><Icone Nome="check" Tam="16" /> Salvar</button></Rodape>
+</Modal>
+
+<Modal @bind-Aberto="_abertoEncerrar" Titulo="@(_remover ? "Restrição removida" : "Cancelar restrição")" Tamanho="pequena">
+    <ChildContent>
+        <Erros Lista="_errosModal" />
+        <Campo Rotulo="@(_remover ? "Como foi removida" : "Motivo do cancelamento")" Obrigatorio><textarea id="rs-como" rows="3" @bind="_texto"></textarea></Campo>
+    </ChildContent>
+    <Rodape><button class="btn prim" id="rs-encerrar" disabled="@_ocupado" @onclick="Encerrar"><Icone Nome="check" Tam="16" /> Confirmar</button></Rodape>
+</Modal>
+
+@code {
+    [Parameter] public Guid ObraId { get; set; }
+    [Parameter] public bool PodeEditar { get; set; }
+    [Parameter] public Guid? Destacar { get; set; }
+    [Parameter] public EventCallback AoMudar { get; set; }
+
+    private CurtoPrazoServico.Horizonte? _h;
+    private List<Restricao> _restr = [];
+    private List<Opcao> _usuarios = [];
+    private int _semanas = 6;
+    private bool _soBloqueadas, _todas, _aberto, _abertoEncerrar, _remover, _ocupado;
+    private Restricao? _r, _alvo;
+    private string? _texto;
+    private Guid? _destacar;
+    private Guid _carregada;
+    private IReadOnlyList<string>? _erros, _errosModal;
+    private DateOnly Hoje => DateOnly.FromDateTime(Relogio.GetLocalNow().Date);
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_carregada == ObraId) return;
+        _carregada = ObraId;
+        _usuarios = await Cat.UsuariosAsync();
+        await Carregar();
+        if (Destacar is { } d && _restr.FirstOrDefault(r => r.Id == d) is { } alvo) { _destacar = d; if (PodeEditar && alvo.Aberta) Editar(alvo); }
+    }
+
+    private async Task Carregar()
+    {
+        _h = await Servico.MedioPrazoAsync(ObraId, _semanas);
+        _restr = await Servico.RestricoesAsync(ObraId, !_todas);
+    }
+
+    private async Task TrocarHorizonte(ChangeEventArgs e) { _semanas = int.Parse(e.Value!.ToString()!); await Carregar(); }
+    private async Task AlternarTodas(ChangeEventArgs e) { _todas = (bool)e.Value!; await Carregar(); }
+
+    private void NovaRestricao(CurtoPrazoServico.AtividadeHorizonte? a)
+    {
+        _errosModal = null;
+        _r = new Restricao { ObraId = ObraId, DataLimite = Hoje.AddDays(7) };
+        if (a is not null) Aplicar(a);
+        _aberto = true;
+    }
+
+    private void Editar(Restricao r)
+    {
+        _errosModal = null;
+        _r = new Restricao { Id = r.Id, Numero = r.Numero, ObraId = r.ObraId, Tipo = r.Tipo, Descricao = r.Descricao, AtividadeChave = r.AtividadeChave, AtividadeNome = r.AtividadeNome,
+            InicioPrevisto = r.InicioPrevisto, ResponsavelId = r.ResponsavelId, ResponsavelNome = r.ResponsavelNome, DataLimite = r.DataLimite };
+        _aberto = true;
+    }
+
+    private void EscolherAtividade(ChangeEventArgs e)
+    {
+        var k = e.Value?.ToString() ?? "";
+        if (_h?.Atividades.FirstOrDefault(a => a.Chave == k) is { } a) Aplicar(a);
+    }
+
+    private void Aplicar(CurtoPrazoServico.AtividadeHorizonte a)
+    {
+        _r!.AtividadeChave = a.Chave; _r.AtividadeNome = $"{a.Eap} {a.Nome}".Trim(); _r.InicioPrevisto = a.Inicio;
+        var limite = a.Inicio.AddDays(-3);
+        if (_r.Numero == 0) _r.DataLimite = limite > Hoje ? limite : Hoje;
+    }
+
+    private async Task Salvar()
+    {
+        if (_r is null) return;
+        if (await Rodar(async () => { _r.ResponsavelNome = _usuarios.FirstOrDefault(u => u.Id == _r.ResponsavelId)?.Texto ?? ""; await Servico.SalvarRestricaoAsync(_r); }, "Restrição salva.", modal: true))
+            _aberto = false;
+    }
+
+    private void AbrirEncerrar(Restricao r, bool remover) { _alvo = r; _remover = remover; _texto = null; _errosModal = null; _abertoEncerrar = true; }
+
+    private async Task Encerrar()
+    {
+        if (_alvo is null) return;
+        var id = _alvo.Id;
+        if (await Rodar(() => _remover ? Servico.RemoverRestricaoAsync(id, _texto ?? "") : Servico.CancelarRestricaoAsync(id, _texto ?? ""),
+                _remover ? "Restrição removida: a atividade pode entrar no plano semanal." : "Restrição cancelada.", modal: true))
+            _abertoEncerrar = false;
+    }
+
+    private async Task<bool> Rodar(Func<Task> acao, string ok, bool modal = false)
+    {
+        _ocupado = true; _erros = null; _errosModal = null;
+        try
+        {
+            await acao();
+            Notif.Sucesso(ok);
+            await Carregar();
+            await AoMudar.InvokeAsync();
+            return true;
+        }
+        catch (ValidacaoException v) { if (modal) _errosModal = v.Erros; else _erros = v.Erros; }
+        catch (RegraDeNegocioException r) { if (modal) _errosModal = [r.Message]; else _erros = [r.Message]; }
+        finally { _ocupado = false; }
+        return false;
+    }
+}

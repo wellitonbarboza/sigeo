@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# QualyHub — credenciais da API do SIEG de uma construtora (cada uma tem o seu contrato). Uso no Cloud Shell:
+# Groundkey — credenciais da API do SIEG de uma construtora (cada uma tem o seu contrato). Uso no Cloud Shell:
 #   bash configurar-sieg.sh
 # Pede o código da empresa (aparece na tela Suprimentos › Notas fiscais) e as 3 credenciais da API nova do SIEG
 # (painel do SIEG › API: API Key, Client ID e Secret Key). Grava no Key Vault — nunca em arquivo — e reinicia o site.
 set -euo pipefail
 RG="${RG:-rg-qualyhub-prd}"
-WEB="${WEB:-$(az webapp list -g "$RG" --query "[?name=='qualyhub'] | [0].name" -o tsv)}"
+WEB="${WEB:-$(az webapp list -g "$RG" --query "([?name=='groundkey'].name)[0] || ([?name=='qualyhub'].name)[0]" -o tsv)}"
 KV=$(az keyvault list -g "$RG" --query "[0].name" -o tsv)
 read -r -p "Código da empresa (GUID mostrado na tela de notas fiscais): " EMP
 [[ "$EMP" =~ ^[0-9a-fA-F-]{36}$ ]] || { echo "Código inválido."; exit 1; }

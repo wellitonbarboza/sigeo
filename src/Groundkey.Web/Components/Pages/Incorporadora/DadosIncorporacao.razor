@@ -1,0 +1,151 @@
+@page "/incorporacao/empreendimento"
+@inherits PaginaBase
+@using Groundkey.Domain.Incorporacao
+@inject IncorporacaoServico Inc
+
+<Pagina Titulo="Incorporação e RET" AoAtualizar="Carregar">
+    <ChildContent>
+        <div class="pagina">
+            <div class="barra-filtro"><SeletorObra Id="inc-obra" Valor="_obraId" ValorChanged="TrocarObra" Inicial="ObraQuery" /></div>
+            <Abas Itens="_abas" @bind-Ativa="_aba" />
+            <Erros Lista="ErrosForm" />
+            @if (_aba == "dados")
+            {
+                @if (_obraId is null) { <div class="alerta info"><Icone Nome="info" /> Escolha a obra.</div> }
+                else if (_i is not null)
+                {
+                    <div class="form">
+                        <Campo Rotulo="Empreendimento" Obrigatorio Classe="s6"><input id="inc-nome" @bind="_i.Nome" maxlength="150" /></Campo>
+                        <Campo Rotulo="SPE" Classe="s6"><select value="@(_i.SpeId?.ToString() ?? "")" @onchange="e => _i.SpeId = Guid.TryParse(e.Value?.ToString(), out var g) ? g : null"><option value="">—</option>@foreach (var s in _spes) { <option value="@s.Id">@s.Texto</option> }</select></Campo>
+                        <Campo Rotulo="Registro do memorial (matrícula/R.)" Classe="s6"><input @bind="_i.MemorialRegistro" maxlength="120" /></Campo>
+                        <Campo Rotulo="Data do registro" Classe="s3"><input type="date" @bind="_i.DataRegistroMemorial" /></Campo>
+                        <Campo Rotulo="Previsão das chaves" Classe="s3"><input id="inc-chaves" type="date" @bind="_i.PrevisaoChaves" /></Campo>
+                        <Campo Rotulo="" Classe="s3"><label><input id="inc-afetacao" type="checkbox" @bind="_i.PatrimonioAfetacao" /> Patrimônio de afetação</label></Campo>
+                        <Campo Rotulo="Averbação" Classe="s3"><input type="date" @bind="_i.DataAverbacao" /></Campo>
+                        <Campo Rotulo="CNPJ da incorporação" Classe="s6" Ajuda="Inscrição própria exigida para o RET"><input @bind="_i.CnpjIncorporacao" maxlength="18" /></Campo>
+                        <Campo Rotulo="Regime tributário" Classe="s4"><select id="inc-regime" @bind="_i.Regime">@foreach (var r in Enum.GetValues<RegimeTributario>()) { <option value="@r">@NomesVenda.Regime(r)</option> }</select></Campo>
+                        <Campo Rotulo="Opção pelo RET" Classe="s4"><input type="date" @bind="_i.DataOpcaoRet" /></Campo>
+                        <Campo Rotulo="Vencimento do DARF (dia)" Classe="s4"><input type="number" min="1" max="28" @bind="_i.DiaVencimentoRet" /></Campo>
+                        <Campo Rotulo="" Classe="s12"><label><input type="checkbox" @bind="_i.OpcaoTransicaoIbsCbs" /> Optou pelo recolhimento unificado de IBS/CBS na transição (pedido do RET antes de 01/01/2029)</label></Campo>
+                        <Campo Rotulo="Índice até as chaves" Classe="s4"><input @bind="_i.IndiceAteChaves" list="inc-indices" maxlength="20" /></Campo>
+                        <Campo Rotulo="Índice após as chaves" Classe="s4"><input @bind="_i.IndiceAposChaves" list="inc-indices" maxlength="20" /></Campo>
+                        <Campo Rotulo="Juros após as chaves (% a.m.)" Classe="s4"><input type="number" step="0.01" @bind="_i.JurosAposChavesMes" /></Campo>
+                        <datalist id="inc-indices"><option>INCC</option><option>IPCA</option><option>IGPM</option><option>CUB</option></datalist>
+                    </div>
+                    <div class="alerta info mt-12"><Icone Nome="info" /> RET: imposto sobre a receita <b>recebida</b> no mês (regime de caixa). Alíquotas por vigência na aba "Alíquotas" — a reforma tributária entra como nova vigência, sem mudar o sistema. Confira com o contador.</div>
+                    <div class="barra-acoes mt-12"><button class="btn prim" id="inc-salvar" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="16" /> Salvar</button></div>
+                }
+            }
+            else if (_aba == "aliq")
+            {
+                <table class="itens" id="inc-aliquotas">
+                    <thead><tr><th>Regime</th><th>Vigência</th><th class="num">IRPJ</th><th class="num">CSLL</th><th class="num">PIS</th><th class="num">COFINS</th><th class="num">CBS</th><th class="num">IBS</th><th class="num">Total</th><th>Código</th><th></th></tr></thead>
+                    <tbody>
+                        @foreach (var a in _aliqs)
+                        {
+                            var al = a;
+                            <tr><td>@NomesVenda.Regime(al.Regime)</td><td>@al.VigenciaInicio.ToString("dd/MM/yyyy")</td><td class="num">@al.Irpj</td><td class="num">@al.Csll</td><td class="num">@al.Pis</td><td class="num">@al.Cofins</td>
+                                <td class="num">@al.Cbs</td><td class="num">@al.Ibs</td><td class="num"><b>@al.Total.ToString("N2", Br)%</b></td><td>@al.CodigoReceita</td>
+                                <td><button class="btn sec pq" @onclick="() => { ErrosForm = null; _a = al; _abertoAliq = true; }">Editar</button></td></tr>
+                        }
+                    </tbody>
+                </table>
+                <div class="barra-acoes mt-12"><button class="btn sec" id="inc-nova-aliq" @onclick="() => { ErrosForm = null; _a = new AliquotaRegime { Regime = RegimeTributario.RetGeral, VigenciaInicio = Hoje }; _abertoAliq = true; }"><Icone Nome="mais" Tam="16" /> Nova vigência</button></div>
+            }
+            else if (_aba == "idx")
+            {
+                <p class="mudo fonte-13">Variação mensal (%) dos índices usados na correção das parcelas. Mês sem índice conta 0% e aparece como aviso na carteira.</p>
+                <div class="barra-filtro">
+                    <label>Índice <input id="idx-nome" class="larg-110" @bind="_idxNome" list="inc-indices2" /></label>
+                    <label>Mês <input id="idx-mes" type="month" @bind="_idxMes" @bind:format="yyyy-MM" /></label>
+                    <label>Variação (%) <input id="idx-valor" type="number" step="0.0001" class="larg-110" @bind="_idxValor" /></label>
+                    <button class="btn sec" id="idx-salvar" disabled="@Ocupado" @onclick="SalvarIndice"><Icone Nome="check" Tam="16" /> Gravar</button>
+                    <datalist id="inc-indices2"><option>INCC</option><option>IPCA</option><option>IGPM</option><option>CUB</option></datalist>
+                </div>
+                <table class="itens" id="idx-tabela">
+                    <thead><tr><th>Mês</th>@foreach (var n in _idxNomes) { <th class="num">@n</th> }</tr></thead>
+                    <tbody>
+                        @foreach (var m in _indices.Select(i => i.Competencia).Distinct().OrderByDescending(m => m))
+                        {
+                            <tr><td>@m.ToString("MM/yyyy")</td>@foreach (var n in _idxNomes) { <td class="num">@(_indices.FirstOrDefault(i => i.Indice == n && i.Competencia == m)?.VariacaoPerc.ToString("N4", Br) ?? "—")</td> }</tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    </ChildContent>
+</Pagina>
+
+<Modal @bind-Aberto="_abertoAliq" Titulo="Alíquota por vigência" Tamanho="pequena">
+    <ChildContent>
+        @if (_a is not null)
+        {
+            <Erros Lista="ErrosForm" />
+            <div class="form">
+                <Campo Rotulo="Regime" Classe="s6"><select @bind="_a.Regime">@foreach (var r in Enum.GetValues<RegimeTributario>()) { <option value="@r">@NomesVenda.Regime(r)</option> }</select></Campo>
+                <Campo Rotulo="Vigência a partir de" Classe="s6"><input type="date" @bind="_a.VigenciaInicio" /></Campo>
+                <Campo Rotulo="IRPJ %" Classe="s4"><input type="number" step="0.0001" @bind="_a.Irpj" /></Campo>
+                <Campo Rotulo="CSLL %" Classe="s4"><input type="number" step="0.0001" @bind="_a.Csll" /></Campo>
+                <Campo Rotulo="PIS %" Classe="s4"><input type="number" step="0.0001" @bind="_a.Pis" /></Campo>
+                <Campo Rotulo="COFINS %" Classe="s4"><input type="number" step="0.0001" @bind="_a.Cofins" /></Campo>
+                <Campo Rotulo="CBS %" Classe="s4"><input type="number" step="0.0001" @bind="_a.Cbs" /></Campo>
+                <Campo Rotulo="IBS %" Classe="s4"><input type="number" step="0.0001" @bind="_a.Ibs" /></Campo>
+                <Campo Rotulo="Código de receita (DARF)" Classe="s6"><input @bind="_a.CodigoReceita" maxlength="20" /></Campo>
+                <Campo Rotulo="Total" Classe="s6"><input readonly value="@_a.Total.ToString("N4", Br)" /></Campo>
+                <Campo Rotulo="Observação" Classe="s12"><input @bind="_a.Observacao" maxlength="300" /></Campo>
+            </div>
+        }
+    </ChildContent>
+    <Rodape><button class="btn prim" id="aliq-salvar" disabled="@Ocupado" @onclick="SalvarAliq"><Icone Nome="check" Tam="16" /> Salvar</button></Rodape>
+</Modal>
+
+@code {
+    [SupplyParameterFromQuery(Name = "obra")] public Guid? ObraQuery { get; set; }
+    private Guid? _obraId;
+    private IncorporacaoObra? _i;
+    private List<Opcao> _spes = [];
+    private List<AliquotaRegime> _aliqs = [];
+    private List<IndiceEconomico> _indices = [];
+    private List<string> _idxNomes = [];
+    private AliquotaRegime? _a;
+    private bool _abertoAliq;
+    private string _aba = "dados";
+    private readonly List<(string, string)> _abas = [("dados", "Dados da incorporação"), ("aliq", "Alíquotas (RET)"), ("idx", "Índices de correção")];
+    private string _idxNome = "INCC";
+    private DateOnly _idxMes;
+    private decimal _idxValor;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _idxMes = new DateOnly(Hoje.Year, Hoje.Month, 1).AddMonths(-1);
+        _spes = await Cat.SpesAsync();
+        await Carregar();
+    }
+
+    private async Task TrocarObra(Guid? id) { _obraId = id; await Carregar(); }
+
+    private async Task Carregar()
+    {
+        _i = _obraId is { } o ? await Inc.ObterAsync(o, Cancelamento) : null;
+        _aliqs = await Inc.AliquotasAsync(Cancelamento);
+        _indices = await Inc.IndicesAsync(Cancelamento);
+        _idxNomes = _indices.Select(i => i.Indice).Distinct().OrderBy(x => x).ToList();
+    }
+
+    private async Task Salvar()
+    {
+        if (_i is null) return;
+        if (await Executar(() => Inc.SalvarAsync(_i, Cancelamento), "Dados da incorporação salvos.")) await Carregar();
+    }
+
+    private async Task SalvarAliq()
+    {
+        if (_a is null) return;
+        if (await Executar(() => Inc.SalvarAliquotaAsync(_a, Cancelamento), "Alíquota salva.")) { _abertoAliq = false; await Carregar(); }
+    }
+
+    private async Task SalvarIndice()
+    {
+        if (await Executar(() => Inc.SalvarIndiceAsync(_idxNome, _idxMes, _idxValor, Cancelamento), "Índice gravado.")) { _idxMes = _idxMes.AddMonths(-1); await Carregar(); }
+    }
+}

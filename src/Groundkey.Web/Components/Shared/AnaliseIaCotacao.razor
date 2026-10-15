@@ -1,0 +1,46 @@
+@* Botão "Análise por IA" do mapa de cotação: compara os fornecedores convidados (preço por item e total, frete, prazo,
+   pagamento, qualificação, último preço e referência) e devolve um texto para o comprador conferir — não escolhe o vencedor.
+   Grava na própria cotação (campo AnaliseIa): a tela salva o que estiver editado antes e recarrega depois (versão do registro). *@
+@using Groundkey.Application.IA
+@inject AnalisesIaServico Ia
+@inject IAssistenteIa Assistente
+@inject Notificacoes Notif
+
+@if (Assistente.Configurado)
+{
+    <div class="caixa-sec mt-10" id="cot-ia">
+        <div class="secao"><Icone Nome="lupa" /> Análise do mapa por IA
+            <span class="acao"><button class="btn sec pq" id="cot-ia-analisar" disabled="@_ocupado" @onclick="Analisar">@(_ocupado ? "Analisando…" : string.IsNullOrWhiteSpace(Cotacao.AnaliseIa) ? "Analisar com IA" : "Analisar de novo")</button></span>
+        </div>
+        <div aria-live="polite">
+            @if (_erro is not null) { <div class="alerta aviso" role="alert"><Icone Nome="exclamacao" /> @_erro</div> }
+            @if (!string.IsNullOrWhiteSpace(Cotacao.AnaliseIa)) { <div class="fonte-13 texto-pre">@Cotacao.AnaliseIa</div> }
+            else if (!_ocupado) { <p class="mudo">Lance os preços dos fornecedores e clique em "Analisar com IA" para um comparativo com pontos de atenção e o que negociar.</p> }
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public Cotacao Cotacao { get; set; } = default!;
+    /// <summary>A análise lê o mapa gravado: a tela salva as alterações antes (false = não analisa).</summary>
+    [Parameter] public Func<Task<bool>>? AntesDeAnalisar { get; set; }
+    /// <summary>Depois de gravar a análise: a tela recarrega a cotação (texto novo e versão do registro).</summary>
+    [Parameter] public EventCallback AoConcluir { get; set; }
+
+    private bool _ocupado;
+    private string? _erro;
+
+    private async Task Analisar()
+    {
+        _erro = null; _ocupado = true;
+        try
+        {
+            if (AntesDeAnalisar is not null && !await AntesDeAnalisar()) return;
+            await Ia.AnalisarMapaCotacaoAsync(Cotacao.Id);
+            Notif.Sucesso("Análise pronta — confira antes de decidir.");
+            await AoConcluir.InvokeAsync();
+        }
+        catch (Groundkey.Domain.Aprovacoes.RegraDeNegocioException e) { _erro = e.Message; }
+        finally { _ocupado = false; }
+    }
+}

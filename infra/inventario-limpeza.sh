@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# QualyHub — inventário do Azure e limpeza do que ficou do app antigo. Uso no Cloud Shell:
+# Groundkey — inventário do Azure e limpeza do que ficou do app antigo. Uso no Cloud Shell:
 #   bash inventario-limpeza.sh
 # 1) Lista TODOS os recursos da assinatura (grupo, tipo, nome) — para ver o que sobrou de testes e da versão antiga.
 # 2) Mostra qual banco o site atual usa e marca os outros bancos / sites / planos como "candidatos".
@@ -7,14 +7,14 @@
 #    portal durante a retenção de backup (7 dias); se quiser guardar para sempre, responda "n" e exporte antes.
 set -euo pipefail
 RG="${RG:-rg-qualyhub-prd}"
-WEB="${WEB:-$(az webapp list -g "$RG" --query "[?name=='qualyhub'] | [0].name" -o tsv)}"
+WEB="${WEB:-$(az webapp list -g "$RG" --query "([?name=='groundkey'].name)[0] || ([?name=='qualyhub'].name)[0]" -o tsv)}"
 confirmar() { read -r -p "$1 (s/N) " r; [[ "$r" =~ ^[sS]$ ]]; }
 
 echo "== Recursos da assinatura =="
 az resource list --query "sort_by([].{grupo:resourceGroup, tipo:type, nome:name, local:location}, &grupo)" -o table
 
 echo; echo "== Site em uso: $WEB =="
-CONN=$(az webapp config connection-string list -g "$RG" -n "$WEB" --query "[?name=='QualyHub'].value | [0]" -o tsv 2>/dev/null || true)
+CONN=$(az webapp config connection-string list -g "$RG" -n "$WEB" --query "[?name=='Groundkey'].value | [0]" -o tsv 2>/dev/null || true)
 DB_USO=$(echo "$CONN" | sed -n 's/.*\(Initial Catalog\|Database\)=\([^;]*\).*/\2/p')
 echo "Banco usado pelo site: ${DB_USO:-desconhecido}"
 
@@ -22,6 +22,9 @@ echo; echo "== Candidatos =="
 for s in $(az webapp list --query "[?name!='$WEB'].[resourceGroup,name]" -o tsv | tr '\t' '|'); do
   g="${s%%|*}"; n="${s#*|}"
   st=$(az webapp show -g "$g" -n "$n" --query state -o tsv)
+  if [[ -n "$(az webapp config appsettings list -g "$g" -n "$n" --query "[?name=='Groundkey__RedirecionarPara'].value | [0]" -o tsv)" ]]; then
+    echo "Site: $g/$n ($st) — redireciona o endereço antigo para o novo: mantido (apagar quebra links antigos)"; continue
+  fi
   echo "Site: $g/$n ($st)"
   confirmar "  Apagar o site $n? (não apaga banco nem arquivos)" && az webapp delete -g "$g" -n "$n" --keep-empty-plan -o none && echo "  apagado"
 done

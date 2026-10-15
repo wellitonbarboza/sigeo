@@ -1,0 +1,10 @@
+@inject Groundkey.Web.Servicos.Notificacoes Notif
+@implements IDisposable
+<div class="toasts" aria-live="polite">
+    @foreach (var t in Notif.Itens.ToList()) { <div class="toast @t.Tipo">@t.Texto</div> }
+</div>
+@code {
+    protected override void OnInitialized() => Notif.Mudou += Atualizar;
+    private void Atualizar() => InvokeAsync(StateHasChanged);
+    public void Dispose() => Notif.Mudou -= Atualizar;
+}

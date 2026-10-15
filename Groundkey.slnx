@@ -1,0 +1,14 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Groundkey.Domain/Groundkey.Domain.csproj" />
+    <Project Path="src/Groundkey.Application/Groundkey.Application.csproj" />
+    <Project Path="src/Groundkey.Infrastructure/Groundkey.Infrastructure.csproj" />
+    <Project Path="src/Groundkey.Contratos/Groundkey.Contratos.csproj" />
+    <Project Path="src/Groundkey.Web/Groundkey.Web.csproj" />
+    <Project Path="src/Groundkey.Web.Client/Groundkey.Web.Client.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Groundkey.Tests/Groundkey.Tests.csproj" />
+    <Project Path="tests/Groundkey.Tests.Integracao/Groundkey.Tests.Integracao.csproj" />
+  </Folder>
+</Solution>

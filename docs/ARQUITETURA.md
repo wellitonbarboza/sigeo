@@ -1,20 +1,20 @@
-# QualyHub — Arquitetura (outubro/2026)
+# Groundkey — Arquitetura (outubro/2026)
 
 ## Camadas
 
 ```
-QualyHub.Web.Client (WebAssembly) ──HTTP /api/telas──┐
+Groundkey.Web.Client (WebAssembly) ──HTTP /api/telas──┐
         ▲ (layout e componentes compartilhados)      ▼
-QualyHub.Web (Blazor Server + API)  ──►  QualyHub.Application (casos de uso)  ──►  QualyHub.Domain (regras puras)
+Groundkey.Web (Blazor Server + API)  ──►  Groundkey.Application (casos de uso)  ──►  Groundkey.Domain (regras puras)
         │                                   ▲      │
-        └──────►  QualyHub.Infrastructure ──┘      └──► QualyHub.Contratos (DTOs da API)
+        └──────►  Groundkey.Infrastructure ──┘      └──► Groundkey.Contratos (DTOs da API)
 ```
 
 | Projeto | O que mora aqui | O que NÃO mora aqui |
 |---|---|---|
 | **Domain** | entidades, value objects, regras puras (travas, rateio, motor do orçamento, gerador de locais) | EF, SQL, Azure |
-| **Application** | serviços de caso de uso (`Servicos/`), abstrações (`Abstracoes/`: `IQualyHubDb`, `IFabricaDb`, `IFabricaSistema`, `IUsuarioAtual`, `IArmazenamento`), utilitários (`Comum/`), carga padrão (`Carga/`) | provedor de banco, migrations, Blob, planilhas |
-| **Infrastructure** | `QualyHubDbContext` (implementa `IQualyHubDb`), configurações EF, migrations, interceptor de auditoria, `FabricaDb`/`FabricaSistema`, armazenamento (Blob/local), importadores de planilha | regra de negócio |
+| **Application** | serviços de caso de uso (`Servicos/`), abstrações (`Abstracoes/`: `IGroundkeyDb`, `IFabricaDb`, `IFabricaSistema`, `IUsuarioAtual`, `IArmazenamento`), utilitários (`Comum/`), carga padrão (`Carga/`) | provedor de banco, migrations, Blob, planilhas |
+| **Infrastructure** | `GroundkeyDbContext` (implementa `IGroundkeyDb`), configurações EF, migrations, interceptor de auditoria, `FabricaDb`/`FabricaSistema`, armazenamento (Blob/local), importadores de planilha | regra de negócio |
 | **Web** | telas `.razor` do servidor, autenticação, endpoints de arquivo, API das telas do navegador (`Servicos/ApiTelas.cs`) | gravação no banco (toda gravação passa por serviço) |
 | **Web.Client** | telas que rodam no navegador (WebAssembly), layout (`MainLayout`) e componentes de apresentação usados pelos dois lados (`Icone`, `Selo`, `Kpi`, `Pagina`, `Modal`, `Abas`, `SeletorLocais`, `SeletorDemanda`), `Rotulos` | acesso a banco (só pela API) |
 | **Contratos** | DTOs trocados entre API e navegador (`Paineis.cs`, `Orcamento.cs`, `Opcao`) | regra, EF |
@@ -40,12 +40,12 @@ QualyHub.Web (Blazor Server + API)  ──►  QualyHub.Application (casos de us
 - CSS: `app.css` (tema, componentes, utilitárias, celular) + `css/telas-*.css` por área.
 
 ## Testes
-- `tests/QualyHub.Tests`: unitários (domínio e validações dos serviços).
-- `tests/QualyHub.Tests.Integracao`: cenários com SQL Server real; rodam quando a variável `QH_TEST_SQL` existe (veja o LEIAME da pasta).
+- `tests/Groundkey.Tests`: unitários (domínio e validações dos serviços).
+- `tests/Groundkey.Tests.Integracao`: cenários com SQL Server real; rodam quando a variável `QH_TEST_SQL` existe (veja o LEIAME da pasta).
 
 ## Área do Fornecedor (`/fornecedor`)
 - Entrada pública por **CNPJ/CPF + código de 6 dígitos** enviado a um **contato cadastrado** escolhido pela pessoa (e-mail ou WhatsApp). Código: 10 min, uso único, 5 tentativas, guardado só como hash (`CodigosAcessoFornecedor`); limites por CNPJ (3/h), por IP (10/h) e por requisição (60 por 5 min).
-- Sessão em cookie próprio (`qualyhub-fornecedor`, 8 h, sem renovação) — separado do login interno; telas internas exigem a claim de empresa. O circuito do Blazor junta as duas identidades e cada tela confere a sua.
+- Sessão em cookie próprio (`groundkey-fornecedor`, 8 h, sem renovação) — separado do login interno; telas internas exigem a claim de empresa. O circuito do Blazor junta as duas identidades e cada tela confere a sua.
 - Depois de entrar: escolhe o CNPJ/construtora (o do documento e os outros em que o mesmo e-mail/celular verificado é contato), vê as cotações com situação (não enviada / enviada / encerrada) e preenche ou edita a proposta; aba "Cadastro e documentos".
 - Envio por `IEnvioMensagens` (Application) → `EnvioAcs` (Azure Communication Services, identidade gerenciada). Desenvolvimento: `EnvioLocalLog` (código no log). Produção sem configuração: canais indisponíveis. Configuração: `infra/configurar-comunicacao.sh`.
 - Links antigos (`/portal/{token}` e `/cotacao/{chave}`) continuam valendo até vencer; a equipe agora usa "Enviar convite"/"Convidar" (contato + canal).
@@ -98,7 +98,7 @@ QualyHub.Web (Blazor Server + API)  ──►  QualyHub.Application (casos de us
 - `AvisosServico` + tabela `AvisosEmail` (fila com chave única por empresa: não repete). A regra (Sistema › Parâmetros e Notificações) decide: ativa + canal E-mail + texto com `{campos}`.
 - `RotinaAvisos` (BackgroundService): a cada 15 min no expediente (seg–sáb, 6h–21h) gera lembretes (aprovação pendente 1×/dia, prazo de aprovação estourado, leitura obrigatória nova, tarefa atribuída e atrasada, RNC vencida, restrição vencendo) e envia a fila; mensagem nova acorda na hora. Fora do expediente só envia quando acordada (Azure SQL pausa).
 - Falha de envio: nova tentativa com espera crescente (1, 4, 9, 16 min), depois "Falhou". Sem ACS configurado a fila espera.
-- Link dos e-mails: `QualyHub:EnderecoSite` ou `https://$WEBSITE_HOSTNAME/` (App Service).
+- Link dos e-mails: `Groundkey:EnderecoSite` ou `https://$WEBSITE_HOSTNAME/` (App Service).
 - Carga padrão v4: regras novas (Nova mensagem interna, Tarefa atribuída, Tarefa atrasada, Restrição do planejamento vencendo); empresas existentes recebem só os eventos que faltam.
 
 ## Plataforma (construtoras, contas entre construtoras, suporte) e estrutura de locais por construtora
@@ -108,7 +108,7 @@ QualyHub.Web (Blazor Server + API)  ──►  QualyHub.Application (casos de us
 - **Estrutura de locais**: `Empresa.ModeloEstrutura` + `NomesNiveis` → `EstruturaLocais` (Condomínios com SPE, Edifício, Loteamento/casas ou personalizado): nomes dos níveis (dono do CNPJ, bloco/torre/quadra, pavimento/nível, unidade, cômodo) e prefixo da unidade gerada ("Apto 101", "Casa 01"). O gerador e os tipos internos seguem Condomínio › Torre › Pavimento › Apartamento › Cômodo; as telas de Obras e Tipologias mostram os nomes da construtora (`Catalogos.EstruturaAsync`).
 
 ## Acesso por tela (módulos da construtora + perfis de acesso)
-- **Catálogo único** (`QualyHub.Contratos/Acesso.cs` → `CatalogoTelas`): módulos e telas com as ações que existem em cada uma
+- **Catálogo único** (`Groundkey.Contratos/Acesso.cs` → `CatalogoTelas`): módulos e telas com as ações que existem em cada uma
   (V Ver, I Incluir/Editar, E Excluir/Cancelar, A Aprovar, X Exportar/Imprimir). Monta o menu, a aba de módulos da plataforma,
   a matriz dos perfis e o bloqueio por endereço. Tela nova entra aqui. Pendências, Mensagens, Tarefas, Painel, Conta e Plataforma ficam fora (livres).
 - **Plataforma › Construtoras › editar › Módulos e telas liberados**: `Empresa.TelasBloqueadas` ("rota;rota"). Módulo Sistema é fixo.
@@ -142,4 +142,11 @@ QualyHub.Web (Blazor Server + API)  ──►  QualyHub.Application (casos de us
 - `Kit_Tipologia_Nest_Cancelli_R01.xlsx`: orçamento revisado R01 do Nest Cancelli (128 serviços, 641 insumos); itens "apt × 38" no
   apartamento, demais na torre com quantidade fixa — o orçamento gerado bate com o total do R01 (teste `KitNestCancelliTests`).
 - **Cronograma**: XML do MS Project (MSPDI) na versão em elaboração; custo em centavos (padrão MSPDI); feriados do calendário do
-  projeto entram no calendário da obra. `Nest_Cancelli_Cronograma_R08_importacao_QualyHub.xml` = baseline R08 adequada.
+  projeto entram no calendário da obra. `Nest_Cancelli_Cronograma_R08_importacao_Groundkey.xml` = baseline R08 adequada.
+
+## Nome do sistema: Groundkey (antes QualyHub) — 15/10/2026
+- Solução, projetos e namespaces: `Groundkey.*`; executável `Groundkey.Web.dll`.
+- Configuração: chaves `Groundkey:*` e conexão `Groundkey`. `ConfiguracaoLegada` copia as antigas (`QualyHub:*`, `ConnectionStrings:QualyHub`, segredos `QualyHub--*`) quando a nova não existe — sites já configurados seguem funcionando.
+- Endereço: `infra/criar-endereco-groundkey.sh` cria o site `groundkey` no mesmo plano (configurações renomeadas, permissões, banco, IA, comunicação) e põe `Groundkey__RedirecionarPara` no site antigo: ele responde 301 para o novo (mantém caminho e parâmetros) e não roda as rotinas em segundo plano.
+- Nomes de recursos do Azure existentes não mudam (grupo `rg-qualyhub-prd`, banco, Key Vault, Storage, grupo `QualyHub-DBA`, papel `qualyhub_app`, modelos de WhatsApp aprovados).
+- Cookies passam a `groundkey` e `groundkey-fornecedor`: todos entram de novo uma vez.

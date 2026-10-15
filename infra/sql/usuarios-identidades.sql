@@ -1,5 +1,5 @@
 -- =====================================================================================
--- QualyHub — usuário da Managed Identity do App Service no Azure SQL (menor privilégio)
+-- Groundkey — usuário da Managed Identity do App Service no Azure SQL (menor privilégio)
 -- {{WEB}} é substituído pelo deploy.sh
 -- =====================================================================================
 IF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name = '{{WEB}}')

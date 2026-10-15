@@ -1,0 +1,62 @@
+@page "/engenharia/planejamento/imprimir"
+@attribute [ExcludeFromInteractiveRouting]
+@layout Groundkey.Web.Components.Layout.LayoutImpressao
+@using Groundkey.Domain.Planejamento
+@using Groundkey.Web.Components.Pages.Engenharia.Partes
+@inject IFabricaDb Fabrica
+
+<PageTitle>Cronograma @_versao?.Codigo · @_obra</PageTitle>
+<style>
+    @@page { size: @Folha @(Paisagem ? "landscape" : "portrait"); margin: 8mm; }
+    body { margin: 0; font-family: Inter, Arial, sans-serif; color: #1f2937; background: #fff; }
+    .carimbo { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #1f2937; padding: 4px 0 6px; margin-bottom: 6px; font-size: 12px; }
+    .carimbo h1 { font-size: 16px; margin: 0; }
+    .legenda { font-size: 10px; color: #475569; margin-top: 6px; }
+    .legenda i { display: inline-block; width: 14px; height: 6px; margin: 0 4px 0 12px; vertical-align: middle; }
+    @@media screen { body { padding: 12px; background: #f1f5f9; } .folha { background: #fff; box-shadow: 0 1px 6px rgba(0,0,0,.15); padding: 8mm; width: max-content; } .dica { font-size: 13px; margin-bottom: 8px; } }
+    @@media print { .dica { display: none; } }
+</style>
+@if (_versao is null)
+{
+    <p>Versão não encontrada.</p>
+}
+else
+{
+    <div class="dica">Na janela de impressão escolha <b>@Folha @(Paisagem ? "paisagem" : "retrato")</b> e "Salvar como PDF" (ou a plotter). <a href="javascript:window.print()">Imprimir agora</a></div>
+    <div class="folha">
+        <div class="carimbo">
+            <div><h1>Cronograma · @_obra</h1>Versão @_versao.Codigo (@Rotulos.De(_versao.Status))@(_versao.Motivo is { Length: > 0 } m ? $" · {m}" : "")</div>
+            <div style="text-align:right">Início @Rotulos.Data(_versao.InicioProjeto) · Término @Rotulos.Data(_versao.TerminoPrevisto)@(_versao.TerminoBase is { } tb ? $" (base {Rotulos.Data(tb)})" : "")<br />
+                Status @Rotulos.Data(_versao.DataStatus) · Custo orçado @_versao.CustoTotal.ToString("C0", Rotulos.Br) · emitido @DateTime.Now.ToString("dd/MM/yyyy HH:mm")</div>
+        </div>
+        @((MarkupString)_svg)
+        <div class="legenda"><i style="background:#4f52d6"></i>atividade (cheio = avanço)<i style="background:#d64545"></i>caminho crítico<i style="background:#a5a8ee;height:3px"></i>linha de base<i style="background:#64748b"></i>agrupador<i style="background:#d4691e;height:1px"></i>data de status</div>
+    </div>
+    <script>window.addEventListener('load', () => setTimeout(() => window.print(), 500));</script>
+}
+
+@code {
+    [SupplyParameterFromQuery(Name = "versao")] public Guid Versao { get; set; }
+    [SupplyParameterFromQuery(Name = "folha")] public string? FolhaQuery { get; set; }
+    [SupplyParameterFromQuery(Name = "orientacao")] public string? Orientacao { get; set; }
+    [SupplyParameterFromQuery(Name = "nivel")] public int? Nivel { get; set; }
+    [SupplyParameterFromQuery(Name = "base")] public bool? Base { get; set; }
+
+    private static readonly Dictionary<string, (double L, double A)> Folhas = new() { ["A0"] = (1189, 841), ["A1"] = (841, 594), ["A2"] = (594, 420), ["A3"] = (420, 297), ["A4"] = (297, 210) };
+    private string Folha => FolhaQuery is { } f && Folhas.ContainsKey(f) ? f : "A3";
+    private bool Paisagem => Orientacao != "retrato";
+    private VersaoCronograma? _versao;
+    private string _obra = "", _svg = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = Fabrica.CriarLeitura();
+        _versao = await db.VersoesCronograma.AsNoTracking().Include(v => v.Atividades).Include(v => v.Vinculos).AsSplitQuery().FirstOrDefaultAsync(v => v.Id == Versao);
+        if (_versao is null) return;
+        _obra = await db.Obras.AsNoTracking().Where(o => o.Id == _versao.ObraId).Select(o => o.Codigo + " – " + o.Nome).FirstAsync();
+        var cal = await PlanejamentoServico.CalendarioAsync(db, _versao.ObraId);
+        var (l, a) = Folhas[Folha];
+        var larguraMm = (Paisagem ? Math.Max(l, a) : Math.Min(l, a)) - 16 - 1;
+        _svg = CronogramaVisao.GanttSvg(_versao, cal, larguraMm * 96 / 25.4, Nivel ?? 9, Base ?? true, _obra);
+    }
+}

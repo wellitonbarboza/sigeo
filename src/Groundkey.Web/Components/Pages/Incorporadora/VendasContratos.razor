@@ -1,0 +1,307 @@
+@page "/incorporacao/vendas"
+@inherits PaginaBase
+@using Groundkey.Domain.Incorporacao
+@using Groundkey.Domain.Financeiro
+@inject IncorporacaoServico Inc
+@inject FinanceiroServico Fin
+
+<Pagina Titulo="Vendas e contratos" Grade="GradeAtiva" AoNovo="Novo" AoAtualizar="Carregar">
+    <ChildContent>
+        <div class="pagina">
+            <div class="barra-filtro"><SeletorObra Id="vd-obra" Valor="_obraId" ValorChanged="TrocarObra" Inicial="ObraQuery" /></div>
+            @if (_obraId is null) { <div class="alerta info"><Icone Nome="info" /> Escolha a obra.</div> }
+            else
+            {
+                <Abas Itens="_abas" @bind-Ativa="_aba" />
+                @if (_aba == "contratos")
+                {
+                    <Grade T="LinhaContratoVenda" @ref="_grade" Itens="_contratos" AoClicar="l => Abrir(l.Id)" NomeExportacao="contratos-venda" Vazio="Nenhuma venda. Use Novo (ou Vender no espelho).">
+                        <Colunas>
+                            <Coluna T="LinhaContratoVenda" Titulo="Nº" Valor="l => l.Numero" Largura="70px" />
+                            <Coluna T="LinhaContratoVenda" Titulo="Unidade" Valor="l => l.Unidade" />
+                            <Coluna T="LinhaContratoVenda" Titulo="Comprador" Valor="l => l.Comprador" />
+                            <Coluna T="LinhaContratoVenda" Titulo="Data" Valor="l => l.Data" Formato="dd/MM/yyyy" Largura="100px" />
+                            <Coluna T="LinhaContratoVenda" Titulo="Valor" Valor="l => l.Valor" Formato="N2" Alinhar="num" />
+                            <Coluna T="LinhaContratoVenda" Titulo="Recebido" Valor="l => l.Recebido" Formato="N2" Alinhar="num" />
+                            <Coluna T="LinhaContratoVenda" Titulo="A receber (base)" Valor="l => l.AReceber" Formato="N2" Alinhar="num" />
+                            <Coluna T="LinhaContratoVenda" Titulo="Atrasadas" Valor="l => l.Atrasadas" Alinhar="num" Largura="90px" />
+                            <Coluna T="LinhaContratoVenda" Titulo="Situação" Valor="l => l.Status.ToString()" Largura="110px"><Modelo><Selo Texto="@context.Status.ToString()" Tom="@(context.Status == StatusContratoVenda.Ativo ? "info" : context.Status == StatusContratoVenda.Quitado ? "ok" : "neutro")" /></Modelo></Coluna>
+                        </Colunas>
+                    </Grade>
+                }
+                else
+                {
+                    <p class="mudo fonte-13">Dados pessoais dos compradores (LGPD): só quem tem acesso a esta tela vê.</p>
+                    <table class="itens" id="vd-compradores">
+                        <thead><tr><th>Nome</th><th>CPF/CNPJ</th><th>E-mail</th><th>Telefone</th><th></th></tr></thead>
+                        <tbody>
+                            @foreach (var c in _compradores)
+                            {
+                                var comp = c;
+                                <tr><td>@comp.Nome</td><td>@comp.CpfCnpj</td><td>@comp.Email</td><td>@comp.Telefone</td><td><button class="btn sec pq" @onclick="() => { ErrosForm = null; _comp = comp; _abertoComp = true; }">Editar</button></td></tr>
+                            }
+                            @if (_compradores.Count == 0) { <tr><td colspan="5" class="mudo">Nenhum comprador.</td></tr> }
+                        </tbody>
+                    </table>
+                }
+            }
+        </div>
+    </ChildContent>
+</Pagina>
+
+<Modal @bind-Aberto="_aberto" Titulo="@(_c is null ? "" : _c.Numero == 0 ? "Nova venda" : $"Contrato {_c.Numero}")" Tamanho="media">
+    <ChildContent>
+        @if (_c is not null)
+        {
+            <Erros Lista="ErrosForm" />
+            @if (Bloqueado) { <div class="alerta aviso"><Icone Nome="alerta" /> Contrato @_c.Status.ToString().ToLowerInvariant()@(_temRecebido ? " / com parcela recebida" : ""): só consulta. Ajustes de parcela em Contas a Receber.</div> }
+            <div class="form">
+                <Campo Rotulo="Unidade" Obrigatorio Classe="s4"><select id="vd-unidade" value="@_c.UnidadeComercialId" disabled="@Bloqueado" @onchange="TrocarUnidade">
+                    <option value="@Guid.Empty">(escolha)</option>
+                    @foreach (var u in _unidades.Where(u => u.ContratoId is null && u.Situacao != SituacaoUnidade.Bloqueada || u.Id == _c.UnidadeComercialId)) { <option value="@u.Id">@($"{u.Torre} {u.Unidade}".Trim()) @(u.PrecoTabela > 0 ? "· " + u.PrecoTabela.ToString("N0", Br) : "")</option> }
+                </select></Campo>
+                <Campo Rotulo="Comprador" Obrigatorio Classe="s6"><select id="vd-comprador" value="@_c.CompradorId" disabled="@Bloqueado" @onchange="e => _c.CompradorId = Guid.TryParse(e.Value?.ToString(), out var g) ? g : Guid.Empty">
+                    <option value="@Guid.Empty">(escolha)</option>@foreach (var c in _compradores) { <option value="@c.Id">@c.Nome</option> }
+                </select></Campo>
+                <Campo Rotulo="&nbsp;" Classe="s2"><button type="button" class="btn sec pq" id="vd-novo-comp" disabled="@Bloqueado" @onclick="() => { ErrosForm = null; _comp = new Comprador(); _abertoComp = true; }"><Icone Nome="mais" Tam="14" /> Comprador</button></Campo>
+                <Campo Rotulo="Data do contrato" Obrigatorio Classe="s3"><input id="vd-data" type="date" @bind="_c.DataContrato" disabled="@Bloqueado" /></Campo>
+                <Campo Rotulo="Data-base (correção)" Classe="s3"><input type="date" @bind="_c.DataBase" disabled="@Bloqueado" /></Campo>
+                <Campo Rotulo="Valor da venda" Obrigatorio Classe="s3"><input id="vd-valor" type="number" step="0.01" @bind="_c.ValorVenda" disabled="@Bloqueado" /></Campo>
+                <Campo Rotulo="Chaves" Classe="s3"><input type="date" @bind="_c.DataChaves" disabled="@Bloqueado" /></Campo>
+                <Campo Rotulo="Índice até as chaves" Classe="s3"><input @bind="_c.IndiceAteChaves" disabled="@Bloqueado" maxlength="20" /></Campo>
+                <Campo Rotulo="Índice após" Classe="s3"><input @bind="_c.IndiceAposChaves" disabled="@Bloqueado" maxlength="20" /></Campo>
+                <Campo Rotulo="Juros após (% a.m.)" Classe="s3"><input type="number" step="0.01" @bind="_c.JurosAposChavesMes" disabled="@Bloqueado" /></Campo>
+            </div>
+
+            <h3>Condição de pagamento</h3>
+            <div class="tabela-rolavel"><table class="itens" id="vd-blocos">
+                <thead><tr><th>Tipo</th><th class="num">Qtd.</th><th class="num">Valor da parcela</th><th>1º vencimento</th><th>A cada (meses)</th><th>Fornecedor (permuta)</th><th class="num">Total</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var b in _c.Blocos)
+                    {
+                        var bl = b;
+                        <tr @key="bl.Id">
+                            <td><select class="larg-200" @bind="bl.Tipo" disabled="@Bloqueado">@foreach (var t in Enum.GetValues<TipoParcelaVenda>().Where(t => t != TipoParcelaVenda.Avulsa)) { <option value="@t">@NomesVenda.Bloco(t)</option> }</select></td>
+                            <td class="num"><input class="larg-70" type="number" min="1" @bind="bl.Quantidade" disabled="@Bloqueado" /></td>
+                            <td class="num"><input class="larg-110" type="number" step="0.01" @bind="bl.ValorParcela" disabled="@Bloqueado" /></td>
+                            <td><input type="date" @bind="bl.PrimeiroVencimento" disabled="@Bloqueado" /></td>
+                            <td><input class="larg-70" type="number" min="1" @bind="bl.IntervaloMeses" disabled="@Bloqueado" /></td>
+                            <td>@if (bl.Tipo == TipoParcelaVenda.Permuta) { <select value="@(bl.FornecedorPermutaId?.ToString() ?? "")" disabled="@Bloqueado" @onchange="e => bl.FornecedorPermutaId = Guid.TryParse(e.Value?.ToString(), out var g) ? g : null"><option value="">(escolha)</option>@foreach (var f in _fornecedores) { <option value="@f.Id">@f.Texto</option> }</select> }</td>
+                            <td class="num">@bl.Total.ToString("N2", Br)</td>
+                            <td>@if (!Bloqueado) { <button class="icone-btn" title="Remover" @onclick="() => _c.Blocos.Remove(bl)"><Icone Nome="lixeira" Tam="16" /></button> }</td>
+                        </tr>
+                    }
+                </tbody>
+                <tfoot><tr><td colspan="6" class="texto-dir">Soma (falta @((_c.ValorVenda - _c.Blocos.Sum(b => b.Total)).ToString("N2", Br)))</td><td class="num"><b>@_c.Blocos.Sum(b => b.Total).ToString("N2", Br)</b></td><td></td></tr></tfoot>
+            </table></div>
+            @if (!Bloqueado)
+            {
+                <div class="barra-acoes">
+                    @foreach (var t in new[] { TipoParcelaVenda.Entrada, TipoParcelaVenda.Mensal, TipoParcelaVenda.Intermediaria, TipoParcelaVenda.Chaves, TipoParcelaVenda.Financiamento, TipoParcelaVenda.Permuta })
+                    {
+                        var tipo = t;
+                        <button class="btn sec pq" id="@($"vd-add-{tipo}")" @onclick="() => AddBloco(tipo)"><Icone Nome="mais" Tam="14" /> @NomesVenda.Bloco(tipo)</button>
+                    }
+                </div>
+            }
+
+            <h3>Comissões</h3>
+            <div class="tabela-rolavel"><table class="itens" id="vd-comissoes">
+                <thead><tr><th>Corretor / imobiliária</th><th>Papel</th><th class="num">%</th><th class="num">Valor</th><th>Pagamento</th><th class="num">Parcelas</th><th class="num">Após % pago</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var k in _c.Comissoes)
+                    {
+                        var com = k;
+                        <tr @key="com.Id">
+                            <td><select class="larg-200" value="@com.FornecedorId" disabled="@Bloqueado" @onchange="e => com.FornecedorId = Guid.TryParse(e.Value?.ToString(), out var g) ? g : Guid.Empty"><option value="@Guid.Empty">(escolha)</option>@foreach (var f in _fornecedores) { <option value="@f.Id">@f.Texto</option> }</select></td>
+                            <td><input class="larg-110" @bind="com.Papel" disabled="@Bloqueado" maxlength="60" /></td>
+                            <td class="num"><input class="larg-70" type="number" step="0.01" value="@com.Percentual" disabled="@Bloqueado" @onchange="e => { if (decimal.TryParse(e.Value?.ToString(), System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out var p)) { com.Percentual = p; com.Valor = Math.Round(_c.ValorVenda * p / 100m, 2); } }" /></td>
+                            <td class="num"><input class="larg-110" type="number" step="0.01" @bind="com.Valor" disabled="@Bloqueado" /></td>
+                            <td><select class="larg-110" @bind="com.Forma" disabled="@Bloqueado"><option value="@FormaComissao.AVista">À vista</option><option value="@FormaComissao.Parcelada">Parcelada</option><option value="@FormaComissao.AposPercentualPago">Após % pago</option></select></td>
+                            <td class="num">@if (com.Forma == FormaComissao.Parcelada) { <input class="larg-70" type="number" min="2" @bind="com.Parcelas" disabled="@Bloqueado" /> }</td>
+                            <td class="num">@if (com.Forma == FormaComissao.AposPercentualPago) { <input class="larg-70" type="number" step="1" @bind="com.PercentualPagoMinimo" disabled="@Bloqueado" /> }</td>
+                            <td>@if (!Bloqueado) { <button class="icone-btn" title="Remover" @onclick="() => _c.Comissoes.Remove(com)"><Icone Nome="lixeira" Tam="16" /></button> }</td>
+                        </tr>
+                    }
+                </tbody>
+            </table></div>
+            @if (!Bloqueado) { <div class="barra-acoes"><button class="btn sec pq" id="vd-add-comissao" @onclick="AddComissao"><Icone Nome="mais" Tam="14" /> Comissão</button></div> }
+            <Campo Rotulo="Observação"><textarea @bind="_c.Observacao" rows="2" disabled="@Bloqueado"></textarea></Campo>
+
+            @if (_parcelas.Count > 0)
+            {
+                <h3>Parcelas geradas (Contas a Receber)</h3>
+                <table class="itens" id="vd-parcelas"><thead><tr><th>#</th><th>Tipo</th><th>Vencimento</th><th class="num">Valor base</th><th>Situação</th></tr></thead><tbody>
+                    @foreach (var p in _parcelas) { <tr><td>@p.Parcela</td><td>@NomesVenda.Bloco(p.TipoVenda)</td><td>@p.Vencimento.ToString("dd/MM/yyyy")</td><td class="num">@p.Valor.ToString("N2", Br)</td><td>@(p.Status == StatusParcelaTitulo.Paga ? $"Recebida {p.DataPagamento:dd/MM/yyyy}" : p.DiasAtraso > 0 ? $"Vencida {p.DiasAtraso}d" : "A vencer")</td></tr> }
+                </tbody></table>
+            }
+        }
+    </ChildContent>
+    <Rodape>
+        @if (_c is not null && _c.Numero > 0 && _c.Status == StatusContratoVenda.Ativo)
+        {
+            <button class="btn perigo" id="vd-distratar" @onclick="() => { ErrosForm = null; _distrato = true; _dData = Hoje; _dValor = 0; _dMotivo = null; }"><Icone Nome="x" Tam="16" /> Distratar</button>
+        }
+        @if (!Bloqueado) { <button class="btn prim" id="vd-salvar" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="16" /> Salvar e gerar parcelas</button> }
+    </Rodape>
+</Modal>
+
+<Modal @bind-Aberto="_abertoComp" Titulo="Comprador" Tamanho="pequena">
+    <ChildContent>
+        @if (_comp is not null)
+        {
+            <Erros Lista="ErrosForm" />
+            <div class="form">
+                <Campo Rotulo="Nome" Obrigatorio Classe="s12"><input id="comp-nome" @bind="_comp.Nome" maxlength="200" /></Campo>
+                <Campo Rotulo="CPF/CNPJ" Classe="s6"><input id="comp-doc" @bind="_comp.CpfCnpj" maxlength="18" /></Campo>
+                <Campo Rotulo="Telefone" Classe="s6"><input @bind="_comp.Telefone" maxlength="60" /></Campo>
+                <Campo Rotulo="E-mail" Classe="s12"><input @bind="_comp.Email" maxlength="200" /></Campo>
+                <Campo Rotulo="Endereço" Classe="s12"><input @bind="_comp.Endereco" maxlength="300" /></Campo>
+                <Campo Rotulo="Cônjuge" Classe="s12"><input @bind="_comp.Conjuge" maxlength="200" /></Campo>
+            </div>
+        }
+    </ChildContent>
+    <Rodape><button class="btn prim" id="comp-salvar" disabled="@Ocupado" @onclick="SalvarComprador"><Icone Nome="check" Tam="16" /> Salvar</button></Rodape>
+</Modal>
+
+<Modal @bind-Aberto="_distrato" Titulo="Distrato" Tamanho="pequena">
+    <ChildContent>
+        <Erros Lista="ErrosForm" />
+        <p>Cancela as parcelas em aberto e as comissões ainda não pagas e devolve a unidade ao estoque. A devolução vira conta a pagar ao comprador. A retenção segue o contrato e a Lei 13.786/2018 (confirme com o jurídico).</p>
+        <div class="form">
+            <Campo Rotulo="Data" Classe="s6"><input type="date" @bind="_dData" /></Campo>
+            <Campo Rotulo="Valor a devolver" Classe="s6"><input id="dis-valor" type="number" step="0.01" @bind="_dValor" /></Campo>
+            <Campo Rotulo="Motivo" Obrigatorio Classe="s12"><input id="dis-motivo" @bind="_dMotivo" /></Campo>
+        </div>
+    </ChildContent>
+    <Rodape><button class="btn perigo" id="dis-ok" disabled="@Ocupado" @onclick="Distratar">Confirmar distrato</button></Rodape>
+</Modal>
+
+@code {
+    [SupplyParameterFromQuery(Name = "obra")] public Guid? ObraQuery { get; set; }
+    [SupplyParameterFromQuery(Name = "unidade")] public Guid? UnidadeQuery { get; set; }
+    [SupplyParameterFromQuery(Name = "contrato")] public Guid? ContratoQuery { get; set; }
+    private Grade<LinhaContratoVenda>? _grade;
+    private IGrade? GradeAtiva => _aba == "contratos" ? _grade : null;
+    private IGrade? _gradeVista;
+    protected override void OnAfterRender(bool firstRender) { if (!ReferenceEquals(_gradeVista, GradeAtiva)) { _gradeVista = GradeAtiva; StateHasChanged(); } }
+
+    private Guid? _obraId;
+    private string _aba = "contratos";
+    private readonly List<(string, string)> _abas = [("contratos", "Contratos"), ("compradores", "Compradores")];
+    private List<LinhaContratoVenda> _contratos = [];
+    private List<LinhaUnidade> _unidades = [];
+    private List<Comprador> _compradores = [];
+    private List<Opcao> _fornecedores = [];
+    private List<LinhaParcelaFin> _parcelas = [];
+    private ContratoVenda? _c;
+    private Comprador? _comp;
+    private IncorporacaoObra? _inc;
+    private bool _aberto, _abertoComp, _distrato, _temRecebido, _abriuQuery;
+    private DateOnly _dData;
+    private decimal _dValor;
+    private string? _dMotivo;
+    private bool Bloqueado => _c is not null && (_c.Status != StatusContratoVenda.Ativo || _temRecebido);
+
+    protected override async Task OnInitializedAsync()
+    {
+        _fornecedores = await Cat.FornecedoresAsync();
+        _compradores = await Inc.CompradoresAsync(Cancelamento);
+    }
+
+    private async Task TrocarObra(Guid? id)
+    {
+        _obraId = id;
+        await Carregar();
+        if (!_abriuQuery && _obraId is not null)
+        {
+            _abriuQuery = true;
+            if (ContratoQuery is { } c) await Abrir(c);
+            else if (UnidadeQuery is { } u) { Novo(); if (_c is not null) { _c.UnidadeComercialId = u; _c.ValorVenda = _unidades.FirstOrDefault(x => x.Id == u)?.PrecoTabela ?? 0; } }
+        }
+    }
+
+    private async Task Carregar()
+    {
+        if (_obraId is not { } o) { _contratos = []; _unidades = []; return; }
+        _contratos = await Inc.ContratosAsync(o, Cancelamento);
+        _unidades = await Inc.EspelhoAsync(o, Cancelamento);
+        _inc = await Inc.ObterAsync(o, Cancelamento);
+    }
+
+    private void Novo()
+    {
+        if (_obraId is not { } o) { Notif.Erro("Escolha a obra."); return; }
+        if (_aba == "compradores") { ErrosForm = null; _comp = new Comprador(); _abertoComp = true; return; }
+        ErrosForm = null; _temRecebido = false; _parcelas = [];
+        _c = new ContratoVenda
+        {
+            ObraId = o, DataContrato = Hoje, DataBase = Hoje, IndiceAteChaves = _inc?.IndiceAteChaves ?? "INCC", IndiceAposChaves = _inc?.IndiceAposChaves ?? "IPCA",
+            JurosAposChavesMes = _inc?.JurosAposChavesMes ?? 0, DataChaves = _inc?.PrevisaoChaves
+        };
+        _aberto = true;
+    }
+
+    private async Task Abrir(Guid id)
+    {
+        ErrosForm = null;
+        _c = await Inc.ObterContratoAsync(id, Cancelamento);
+        _parcelas = _c?.TituloId is { } t ? await Fin.ParcelasDoTituloAsync(t, Cancelamento) : [];
+        _temRecebido = _parcelas.Any(p => p.Status == StatusParcelaTitulo.Paga);
+        _aberto = _c is not null;
+    }
+
+    private void TrocarUnidade(ChangeEventArgs e)
+    {
+        if (_c is null || !Guid.TryParse(e.Value?.ToString(), out var g)) return;
+        _c.UnidadeComercialId = g;
+        if (_c.ValorVenda == 0) _c.ValorVenda = _unidades.FirstOrDefault(u => u.Id == g)?.PrecoTabela ?? 0;
+    }
+
+    private void AddBloco(TipoParcelaVenda t)
+    {
+        if (_c is null) return;
+        var falta = Math.Max(_c.ValorVenda - _c.Blocos.Sum(b => b.Total), 0);
+        var inicio = t switch
+        {
+            TipoParcelaVenda.Entrada => _c.DataContrato,
+            TipoParcelaVenda.Chaves or TipoParcelaVenda.Financiamento => _c.DataChaves ?? _c.DataContrato.AddMonths(24),
+            TipoParcelaVenda.Intermediaria => _c.DataContrato.AddMonths(6),
+            _ => _c.DataContrato.AddMonths(1)
+        };
+        var qtd = t switch { TipoParcelaVenda.Mensal => 24, TipoParcelaVenda.Intermediaria => 2, _ => 1 };
+        _c.Blocos.Add(new BlocoCondicaoVenda
+        {
+            Tipo = t, Quantidade = qtd, PrimeiroVencimento = inicio, IntervaloMeses = t == TipoParcelaVenda.Intermediaria ? 12 : 1,
+            ValorParcela = qtd == 0 ? 0 : Math.Round(falta / qtd, 2)
+        });
+    }
+
+    private void AddComissao() => _c?.Comissoes.Add(new ComissaoVenda { Papel = "Corretor" });
+
+    private async Task Salvar()
+    {
+        if (_c is null) return;
+        Guid id = Guid.Empty;
+        if (await Executar(async () => id = await Inc.SalvarContratoAsync(_c, Cancelamento), "Venda salva: parcelas em Contas a Receber e comissões em Contas a Pagar."))
+        { await Carregar(); await Abrir(id); }
+    }
+
+    private async Task SalvarComprador()
+    {
+        if (_comp is null) return;
+        if (await Executar(() => Inc.SalvarCompradorAsync(_comp, Cancelamento), "Comprador salvo."))
+        {
+            _abertoComp = false;
+            _compradores = await Inc.CompradoresAsync(Cancelamento);
+            if (_aberto && _c is not null && _c.CompradorId == Guid.Empty) _c.CompradorId = _comp.Id;
+        }
+    }
+
+    private async Task Distratar()
+    {
+        if (_c is null) return;
+        if (await Executar(() => Inc.DistratarAsync(_c.Id, _dData, _dValor, _dMotivo ?? "", Cancelamento), "Distrato registrado."))
+        { _distrato = false; _aberto = false; await Carregar(); }
+    }
+}

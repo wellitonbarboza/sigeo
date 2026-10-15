@@ -1,0 +1,175 @@
+@page "/financeiro/bancos"
+@inherits PaginaBase
+@using Groundkey.Domain.Financeiro
+@inject FinanceiroServico Fin
+
+<Pagina Titulo="Contas bancárias e caixa" AoNovo="NovaConta" AoAtualizar="Carregar">
+    <ChildContent>
+        <div class="pagina">
+            <div class="kpis">
+                <Kpi Rotulo="Saldo total" Valor="@Moeda(_saldos.Sum(s => s.Saldo))" Tom="info" />
+                <Kpi Rotulo="Contas ativas" Valor="@_saldos.Count" />
+                <Kpi Rotulo="Movimentos a conciliar" Valor="@_saldos.Sum(s => s.NaoConciliados)" Tom="@(_saldos.Sum(s => s.NaoConciliados) > 0 ? "aviso" : "")" />
+            </div>
+            <div class="tabela-rolavel"><table class="itens" id="bc-contas">
+                <thead><tr><th>Conta</th><th class="num">Saldo</th><th class="num">A conciliar</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var s in _saldos)
+                    {
+                        <tr class="@(s.Id == _contaId ? "selecionada" : "")"><td><a href="" @onclick="() => Selecionar(s.Id)" @onclick:preventDefault="true">@s.Conta</a></td>
+                            <td class="num @(s.Saldo < 0 ? "texto-erro" : "")">@s.Saldo.ToString("N2", Br)</td><td class="num">@s.NaoConciliados</td>
+                            <td><button class="btn sec pq" @onclick="() => EditarConta(s.Id)">Editar</button></td></tr>
+                    }
+                    @if (_saldos.Count == 0) { <tr><td colspan="4" class="mudo">Cadastre as contas (botão Novo). O número aparece sempre mascarado.</td></tr> }
+                </tbody>
+            </table></div>
+            @if (_contaId is not null)
+            {
+                <h3 class="mt-12">Extrato — @_saldos.FirstOrDefault(s => s.Id == _contaId)?.Conta</h3>
+                <div class="barra-filtro">
+                    <label>De <input type="date" @bind="_de" @bind:after="CarregarMovimentos" /></label>
+                    <label>Até <input type="date" @bind="_ate" @bind:after="CarregarMovimentos" /></label>
+                </div>
+                <div class="barra-acoes">
+                    <button class="btn sec" id="bc-lancar" @onclick="() => { ErrosForm = null; _lanc = true; _lData = Hoje; _lValor = 0; _lHist = null; }"><Icone Nome="mais" Tam="16" /> Lançamento avulso</button>
+                    <button class="btn sec" id="bc-transf" @onclick="() => { ErrosForm = null; _transf = true; _tData = Hoje; _tValor = 0; _tDestino = string.Empty; }"><Icone Nome="enviar" Tam="16" /> Transferir</button>
+                    <button class="btn sec" id="bc-conciliar" disabled="@(_marcados.Count == 0)" @onclick="() => Conciliar(true)"><Icone Nome="check" Tam="16" /> Conciliar marcados (@_marcados.Count)</button>
+                    <button class="btn sec" disabled="@(_marcados.Count == 0)" @onclick="() => Conciliar(false)">Desfazer conciliação</button>
+                </div>
+                <table class="itens" id="bc-movs">
+                    <thead><tr><th></th><th>Data</th><th>Histórico</th><th class="num">Valor</th><th class="num">Saldo</th><th>Conciliado</th></tr></thead>
+                    <tbody>
+                        @{ var saldo = _saldoAnterior; }
+                        <tr><td></td><td colspan="3" class="mudo">Saldo anterior</td><td class="num">@_saldoAnterior.ToString("N2", Br)</td><td></td></tr>
+                        @foreach (var m in _movs)
+                        {
+                            saldo += m.Valor; var mov = m;
+                            <tr><td><input type="checkbox" checked="@_marcados.Contains(mov.Id)" @onchange="e => { if ((bool)e.Value!) _marcados.Add(mov.Id); else _marcados.Remove(mov.Id); }" /></td>
+                                <td>@mov.Data.ToString("dd/MM/yyyy")</td><td>@mov.Historico</td><td class="num @(mov.Valor < 0 ? "texto-erro" : "")">@mov.Valor.ToString("N2", Br)</td>
+                                <td class="num">@saldo.ToString("N2", Br)</td><td>@(mov.Conciliado ? "Sim" : "—")</td></tr>
+                        }
+                        @if (_movs.Count == 0) { <tr><td colspan="6" class="mudo">Sem movimentos no período.</td></tr> }
+                    </tbody>
+                </table>
+            }
+        </div>
+    </ChildContent>
+</Pagina>
+
+<Modal @bind-Aberto="_abertoConta" Titulo="Conta bancária / caixa" Tamanho="pequena">
+    <ChildContent>
+        @if (_c is not null)
+        {
+            <Erros Lista="ErrosForm" />
+            <div class="form">
+                <Campo Rotulo="Nome" Obrigatorio Classe="s12" Ajuda="Ex.: Banco X — Nest (obra)"><input id="bc-nome" @bind="_c.Nome" maxlength="100" /></Campo>
+                <Campo Rotulo="Tipo" Classe="s6"><select @bind="_c.Tipo"><option value="@TipoContaBancaria.Corrente">Conta corrente</option><option value="@TipoContaBancaria.Aplicacao">Aplicação</option><option value="@TipoContaBancaria.Caixa">Caixa</option></select></Campo>
+                <Campo Rotulo="Banco" Classe="s6"><input @bind="_c.Banco" maxlength="100" /></Campo>
+                <Campo Rotulo="Agência" Classe="s4"><input @bind="_c.Agencia" maxlength="20" /></Campo>
+                <Campo Rotulo="Conta" Classe="s8" Ajuda="Fica guardado; nas telas aparece só o final"><input @bind="_c.Numero" maxlength="30" autocomplete="off" /></Campo>
+                <Campo Rotulo="Titular (CNPJ)" Classe="s12"><select value="@(_c.EstabelecimentoId?.ToString() ?? "")" @onchange="e => _c.EstabelecimentoId = Guid.TryParse(e.Value?.ToString(), out var g) ? g : null"><option value="">—</option>@foreach (var e in _estab) { <option value="@e.Id">@e.Texto</option> }</select></Campo>
+                <Campo Rotulo="Saldo inicial" Classe="s6"><input type="number" step="0.01" @bind="_c.SaldoInicial" /></Campo>
+                <Campo Rotulo="Em" Classe="s6"><input type="date" @bind="_c.DataSaldoInicial" /></Campo>
+                <Campo Rotulo="" Classe="s12"><label><input type="checkbox" @bind="_c.Ativa" /> Ativa</label></Campo>
+            </div>
+        }
+    </ChildContent>
+    <Rodape><button class="btn prim" id="bc-salvar" disabled="@Ocupado" @onclick="SalvarConta"><Icone Nome="check" Tam="16" /> Salvar</button></Rodape>
+</Modal>
+
+<Modal @bind-Aberto="_lanc" Titulo="Lançamento avulso" Tamanho="pequena">
+    <ChildContent>
+        <Erros Lista="ErrosForm" />
+        <div class="form">
+            <Campo Rotulo="Data" Classe="s6"><input type="date" @bind="_lData" /></Campo>
+            <Campo Rotulo="Valor" Classe="s6" Ajuda="Negativo = saída (tarifa); positivo = entrada (rendimento)"><input id="lc-valor" type="number" step="0.01" @bind="_lValor" /></Campo>
+            <Campo Rotulo="Histórico" Obrigatorio Classe="s12"><input id="lc-hist" @bind="_lHist" maxlength="300" /></Campo>
+            <Campo Rotulo="Conta gerencial" Classe="s12"><select @bind="_lConta"><option value="">—</option>@foreach (var c in _contas) { <option value="@c.Id">@c.Rotulo</option> }</select></Campo>
+        </div>
+    </ChildContent>
+    <Rodape><button class="btn prim" id="lc-salvar" disabled="@Ocupado" @onclick="Lancar">Lançar</button></Rodape>
+</Modal>
+
+<Modal @bind-Aberto="_transf" Titulo="Transferência entre contas" Tamanho="pequena">
+    <ChildContent>
+        <Erros Lista="ErrosForm" />
+        <div class="form">
+            <Campo Rotulo="Para" Obrigatorio Classe="s12"><select id="tr-destino" @bind="_tDestino"><option value="">(escolha)</option>@foreach (var s in _saldos.Where(s => s.Id != _contaId)) { <option value="@s.Id">@s.Conta</option> }</select></Campo>
+            <Campo Rotulo="Data" Classe="s6"><input type="date" @bind="_tData" /></Campo>
+            <Campo Rotulo="Valor" Classe="s6"><input id="tr-valor" type="number" step="0.01" @bind="_tValor" /></Campo>
+        </div>
+    </ChildContent>
+    <Rodape><button class="btn prim" id="tr-salvar" disabled="@Ocupado" @onclick="Transferir">Transferir</button></Rodape>
+</Modal>
+
+@code {
+    private List<SaldoConta> _saldos = [];
+    private List<ContaBancaria> _todas = [];
+    private List<ContaGerencial> _contas = [];
+    private List<Opcao> _estab = [];
+    private Guid? _contaId;
+    private DateOnly _de, _ate;
+    private decimal _saldoAnterior;
+    private List<LinhaMovimento> _movs = [];
+    private readonly HashSet<Guid> _marcados = [];
+    private ContaBancaria? _c;
+    private bool _abertoConta, _lanc, _transf;
+    private DateOnly _lData, _tData;
+    private decimal _lValor, _tValor;
+    private string? _lHist;
+    private string _lConta = "", _tDestino = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        _de = new DateOnly(Hoje.Year, Hoje.Month, 1); _ate = Hoje;
+        _contas = await Fin.ContasGerenciaisAsync(true, Cancelamento);
+        _estab = await Cat.EstabelecimentosAsync();
+        await Carregar();
+    }
+
+    private async Task Carregar()
+    {
+        _saldos = await Fin.SaldosAsync(Cancelamento);
+        _todas = await Fin.ContasBancariasAsync(false, Cancelamento);
+        if (_contaId is null && _saldos.Count > 0) _contaId = _saldos[0].Id;
+        await CarregarMovimentos();
+    }
+
+    private async Task Selecionar(Guid id) { _contaId = id; _marcados.Clear(); await CarregarMovimentos(); }
+
+    private async Task CarregarMovimentos()
+    {
+        if (_contaId is not { } id) return;
+        var conta = _todas.First(c => c.Id == id);
+        var anteriores = await Fin.MovimentosAsync(id, DateOnly.MinValue, _de.AddDays(-1), Cancelamento);
+        _saldoAnterior = conta.SaldoInicial + anteriores.Sum(m => m.Valor);
+        _movs = await Fin.MovimentosAsync(id, _de, _ate, Cancelamento);
+    }
+
+    private void NovaConta() { ErrosForm = null; _c = new ContaBancaria { DataSaldoInicial = Hoje }; _abertoConta = true; }
+    private void EditarConta(Guid id) { ErrosForm = null; _c = _todas.FirstOrDefault(c => c.Id == id); _abertoConta = _c is not null; }
+
+    private async Task SalvarConta()
+    {
+        if (_c is null) return;
+        if (await Executar(() => Fin.SalvarContaBancariaAsync(_c, Cancelamento), "Conta salva.")) { _abertoConta = false; await Carregar(); }
+    }
+
+    private async Task Lancar()
+    {
+        if (_contaId is not { } id) return;
+        if (await Executar(() => Fin.LancarMovimentoAsync(id, _lData, _lValor, _lHist ?? "", Guid.TryParse(_lConta, out var g) ? g : null, null, Cancelamento), "Lançado."))
+        { _lanc = false; await Carregar(); }
+    }
+
+    private async Task Transferir()
+    {
+        if (_contaId is not { } id || !Guid.TryParse(_tDestino, out var dest)) { Notif.Erro("Escolha a conta de destino."); return; }
+        if (await Executar(() => Fin.TransferirAsync(id, dest, _tData, _tValor, null, Cancelamento), "Transferência registrada.")) { _transf = false; await Carregar(); }
+    }
+
+    private async Task Conciliar(bool sim)
+    {
+        if (await Executar(() => Fin.ConciliarAsync(_marcados.ToList(), sim, Cancelamento), sim ? "Conciliado." : "Conciliação desfeita.")) { _marcados.Clear(); await Carregar(); }
+    }
+}

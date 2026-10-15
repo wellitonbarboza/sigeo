@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Contratos (DTOs) trocados entre a API do servidor e as telas que rodam no navegador (WebAssembly).
+       Só dados: sem EF Core, sem Azure. Conhece o domínio para reaproveitar enums e rótulos. -->
+  <ItemGroup>
+    <ProjectReference Include="..\Groundkey.Domain\Groundkey.Domain.csproj" />
+  </ItemGroup>
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+</Project>

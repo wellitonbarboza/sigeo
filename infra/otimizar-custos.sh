@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# QualyHub — ajustes de custo e operação no ambiente que já existe (sem recriar nada). Uso no Cloud Shell:
-#   unzip -o qualyhub-app.zip -d qualyhub && cd qualyhub && bash otimizar-custos.sh
+# Groundkey — ajustes de custo e operação no ambiente que já existe (sem recriar nada). Uso no Cloud Shell:
+#   unzip -o groundkey-app.zip -d groundkey && cd groundkey && bash otimizar-custos.sh
 # Cada etapa pergunta antes. Nada é apagado sem confirmação.
 #   1. Para o site antigo (app-qualyhub-prd-…) que divide o plano com o "qualyhub" e mantinha o banco acordado
 #   2. Teto do Log Analytics: 0,3 GB/dia (telemetria amostrada cabe nos 5 GB grátis/mês)
@@ -11,7 +11,7 @@
 set -euo pipefail
 RG="${RG:-rg-qualyhub-prd}"
 confirmar() { read -r -p "$1 (s/N) " r; [[ "$r" =~ ^[sS]$ ]]; }
-WEB="${WEB:-$(az webapp list -g "$RG" --query "[?name=='qualyhub'] | [0].name" -o tsv)}"
+WEB="${WEB:-$(az webapp list -g "$RG" --query "([?name=='groundkey'].name)[0] || ([?name=='qualyhub'].name)[0]" -o tsv)}"
 PLANO=$(az appservice plan list -g "$RG" --query "[0].id" -o tsv)
 SQL=$(az sql server list -g "$RG" --query "[0].name" -o tsv)
 DB=$(az sql db list -g "$RG" -s "$SQL" --query "[?name!='master'] | [0].name" -o tsv)
@@ -21,6 +21,7 @@ echo "Grupo $RG · site $WEB · banco $SQL/$DB · logs $LOGS · cofre $KV"
 
 # 1) Site antigo
 for s in $(az webapp list -g "$RG" --query "[?name!='$WEB' && state=='Running'].name" -o tsv); do
+  [[ -n "$(az webapp config appsettings list -g "$RG" -n "$s" --query "[?name=='Groundkey__RedirecionarPara'].value | [0]" -o tsv)" ]] && { echo "  $s redireciona o endereço antigo: mantido"; continue; }
   confirmar "Parar o site antigo '$s' (o '$WEB' continua no ar)?" && az webapp stop -g "$RG" -n "$s" -o none && echo "  parado: $s"
 done
 

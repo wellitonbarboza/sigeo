@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =====================================================================================
-# QualyHub — provisionamento e publicação no Azure (idempotente: pode rodar de novo)
+# Groundkey — provisionamento e publicação no Azure (idempotente: pode rodar de novo)
 # Pré-requisitos: Azure CLI (az) logado (az login --use-device-code), .NET 10 SDK,
 # sqlcmd (go-sqlcmd), openssl, python3. Permissão Owner (ou Contributor + User Access
 # Administrator) na assinatura e permissão para registrar apps no Entra ID.
@@ -36,11 +36,11 @@ fi
 fi
 GRUPO_ID=${GRUPO_ID:-$(az ad group show --group "$GRUPO_DBA" --query id -o tsv)}
 
-echo "==> 3/8 (login por usuário e senha do próprio QualyHub — sem registro de app no Entra ID)"
+echo "==> 3/8 (login por usuário e senha do próprio Groundkey — sem registro de app no Entra ID)"
 
 if quer 4; then
 echo "==> 4/8 Resource group $RG + infraestrutura (Bicep)"
-az group create -n "$RG" -l "$LOCAL" --tags sistema=QualyHub ambiente="$AMBIENTE" -o none
+az group create -n "$RG" -l "$LOCAL" --tags sistema=Groundkey ambiente="$AMBIENTE" -o none
 az deployment group create -g "$RG" -n "qualyhub-$(date +%Y%m%d%H%M)" \
   --template-file "$DIR/main.bicep" \
   --parameters "$DIR/main.$AMBIENTE.bicepparam" \
@@ -75,7 +75,7 @@ echo "==> 6/8 Banco: script idempotente de migrations + usuário da Managed Iden
 MEU_IP=$(curl -s https://api.ipify.org)
 az sql server firewall-rule create -g "$RG" -s "${SQLSRV%%.*}" -n deploy-temp --start-ip-address "$MEU_IP" --end-ip-address "$MEU_IP" -o none
 trap 'az sql server firewall-rule delete -g "$RG" -s "${SQLSRV%%.*}" -n deploy-temp -o none || true' EXIT
-sqlcmd -S "$SQLSRV" -d "$DB" --authentication-method ActiveDirectoryDefault -l 120 -b -I -i "$RAIZ/db/QualyHub_Inicial.sql"
+sqlcmd -S "$SQLSRV" -d "$DB" --authentication-method ActiveDirectoryDefault -l 120 -b -I -i "$RAIZ/db/Groundkey_Inicial.sql"
 sed -e "s/{{WEB}}/$WEB/g" "$DIR/sql/usuarios-identidades.sql" > /tmp/qh-usuarios.sql
 sqlcmd -S "$SQLSRV" -d "$DB" --authentication-method ActiveDirectoryDefault -b -I -i /tmp/qh-usuarios.sql
 fi
@@ -83,7 +83,7 @@ fi
 if quer 7; then
 echo "==> 7/8 Publicação da aplicação"
 rm -rf /tmp/qh-pub /tmp/qh-pub.zip
-dotnet publish "$RAIZ/src/QualyHub.Web" -c Release -r linux-x64 --self-contained false -o /tmp/qh-pub
+dotnet publish "$RAIZ/src/Groundkey.Web" -c Release -r linux-x64 --self-contained false -o /tmp/qh-pub
 (cd /tmp/qh-pub && zip -qr /tmp/qh-pub.zip .)
 az webapp deploy -g "$RG" -n "$WEB" --src-path /tmp/qh-pub.zip --type zip -o none
 fi

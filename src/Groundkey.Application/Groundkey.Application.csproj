@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Casos de uso (serviços de aplicação). Conhece o domínio e o EF Core (DbSet é o repositório, SaveChanges a unidade de trabalho),
+       mas não conhece SQL Server, Azure nem planilhas: isso fica na Infrastructure, que implementa as abstrações daqui. -->
+  <ItemGroup>
+    <ProjectReference Include="..\Groundkey.Domain\Groundkey.Domain.csproj" />
+    <ProjectReference Include="..\Groundkey.Contratos\Groundkey.Contratos.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.12" />
+    <!-- EF.Functions.Collate (busca sem acento) -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.12" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Groundkey.Tests" />
+    <InternalsVisibleTo Include="Groundkey.Tests.Integracao" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Groundkey.Application</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Using Include="Groundkey.Contratos" />
+  </ItemGroup>
+</Project>

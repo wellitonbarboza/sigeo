@@ -1,6 +1,6 @@
-# QualyHub
+# Groundkey
 
-Sistema de **suprimentos com qualidade, aprovações por alçada e controle documental do SGQ** para construtoras que buscam **PBQP-H / SiAC**. Complementa o ERP: o ERP segue com orçamento, financeiro e fiscal; o QualyHub controla, aprova e evidencia.
+Sistema de **suprimentos com qualidade, aprovações por alçada e controle documental do SGQ** para construtoras que buscam **PBQP-H / SiAC**. Complementa o ERP: o ERP segue com orçamento, financeiro e fiscal; o Groundkey controla, aprova e evidencia.
 
 Modelo e telas seguem o mesmo padrão do sistema de referência (Azure + Blazor): menu lateral, tema claro/escuro, grade com agrupamento/filtros/exportação, formulários em janela com etapas e faixa informativa no rodapé.
 
@@ -36,11 +36,11 @@ Modelo e telas seguem o mesmo padrão do sistema de referência (Azure + Blazor)
 ## Estrutura
 
 ```
-src/QualyHub.Domain          entidades e regras (sem dependência de infraestrutura)
-src/QualyHub.Infrastructure  EF Core 10 (SQL Server), serviços de caso de uso, carga padrão, migrations
-src/QualyHub.Web             Blazor Web App (Interactive Server), login Entra ID ou local de desenvolvimento
-tests/QualyHub.Tests         testes das regras (travas, aprovações, suprimentos, documentos)
-db/QualyHub_Inicial.sql      script idempotente da migration inicial (revisão/DBA)
+src/Groundkey.Domain          entidades e regras (sem dependência de infraestrutura)
+src/Groundkey.Infrastructure  EF Core 10 (SQL Server), serviços de caso de uso, carga padrão, migrations
+src/Groundkey.Web             Blazor Web App (Interactive Server), login Entra ID ou local de desenvolvimento
+tests/Groundkey.Tests         testes das regras (travas, aprovações, suprimentos, documentos)
+db/Groundkey_Inicial.sql      script idempotente da migration inicial (revisão/DBA)
 infra/                       Bicep + deploy (Azure)
 ```
 
@@ -49,8 +49,8 @@ infra/                       Bicep + deploy (Azure)
 ```bash
 docker run -e ACCEPT_EULA=Y -e MSSQL_SA_PASSWORD='<senha-forte>' -p 1433:1433 -d mcr.microsoft.com/mssql/server:2022-latest
 dotnet build && dotnet test
-# ajuste ConnectionStrings:QualyHub em src/QualyHub.Web/appsettings.Development.json (ou variável de ambiente)
-dotnet run --project src/QualyHub.Web
+# ajuste ConnectionStrings:Groundkey em src/Groundkey.Web/appsettings.Development.json (ou variável de ambiente)
+dotnet run --project src/Groundkey.Web
 ```
 
 Em desenvolvimento a migration é aplicada ao iniciar. Sem `AzureAd:ClientId` configurado, o login é local (escolha do usuário cadastrado) — **use só para testes**. Com `AzureAd` preenchido, o login é pelo Microsoft Entra ID.
@@ -62,7 +62,7 @@ az login --use-device-code            # feito pela própria pessoa responsável 
 cd infra && ./deploy.sh "<assinatura>" "<email-alerta-custo>"
 ```
 
-O `deploy.sh` é idempotente e roda em 8 etapas (pode isolar com `ETAPAS="4 7"`): grupo DBA do SQL → registro do app no Entra ID → Bicep (App Service B1, SQL serverless com auto-pause, Storage, Key Vault, App Insights, orçamento) → segredos no Key Vault → script `db/QualyHub_Inicial.sql` + usuário da Managed Identity → `dotnet publish` + `az webapp deploy`.
+O `deploy.sh` é idempotente e roda em 8 etapas (pode isolar com `ETAPAS="4 7"`): grupo DBA do SQL → registro do app no Entra ID → Bicep (App Service B1, SQL serverless com auto-pause, Storage, Key Vault, App Insights, orçamento) → segredos no Key Vault → script `db/Groundkey_Inicial.sql` + usuário da Managed Identity → `dotnet publish` + `az webapp deploy`.
 
 Proteções de produção (o app **recusa iniciar** sem elas):
 - **Login só pelo Entra ID** (`AzureAd:TenantId/ClientId`); o login local fica bloqueado.

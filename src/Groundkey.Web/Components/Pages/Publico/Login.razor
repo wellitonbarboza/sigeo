@@ -1,0 +1,41 @@
+@page "/login"
+@attribute [AllowAnonymous]
+@attribute [ExcludeFromInteractiveRouting]
+@layout LayoutPublico
+
+<PageTitle>Entrar · Groundkey</PageTitle>
+<div class="login">
+    <div class="caixa">
+        <div class="login-marca"><Logo /></div>
+        <h1>Entrar no Groundkey</h1>
+        <p class="mudo">Suprimentos, qualidade, engenharia e documentos do SGQ em um só lugar.</p>
+        @if (Erro is not null)
+        {
+            <div class="alerta erro" id="login-erro">@(Erro switch
+            {
+                "bloqueado" => "Acesso bloqueado por excesso de tentativas. Aguarde 15 minutos ou peça ao administrador para desbloquear.",
+                "suspensa" => "Construtora suspensa ou sem acesso ativo. Fale com o administrador da plataforma.",
+                "sessao" => "A página ficou aberta por muito tempo. Tente de novo.",
+                "limite" => "Muitas tentativas a partir desta rede. Aguarde 1 minuto e tente de novo.",
+                _ => "Login ou senha inválidos."
+            })</div>
+        }
+        @if (Ok == "senha") { <div class="alerta ok">Senha definida. Entre com o seu login.</div> }
+        <form method="post" action="conta/entrar" class="form mt-14" autocomplete="on">
+            <AntiforgeryToken />
+            <input type="hidden" name="retorno" value="@(ReturnUrl ?? Retorno)" />
+            <div class="campo s12"><label for="login">Login ou e-mail</label><input id="login" name="login" value="@LoginInformado" autocomplete="username" required autofocus /></div>
+            <div class="campo s12"><label for="senha">Senha</label><input id="senha" name="senha" type="password" autocomplete="current-password" required /></div>
+            <div class="campo s12"><button class="btn prim btn-centro" id="entrar" type="submit">Entrar</button></div>
+        </form>
+        <p class="mudo texto-pq mt-14">Esqueceu a senha? Peça ao administrador do sistema uma senha provisória. Após 5 tentativas erradas o acesso fica bloqueado por 15 minutos.</p>
+    </div>
+</div>
+
+@code {
+    [SupplyParameterFromQuery] public string? ReturnUrl { get; set; }   // middleware do cookie
+    [SupplyParameterFromQuery(Name = "retorno")] public string? Retorno { get; set; }   // RedirecionarLogin
+    [SupplyParameterFromQuery] public string? Erro { get; set; }
+    [SupplyParameterFromQuery] public string? Ok { get; set; }
+    [SupplyParameterFromQuery(Name = "login")] public string? LoginInformado { get; set; }
+}

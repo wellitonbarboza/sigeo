@@ -1,0 +1,45 @@
+@page "/configuracao-inicial"
+@page "/plataforma/nova-construtora"
+@attribute [AllowAnonymous]
+@attribute [ExcludeFromInteractiveRouting]
+@layout LayoutPublico
+@inject IConfiguration Cfg
+@inject IWebHostEnvironment Env
+@inject NavigationManager Nav
+
+<PageTitle>Configuração inicial · Groundkey</PageTitle>
+<div class="login">
+    <div class="caixa caixa-640">
+        <div class="login-marca"><Logo /></div>
+        <h1>@(Plataforma ? "Nova construtora" : "Configuração inicial")</h1>
+        @if (Ok is not null) { <div class="alerta ok">Construtora "@Ok" criada com a carga padrão. O administrador já pode entrar com o login e a senha cadastrados.</div> }
+        <p class="mudo">@(Plataforma ? "Cadastra outra construtora no mesmo sistema, isolada das demais (cadastros, obras, usuários e documentos só dela)." : "O banco está vazio.") Cadastre a empresa e o administrador. O sistema aplica a carga padrão SiAC (parâmetros, listas, materiais e serviços controlados, tipos de documento, pastas do SGQ, retenção e alçadas) — tudo editável depois. Nenhum dado de outra empresa é carregado.</p>
+        @if (Erro is not null) { <div class="alerta erro">@(Erro switch { "codigo" => "Código de configuração inválido.", "senha" => Msg ?? "Senha inválida.", _ => "Preencha os campos obrigatórios." })</div> }
+        <form method="post" action="@(Plataforma ? "plataforma/nova-construtora/salvar" : "configuracao-inicial/salvar")" class="form mt-14">
+            <AntiforgeryToken />
+            <div class="campo s8"><label>Razão social<span class="req">*</span></label><input name="razao" required /></div>
+            <div class="campo s4"><label>CNPJ</label><input name="cnpj" placeholder="00.000.000/0000-00" /></div>
+            <div class="campo s6"><label>Nome fantasia</label><input name="fantasia" /></div>
+            <div class="campo s3"><label>Código</label><input name="codigo" placeholder="ex.: F001" /></div>
+            <div class="campo s3"><label>Nível SiAC</label><select name="nivel"><option>B</option><option>A</option></select></div>
+            @if (!Env.IsDevelopment() || !string.IsNullOrWhiteSpace(Cfg[Plataforma ? "CodigoPlataforma" : "CodigoConfiguracaoInicial"] ?? Cfg["CodigoConfiguracaoInicial"]))
+            {
+                <div class="campo s12"><label>Código @(Plataforma ? "da plataforma" : "de configuração")<span class="req">*</span></label><input name="codigoSetup" type="password" autocomplete="off" required /><span class="ajuda">Segredo "@(Plataforma ? "CodigoPlataforma" : "CodigoConfiguracaoInicial")" do Key Vault. Só o responsável pela implantação tem acesso.</span></div>
+            }
+            <div class="campo s12"><div class="secao"><Icone Nome="pessoa" /> Administrador</div></div>
+            <div class="campo s6"><label>Nome<span class="req">*</span></label><input name="nome" required /></div>
+            <div class="campo s6"><label>E-mail<span class="req">*</span></label><input name="email" type="email" required /></div>
+            <div class="campo s4"><label>Login<span class="req">*</span></label><input name="login" autocomplete="username" required placeholder="ex.: welliton" /></div>
+            <div class="campo s4"><label>Senha<span class="req">*</span></label><input name="senha" type="password" autocomplete="new-password" minlength="@PoliticaSenha.TamanhoMinimo" required /></div>
+            <div class="campo s4"><label>Confirme a senha<span class="req">*</span></label><input name="confirmacao" type="password" autocomplete="new-password" required /></div>
+            <div class="campo s12"><span class="ajuda">Mínimo de @PoliticaSenha.TamanhoMinimo caracteres. Os demais usuários são criados em Sistema › Usuários, com senha provisória.</span></div>
+            <div class="campo s12 campo-fim"><button class="btn prim" type="submit">@(Plataforma ? "Criar construtora" : "Criar e entrar")</button></div>
+        </form>
+    </div>
+</div>
+@code {
+    [SupplyParameterFromQuery] public string? Erro { get; set; }
+    [SupplyParameterFromQuery] public string? Msg { get; set; }
+    [SupplyParameterFromQuery] public string? Ok { get; set; }
+    private bool Plataforma => Nav.Uri.Contains("/plataforma/", StringComparison.OrdinalIgnoreCase);
+}

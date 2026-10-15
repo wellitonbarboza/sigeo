@@ -1,0 +1,63 @@
+@page "/sst/painel"
+@attribute [Authorize]
+@inherits TelaNavegador
+@* Roda no navegador (WebAssembly). A taxa de frequência é recalculada aqui ao trocar as horas-homem, sem ir ao servidor. *@
+
+<Pagina Titulo="Painel SST" AoAtualizar="() => Carregar(novo: true)">
+    <ChildContent>
+        <div class="pagina">
+            <div class="barra-filtro">
+                <EscolhaObra Valor="_obra" ValorChanged="TrocarObra" PermitirTodas />
+                <label>Horas-homem no período (taxa de frequência) <input type="number" @bind="_horasHomem" /></label>
+            </div>
+            <AvisoFalha Mensagem="@Falha" Tecnica="FalhaTecnica" AoTentar="() => Carregar()" />
+            @if (_d is { } d)
+            {
+                <div class="kpis">
+                    <Kpi Rotulo="Colaboradores aptos" Valor="@(d.Ativos == 0 ? "—" : $"{100m * d.Aptos / d.Ativos:0}%")" Sub="@($"{d.Aptos} de {d.Ativos} · meta {d.MetaAptos:0}%")" Tom="@(d.Ativos > 0 && 100m * d.Aptos / d.Ativos >= d.MetaAptos ? "ok" : "aviso")" />
+                    <Kpi Rotulo="Dias sem acidente c/ afastamento" Valor="@(d.DiasSemAcidente?.ToString() ?? "—")" Tom="ok" />
+                    <Kpi Rotulo="Taxa de frequência (12 meses)" Valor="@Num(Groundkey.Domain.Sst.RegrasSst.TaxaFrequencia(d.AcidentesComAfastamento12Meses, _horasHomem))" Sub="acid. c/ afast. por milhão de h" />
+                    <Kpi Rotulo="Conformidade das inspeções" Valor="@(d.ConformidadeInspecoes is null ? "—" : $"{d.ConformidadeInspecoes:0}%")" Sub="@($"meta ≥ {d.MetaInspecoes:0}%")" Tom="@(d.ConformidadeInspecoes >= d.MetaInspecoes ? "ok" : "aviso")" />
+                </div>
+                <div class="duas-caixas">
+                    <div class="caixa-sec"><div class="secao"><Icone Nome="predio" /> Pendências por empresa</div>
+                        @foreach (var x in d.PendenciasPorEmpresa)
+                        {
+                            <div class="barra-nota" @key="x.Texto"><span>@x.Texto</span><div class="trilho"><i class="barra-erro" style="width:@(Pct(x.Quantidade, d.PendenciasPorEmpresa.Max(y => y.Quantidade)))"></i></div><b>@x.Quantidade</b></div>
+                        }
+                        @if (d.PendenciasPorEmpresa.Count == 0) { <p class="mudo">Sem pendências.</p> }
+                        <small class="mudo">documentos vencidos + treinamentos vencidos + EPI sem entrega</small>
+                    </div>
+                    <div class="caixa-sec"><div class="secao"><Icone Nome="relogio" /> Vencendo nos próximos 30 dias</div>
+                        @foreach (var x in d.Vencendo30Dias)
+                        {
+                            <div class="barra-nota" @key="x.Texto"><span>@x.Texto</span><div class="trilho"><i style="width:@(Pct(x.Quantidade, d.Vencendo30Dias.Max(y => y.Quantidade)))"></i></div><b>@x.Quantidade</b></div>
+                        }
+                        @if (d.Vencendo30Dias.Count == 0) { <p class="mudo">Nada vencendo.</p> }
+                    </div>
+                </div>
+                <div class="alerta info marg-topo-12"><Icone Nome="sino" /> Aviso de vencimento para a empresa e o encarregado por e-mail/WhatsApp conforme Sistema › Parâmetros e notificações.</div>
+            }
+            else if (Carregando) { <Esqueleto Indicadores="6" Linhas="6" /> }
+        </div>
+    </ChildContent>
+    <Faixa><b>Tela 49 · Painel SST</b><span>Aptidão, vencimentos, inspeções e taxas de acidentes (NBR 14280)</span></Faixa>
+</Pagina>
+
+@code {
+    private Guid? _obra;
+    private decimal _horasHomem;
+    private PainelSstDto? _d;
+
+    private static string Pct(int n, int max) => $"{(max == 0 ? 0 : 100.0 * n / max).ToString("0", System.Globalization.CultureInfo.InvariantCulture)}%";
+
+    protected override Task OnInitializedAsync() => Carregar();
+
+    private async Task TrocarObra(Guid? obra) { _obra = obra; _horasHomem = 0; await Carregar(); }
+
+    private Task Carregar(bool novo = false) => Buscar(async () =>
+    {
+        _d = await Api.ObterAsync<PainelSstDto>($"api/telas/sst/painel?{(_obra is { } o ? $"obra={o}&" : "")}{(novo ? "novo=true" : "")}", Cancelamento);
+        if (_horasHomem == 0) _horasHomem = _d.HorasHomemSugeridas;
+    });
+}

@@ -1,0 +1,157 @@
+@page "/pedidos"
+@inherits PaginaBase
+@inject PedidosServico PedidosSrv
+@inject NavigationManager Nav
+@using Groundkey.Application.Comum
+
+<Pagina Titulo="Pedidos de compra" Grade="_grade" AoAtualizar="Carregar">
+    <ChildContent>
+        <div class="pagina">
+            <div class="kpis">
+                <Kpi Rotulo="Aguard. aprovação" Valor="@_itens?.Count(p => p.Status == StatusPedido.AguardandoAprovacaoDiretor)" Tom="aviso" />
+                <Kpi Rotulo="Aprovados (enviar)" Valor="@_itens?.Count(p => p.Status == StatusPedido.Aprovado)" Tom="info" />
+                <Kpi Rotulo="Em entrega" Valor="@_itens?.Count(p => p.Status is StatusPedido.EnviadoFornecedor or StatusPedido.EntregueParcial)" />
+                <Kpi Rotulo="Valor em aberto" Valor="@Moeda(_itens?.Where(p => p.Status is not (StatusPedido.Entregue or StatusPedido.Cancelado)).Sum(p => p.Valor))" />
+            </div>
+            <Grade T="Linha" @ref="_grade" Itens="_itens" Limite="LimiteGrade" AoCarregarTudo="async () => { ListaCompleta = true; await Carregar(); }" AoClicar="l => Abrir(l.Id)" NomeExportacao="pedidos" CriadoPor="l => l.CriadoPor">
+                <Colunas>
+                    <Coluna T="Linha" Titulo="Número" Valor="l => l.Numero" Largura="90px" />
+                    <Coluna T="Linha" Titulo="Obra" Valor="l => l.Obra" />
+                    <Coluna T="Linha" Titulo="Fornecedor" Valor="l => l.Fornecedor" />
+                    <Coluna T="Linha" Titulo="Entrega" Valor="l => l.Entrega" />
+                    <Coluna T="Linha" Titulo="Valor" Valor="l => l.Valor" Formato="C2" Alinhar="num" />
+                    <Coluna T="Linha" Titulo="Sem orçamento" Valor="l => l.SemOrcamento" />
+                    <Coluna T="Linha" Titulo="Status" Valor="l => l.Status"><Modelo><Selo Texto="@De(context.Status)" Tom="@Tom(context.Status)" /></Modelo></Coluna>
+                    <Coluna T="Linha" Titulo="Bloqueios" Valor="l => l.Bloqueios" />
+                    <Coluna T="Linha" Titulo="Criado em" Valor="l => l.CriadoEm" />
+                </Colunas>
+            </Grade>
+        </div>
+    </ChildContent>
+    <Faixa><b>Pedido</b><span>Leva especificação técnica e documentos exigidos dos materiais controlados</span><span>Fornecedor qualificado + documentos válidos</span><span>Aprovação do Diretor antes do envio</span></Faixa>
+</Pagina>
+
+<Modal @bind-Aberto="_aberto" Titulo="@($"Pedido {_p?.Numero}")" Tamanho="grande">
+    <ChildContent>
+        @if (_p is not null)
+        {
+            <Etapas Itens="Passos()" />
+            <Erros Lista="ErrosForm" />
+            @if (_trava is { Liberado: false })
+            {
+                <div class="alerta erro"><Icone Nome="x-circulo" /> <div><b>Travas de qualidade</b><ul>@foreach (var b in _trava.Bloqueios) { <li>@b</li> }</ul></div></div>
+            }
+            <div class="form">
+                @if (_p.EstabelecimentoFaturamentoId is { } fat) { <Campo Rotulo="Faturar para (CNPJ comprador)" Classe="s6"><input id="ped-fat" readonly value="@(_estabs.FirstOrDefault(x => x.Id == fat)?.Texto ?? "—")" /></Campo> }
+                @if (_p.SpeId is { } spe) { <Campo Rotulo="@(_p.EstabelecimentoFaturamentoId is null ? "Faturar para (SPE)" : "Destino: SPE (informar na observação da NF)")" Classe="s6"><input id="ped-spe" readonly value="@($"{_spes.FirstOrDefault(s => s.Id == spe)?.Texto ?? "—"}{(_p.RequisicaoId is null ? "" : " · requisição")}")" /></Campo> }
+                @if (_p.EntregaAlmoxarifadoCentral) { <div class="campo s12"><div class="alerta info"><Icone Nome="caixa" /> Entrega no almoxarifado central: FVM no recebimento e transferência para a obra/SPE.</div></div> }
+                <Campo Rotulo="Fornecedor" Classe="s6"><input readonly value="@_fornecedor?.RazaoSocial" /></Campo>
+                <Campo Rotulo="Qualificação" Classe="s2"><div class="pt-6">@if (_fornecedor is not null) { var st = _fornecedor.CalcularStatus(Hoje); <Selo Texto="@De(st)" Tom="@Tom(st)" /> }</div></Campo>
+                <Campo Rotulo="E-mails do fornecedor" Classe="s4"><input readonly value="@_fornecedor?.Emails" /></Campo>
+                <Campo Rotulo="Entrega" Classe="s2"><input type="date" @bind="_p.Entrega" disabled /></Campo>
+                <Campo Rotulo="Condição de pagamento" Classe="s3"><input readonly value="@_p.CondicaoPagamento" /></Campo>
+                <Campo Rotulo="Frete" Classe="s1"><input readonly value="@De(_p.Frete)" /></Campo>
+                <Campo Rotulo="Endereço de entrega" Classe="s6"><input readonly value="@_p.EnderecoEntrega" /></Campo>
+            </div>
+            <div class="secao"><Icone Nome="lista" /> Itens</div>
+            <table class="itens">
+                <thead><tr><th>Descrição</th><th>Marca</th><th>UN</th><th class="num">Quant.</th><th class="num">Unit.</th><th class="num">Total</th><th>Especificação técnica</th><th>Documentos exigidos</th><th class="num">Recebido</th></tr></thead>
+                <tbody>
+                    @foreach (var i in _p.Itens)
+                    {
+                        var locaisItem = i.RequisicaoItemId is { } rid && _locaisItem.TryGetValue(rid, out var ls) ? ls : null;
+                        var aberto = locaisItem is not null && _abertos.Contains(i.Id);
+                        <tr @key="i" class="@(aberto ? "com-locais" : "")"><td><b>@i.Descricao</b> @if (i.MaterialControladoId is not null) { <Selo Texto="controlado" Tom="info" /> }
+                                @if (locaisItem is not null) { <br /><button type="button" class="pl-toggle" aria-expanded="@(aberto ? "true" : "false")" @onclick="() => { if (!_abertos.Remove(i.Id)) _abertos.Add(i.Id); }">@(aberto ? "▾" : "▸") <span class="pl-ico">▦</span> Locais: @QuadroLocais.Resumo(locaisItem, i.Unidade)</button> }</td><td>@i.Marca</td><td>@i.Unidade</td>
+                            <td class="num">@Num(i.Quantidade, 3)</td><td class="num">@Moeda(i.ValorUnitario)</td><td class="num">@Moeda(i.ValorTotal)</td>
+                            <td>@i.EspecificacaoTecnica</td><td>@i.DocumentosExigidos</td><td class="num">@Num(i.QuantidadeRecebidaAceita, 3)</td></tr>
+                        @if (aberto) { <tr class="linha-locais" @key="(i, 1)"><td colspan="9"><PainelLocais Linhas="locaisItem!" Unidade="@i.Unidade" /></td></tr> }
+                    }
+                    <tr class="total"><td colspan="4">Total (com frete @Moeda(_p.ValorFrete))</td><td class="num">@Moeda(_p.Valor)</td><td colspan="3"></td></tr>
+                </tbody>
+            </table>
+            @if (_p.Status == StatusPedido.Aprovado)
+            {
+                <div class="form mt-12"><Campo Rotulo="Cópia do e-mail de envio para (Engenheiro, Almoxarife…)" Classe="s12"><input @bind="_emails" placeholder="email1@exemplo.com; email2@exemplo.com" /></Campo></div>
+            }
+            @if (_p.CriadoEm != default) { <Notas Entidade="Pedido" EntidadeId="_p.Id" /> }
+            <Autorizacoes Entidade="EntidadeAprovavel.Pedido" EntidadeId="_p.Id" Versao="_versao" AoDecidir="Recarregar" />
+        }
+    </ChildContent>
+    <Rodape>
+        @if (_p is not null)
+        {
+            @if (_p.Status is StatusPedido.EnviadoFornecedor or StatusPedido.EntregueParcial) { <button class="btn laranja" @onclick='() => Nav.NavigateTo($"recebimentos?pedido={_p.Id}")'><Icone Nome="caixa" Tam="16" /> Registrar recebimento</button> }
+            @if (_p.Status == StatusPedido.Aprovado) { <button class="btn ok" disabled="@Ocupado" @onclick="RegistrarEnvio"><Icone Nome="enviar" Tam="16" /> Registrar envio ao fornecedor</button> }
+            @if (_p.Status == StatusPedido.Emitido) { <button class="btn ok" disabled="@Ocupado" @onclick="Enviar"><Icone Nome="enviar" Tam="16" /> Enviar p/ aprovação</button> }
+        }
+    </Rodape>
+</Modal>
+
+@code {
+    private List<Opcao> _estabs = [];
+    private sealed record Linha(Guid Id, int Numero, string Obra, string Fornecedor, DateOnly Entrega, decimal Valor, bool SemOrcamento, StatusPedido Status, string? Bloqueios, string CriadoPor, DateTimeOffset CriadoEm);
+    private Grade<Linha>? _grade;
+    private List<Linha>? _itens;
+    private Pedido? _p;
+    private Fornecedor? _fornecedor;
+    private List<Opcao> _spes = [];
+    private ResultadoTrava? _trava;
+    private bool _aberto;
+    private int _versao;
+    private string _emails = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        _spes = await Cat.SpesAsync(); _estabs = await Cat.EstabelecimentosAsync();
+        await Carregar();
+        if (Nav.Uri.Contains("?id=") && Guid.TryParse(Nav.Uri.Split("?id=")[1], out var id)) await Abrir(id);
+    }
+
+    private async Task Carregar()
+    {
+        await using var db = Fabrica.CriarLeitura();
+        var lista = await db.Pedidos.AsNoTracking().Include(p => p.Itens).Include(p => p.Fornecedor).OrderByDescending(p => p.Numero).Take(LimiteAtual).ToListAsync(Cancelamento);
+        var obras = await db.Obras.AsNoTracking().ToDictionaryAsync(o => o.Id, o => o.Nome, Cancelamento);
+        _itens = lista.Select(p => new Linha(p.Id, p.Numero, obras.GetValueOrDefault(p.ObraId, ""), p.Fornecedor.NomeExibicao, p.Entrega, p.Valor, p.SemOrcamento, p.Status, p.Bloqueios, p.CriadoPor, p.CriadoEm)).ToList();
+    }
+
+    private Dictionary<Guid, List<LocalQuantidade>> _locaisItem = [];
+    private readonly HashSet<Guid> _abertos = [];
+
+    private async Task Abrir(Guid id)
+    {
+        await using var db = Fabrica.CriarLeitura();
+        _p = await db.Pedidos.AsNoTracking().Include(p => p.Itens).FirstAsync(p => p.Id == id, Cancelamento);
+        _locaisItem = await QuadroLocais.CarregarAsync(db, _p.Itens.Where(i => i.RequisicaoItemId != null).Select(i => i.RequisicaoItemId!.Value).Distinct().ToList(), Cancelamento);
+        _fornecedor = await db.Fornecedores.AsNoTracking().Include(f => f.Qualificacoes).Include(f => f.Documentos).ThenInclude(d => d.TipoDocumento).FirstAsync(f => f.Id == _p.FornecedorId, Cancelamento);
+        _trava = _p.Status == StatusPedido.Emitido ? TravasQualidade.VerificarPedido(_p, _fornecedor, Hoje) : null;
+        ErrosForm = null; _versao++; _aberto = true;
+    }
+
+    private async Task Recarregar() { if (_p is not null) await Abrir(_p.Id); await Carregar(); }
+
+    private List<Etapas.Passo> Passos()
+    {
+        var s = _p!.Status;
+        string E(int n) => (int)s > n ? "feita" : (int)s == n ? "atual" : "pendente";
+        return
+        [
+            new("Emitido", Rotulos.DataHora(_p.CriadoEm), "feita"),
+            new("Aprovação Diretor", _p.AprovadoDiretorEm is { } d ? Rotulos.DataHora(d) : "—", _p.AprovadoDiretorEm is not null ? "feita" : s == StatusPedido.AguardandoAprovacaoDiretor ? "atual" : "pendente"),
+            new("Enviado ao fornecedor", _p.EnviadoFornecedorEm is { } e ? Rotulos.DataHora(e) : "—", E((int)StatusPedido.EnviadoFornecedor)),
+            new("Recebido", s == StatusPedido.EntregueParcial ? "parcial" : "—", s == StatusPedido.Entregue ? "feita" : s == StatusPedido.EntregueParcial ? "atual" : "pendente"),
+        ];
+    }
+
+    private async Task Enviar()
+    {
+        if (await Executar(() => PedidosSrv.EnviarPedidoAprovacaoAsync(_p!.Id, Cancelamento), "Pedido enviado para aprovação do Diretor.")) await Recarregar();
+        else await Carregar();
+    }
+
+    private async Task RegistrarEnvio()
+    {
+        if (await Executar(() => PedidosSrv.RegistrarEnvioPedidoAsync(_p!.Id, _emails, Cancelamento), "Envio ao fornecedor registrado.")) await Recarregar();
+    }
+}
