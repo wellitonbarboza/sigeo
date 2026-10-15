@@ -129,6 +129,8 @@ public static class DependencyInjectionComunicacao
         services.AddSingleton<Application.IA.ILeitorDocumentos, Servicos.LeitorDocumentIntelligence>();
         services.AddSingleton(new Application.IA.LimitesIa(int.TryParse(cfg["IA:LimiteMensalPorEmpresa"], out var l) ? l : 3000));
         services.AddScoped<Application.IA.AnalisesIaServico>();
+        services.AddSingleton<Application.Fiscal.ILeitorImagemNota, Servicos.LeitorImagemNota>();
+        services.AddScoped<Application.Fiscal.LeituraNotaServico>();
         return services;
     }
 }

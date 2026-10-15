@@ -5,6 +5,8 @@
 @inject NavigationManager Nav
 @inject QualidadeObraServico Qob
 @inject EstoqueServico EstoqueSrv
+@inject QualyHub.Application.Fiscal.LeituraNotaServico LeituraNota
+@inject AnexosServico AnexosSrv
 
 <Pagina Titulo="Recebimento de materiais / FVM" Grade="_grade" AoNovo="Novo" AoAtualizar="Carregar">
     <ChildContent>
@@ -38,13 +40,14 @@
         @if (_r is not null)
         {
             <Erros Lista="ErrosForm" />
+            @if (Novo_) { <LeituraNotaCamera ReferenciaId="_r.Id" AoLer="AplicarLeitura" /> }
             <div class="form">
                 <Campo Rotulo="Pedido" Obrigatorio Classe="s4">
                     <select value="@_r.PedidoId" @onchange="e => EscolherPedido(e.Value?.ToString())" disabled="@(!Novo_)">
                         <option value="">Selecione…</option>@foreach (var p in _pedidos) { <option value="@p.Id">@p.Texto</option> }
                     </select>
                 </Campo>
-                <Campo Rotulo="Chave NF-e (44 dígitos)" Classe="s5"><input @bind="_r.ChaveNFe" maxlength="44" disabled="@(!Novo_)" /></Campo>
+                <Campo Rotulo="Chave NF-e (44 dígitos)" Classe="s5"><input value="@_r.ChaveNFe" @onchange="e => ChaveDigitada(e.Value?.ToString())" maxlength="54" inputmode="numeric" disabled="@(!Novo_)" placeholder="digite, cole ou use o leitor" /></Campo>
                 <Campo Rotulo="Nº nota fiscal" Classe="s3"><input @bind="_r.NumeroNotaFiscal" disabled="@(!Novo_)" /></Campo>
                 <Campo Rotulo="Onde está recebendo (estoque)" Classe="s6" Ajuda="O material entra no saldo deste almoxarifado (em quarentena até o ensaio, se houver).">
                     <select id="rec-almox" @bind="_r.AlmoxarifadoId" disabled="@(!Novo_)">
@@ -286,6 +289,7 @@
         _pedidos = await db.Pedidos.AsNoTracking().Where(p => p.Status == StatusPedido.EnviadoFornecedor || p.Status == StatusPedido.EntregueParcial)
             .OrderBy(p => p.Numero).Select(p => new Opcao(p.Id, "Pedido " + p.Numero + " – " + p.Fornecedor.RazaoSocial)).ToListAsync(Cancelamento);
         _r = new Recebimento { DataRecebimento = DateTimeOffset.Now };
+        _fotoNota = null; _itensLidos = null;
         ErrosForm = null; _aberto = true;
     }
 
@@ -312,6 +316,7 @@
             foreach (var it in m.Itens.OrderBy(x => x.Ordem))
                 _r.FvmItens.Add(new FvmItem { RecebimentoId = _r.Id, ItemVerificacaoId = it.Id, Ordem = it.Ordem, Descricao = it.Descricao, Criterio = it.Criterio, ValorMin = it.ValorMin, ValorMax = it.ValorMax, Bloqueia = it.Bloqueia });
         }
+        if (_itensLidos is { Count: > 0 }) AplicarItensLidos(_itensLidos);
     }
 
     private ModeloInspecao? _modelo;
@@ -380,10 +385,95 @@
     private async Task Registrar()
     {
         Guid id = default;
+        var foto = _fotoNota;
         if (await Executar(async () => id = await RecebimentosSrv.RegistrarRecebimentoAsync(_r!, Cancelamento), "Recebimento registrado."))
         {
+            if (foto is not null)
+                try
+                {
+                    await AnexosSrv.AnexarAsync("Recebimento", id, "Documentos", "recebimento", AnexosServico.LimiteFotoBytes,
+                        [new ArquivoEnviado($"DANFE NF {_r!.NumeroNotaFiscal} (foto).jpg", foto.Length, "image/jpeg", _ => new MemoryStream(foto))], Cancelamento);
+                }
+                catch (Exception) { Notif.Aviso("Recebimento registrado, mas a foto da nota não foi anexada: anexe pelo quadro de documentos."); }
             if (_r!.FvmAprovada == false) Notif.Aviso("FVM reprovada: RNC e plano de ação abertos para o fornecedor.");
             await Carregar(); await Abrir(id);
         }
+    }
+
+    // ───────────── Leitura da nota (câmera, chave digitada ou leitor de código de barras) ─────────────
+
+    private byte[]? _fotoNota;
+    private IReadOnlyList<QualyHub.Application.Fiscal.ItemNotaLido>? _itensLidos;
+
+    private async Task ChaveDigitada(string? valor)
+    {
+        _r!.ChaveNFe = string.IsNullOrWhiteSpace(valor) ? null : QualyHub.Domain.Fiscal.ChaveNfe.SoDigitos(valor);
+        if (_r.ChaveNFe is not { Length: 44 }) return;
+        if (!QualyHub.Domain.Fiscal.ChaveNfe.Valida(_r.ChaveNFe)) { Notif.Erro("Chave da NF-e com dígito verificador errado: confira a digitação."); return; }
+        try { await AplicarLeitura(new LeituraNotaCamera.NotaFotografada(await LeituraNota.ResolverChaveAsync(_r.ChaveNFe, Cancelamento), null)); }
+        catch (QualyHub.Domain.Aprovacoes.RegraDeNegocioException ex) { Notif.Erro(ex.Message); }
+    }
+
+    /// <summary>
+    /// Nota lida: importada e ligada ao pedido → recebimento inteiro pela nota (como em Notas fiscais › Receber).
+    /// Senão: chave e número preenchidos; pedido escolhido se o fornecedor tiver um só aguardando entrega (com mais de um, a lista
+    /// fica só com os dele); itens lidos pela IA entram como quantidade recebida pelo nome mais parecido.
+    /// </summary>
+    private async Task AplicarLeitura(LeituraNotaCamera.NotaFotografada x)
+    {
+        var n = x.Nota;
+        if (n.RecebimentoExistente is { } rn) { Notif.Erro($"NF {n.Numero} já recebida no recebimento {rn}."); return; }
+        if (n.Situacao == QualyHub.Domain.Fiscal.SituacaoNota.Cancelada) { Notif.Erro($"NF {n.Numero} cancelada na SEFAZ: não receba com ela."); return; }
+        if (n.ProntaParaReceber)
+        {
+            await NovoDaNota(n.NotaId!.Value);
+            _fotoNota = x.Foto ?? _fotoNota;
+            return;
+        }
+        _fotoNota = x.Foto ?? _fotoNota;
+        _itensLidos = n.Itens.Count > 0 ? n.Itens : null;
+        var avisos = n.Avisos.ToList();
+        if (n.PedidosAbertos.Count == 1)
+        {
+            if (_r!.PedidoId != n.PedidosAbertos[0].Id) await EscolherPedido(n.PedidosAbertos[0].Id.ToString());
+            else if (_itensLidos is not null) AplicarItensLidos(_itensLidos);
+        }
+        else if (n.PedidosAbertos.Count > 1)
+        {
+            if (_r!.PedidoId is not { } atual || n.PedidosAbertos.All(p => p.Id != atual))
+            {
+                _pedidos = n.PedidosAbertos.Select(p => new Opcao(p.Id, $"Pedido {p.Numero} – {p.Obra}")).ToList();
+                _r.Itens.Clear(); _r.PedidoId = null;
+                avisos.Insert(0, $"{n.Fornecedor} tem {n.PedidosAbertos.Count} pedidos aguardando entrega: escolha o pedido desta nota.");
+            }
+            else if (_itensLidos is not null) AplicarItensLidos(_itensLidos);
+        }
+        _r!.ChaveNFe = n.Chave; _r.NumeroNotaFiscal = n.Numero;
+        ErrosForm = (ErrosForm ?? []).Concat(avisos).Distinct().ToList() is { Count: > 0 } l ? l : null;
+        Notif.Aviso($"NF {n.Numero} lida por {n.Origem}: confira o pedido e as quantidades.");
+    }
+
+    /// <summary>Quantidade de cada item do pedido pelo item lido de nome mais parecido (um para um); sem correspondente fica zero.</summary>
+    private void AplicarItensLidos(IReadOnlyList<QualyHub.Application.Fiscal.ItemNotaLido> lidos)
+    {
+        if (_r is null || _r.Itens.Count == 0) return;
+        var pares = (from ri in _r.Itens from l in lidos
+                     let s = QualyHub.Domain.Fiscal.ConferenciaNota.Semelhanca(ri.Descricao, l.Descricao) + (QualyHub.Domain.Fiscal.ConferenciaNota.MesmaUnidade(l.Unidade, ri.Unidade) ? 0.1m : 0)
+                     where s >= 0.35m orderby s descending select (ri, l)).ToList();
+        var usadosR = new HashSet<RecebimentoItem>(); var usadosL = new HashSet<QualyHub.Application.Fiscal.ItemNotaLido>();
+        var avisos = new List<string>();
+        foreach (var (ri, l) in pares)
+        {
+            if (usadosR.Contains(ri) || usadosL.Contains(l)) continue;
+            usadosR.Add(ri); usadosL.Add(l);
+            ri.QtdRecebida = l.Quantidade;
+            if (!QualyHub.Domain.Fiscal.ConferenciaNota.MesmaUnidade(l.Unidade, ri.Unidade)) avisos.Add($"{ri.Descricao}: unidade da nota ({l.Unidade}) diferente do pedido ({ri.Unidade}) — confira a quantidade.");
+            if (l.Quantidade > ri.QtdPedida) avisos.Add($"{ri.Descricao}: nota com {l.Quantidade:0.###} e saldo do pedido {ri.QtdPedida:0.###}.");
+        }
+        foreach (var ri in _r.Itens.Where(i => !usadosR.Contains(i))) ri.QtdRecebida = 0;
+        var sobra = lidos.Count(l => !usadosL.Contains(l));
+        if (sobra > 0) avisos.Add($"{sobra} item(ns) lido(s) na nota sem item do pedido correspondente.");
+        avisos.Add("Quantidades preenchidas pela leitura da foto (IA): confira cada item com a nota.");
+        ErrosForm = (ErrosForm ?? []).Concat(avisos).Distinct().ToList();
     }
 }

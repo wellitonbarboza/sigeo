@@ -83,7 +83,7 @@ fi
 if quer 7; then
 echo "==> 7/8 Publicação da aplicação"
 rm -rf /tmp/qh-pub /tmp/qh-pub.zip
-dotnet publish "$RAIZ/src/QualyHub.Web" -c Release -o /tmp/qh-pub
+dotnet publish "$RAIZ/src/QualyHub.Web" -c Release -r linux-x64 --self-contained false -o /tmp/qh-pub
 (cd /tmp/qh-pub && zip -qr /tmp/qh-pub.zip .)
 az webapp deploy -g "$RG" -n "$WEB" --src-path /tmp/qh-pub.zip --type zip -o none
 fi

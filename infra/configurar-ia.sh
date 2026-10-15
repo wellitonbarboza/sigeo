@@ -58,6 +58,6 @@ if confirmar "Gravar a configuração IA__* no site e reiniciar?"; then
   RAC=false; [[ "$MODELO" == gpt-5* ]] && RAC=true
   az webapp config appsettings set -g "$RG" -n "$WEB" -o none --settings \
     IA__Endpoint="https://$OAI.openai.azure.com" IA__Deployment="$MODELO" IA__Raciocinio="$RAC" \
-    IA__DocumentosEndpoint="https://$DOC.cognitiveservices.azure.com" IA__LimiteMensalPorEmpresa=3000 IA__AnalisarNotasAutomatico=true
+    IA__DocumentosEndpoint="https://$DOC.cognitiveservices.azure.com" IA__LimiteMensalPorEmpresa=3000 IA__AnalisarNotasAutomatico=false
   az webapp restart -g "$RG" -n "$WEB" -o none && echo "  ok — botões de IA aparecem no mapa de cotação, notas fiscais, RNC, produtos e ensaios."
 fi

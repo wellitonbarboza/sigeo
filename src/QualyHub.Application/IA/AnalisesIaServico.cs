@@ -249,6 +249,38 @@ public sealed class AnalisesIaServico(IFabricaDb fabrica, IAssistenteIa ia, ILei
         return new ResultadoLaudo(r.Tipo, r.Emitente, r.Numero, D(r.DataEmissao), D(r.Validade), r.Lote, r.Material, r.Resultados ?? [], r.Conforme, r.Conclusao, lido.Paginas);
     }
 
+    // ───────────── DANFE fotografado no recebimento ─────────────
+
+    public sealed record ItemDanfeIa(string? Descricao, string? Unidade, decimal Quantidade, decimal? ValorUnitario);
+    public sealed record DanfeIa(string? Chave, string? Numero, string? Serie, string? CnpjEmitente, string? Emitente, decimal? ValorTotal, List<ItemDanfeIa>? Itens);
+
+    /// <summary>Texto (OCR) de uma foto ou PDF pelo Document Intelligence; conta no limite mensal e registra as páginas.</summary>
+    public async Task<(string Texto, int Paginas)> LerTextoAsync(Stream arquivo, string contentType, string funcao, Guid? referenciaId, CancellationToken ct = default)
+    {
+        if (!leitor.Configurado) throw new RegraDeNegocioException("Leitura de documentos não configurada (Document Intelligence). Veja o script configurar-ia.sh.");
+        await GarantirLimiteAsync(ct);
+        (string Texto, int Paginas) lido;
+        try { lido = await leitor.ExtrairTextoAsync(arquivo, contentType, ct); }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            await RegistrarAsync(funcao, referenciaId, 0, 0, 0, true, ct);
+            throw new RegraDeNegocioException("Não foi possível ler a imagem. Tente outra foto, com mais luz e o documento inteiro.");
+        }
+        await RegistrarAsync(funcao, referenciaId, 0, 0, lido.Paginas, false, ct);
+        if (string.IsNullOrWhiteSpace(lido.Texto)) throw new RegraDeNegocioException("A foto não tem texto legível.");
+        return lido;
+    }
+
+    /// <summary>Organiza o texto do DANFE (chave, número, emitente e itens). A chave volta como lida; quem valida o DV é quem chama.</summary>
+    public async Task<DanfeIa> ExtrairDanfeAsync(string texto, Guid? referenciaId, CancellationToken ct = default)
+    {
+        const string instr = "O texto abaixo é o OCR de uma foto de DANFE (nota fiscal eletrônica). Extraia a chave de acesso (44 dígitos, só números), número, série, " +
+            "CNPJ do emitente (só números), nome do emitente, valor total e os itens (descrição, unidade, quantidade, valor unitário) como estão na nota. " +
+            "Use ponto como separador decimal. Não invente: campo ilegível fica null. Responda só JSON: {\"chave\": \"...\"|null, \"numero\": \"...\", \"serie\": \"...\", " +
+            "\"cnpjEmitente\": \"...\", \"emitente\": \"...\", \"valorTotal\": n|null, \"itens\": [{\"descricao\": \"...\", \"unidade\": \"...\", \"quantidade\": n, \"valorUnitario\": n|null}]}";
+        return await PerguntarJsonAsync<DanfeIa>("danfe", referenciaId, instr, Cortar(texto, 20000), 2000, ct);
+    }
+
     private static string Cortar(string s, int max) => s.Length <= max ? s : s[..max];
 }
 

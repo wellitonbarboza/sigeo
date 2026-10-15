@@ -253,7 +253,7 @@ resource web 'Microsoft.Web/sites@2023-12-01' = {
         { name: 'IA__Deployment', value: iaModelo }
         { name: 'IA__DocumentosEndpoint', value: 'https://${docNome}.cognitiveservices.azure.com' }
         { name: 'IA__LimiteMensalPorEmpresa', value: '3000' }
-        { name: 'IA__AnalisarNotasAutomatico', value: 'true' }
+        { name: 'IA__AnalisarNotasAutomatico', value: 'false' } // só pelo botão (custo); a leitura da nota no recebimento é por foto
       ] : [])
       connectionStrings: [
         { name: 'QualyHub', connectionString: sqlConn, type: 'SQLAzure' }
