@@ -199,11 +199,11 @@ public static class AvisosServico
         var corpo = string.Join("", texto.Replace(url, "").Split('\n').Select(l => $"<p style=\"margin:0 0 8px\">{E(l)}</p>"));
         return $"""
             <div style="font-family:Segoe UI,Arial,sans-serif;font-size:14px;color:#1f2937;max-width:560px">
-              <div style="background:#2f3b4c;color:#fff;padding:12px 16px;border-radius:8px 8px 0 0;font-weight:700;letter-spacing:.08em">QUALYHUB</div>
+              <div style="background:#2f3a4b;color:#fff;padding:12px 16px;border-radius:8px 8px 0 0;font-weight:700;letter-spacing:.08em">QUALYHUB</div>
               <div style="border:1px solid #e2e6ec;border-top:0;padding:16px;border-radius:0 0 8px 8px">
                 <p style="margin:0 0 12px">Olá, {E(nome.Split(' ')[0])}.</p>
                 {corpo}
-                <p style="margin:16px 0"><a href="{E(url)}" style="background:#4f52d6;color:#fff;padding:9px 16px;border-radius:999px;text-decoration:none;font-weight:600">Abrir no QualyHub</a></p>
+                <p style="margin:16px 0"><a href="{E(url)}" style="background:#43597a;color:#fff;padding:9px 16px;border-radius:999px;text-decoration:none;font-weight:600">Abrir no QualyHub</a></p>
                 <p style="margin:0;color:#7b8594;font-size:12px">{E(construtora)} · aviso automático, não responda este e-mail. Para mudar os avisos, fale com o administrador (Sistema › Parâmetros e Notificações).</p>
               </div>
             </div>
