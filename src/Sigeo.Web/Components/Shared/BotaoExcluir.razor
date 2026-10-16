@@ -1,0 +1,50 @@
+@* Botão "Excluir" padrão dos cadastros: confere se o registro está em uso (sugere inativar), pede confirmação e exclui
+   (exclusão lógica, fica na auditoria). Uso: <BotaoExcluir Tipo="typeof(Produto)" Id="_p.Id" AoExcluir="AposExcluir" /> *@
+@inject Sigeo.Application.Abstracoes.IExclusao Exclusao
+@inject Notificacoes Notif
+@inject NavigationManager Nav
+
+@if (Id != Guid.Empty)
+{
+    <button type="button" class="btn perigo" id="@IdBotao" disabled="@(_ocupado || Desabilitado)" title="@Dica" @onclick="Verificar"><Icone Nome="lixeira" Tam="16" /> @Rotulo</button>
+}
+<Confirmacao Pergunta="@_pergunta" Titulo="Excluir" TextoSim="Excluir" AoSim="Confirmar" AoNao="() => _pergunta = null" />
+
+@code {
+    [Parameter, EditorRequired] public Type Tipo { get; set; } = default!;
+    [Parameter, EditorRequired] public Guid Id { get; set; }
+    [Parameter] public string Rotulo { get; set; } = "Excluir";
+    [Parameter] public string? Descricao { get; set; }
+    [Parameter] public bool Desabilitado { get; set; }
+    [Parameter] public string IdBotao { get; set; } = "btn-excluir";
+    [Parameter] public string Dica { get; set; } = "Exclui o cadastro (se não estiver em uso). Em uso: inative.";
+    [Parameter] public EventCallback AoExcluir { get; set; }
+    private string? _pergunta;
+    private bool _ocupado;
+
+    private async Task Verificar()
+    {
+        _ocupado = true;
+        try
+        {
+            var imp = await Exclusao.ImpedimentosAsync(Tipo, Id);
+            if (imp.Count > 0) { Notif.Erro("Não pode excluir: " + string.Join("; ", imp) + ". Inative o cadastro para deixar de usar."); return; }
+            _pergunta = $"Excluir {(string.IsNullOrWhiteSpace(Descricao) ? "este registro" : Descricao)}? A exclusão fica registrada na auditoria.";
+        }
+        catch (Sigeo.Domain.Aprovacoes.RegraDeNegocioException r) { Notif.Erro(r.Message); }
+        finally { _ocupado = false; }
+    }
+
+    private async Task Confirmar()
+    {
+        _pergunta = null; _ocupado = true;
+        try
+        {
+            await Exclusao.ExcluirAsync(Tipo, Id, Nav.ToBaseRelativePath(Nav.Uri).Split('?')[0]);
+            Notif.Sucesso("Excluído.");
+            await AoExcluir.InvokeAsync();
+        }
+        catch (Sigeo.Domain.Aprovacoes.RegraDeNegocioException r) { Notif.Erro(r.Message); }
+        finally { _ocupado = false; }
+    }
+}

@@ -1,0 +1,155 @@
+@page "/cadastros/categorias"
+@inherits PaginaBase
+@inject CodigosProdutoServico Codigos
+@inject CadastrosServico Cad
+@inject PadraoCatalogoServico Padrao
+
+<PageTitle>Categorias de produto · SIGEO</PageTitle>
+<div class="tela">
+    <div class="topo"><h1>Categorias de produto e siglas</h1></div>
+    <div class="miolo"><div class="pagina">
+        <div class="acoes-pagina">
+            <label class="btn sec pq arquivo" id="cat-padrao" style="cursor:@(Ocupado ? "wait" : "pointer")" title="Planilha com as abas Grupos (tipo de custo, fase do orçamento, material controlado), Reclassificar (regras) e Produtos (insumos classificados)"><Icone Nome="upload" Tam="14" /> Aplicar padrão do catálogo (xlsx)<InputFile OnChange="PreverPadrao" accept=".xlsx" disabled="@Ocupado" class="so-leitor" /></label>
+            <button class="btn sec pq" disabled="@Ocupado" @onclick="GerarDosProdutos" title="Cria os grupos/subgrupos que aparecem nos produtos, com sigla sugerida (não altera códigos)"><Icone Nome="mais" Tam="14" /> Gerar a partir dos produtos</button>
+        </div>
+        <div class="alerta info"><Icone Nome="info" /> Código do produto = <b>SIGLA DO GRUPO</b>-<b>SIGLA DO SUBGRUPO</b>-<b>0000</b> (ex.: HID-CNX-0001). Ao mudar uma sigla, os produtos ainda não usados são recodificados; os já usados mantêm o código (fica o anterior guardado). Subgrupos duplicados por grafia podem ser mesclados.</div>
+        <Erros Lista="ErrosForm" />
+        <table class="itens">
+            <thead><tr><th class="larg-90">Sigla</th><th>Grupo › Subgrupo</th><th class="num">Produtos</th><th>Tipo de custo</th><th>Fase do orçamento</th><th>Material controlado</th><th>Ações</th></tr></thead>
+            <tbody>
+                @foreach (var g in _cats.Where(c => c.PaiId == null).OrderBy(c => c.Nome))
+                {
+                    <tr @key="g.Id" class="fundo-sup2">
+                        <td><input value="@g.Sigla" maxlength="3" class="larg-64 maiusc peso-700" @onchange="e => Sigla(g, e.Value?.ToString())" /></td>
+                        <td><b>@g.Nome</b></td><td class="num"><b>@_qtd.Where(q => q.Key.Grupo == g.Nome).Sum(q => q.Value)</b></td>
+                        <td><select aria-label="@($"Tipo de custo de {g.Nome}")" value="@(g.TipoCustoPadrao?.ToString() ?? "")" @onchange="e => SalvarPadrao(g, e.Value?.ToString(), g.FasePadrao)"><option value="">—</option>@foreach (var t in Enum.GetValues<TipoCusto>()) { <option value="@t">@De(t)</option> }</select></td>
+                        <td><select aria-label="@($"Fase do orçamento de {g.Nome}")" value="@(g.FasePadrao ?? "")" @onchange="e => SalvarPadrao(g, g.TipoCustoPadrao?.ToString(), e.Value?.ToString())"><option value="">—</option>@foreach (var f in _fases) { <option>@f</option> }@if (g.FasePadrao is { } fp && !_fases.Contains(fp)) { <option>@fp</option> }</select></td>
+                        <td class="mudo">@string.Join(", ", _mats.Where(m => m.CategoriaProdutoId == g.Id).Select(m => $"{m.Codigo} {m.Nome}"))</td>
+                        <td></td>
+                    </tr>
+                    @foreach (var s in _cats.Where(c => c.PaiId == g.Id).OrderBy(c => c.Nome))
+                    {
+                        <tr @key="s.Id">
+                            <td class="pl-18"><input value="@s.Sigla" maxlength="3" class="larg-64 maiusc" @onchange="e => Sigla(s, e.Value?.ToString())" /></td>
+                            <td class="pl-18">› @s.Nome <span class="mudo">(@g.Sigla-@s.Sigla-0001)</span></td>
+                            <td class="num">@_qtd.GetValueOrDefault((g.Nome, s.Nome))</td><td colspan="3"></td>
+                            <td><select @key="(s.Id, _versao)" aria-label="@($"Mesclar {s.Nome} em outro subgrupo")" @onchange="e => Mesclar(s, e.Value?.ToString())"><option value="">Mesclar em…</option>@foreach (var d in _cats.Where(c => c.PaiId == g.Id && c.Id != s.Id).OrderBy(c => c.Nome)) { <option value="@d.Id">@d.Nome</option> }</select></td>
+                        </tr>
+                    }
+                }
+                @if (_cats.Count == 0) { <tr><td colspan="7" class="mudo">Nenhuma categoria. Importe produtos ou clique em "Gerar a partir dos produtos".</td></tr> }
+            </tbody>
+        </table>
+    </div></div>
+</div>
+<Confirmacao Pergunta="@PerguntaConfirmacao" AoSim="ConfirmacaoSim" AoNao="ConfirmacaoNao" />
+
+<Modal @bind-Aberto="_abertoPadrao" Titulo="Aplicar padrão do catálogo" Tamanho="grande">
+    <ChildContent>
+        <Erros Lista="ErrosForm" />
+        @if (_resumo is { } r)
+        {
+            <div class="kpis">
+                <Kpi Rotulo="Produtos reclassificados" Valor="@r.ProdutosMovidos" />
+                <Kpi Rotulo="Insumos novos" Valor="@r.ProdutosNovos" Tom="ok" />
+                <Kpi Rotulo="Insumos já existentes (completados)" Valor="@r.ProdutosCompletados" />
+                <Kpi Rotulo="Categorias desativadas (vazias)" Valor="@r.CategoriasDesativadas.Count" Tom="aviso" />
+            </div>
+            @if (r.MateriaisLigados.Count > 0) { <div class="alerta info"><Icone Nome="info" /> <div>Materiais controlados ligados ao grupo (produtos do grupo viram controlados): @string.Join("; ", r.MateriaisLigados)</div></div> }
+            @if (r.GruposCriados.Count > 0) { <div class="alerta info"><Icone Nome="info" /> <div>Grupos novos: @string.Join(", ", r.GruposCriados)</div></div> }
+            @foreach (var a in r.Avisos) { <div class="alerta aviso"><Icone Nome="alerta" /> @a</div> }
+            <table class="itens" id="padrao-regras"><thead><tr><th>Regra</th><th class="num">Produtos</th></tr></thead>
+                <tbody>@foreach (var (regra, n) in r.PorRegra) { <tr><td>@regra</td><td class="num">@n</td></tr> }</tbody></table>
+            @if (r.CategoriasDesativadas.Count > 0) { <details class="mt-12"><summary>Categorias que ficam vazias e serão desativadas (@r.CategoriasDesativadas.Count)</summary><ul>@foreach (var c in r.CategoriasDesativadas) { <li>@c</li> }</ul></details> }
+            <p class="mudo">Nada é excluído: produtos só mudam de grupo; os ainda não usados recebem o código da nova categoria (os já usados mantêm o código).</p>
+        }
+    </ChildContent>
+    <Rodape>@if (_padrao is not null && _resumo is not null) { <button class="btn prim" id="padrao-aplicar" disabled="@Ocupado" @onclick="AplicarPadrao"><Icone Nome="check" Tam="16" /> Aplicar</button> }</Rodape>
+</Modal>
+
+@code {
+    private List<CategoriaProduto> _cats = [];
+    private Dictionary<(string? Grupo, string? Sub), int> _qtd = [];
+    private int _versao; // muda a cada recarga: recria os seletores de mesclagem (voltam ao texto inicial)
+
+    private List<string> _fases = [];
+    private List<MaterialControlado> _mats = [];
+    private bool _abertoPadrao;
+    private PadraoCatalogo? _padrao;
+    private ResumoPadraoCatalogo? _resumo;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _fases = await Cat.ListaAsync(TipoLista.GrupoServico);
+        await Carregar();
+    }
+
+    private async Task SalvarPadrao(CategoriaProduto g, string? tipo, string? fase)
+    {
+        TipoCusto? t = Enum.TryParse<TipoCusto>(tipo, out var x) ? x : null;
+        if (await Executar(() => Codigos.SalvarPadraoGrupoAsync(g.Id, t, fase, Cancelamento), "Padrão do grupo salvo.")) await Carregar();
+    }
+
+    private async Task PreverPadrao(InputFileChangeEventArgs e)
+    {
+        _padrao = null; _resumo = null;
+        await Executar(async () =>
+        {
+            using var ms = new MemoryStream();
+            await e.File.OpenReadStream(20 * 1024 * 1024, Cancelamento).CopyToAsync(ms, Cancelamento);
+            ms.Position = 0;
+            _padrao = Sigeo.Infrastructure.Importacao.LeitorPadraoCatalogo.Ler(ms);
+            _resumo = await Padrao.AnalisarAsync(_padrao, Cancelamento);
+        });
+        _abertoPadrao = true;
+    }
+
+    private async Task AplicarPadrao()
+    {
+        if (_padrao is null) return;
+        if (await Executar(async () => _resumo = await Padrao.AplicarAsync(_padrao, Cancelamento), "Padrão do catálogo aplicado."))
+        {
+            _abertoPadrao = false; _padrao = null;
+            Cat.Invalidar();
+            await Carregar();
+        }
+    }
+
+    private async Task Carregar()
+    {
+        _versao++;
+        await using var db = Fabrica.CriarLeitura();
+        _cats = await db.CategoriasProduto.Where(c => c.Ativo).ToListAsync(Cancelamento);
+        _mats = await db.MateriaisControlados.AsNoTracking().Where(m => m.Ativo && m.CategoriaProdutoId != null).ToListAsync(Cancelamento);
+        _qtd = (await db.Produtos.GroupBy(p => new { p.Grupo, p.SubGrupo }).Select(g => new { g.Key.Grupo, g.Key.SubGrupo, N = g.Count() }).ToListAsync(Cancelamento))
+               .ToDictionary(x => (x.Grupo, x.SubGrupo), x => x.N);
+    }
+
+    private async Task Sigla(CategoriaProduto c, string? nova)
+    {
+        int n = 0;
+        if (await Executar(async () => n = await Codigos.AlterarSiglaAsync(c.Id, nova ?? "", Cancelamento), null))
+            Notif.Sucesso($"Sigla alterada. {n} produto(s) recodificado(s).");
+        await Carregar();
+    }
+
+    private void Mesclar(CategoriaProduto origem, string? destino)
+    {
+        if (!Guid.TryParse(destino, out var d)) return;
+        var nomeDestino = _cats.FirstOrDefault(c => c.Id == d)?.Nome ?? "?";
+        Confirmar($"Mesclar o subgrupo \"{origem.Nome}\" em \"{nomeDestino}\"? Os produtos são movidos e o subgrupo de origem é excluído.", async () =>
+        {
+            int n = 0;
+            if (await Executar(async () => n = await Codigos.MesclarAsync(origem.Id, d, Cancelamento), null)) Notif.Sucesso($"Subgrupo mesclado: {n} produto(s) movido(s).");
+            await Carregar();
+        }, Carregar); // recusou: recarrega para o seletor voltar a "Mesclar em…"
+    }
+
+    private async Task GerarDosProdutos()
+    {
+        int n = 0;
+        if (await Executar(async () => n = await Cad.GerarCategoriasDosProdutosAsync(Cancelamento)))
+            Notif.Sucesso(n == 0 ? "Nenhuma categoria nova: todas as dos produtos já existem." : $"{n} categoria(s) gerada(s) com sigla sugerida — revise e ajuste.");
+        await Carregar();
+    }
+}

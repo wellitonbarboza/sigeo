@@ -1,5 +1,5 @@
 // =====================================================================================
-// Groundkey — Infraestrutura Azure (escopo: resource group)
+// SIGEO — Infraestrutura Azure (escopo: resource group)
 // Custo sob controle: App Service B1 (Web), Azure SQL serverless
 // com auto-pause, Storage LRS e orçamento com alerta. Escalar só quando o uso justificar.
 // =====================================================================================
@@ -52,7 +52,7 @@ param iaCapacidade int = 50
 
 var sufixo = uniqueString(resourceGroup().id)
 var nome = '${prefixo}-${ambiente}'
-var tags = { sistema: 'Groundkey', ambiente: ambiente, gerenciadoPor: 'bicep' }
+var tags = { sistema: 'Sigeo', ambiente: ambiente, gerenciadoPor: 'bicep' }
 
 // ---------------------------- Observabilidade ---------------------------------------
 resource logs 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
@@ -243,8 +243,8 @@ resource web 'Microsoft.Web/sites@2023-12-01' = {
       healthCheckPath: '/saude'
       appSettings: concat([
         { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: appi.properties.ConnectionString }
-        { name: 'Groundkey__KeyVaultUri', value: kv.properties.vaultUri }
-        { name: 'Groundkey__BlobUri', value: st.properties.primaryEndpoints.blob }
+        { name: 'Sigeo__KeyVaultUri', value: kv.properties.vaultUri }
+        { name: 'Sigeo__BlobUri', value: st.properties.primaryEndpoints.blob }
         { name: 'ASPNETCORE_ENVIRONMENT', value: ambiente == 'prd' ? 'Production' : 'Staging' }
         { name: 'ASPNETCORE_FORWARDEDHEADERS_ENABLED', value: 'true' } // TLS termina no proxy do App Service
         { name: 'TZ', value: 'America/Sao_Paulo' }
@@ -256,7 +256,7 @@ resource web 'Microsoft.Web/sites@2023-12-01' = {
         { name: 'IA__AnalisarNotasAutomatico', value: 'false' } // só pelo botão (custo); a leitura da nota no recebimento é por foto
       ] : [])
       connectionStrings: [
-        { name: 'Groundkey', connectionString: sqlConn, type: 'SQLAzure' }
+        { name: 'Sigeo', connectionString: sqlConn, type: 'SQLAzure' }
       ]
     }
   }

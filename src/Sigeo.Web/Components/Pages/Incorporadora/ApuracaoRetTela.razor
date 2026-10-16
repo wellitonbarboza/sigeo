@@ -1,0 +1,59 @@
+@page "/incorporacao/ret"
+@inherits PaginaBase
+@using Sigeo.Domain.Incorporacao
+@inject IncorporacaoServico Inc
+
+<Pagina Titulo="Apuração do RET" AoAtualizar="Carregar">
+    <ChildContent>
+        <div class="pagina">
+            <div class="barra-filtro">
+                <SeletorObra Id="ret-obra" Valor="_obraId" ValorChanged="async v => { _obraId = v; await Carregar(); }" Inicial="ObraQuery" />
+                @if (_obraId is not null)
+                {
+                    <label>Competência <input id="ret-mes" type="month" @bind="_mes" @bind:format="yyyy-MM" /></label>
+                    <button class="btn prim" id="ret-apurar" disabled="@Ocupado" @onclick="Apurar"><Icone Nome="calculadora" Tam="16" /> Apurar</button>
+                }
+            </div>
+            @if (_obraId is null) { <div class="alerta info"><Icone Nome="info" /> Escolha a obra.</div> }
+            else
+            {
+                <div class="alerta info"><Icone Nome="info" /> Base = receita da venda <b>recebida</b> no mês (inclui correção, juros e permuta). Gera o DARF em Contas a Pagar (conta 6.1), com vencimento no dia configurado do mês seguinte. Reapurar substitui o DARF enquanto não estiver pago.</div>
+                <div class="tabela-rolavel"><table class="itens" id="ret-tabela">
+                    <thead><tr><th>Competência</th><th>Regime</th><th class="num">Receita recebida</th><th class="num">IRPJ</th><th class="num">CSLL</th><th class="num">PIS</th><th class="num">COFINS</th><th class="num">CBS</th><th class="num">IBS</th><th class="num">Total</th><th class="num">Alíquota</th></tr></thead>
+                    <tbody>
+                        @foreach (var a in _apuracoes)
+                        {
+                            <tr><td>@a.Competencia.ToString("MM/yyyy")</td><td>@NomesVenda.Regime(a.Regime)</td><td class="num">@a.ReceitaRecebida.ToString("N2", Br)</td>
+                                <td class="num">@a.Irpj.ToString("N2", Br)</td><td class="num">@a.Csll.ToString("N2", Br)</td><td class="num">@a.Pis.ToString("N2", Br)</td><td class="num">@a.Cofins.ToString("N2", Br)</td>
+                                <td class="num">@a.Cbs.ToString("N2", Br)</td><td class="num">@a.Ibs.ToString("N2", Br)</td><td class="num"><b>@a.Total.ToString("N2", Br)</b></td><td class="num">@a.AliquotaTotal.ToString("N2", Br)%</td></tr>
+                        }
+                        @if (_apuracoes.Count == 0) { <tr><td colspan="11" class="mudo">Nenhuma apuração. Escolha a competência e clique em Apurar.</td></tr> }
+                    </tbody>
+                    <tfoot><tr><td colspan="2">Total</td><td class="num">@_apuracoes.Sum(a => a.ReceitaRecebida).ToString("N2", Br)</td><td colspan="6"></td><td class="num"><b>@_apuracoes.Sum(a => a.Total).ToString("N2", Br)</b></td><td></td></tr></tfoot>
+                </table></div>
+            }
+        </div>
+    </ChildContent>
+</Pagina>
+
+@code {
+    [SupplyParameterFromQuery(Name = "obra")] public Guid? ObraQuery { get; set; }
+    private Guid? _obraId;
+    private DateOnly _mes;
+    private List<ApuracaoRet> _apuracoes = [];
+
+    protected override void OnInitialized() => _mes = new DateOnly(Hoje.Year, Hoje.Month, 1).AddMonths(-1);
+
+    private async Task Carregar() => _apuracoes = _obraId is { } o ? await Inc.ApuracoesAsync(o, Cancelamento) : [];
+
+    private async Task Apurar()
+    {
+        if (_obraId is not { } o) return;
+        ApuracaoRet? a = null;
+        if (await Executar(async () => a = await Inc.ApurarAsync(o, _mes, Cancelamento)))
+        {
+            Notif.Sucesso(a!.Total > 0 ? $"RET {_mes:MM/yyyy}: {a.Total.ToString("C2", Br)} — DARF em Contas a Pagar." : $"Sem receita recebida em {_mes:MM/yyyy}: nada a recolher.");
+            await Carregar();
+        }
+    }
+}

@@ -1,0 +1,126 @@
+@page "/obra/equipamentos/etiquetas"
+@page "/equipamentos/etiquetas"
+@attribute [ExcludeFromInteractiveRouting]
+@layout Sigeo.Web.Components.Layout.LayoutImpressao
+@inject IFabricaDb Fabrica
+@inject NavigationManager Nav
+@inject TimeProvider Relogio
+
+<PageTitle>Etiquetas · SIGEO</PageTitle>
+<style>
+    @@page { size: A4 portrait; margin: 0; }
+    html, body { margin: 0; padding: 0; background: #fff; font-family: Inter, Arial, sans-serif; color: #111; }
+    .folha { position: relative; width: 210mm; height: 297mm; overflow: hidden; page-break-after: always; break-after: page; }
+    .folha:last-child { page-break-after: auto; break-after: auto; }
+    .etq { position: absolute; box-sizing: border-box; padding: 1.6mm 2mm 1.4mm 2.6mm; display: flex; gap: 1.8mm; align-items: center; overflow: hidden; }
+    .etq .etq-cor { position: absolute; left: 0; top: 0; bottom: 0; width: 1.6mm; }
+    .etq img { flex: 0 0 auto; image-rendering: pixelated; }
+    .etq .txt { flex: 1 1 auto; min-width: 0; line-height: 1.18; }
+    .etq .cod { font-size: 4.2mm; font-weight: 800; letter-spacing: .2mm; white-space: nowrap; }
+    .etq .desc { font-size: 2.4mm; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .etq .linha { font-size: 2.25mm; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .etq .sit { display: inline-block; margin-top: .6mm; font-size: 2.3mm; font-weight: 800; padding: .2mm 1.2mm; border-radius: .8mm; color: #fff; }
+    .etq .tri { position: absolute; right: 1.6mm; top: 1.2mm; font-size: 2.2mm; font-weight: 800; }
+    .guia .etq { outline: .1mm dashed #bbb; }
+    .etq-barra { position: fixed; top: 8px; right: 8px; line-height: 1.4; flex-wrap: wrap; background: #111827; color: #fff; padding: 8px 12px; border-radius: 8px; font-size: 13px; display: flex; gap: 10px; align-items: center; z-index: 9; }
+    .etq-barra a, .etq-barra button { color: #fff; background: #2563eb; border: 0; padding: 5px 10px; border-radius: 6px; text-decoration: none; cursor: pointer; font-size: 13px; }
+    @@media screen { body { background: #e5e7eb; } .folha { background: #fff; margin: 12px auto; box-shadow: 0 1px 6px rgba(0,0,0,.2); } }
+    @@media print { .etq-barra { display: none; } .guia .etq { outline: none; } }
+</style>
+
+<div class="etq-barra">
+    <span>@_etiquetas.Count etiqueta(s) · @_col × @_lin por folha (@_larg.ToString("0.0", Rotulos.Br) × @_alt.ToString("0.0", Rotulos.Br) mm)</span>
+    <a href="@UrlPular(Math.Max(0, Pular - 1))">− pular</a><span>pular @Pular</span><a href="@UrlPular(Pular + 1)">+ pular</a>
+    <button onclick="window.print()">Imprimir</button>
+</div>
+
+@if (_etiquetas.Count == 0) { <p style="padding:40px">Nenhum item selecionado.</p> }
+else
+{
+    var porFolha = _col * _lin;
+    var total = Pular + _etiquetas.Count;
+    for (var f = 0; f * porFolha < total; f++)
+    {
+        <div class="folha guia">
+            @for (var k = 0; k < porFolha; k++)
+            {
+                var idx = f * porFolha + k - Pular;
+                if (idx < 0 || idx >= _etiquetas.Count) continue;
+                var e = _etiquetas[idx];
+                var c = k % _col; var l = k / _col;
+                var x = _margEsq + c * (_larg + _espH); var y = _margSup + l * (_alt + _espV);
+                var qr = Math.Min(_alt - 3.2m, _larg * 0.42m);
+                <div class="etq" style="@($"left:{Mm(x)};top:{Mm(y)};width:{Mm(_larg)};height:{Mm(_alt)}")">
+                    <div class="etq-cor" style="background:@e.Cor"></div>
+                    @if (e.Trimestre is not null) { <span class="tri" style="color:@e.Cor">@e.Trimestre</span> }
+                    <img src="@e.Qr" style="@($"width:{Mm(qr)};height:{Mm(qr)}")" alt="QR" />
+                    <div class="txt">
+                        <div class="cod">@e.Codigo</div>
+                        <div class="desc">@e.Descricao</div>
+                        @foreach (var linha in e.Linhas) { <div class="linha">@linha</div> }
+                        <span class="sit" style="background:@(e.Liberado ? "#15803d" : "#b91c1c")">@(e.Liberado ? "LIBERADO" : "BLOQUEADO")</span>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+}
+
+@code {
+    private sealed record Etq(string Codigo, string Descricao, IReadOnlyList<string> Linhas, bool Liberado, string Cor, string? Trimestre, string Qr);
+    [SupplyParameterFromQuery(Name = "ids")] public string? Ids { get; set; }
+    [SupplyParameterFromQuery(Name = "pular")] public int Pular { get; set; }
+    private readonly List<Etq> _etiquetas = [];
+    private int _col = 3, _lin = 8;
+    private decimal _larg = 63.5m, _alt = 33.9m, _margSup = 12.9m, _margEsq = 7.2m, _espH = 2.5m, _espV;
+    private static readonly string[] Cores = ["#2563eb", "#16a34a", "#ca8a04", "#dc2626"];
+
+    private static string Mm(decimal v) => v.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) + "mm";
+    private string UrlPular(int n) => Nav.GetUriWithQueryParameter("pular", n);
+
+    private string QrDe(string url)
+    {
+        using var gen = new QRCoder.QRCodeGenerator();
+        using var data = gen.CreateQrCode(url, QRCoder.QRCodeGenerator.ECCLevel.M);
+        var png = new QRCoder.PngByteQRCode(data).GetGraphic(6);
+        return "data:image/png;base64," + Convert.ToBase64String(png);
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        Pular = Math.Clamp(Pular, 0, 200);
+        var ids = (Ids ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries).Select(s => Guid.TryParse(s, out var g) ? g : Guid.Empty).Where(g => g != Guid.Empty).Distinct().Take(500).ToList();
+        await using var db = Fabrica.CriarLeitura();
+        var p = await ParametrosServico.CarregarAsync(db);
+        _col = Math.Max(1, p.Int(Parametros.EtiquetaColunas)); _lin = Math.Max(1, p.Int(Parametros.EtiquetaLinhas));
+        _larg = p[Parametros.EtiquetaLarguraMm]; _alt = p[Parametros.EtiquetaAlturaMm]; _margSup = p[Parametros.EtiquetaMargemSuperiorMm];
+        _margEsq = p[Parametros.EtiquetaMargemEsquerdaMm]; _espH = p[Parametros.EtiquetaEspacoHorizontalMm]; _espV = p[Parametros.EtiquetaEspacoVerticalMm];
+        var hoje = DateOnly.FromDateTime(Relogio.GetLocalNow().Date);
+        var afericao = new Uri(Nav.Uri).AbsolutePath.StartsWith("/obra/", StringComparison.OrdinalIgnoreCase);
+        if (afericao)
+        {
+            var itens = await db.Equipamentos.AsNoTracking().Where(e => ids.Contains(e.Id)).OrderBy(e => e.Codigo).ToListAsync();
+            var forn = itens.Where(e => e.FornecedorId != null).Select(e => e.FornecedorId!.Value).Distinct().ToList();
+            var nomes = await db.Fornecedores.AsNoTracking().Where(f => forn.Contains(f.Id)).ToDictionaryAsync(f => f.Id, f => f.NomeFantasia ?? f.RazaoSocial);
+            foreach (var e in itens)
+            {
+                var tri = e.UltimaData is { } u ? (u.Month - 1) / 3 : -1;
+                var dono = e.Dono == DonoFerramenta.Terceiro && e.FornecedorId is { } fid ? nomes.GetValueOrDefault(fid, "Terceiro") : "Própria";
+                _etiquetas.Add(new Etq(e.Codigo, e.Descricao,
+                    [$"Aferido: {Rotulos.DataCurta(e.UltimaData)}", $"Próxima: {Rotulos.DataCurta(e.Proxima)}", $"Dono: {dono}"],
+                    e.UsavelEm(hoje), tri < 0 ? "#6b7280" : Cores[tri], tri < 0 ? null : $"T{tri + 1}/{e.UltimaData!.Value:yy}", QrDe($"{Nav.BaseUri}qr/f/{e.QrToken}")));
+            }
+        }
+        else
+        {
+            var itens = await db.Ativos.AsNoTracking().Include(e => e.Documentos).Where(e => ids.Contains(e.Id)).OrderBy(e => e.Patrimonio).ToListAsync();
+            var fams = await db.FamiliasEquipamento.AsNoTracking().ToDictionaryAsync(f => f.Id, f => f.Nome);
+            foreach (var e in itens)
+            {
+                var bloq = e.Situacao is SituacaoEquipamento.Parado or SituacaoEquipamento.Baixado or SituacaoEquipamento.Devolvido || e.Documentos.Any(d => d.Bloqueia && d.Vencimento < hoje);
+                _etiquetas.Add(new Etq(e.Patrimonio, e.Nome, [$"{fams.GetValueOrDefault(e.FamiliaId, "")} · crit. {e.Criticidade}", $"{Rotulos.De(e.Propriedade)}{(e.NumeroSerie is { Length: > 0 } ns ? " · NS " + ns : "")}"],
+                    !bloq, e.Criticidade switch { Criticidade.A => "#dc2626", Criticidade.B => "#ca8a04", _ => "#2563eb" }, null, QrDe($"{Nav.BaseUri}qr/e/{e.QrToken}")));
+            }
+        }
+    }
+}

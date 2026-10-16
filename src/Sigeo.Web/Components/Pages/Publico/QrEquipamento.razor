@@ -1,0 +1,74 @@
+@page "/qr/f/{Token}"
+@page "/qr/e/{Token}"
+@attribute [AllowAnonymous]
+@attribute [ExcludeFromInteractiveRouting]
+@layout LayoutPublico
+@inject IFabricaSistema Sistema
+@inject NavigationManager Nav
+@inject TimeProvider Relogio
+
+<PageTitle>Verificação de equipamento · SIGEO</PageTitle>
+<div class="portal portal-estreito">
+    @if (_titulo is null)
+    {
+        <div class="caixa"><h2>Não encontrado</h2><p>Este QR não corresponde a um equipamento cadastrado.</p></div>
+    }
+    else
+    {
+        <div class="alerta alerta-grande @(_liberado ? "ok" : "erro")">
+            <Icone Nome="@(_liberado ? "check" : "x-circulo")" Tam="28" />
+            <b>@(_liberado ? "LIBERADO PARA USO" : "BLOQUEADO — não use, devolva ao almoxarifado")</b>
+        </div>
+        <h2>@_titulo</h2>
+        <table class="itens">
+            @foreach (var (k, v) in _linhas) { <tr><th>@k</th><td>@v</td></tr> }
+        </table>
+        <p class="mudo">Consulta em @Relogio.GetLocalNow().ToString("dd/MM/yyyy HH:mm").</p>
+    }
+</div>
+
+@code {
+    [Parameter] public string Token { get; set; } = "";
+    private string? _titulo;
+    private bool _liberado;
+    private readonly List<(string, string)> _linhas = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (string.IsNullOrWhiteSpace(Token) || Token.Length > 40) return;
+        var hoje = DateOnly.FromDateTime(Relogio.GetLocalNow().Date);
+        await using var db = Sistema.Criar(Guid.Empty, "QR");
+        if (new Uri(Nav.Uri).AbsolutePath.StartsWith("/qr/f/", StringComparison.OrdinalIgnoreCase))
+        {
+            var e = await db.Equipamentos.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(x => x.QrToken == Token && !x.Excluido);
+            if (e is null) return;
+            var alerta = (await db.Parametros.IgnoreQueryFilters().AsNoTracking().Where(p => p.EmpresaId == e.EmpresaId && p.Chave == Parametros.AlertaCalibracaoDias).Select(p => (decimal?)p.Valor).FirstOrDefaultAsync())
+                         ?? Parametros.Padrao[Parametros.AlertaCalibracaoDias].Valor;
+            var st = e.Status(hoje, (int)alerta);
+            _liberado = e.UsavelEm(hoje);
+            _titulo = $"{e.Codigo} · {e.Descricao}";
+            _linhas.Add(("Situação", Rotulos.De(st)));
+            _linhas.Add(("Última aferição", $"{Rotulos.Data(e.UltimaData)}{(e.UltimoResultado is { } r ? " · " + Rotulos.De(r) : "")}"));
+            _linhas.Add(("Próxima", Rotulos.Data(e.Proxima)));
+            _linhas.Add(("Critério", e.Criterio));
+            _linhas.Add(("Dono", e.Dono == DonoFerramenta.Propria ? "Própria" : "Empreiteira"));
+            _linhas.Add(("Com quem está", e.ComQuem ?? "Almoxarifado"));
+        }
+        else
+        {
+            var e = await db.Ativos.IgnoreQueryFilters().AsNoTracking().Include(x => x.Documentos).FirstOrDefaultAsync(x => x.QrToken == Token && !x.Excluido);
+            if (e is null) return;
+            var docs = e.Documentos.Where(d => d.Bloqueia && d.Vencimento < hoje).Select(d => d.Nome).ToList();
+            var abertas = await db.OrdensServico.IgnoreQueryFilters().AsNoTracking().Where(o => o.EquipamentoId == e.Id && !o.Excluido && o.Tipo == TipoOrdemServico.Corretiva
+                && (o.Status == StatusOrdemServico.Aberta || o.Status == StatusOrdemServico.EmExecucao || o.Status == StatusOrdemServico.AguardandoPeca)).CountAsync();
+            _liberado = docs.Count == 0 && abertas == 0 && e.Situacao is SituacaoEquipamento.Disponivel or SituacaoEquipamento.EmUso;
+            _titulo = $"{e.Patrimonio} · {e.Nome}";
+            _linhas.Add(("Situação", Rotulos.De(e.Situacao)));
+            _linhas.Add(("Propriedade", Rotulos.De(e.Propriedade)));
+            _linhas.Add(("Criticidade", e.Criticidade.ToString()));
+            if (docs.Count > 0) _linhas.Add(("Documentos vencidos", string.Join(", ", docs)));
+            if (abertas > 0) _linhas.Add(("Corretivas em aberto", abertas.ToString()));
+            if (e.Horimetro > 0) _linhas.Add(("Horímetro", $"{e.Horimetro:N1} h"));
+        }
+    }
+}

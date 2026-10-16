@@ -1,0 +1,37 @@
+@page "/engenharia/planejamento/imprimir-programacao"
+@attribute [ExcludeFromInteractiveRouting]
+@layout Sigeo.Web.Components.Layout.LayoutImpressao
+@using Sigeo.Web.Components.Pages.Engenharia.Partes
+@inject AcompanhamentoServico Acomp
+@inject UsuarioAtualWeb Usuario
+
+<PageTitle>Programação semanal · @_p?.Obra</PageTitle>
+<link rel="stylesheet" href="@Assets["css/telas-planejamento.css"]" />
+<style>
+    @@page { size: @(Folha.Split('-')[0]) @(Folha.EndsWith("retrato") ? "portrait" : "landscape"); margin: 8mm; }
+    body { margin: 0; font-family: Inter, Arial, sans-serif; color: #111827; background: #fff; }
+    @@media screen { body { padding: 12px; background: #f1f5f9; } .dica { font-size: 13px; margin-bottom: 8px; } }
+    @@media print { .dica { display: none; } }
+</style>
+<div class="dica">Na janela de impressão escolha <b>@Folha.Replace("-", " ")</b> e "Salvar como PDF". <a href="javascript:window.print()">Imprimir agora</a></div>
+<FolhasProgramacao Dados="_p" Agrupar="@(Agrupar ?? "local")" Emissor="@Usuario.Nome" />
+<script>window.addEventListener('load', () => setTimeout(() => window.print(), 500));</script>
+
+@code {
+    [SupplyParameterFromQuery(Name = "obra")] public Guid Obra { get; set; }
+    [SupplyParameterFromQuery(Name = "de")] public string? De { get; set; }
+    [SupplyParameterFromQuery(Name = "ate")] public string? Ate { get; set; }
+    [SupplyParameterFromQuery(Name = "spe")] public Guid? Spe { get; set; }
+    [SupplyParameterFromQuery(Name = "folha")] public string? FolhaQuery { get; set; }
+    [SupplyParameterFromQuery(Name = "agrupar")] public string? Agrupar { get; set; }
+    private string Folha => FolhaQuery is "A4-retrato" or "A3-paisagem" ? FolhaQuery : "A4-paisagem";
+    private AcompanhamentoServico.Programacao? _p;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var hoje = DateOnly.FromDateTime(DateTime.Today);
+        var de = DateOnly.TryParse(De, out var d) ? d : hoje;
+        var ate = DateOnly.TryParse(Ate, out var a) ? a : de.AddDays(5);
+        _p = await Acomp.ProgramacaoAsync(Obra, Spe, de, ate);
+    }
+}

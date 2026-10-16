@@ -1,0 +1,93 @@
+@page "/fornecedor"
+@attribute [AllowAnonymous]
+@attribute [ExcludeFromInteractiveRouting]
+@attribute [Microsoft.AspNetCore.RateLimiting.EnableRateLimiting(Sigeo.Web.Seguranca.Autenticacao.LimiteFornecedor)]
+@layout LayoutPublico
+@inject AcessoFornecedorServico Acesso
+@inject IEnvioMensagens Envio
+@* Página estática (formulários HTML): entrada por CNPJ/CPF → escolha do contato → código. O cookie é gravado pelo endpoint /fornecedor/entrar. *@
+
+<PageTitle>Área do Fornecedor · SIGEO</PageTitle>
+<div class="login">
+    <div class="caixa caixa-640">
+        <div class="login-marca"><Logo /></div>
+        <h1>Área do Fornecedor</h1>
+        <p class="mudo">Cotações, cadastro e documentos. Entre com o CNPJ (ou CPF) e um código enviado a um contato do seu cadastro.</p>
+        @if (Saiu == "1") { <div class="alerta ok">Você saiu da Área do Fornecedor.</div> }
+        @if (!string.IsNullOrWhiteSpace(Erro)) { <div class="alerta erro" role="alert" id="forn-erro">@Erro</div> }
+
+        @if (_etapa == 1)
+        {
+            <form method="get" action="fornecedor" class="form mt-14">
+                <input type="hidden" name="volta" value="@Volta" />
+                <div class="campo s12"><label for="doc">CNPJ ou CPF</label><input id="doc" name="doc" value="@Doc" inputmode="numeric" autocomplete="off" required autofocus placeholder="00.000.000/0000-00" /></div>
+                <div class="campo s12"><button class="btn prim btn-centro" id="forn-continuar" type="submit">Continuar</button></div>
+            </form>
+        }
+        else if (_etapa == 2)
+        {
+            <p><b>@Doc</b> · <a href="fornecedor?volta=@Uri.EscapeDataString(Volta ?? "")">trocar</a></p>
+            @if (_contatos.Count == 0)
+            {
+                <div class="alerta aviso" id="forn-sem-contato">Não encontramos contato com e-mail ou celular para este CNPJ/CPF. Peça ao setor de Suprimentos da construtora para atualizar o seu cadastro.</div>
+            }
+            else
+            {
+                <form method="post" action="fornecedor/codigo" class="form mt-14" id="forn-contatos">
+                    <AntiforgeryToken />
+                    <input type="hidden" name="doc" value="@Doc" />
+                    <input type="hidden" name="volta" value="@Volta" />
+                    <fieldset class="campo s12 fieldset-limpo">
+                        <legend class="rotulo">Para quem enviamos o código?</legend>
+                        @foreach (var c in _contatos)
+                        {
+                            @if (c.TemEmail && Envio.EmailDisponivel)
+                            {
+                                <label class="opcao-contato"><input type="radio" name="sel" value="@($"{c.ContatoId}|email")" required />
+                                    <Icone Nome="enviar" Tam="16" /> <span><b>@c.Nome</b> · e-mail @c.Email</span></label>
+                            }
+                            @if (c.TemCelular && Envio.WhatsAppDisponivel)
+                            {
+                                <label class="opcao-contato"><input type="radio" name="sel" value="@($"{c.ContatoId}|whatsapp")" required />
+                                    <Icone Nome="celular" Tam="16" /> <span><b>@c.Nome</b> · WhatsApp @c.Celular</span></label>
+                            }
+                        }
+                    </fieldset>
+                    <div class="campo s12"><button class="btn prim btn-centro" id="forn-enviar" type="submit">Enviar código</button></div>
+                </form>
+            }
+        }
+        else
+        {
+            <div class="alerta info" id="forn-enviado">Enviamos um código de 6 dígitos para <b>@Enviado</b>. Ele vale por @Domain.Cadastros.CodigoAcessoFornecedor.ValidadeMinutos minutos.</div>
+            <form method="post" action="fornecedor/entrar" class="form mt-14">
+                <AntiforgeryToken />
+                <input type="hidden" name="doc" value="@Doc" />
+                <input type="hidden" name="volta" value="@Volta" />
+                <input type="hidden" name="enviado" value="@Enviado" />
+                <div class="campo s12"><label for="codigo">Código recebido</label><input id="codigo" name="codigo" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" required autofocus /></div>
+                <div class="campo s12"><button class="btn prim btn-centro" id="forn-entrar" type="submit">Entrar</button></div>
+            </form>
+            <p class="mudo texto-pq mt-14">Não chegou? Confira o spam ou <a href="fornecedor?doc=@Uri.EscapeDataString(Doc ?? "")&volta=@Uri.EscapeDataString(Volta ?? "")">peça outro código</a> (até @AcessoFornecedorServico.MaxCodigosPorDocumentoHora por hora).</p>
+        }
+        <p class="mudo texto-pq mt-14">O código vai só para os contatos cadastrados pela construtora. Para incluir ou trocar um contato, fale com o setor de Suprimentos.</p>
+    </div>
+</div>
+
+@code {
+    [SupplyParameterFromQuery] public string? Doc { get; set; }
+    [SupplyParameterFromQuery] public string? Enviado { get; set; }
+    [SupplyParameterFromQuery] public string? Erro { get; set; }
+    [SupplyParameterFromQuery] public string? Saiu { get; set; }
+    [SupplyParameterFromQuery] public string? Volta { get; set; }
+    private int _etapa = 1;
+    private IReadOnlyList<ContatoAcesso> _contatos = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (string.IsNullOrWhiteSpace(Doc)) return;
+        if (!string.IsNullOrWhiteSpace(Enviado)) { _etapa = 3; return; }
+        try { _contatos = await Acesso.ContatosAsync(Doc); _etapa = 2; }
+        catch (Domain.Aprovacoes.RegraDeNegocioException e) { Erro = e.Message; _etapa = 1; }
+    }
+}

@@ -1,0 +1,479 @@
+@page "/recebimentos"
+@inherits PaginaBase
+@inject RecebimentosServico RecebimentosSrv
+@inject TransferenciasServico TransferenciasSrv
+@inject NavigationManager Nav
+@inject QualidadeObraServico Qob
+@inject EstoqueServico EstoqueSrv
+@inject Sigeo.Application.Fiscal.LeituraNotaServico LeituraNota
+@inject AnexosServico AnexosSrv
+
+<Pagina Titulo="Recebimento de materiais / FVM" Grade="_grade" AoNovo="Novo" AoAtualizar="Carregar">
+    <ChildContent>
+        <div class="pagina">
+            <div class="kpis">
+                <Kpi Rotulo="Recebimentos" Valor="@_itens?.Count" />
+                <Kpi Rotulo="FVM aprovadas" Valor="@_itens?.Count(r => r.Aprovada == true)" Tom="ok" />
+                <Kpi Rotulo="FVM reprovadas" Valor="@_itens?.Count(r => r.Aprovada == false)" Tom="erro" />
+                <Kpi Rotulo="Devolvidos" Valor="@_itens?.Count(r => r.Destino == DestinoRecebimento.Devolvido)" Tom="aviso" />
+            </div>
+            <Grade T="Linha" @ref="_grade" Itens="_itens" Limite="LimiteGrade" AoCarregarTudo="async () => { ListaCompleta = true; await Carregar(); }" AoClicar="l => Abrir(l.Id)" NomeExportacao="recebimentos" CriadoPor="l => l.CriadoPor">
+                <Colunas>
+                    <Coluna T="Linha" Titulo="Número" Valor="l => l.Numero" Largura="90px" />
+                    <Coluna T="Linha" Titulo="Data" Valor="l => l.Data" />
+                    <Coluna T="Linha" Titulo="Pedido" Valor="l => l.Pedido" />
+                    <Coluna T="Linha" Titulo="Fornecedor" Valor="l => l.Fornecedor" />
+                    <Coluna T="Linha" Titulo="NF" Valor="l => l.Nf" />
+                    <Coluna T="Linha" Titulo="FVM" Valor="l => l.Aprovada"><Modelo>@if (context.Aprovada == true) { <Selo Texto="Aprovada" Tom="ok" /> } else if (context.Aprovada == false) { <Selo Texto="Reprovada" Tom="erro" /> }</Modelo></Coluna>
+                    <Coluna T="Linha" Titulo="Nota entrega" Valor="l => l.Nota" Alinhar="num" />
+                    <Coluna T="Linha" Titulo="Destino" Valor="l => l.Destino" />
+                    <Coluna T="Linha" Titulo="Recebido por" Valor="l => l.CriadoPor" />
+                </Colunas>
+            </Grade>
+        </div>
+    </ChildContent>
+    <Faixa><b>Recebimento</b><span>FVM: prazo, qualidade, atendimento (Aprovado/Reprovado)</span><span>Controlado: lote + documentos obrigatórios</span><span>Reprovação gera comunicação e plano de ação</span></Faixa>
+</Pagina>
+
+<Modal @bind-Aberto="_aberto" Titulo="@(_r?.Numero > 0 ? $"Recebimento {_r.Numero}" : "Novo recebimento")" Tamanho="grande">
+    <ChildContent>
+        @if (_r is not null)
+        {
+            <Erros Lista="ErrosForm" />
+            @if (Novo_) { <LeituraNotaCamera ReferenciaId="_r.Id" AoLer="AplicarLeitura" /> }
+            <div class="form">
+                <Campo Rotulo="Pedido" Obrigatorio Classe="s4">
+                    <select value="@_r.PedidoId" @onchange="e => EscolherPedido(e.Value?.ToString())" disabled="@(!Novo_)">
+                        <option value="">Selecione…</option>@foreach (var p in _pedidos) { <option value="@p.Id">@p.Texto</option> }
+                    </select>
+                </Campo>
+                <Campo Rotulo="Chave NF-e (44 dígitos)" Classe="s5"><input value="@_r.ChaveNFe" @onchange="e => ChaveDigitada(e.Value?.ToString())" maxlength="54" inputmode="numeric" disabled="@(!Novo_)" placeholder="digite, cole ou use o leitor" /></Campo>
+                <Campo Rotulo="Nº nota fiscal" Classe="s3"><input @bind="_r.NumeroNotaFiscal" disabled="@(!Novo_)" /></Campo>
+                <Campo Rotulo="Onde está recebendo (estoque)" Classe="s6" Ajuda="O material entra no saldo deste almoxarifado (em quarentena até o ensaio, se houver).">
+                    <select id="rec-almox" @bind="_r.AlmoxarifadoId" disabled="@(!Novo_)">
+                        <option value="">Automático (central se o pedido for para o central; senão a obra)</option>
+                        @foreach (var a in _almoxs.Where(a => a.Ativo && (a.Tipo == TipoAlmoxarifado.Central || a.ObraId == _r.ObraId))) { <option value="@a.Id">@(a.Tipo == TipoAlmoxarifado.Central ? "Central · " : "Obra · ")@a.Nome</option> }
+                    </select>
+                </Campo>
+            </div>
+            <div class="secao"><Icone Nome="lista" /> Itens recebidos</div>
+            <datalist id="rec-marcas">@foreach (var nm in _marcas) { <option>@nm</option> }</datalist>
+            @if (_r.Itens.Any(DivergeMarca)) { <div class="alerta aviso"><Icone Nome="alerta" /> Marca recebida diferente da comprada em @_r.Itens.Count(DivergeMarca) item(ns): descreva na ocorrência / não conformidade.</div> }
+            <div class="tabela-rolavel">
+                <table class="itens">
+                    <thead><tr><th>Descrição</th><th>Marca recebida</th><th>UN</th><th class="num">Qtd. pedida (saldo)</th><th>Qtd. recebida</th><th>Controlado</th><th>Lote / corrida</th><th>Documentos recebidos</th></tr></thead>
+                    <tbody>
+                        @foreach (var i in _r.Itens)
+                        {
+                            <tr @key="i" class="@(i.QtdRecebida != i.QtdPedida ? "alerta-linha" : "")">
+                                <td>@i.Descricao@if (i.PedidoItemId is { } pim && _marcaPedido.TryGetValue(pim, out var mped) && !string.IsNullOrWhiteSpace(mped)) { <br /><small class="mudo">Comprada: @mped</small> }</td>
+                                <td class="larg-160"><input @bind="i.Marca" list="rec-marcas" disabled="@(!Novo_)" class="@(DivergeMarca(i) ? "invalido" : "")" title="@(DivergeMarca(i) ? "Marca diferente da comprada: registre na ocorrência" : null)" /></td>
+                                <td>@i.Unidade</td><td class="num">@Num(i.QtdPedida, 3)</td>
+                                <td class="larg-110"><input type="number" step="0.001" @bind="i.QtdRecebida" disabled="@(!Novo_)" /></td>
+                                <td>@if (i.MaterialControlado) { <Selo Texto="Sim" Tom="info" /> } else { <span class="mudo">Não</span> }</td>
+                                <td><input @bind="i.Lote" disabled="@(!Novo_)" placeholder="@(i.MaterialControlado ? "obrigatório" : "")" /></td>
+                                <td><label><input type="checkbox" @bind="i.DocumentosRecebidos" disabled="@(!Novo_)" /> certificado/laudo/FISPQ</label></td>
+                            </tr>
+                        }
+                        @if (_r.Itens.Count == 0) { <tr><td colspan="8" class="mudo">Selecione o pedido.</td></tr> }
+                    </tbody>
+                </table>
+            </div>
+
+            @if (_r.FvmItens.Count > 0)
+            {
+                <div class="secao"><Icone Nome="lista" /> Itens de verificação na chegada — @(_modelo?.Codigo ?? "modelo FVM") @(_modelo is null ? "" : _modelo.Rotulo)</div>
+                <div class="tabela-rolavel">
+                    <table class="itens">
+                        <thead><tr><th>#</th><th>Item</th><th>Critério</th><th>Medido</th><th class="min-220">Resultado</th><th>Obs.</th><th>Foto</th></tr></thead>
+                        <tbody>
+                            @foreach (var i in _r.FvmItens.OrderBy(i => i.Ordem))
+                            {
+                                <tr @key="i" class="@(i.Resultado == ResultadoItem.NaoConforme ? "alerta-linha" : "")">
+                                    <td>@i.Ordem</td><td>@i.Descricao @if (i.Bloqueia) { <small class="mudo">· bloqueia</small> }</td><td>@i.Criterio</td>
+                                    <td class="larg-90"><input @bind="i.ValorMedido" disabled="@(!Novo_)" /></td>
+                                    <td><div class="botoes-resultado">
+                                        <button class="btn pq @(i.Resultado == ResultadoItem.Conforme ? "ok" : "sec")" disabled="@(!Novo_)" @onclick="() => i.Resultado = ResultadoItem.Conforme">Conforme</button>
+                                        <button class="btn pq @(i.Resultado == ResultadoItem.NaoConforme ? "perigo-cheio" : "sec")" disabled="@(!Novo_)" @onclick="() => i.Resultado = ResultadoItem.NaoConforme">Não conf.</button>
+                                        <button class="btn pq @(i.Resultado == ResultadoItem.NaoAplica ? "prim" : "sec")" disabled="@(!Novo_)" @onclick="() => i.Resultado = ResultadoItem.NaoAplica">N/A</button></div></td>
+                                    <td><input @bind="i.Observacao" disabled="@(!Novo_)" /></td>
+                                    <td><Fotos Entidade="FvmItem" EntidadeId="i.Id" SomenteLeitura="!Novo_" /></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                @if (Novo_ && _modelo is not null)
+                {
+                    <div class="alerta info"><Icone Nome="info" /> Amostragem: @_modelo.Amostragem · Norma: @_modelo.NormaReferencia @(_modelo.QuarentenaAteEnsaio ? "· lote em quarentena até ensaio aprovado" : "") @(_modelo.RastrearAplicacao ? "· rastrear aplicação do lote" : "")
+                        @if (_modelo.Ensaios.Count > 0) { <span>&nbsp;· Ensaios: @string.Join(", ", _modelo.Ensaios.Select(x => $"{x.Ensaio} ({De(x.Momento).ToLowerInvariant()})"))</span> }</div>
+                }
+            }
+            else if (Novo_ && _r.Itens.Any(i => i.MaterialControlado)) { <div class="alerta aviso"><Icone Nome="alerta" /> Material controlado sem modelo de FVM vigente: cadastre em Qualidade da Obra › Modelos de FVM.</div> }
+            <div class="secao"><Icone Nome="escudo-check" /> Ficha de verificação de material (FVM)</div>
+            <div class="criterios">
+                @foreach (var (nome, desc, get, set, nota, setNota) in Criterios())
+                {
+                    var v = get();
+                    var n = nota();
+                    <div class="criterio @(v == ResultadoCriterio.Aprovado ? "ok" : v == ResultadoCriterio.Reprovado ? "erro" : "")">
+                        <b>@nome</b><span>@desc</span>
+                        <div class="botoes">
+                            <button class="btn pq @(v == ResultadoCriterio.Aprovado ? "ok" : "sec")" disabled="@(!Novo_ || n is not null)" @onclick="() => set(ResultadoCriterio.Aprovado)">Aprovado</button>
+                            <button class="btn pq @(v == ResultadoCriterio.Reprovado ? "perigo" : "sec")" disabled="@(!Novo_ || n is not null)" @onclick="() => set(ResultadoCriterio.Reprovado)">Reprovado</button>
+                            <input class="nota-criterio" type="number" min="0" max="10" step="0.5" placeholder="nota 0–10" title="Nota de 0 a 10 (IDF). Com nota, o critério é aprovado a partir do mínimo dos parâmetros."
+                                   value="@(n?.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture))" disabled="@(!Novo_)" @onchange="e => Nota(nota, setNota, set, e.Value?.ToString())" />
+                        </div>
+                    </div>
+                }
+                <div class="criterio resultado @(_r.FvmAprovada == true ? "ok" : _r.FvmAprovada == false ? "erro" : "")">
+                    <b>Resultado</b><span>@(_r.FvmAprovada switch { true => "FVM aprovada", false => "FVM reprovada", _ => "avalie os 3 critérios" })@(_r.Idf is not null ? " · IDF" : "")</span>
+                    <div class="nota">@Num(_r.NotaEntrega)</div>
+                </div>
+            </div>
+            <div class="form mt-12">
+                <Campo Rotulo="Destino" Classe="s3"><select @bind="_r.Destino" disabled="@(!Novo_)">@foreach (var d in Enum.GetValues<DestinoRecebimento>()) { <option value="@d">@De(d)</option> }</select></Campo>
+                <Campo Rotulo="Ocorrência / não conformidade" Obrigatorio="@(_r.FvmAprovada == false || _r.TemDivergencia)" Classe="s9"><textarea @bind="_r.Ocorrencia" disabled="@(!Novo_)"></textarea></Campo>
+                @if (_r.ComunicadoEm is not null) { <div class="campo s12"><div class="alerta aviso"><Icone Nome="alerta" /> Comunicado a @_r.ComunicadoA em @DataHora(_r.ComunicadoEm)</div></div> }
+            </div>
+            @if (!Novo_)
+            {
+                <div class="cabecalho-doc"><span>Lote</span><Selo Texto="@De(_r.StatusLote)" Tom="@Tom(_r.StatusLote)" />@if (_r.RncId is { } rid) { <a href="obra/rnc?id=@rid">RNC aberta</a> }</div>
+                @if (_r.Ensaios.Count > 0)
+                {
+                    <div class="secao"><Icone Nome="regua" /> Ensaios de recebimento</div>
+                    @if (_r.Ensaios.Any(x => x.Situacao == SituacaoEnsaio.Aguardando))
+                    {
+                        <LeituraLaudoIa ReferenciaId="_r.Id" Especificacao="@string.Join("; ", _r.Ensaios.Select(x => $"{x.Ensaio}: {x.Criterio}"))" AoLer="PreencherEnsaios" />
+                    }
+                    <div class="tabela-rolavel">
+                        <table class="itens">
+                            <thead><tr><th>Ensaio</th><th>Amostra</th><th>Coleta</th><th>Resultado previsto</th><th>Critério</th><th>Resultado</th><th>Situação</th><th></th></tr></thead>
+                            <tbody>
+                                @foreach (var x in _r.Ensaios)
+                                {
+                                    <tr @key="x.Id" class="@(x.Atrasado(Hoje) ? "alerta-linha" : "")">
+                                        <td>@x.Ensaio</td><td>@x.Amostra</td><td>@Data(x.DataColeta)</td><td>@Data(x.DataPrevista)</td><td>@x.Criterio</td>
+                                        <td>@if (x.Situacao == SituacaoEnsaio.Aguardando) { <input @bind="_resEnsaio[x.Id]" placeholder="ex.: 32,5 MPa" /> } else { @x.Resultado }</td>
+                                        <td><Selo Texto="@De(x.Situacao)" Tom="@Tom(x.Situacao)" /> @if (x.RncId is { } rr) { <a href="obra/rnc?id=@rr">RNC</a> }</td>
+                                        <td>@if (x.Situacao == SituacaoEnsaio.Aguardando) { <button class="btn ok pq" @onclick="() => Ensaio(x.Id, true)">Aprovado</button> <button class="btn perigo pq" @onclick="() => Ensaio(x.Id, false)">Reprovado</button> }</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                @if (_r.RastrearAplicacao || _r.Aplicacoes.Count > 0)
+                {
+                    <div class="secao"><Icone Nome="casa" /> Aplicação do lote (rastreabilidade)</div>
+                    <div class="tabela-rolavel">
+                        <table class="itens">
+                            <thead><tr><th>Local</th><th class="num">Quantidade</th><th>Data</th><th>FVS</th><th>Registrado por</th></tr></thead>
+                            <tbody>
+                                @foreach (var a in _r.Aplicacoes) { <tr><td>@_locNomes.GetValueOrDefault(a.LocalId)</td><td class="num">@Num(a.Quantidade, 3)</td><td>@Data(a.Data)</td><td>@(a.FvsId is null ? "—" : "vinculada")</td><td>@a.RegistradoPor</td></tr> }
+                                <tr class="total">
+                                    <td><select @bind="_apLocal"><option value="">Local…</option>@foreach (var l in _locais) { <option value="@l.Id">@l.Texto</option> }</select></td>
+                                    <td><input type="number" step="0.001" @bind="_apQtd" /></td>
+                                    <td><input type="date" @bind="_apData" /></td>
+                                    <td></td>
+                                    <td><button class="btn sec pq" disabled="@Ocupado" @onclick="Aplicar">Registrar aplicação</button></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="mudo">Recebido: @Num(_r.QuantidadeRecebida, 3) · aplicado: @Num(_r.Aplicacoes.Sum(a => a.Quantidade), 3). Ensaio reprovado abre RNC já com os locais onde o lote foi aplicado.</p>
+                }
+                <Anexos Entidade="Recebimento" EntidadeId="_r.Id" Categoria="Documentos" Titulo="Nota fiscal, certificados, laudos, fotos" />
+                @if (_r.CriadoEm != default) { <Notas Entidade="Recebimento" EntidadeId="_r.Id" /> }
+            }
+        }
+    </ChildContent>
+    <Rodape>
+        @if (_r is not null && Novo_) { <button class="btn prim" disabled="@Ocupado" @onclick="Registrar"><Icone Nome="check" Tam="16" /> Registrar recebimento</button> }
+        @if (_r is not null && !Novo_ && _r.Destino != DestinoRecebimento.Devolvido)
+        {
+            @if (_transf is { } t) { <a class="btn sec" href="transferencias?id=@t"><Icone Nome="enviar" Tam="16" /> Ver transferência</a> }
+            else if (_r.AlmoxarifadoCentral) { <button class="btn laranja" id="rec-transferir" disabled="@Ocupado" @onclick="Transferir"><Icone Nome="enviar" Tam="16" /> Transferir para a obra / SPE</button> }
+        }
+    </Rodape>
+</Modal>
+
+@code {
+    private sealed record Linha(Guid Id, int Numero, DateTimeOffset Data, int? Pedido, string Fornecedor, string? Nf, bool? Aprovada, decimal? Nota, DestinoRecebimento Destino, string CriadoPor);
+    private Grade<Linha>? _grade;
+    private List<Linha>? _itens;
+    private Recebimento? _r;
+    private bool _aberto;
+    private List<Opcao> _pedidos = [];
+    private bool Novo_ => _r is { Numero: 0 };
+
+    private IEnumerable<(string, string, Func<ResultadoCriterio>, Action<ResultadoCriterio>, Func<decimal?>, Action<decimal?>)> Criterios() =>
+    [
+        ("Prazo", "Entregue na data combinada", () => _r!.FvmPrazo, v => _r!.FvmPrazo = v, () => _r!.NotaPrazo, v => _r!.NotaPrazo = v),
+        ("Qualidade", "Conforme especificação, sem avarias (1ª inspeção)", () => _r!.FvmQualidade, v => _r!.FvmQualidade = v, () => _r!.NotaQualidade, v => _r!.NotaQualidade = v),
+        ("Documentação / atendimento", "Documentos completos no ato, quantidade, descarga", () => _r!.FvmAtendimento, v => _r!.FvmAtendimento = v, () => _r!.NotaDocumentacao, v => _r!.NotaDocumentacao = v),
+    ];
+
+    private ParametrosVigentes? _par;
+
+    /// <summary>Nota digitada (0–10) define o critério na hora, como o servidor fará ao salvar.</summary>
+    private void Nota(Func<decimal?> get, Action<decimal?> set, Action<ResultadoCriterio> res, string? texto)
+    {
+        decimal? v = decimal.TryParse((texto ?? "").Replace(',', '.'), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var d) ? Math.Clamp(d, 0, 10) : null;
+        set(v);
+        if (v is { } n) res(n >= (_par?[Parametros.IdfMinimo] ?? 6m) ? ResultadoCriterio.Aprovado : ResultadoCriterio.Reprovado);
+        var p = _par ?? ParametrosVigentes.Padrao;
+        _r!.AplicarNotas(p[Parametros.PesoIdfPrazo], p[Parametros.PesoIdfQualidade], p[Parametros.PesoIdfDocumentacao], p[Parametros.IdfMinimo]);
+    }
+
+    private List<Almoxarifado> _almoxs = [];
+    private List<string> _marcas = [];
+    private readonly Dictionary<Guid, string?> _marcaPedido = [];
+    private bool DivergeMarca(RecebimentoItem i) => i.PedidoItemId is { } p && _marcaPedido.TryGetValue(p, out var m) && !string.IsNullOrWhiteSpace(m)
+        && !string.IsNullOrWhiteSpace(i.Marca) && Marca.Chave(m) != Marca.Chave(i.Marca);
+
+    protected override async Task OnInitializedAsync()
+    {
+        _almoxs = await EstoqueSrv.AlmoxarifadosAsync(Cancelamento);
+        await using (var dbp = Fabrica.CriarLeitura()) _par = await ParametrosServico.CarregarAsync(dbp, Cancelamento);
+        _marcas = await Cat.MarcasAsync();
+        await Carregar();
+        if (Nav.Uri.Contains("?pedido=") && Guid.TryParse(Nav.Uri.Split("?pedido=")[1], out var pid)) { await Novo(); await EscolherPedido(pid.ToString()); }
+        else if (Nav.Uri.Contains("?nota=") && Guid.TryParse(Nav.Uri.Split("?nota=")[1], out var nid)) await NovoDaNota(nid);
+    }
+
+    /// <summary>
+    /// Recebimento a partir da NF-e importada (SIEG/XML) já ligada ao pedido: chave e número da nota preenchidos e a quantidade
+    /// de cada item vinda da nota (itens do pedido sem correspondente na nota ficam com zero). O almoxarife confere e avalia a FVM.
+    /// </summary>
+    private async Task NovoDaNota(Guid notaId)
+    {
+        await using var db = Fabrica.CriarLeitura();
+        var n = await db.NotasFiscais.AsNoTracking().Include(x => x.Itens).FirstOrDefaultAsync(x => x.Id == notaId, Cancelamento);
+        if (n?.PedidoId is not { } pedidoId || n.Situacao != Sigeo.Domain.Fiscal.SituacaoNota.Vinculada) { Notif.Erro("Nota sem pedido vinculado (ou já recebida)."); return; }
+        await Novo();
+        await EscolherPedido(pedidoId.ToString());
+        if (_r is null) return;
+        _r.ChaveNFe = n.Chave; _r.NumeroNotaFiscal = n.Numero.ToString();
+        var porItem = n.Itens.Where(i => i.PedidoItemId != null).GroupBy(i => i.PedidoItemId!.Value).ToDictionary(g => g.Key, g => g.ToList());
+        var avisos = new List<string>();
+        foreach (var ri in _r.Itens)
+        {
+            if (ri.PedidoItemId is { } pi && porItem.TryGetValue(pi, out var nfs))
+            {
+                ri.QtdRecebida = nfs.Sum(x => x.Quantidade);
+                if (nfs.Any(x => !Sigeo.Domain.Fiscal.ConferenciaNota.MesmaUnidade(x.Unidade, ri.Unidade)))
+                    avisos.Add($"{ri.Descricao}: unidade da nota ({string.Join("/", nfs.Select(x => x.Unidade).Distinct())}) diferente do pedido ({ri.Unidade}) — confira a quantidade.");
+                if (ri.QtdRecebida > ri.QtdPedida) avisos.Add($"{ri.Descricao}: nota com {ri.QtdRecebida:0.###} e saldo do pedido {ri.QtdPedida:0.###}.");
+            }
+            else ri.QtdRecebida = 0;
+        }
+        var semPedido = n.Itens.Count(i => i.PedidoItemId is null);
+        if (semPedido > 0) avisos.Add($"{semPedido} item(ns) da nota sem item do pedido correspondente.");
+        if (avisos.Count > 0) ErrosForm = avisos;
+        Notif.Aviso($"Recebimento preenchido pela NF {n.Numero}: confira as quantidades e avalie a FVM.");
+    }
+
+    private async Task Carregar()
+    {
+        await using var db = Fabrica.CriarLeitura();
+        var lista = await db.Recebimentos.AsNoTracking().Include(r => r.Pedido).Include(r => r.Itens).OrderByDescending(r => r.Numero).Take(LimiteAtual).ToListAsync(Cancelamento);
+        var forn = await db.Fornecedores.AsNoTracking().ToDictionaryAsync(f => f.Id, f => f.NomeExibicao, Cancelamento);
+        _itens = lista.Select(r => new Linha(r.Id, r.Numero, r.DataRecebimento, r.Pedido?.Numero, forn.GetValueOrDefault(r.FornecedorId, ""), r.NumeroNotaFiscal ?? r.ChaveNFe,
+            r.FvmAprovada, r.NotaEntrega, r.Destino, r.RecebidoPorNome)).ToList();
+    }
+
+    private async Task Novo()
+    {
+        await using var db = Fabrica.CriarLeitura();
+        _pedidos = await db.Pedidos.AsNoTracking().Where(p => p.Status == StatusPedido.EnviadoFornecedor || p.Status == StatusPedido.EntregueParcial)
+            .OrderBy(p => p.Numero).Select(p => new Opcao(p.Id, "Pedido " + p.Numero + " – " + p.Fornecedor.RazaoSocial)).ToListAsync(Cancelamento);
+        _r = new Recebimento { DataRecebimento = DateTimeOffset.Now };
+        _fotoNota = null; _itensLidos = null;
+        ErrosForm = null; _aberto = true;
+    }
+
+    private async Task EscolherPedido(string? valor)
+    {
+        _r!.Itens.Clear(); _r.PedidoId = null;
+        if (!Guid.TryParse(valor, out var id)) return;
+        await using var db = Fabrica.CriarLeitura();
+        var p = await db.Pedidos.AsNoTracking().Include(x => x.Itens).FirstAsync(x => x.Id == id, Cancelamento);
+        if (_pedidos.All(o => o.Id != id)) _pedidos.Add(new Opcao(p.Id, $"Pedido {p.Numero}"));
+        _r.PedidoId = p.Id; _r.FornecedorId = p.FornecedorId; _r.ObraId = p.ObraId;
+        _r.AlmoxarifadoId = p.EntregaAlmoxarifadoCentral ? _almoxs.FirstOrDefault(a => a.Tipo == TipoAlmoxarifado.Central && a.Ativo)?.Id : _almoxs.FirstOrDefault(a => a.ObraId == p.ObraId)?.Id;
+        foreach (var i in p.Itens.Where(i => i.Quantidade > i.QuantidadeRecebidaAceita))
+        {
+            var saldo = i.Quantidade - i.QuantidadeRecebidaAceita;
+            _marcaPedido[i.Id] = i.Marca;
+            _r.Itens.Add(new RecebimentoItem { PedidoItemId = i.Id, Descricao = i.Descricao, Unidade = i.Unidade, QtdPedida = saldo, QtdRecebida = saldo, Marca = i.Marca,
+                MaterialControlado = i.MaterialControladoId is not null, MaterialControladoId = i.MaterialControladoId });
+        }
+        _r.FvmItens.Clear(); _modelo = null;
+        if (_r.Itens.FirstOrDefault(i => i.MaterialControladoId is not null)?.MaterialControladoId is { } mat && await Qob.ModeloFvmVigenteAsync(mat, Cancelamento) is { } m)
+        {
+            _modelo = m;
+            foreach (var it in m.Itens.OrderBy(x => x.Ordem))
+                _r.FvmItens.Add(new FvmItem { RecebimentoId = _r.Id, ItemVerificacaoId = it.Id, Ordem = it.Ordem, Descricao = it.Descricao, Criterio = it.Criterio, ValorMin = it.ValorMin, ValorMax = it.ValorMax, Bloqueia = it.Bloqueia });
+        }
+        if (_itensLidos is { Count: > 0 }) AplicarItensLidos(_itensLidos);
+    }
+
+    private ModeloInspecao? _modelo;
+    private readonly Dictionary<Guid, string> _resEnsaio = [];
+    private Dictionary<Guid, string> _locNomes = [];
+    private List<Opcao> _locais = [];
+    private Guid? _apLocal;
+    private decimal _apQtd;
+    private DateOnly _apData;
+
+    /// <summary>Laudo lido pela IA: sugere o resultado de cada ensaio aguardando (pelo nome mais parecido). Aprovar/reprovar continua com a pessoa.</summary>
+    private void PreencherEnsaios(Sigeo.Application.IA.ResultadoLaudo laudo)
+    {
+        var n = 0;
+        foreach (var en in _r!.Ensaios.Where(x => x.Situacao == SituacaoEnsaio.Aguardando))
+        {
+            var melhor = laudo.Resultados.Select(x => (x, s: Sigeo.Domain.Fiscal.ConferenciaNota.Semelhanca(en.Ensaio, x.Ensaio))).OrderByDescending(x => x.s).FirstOrDefault();
+            if (melhor.x is { } res && melhor.s >= 0.25m && !string.IsNullOrWhiteSpace(res.Valor))
+            {
+                _resEnsaio[en.Id] = $"{res.Valor} {res.Unidade}".Trim() + (laudo.Numero is null ? "" : $" (laudo {laudo.Numero})");
+                n++;
+            }
+        }
+        if (n > 0) Notif.Aviso($"{n} resultado(s) preenchido(s) pelo laudo — confira e aprove ou reprove cada ensaio.");
+        else Notif.Aviso("O laudo não trouxe resultado para os ensaios previstos: confira manualmente.");
+    }
+
+    private async Task Ensaio(Guid id, bool aprovado)
+    {
+        if (await Executar(() => Qob.RegistrarEnsaioAsync(id, _resEnsaio.GetValueOrDefault(id) ?? "", aprovado, null, Cancelamento), aprovado ? "Ensaio aprovado." : "Ensaio reprovado — RNC aberta com os locais afetados."))
+            await Abrir(_r!.Id);
+    }
+
+    private async Task Aplicar()
+    {
+        if (_apLocal is null) { Notif.Erro("Informe o local."); return; }
+        if (await Executar(() => Qob.AplicarLoteAsync(_r!.Id, _apLocal.Value, _apQtd, _apData, null, Cancelamento), "Aplicação registrada.")) await Abrir(_r!.Id);
+    }
+
+    private async Task Abrir(Guid id)
+    {
+        await using var db = Fabrica.CriarLeitura();
+        _r = await db.Recebimentos.AsNoTracking().Include(r => r.Itens).Include(r => r.FvmItens).Include(r => r.Ensaios).Include(r => r.Aplicacoes).AsSplitQuery().FirstAsync(r => r.Id == id, Cancelamento);
+        _locais = await Cat.LocaisAsync(_r.ObraId);
+        _locNomes = _locais.ToDictionary(l => l.Id, l => l.Texto);
+        var pis = _r.Itens.Where(i => i.PedidoItemId != null).Select(i => i.PedidoItemId!.Value).ToList();
+        _marcaPedido.Clear();
+        foreach (var pm in await db.PedidoItens.AsNoTracking().Where(i => pis.Contains(i.Id)).Select(i => new { i.Id, i.Marca }).ToListAsync(Cancelamento)) _marcaPedido[pm.Id] = pm.Marca;
+        _resEnsaio.Clear(); foreach (var en in _r.Ensaios) _resEnsaio[en.Id] = en.Resultado ?? "";
+        _apLocal = null; _apQtd = 0; _apData = Hoje;
+        var ped = _r.PedidoId is { } pid ? await db.Pedidos.AsNoTracking().Where(p => p.Id == pid).Select(p => p.Numero).FirstOrDefaultAsync(Cancelamento) : 0;
+        _pedidos = _r.PedidoId is { } x ? [new Opcao(x, $"Pedido {ped}")] : [];
+        _transf = await db.Transferencias.AsNoTracking().Where(t => t.RecebimentoId == id && t.Status != StatusTransferencia.Cancelada).Select(t => (Guid?)t.Id).FirstOrDefaultAsync(Cancelamento);
+        ErrosForm = null; _aberto = true;
+    }
+
+    private Guid? _transf;
+
+    private async Task Transferir()
+    {
+        if (_r is not { AlmoxarifadoCentral: true }) return;
+        Guid id = default;
+        if (await Executar(async () => id = await TransferenciasSrv.GerarTransferenciaAsync(_r!.Id, Cancelamento), "Transferência montada — confira e envie.")) Nav.NavigateTo($"transferencias?id={id}");
+    }
+
+    private async Task Registrar()
+    {
+        Guid id = default;
+        var foto = _fotoNota;
+        if (await Executar(async () => id = await RecebimentosSrv.RegistrarRecebimentoAsync(_r!, Cancelamento), "Recebimento registrado."))
+        {
+            if (foto is not null)
+                try
+                {
+                    await AnexosSrv.AnexarAsync("Recebimento", id, "Documentos", "recebimento", AnexosServico.LimiteFotoBytes,
+                        [new ArquivoEnviado($"DANFE NF {_r!.NumeroNotaFiscal} (foto).jpg", foto.Length, "image/jpeg", _ => new MemoryStream(foto))], Cancelamento);
+                }
+                catch (Exception) { Notif.Aviso("Recebimento registrado, mas a foto da nota não foi anexada: anexe pelo quadro de documentos."); }
+            if (_r!.FvmAprovada == false) Notif.Aviso("FVM reprovada: RNC e plano de ação abertos para o fornecedor.");
+            await Carregar(); await Abrir(id);
+        }
+    }
+
+    // ───────────── Leitura da nota (câmera, chave digitada ou leitor de código de barras) ─────────────
+
+    private byte[]? _fotoNota;
+    private IReadOnlyList<Sigeo.Application.Fiscal.ItemNotaLido>? _itensLidos;
+
+    private async Task ChaveDigitada(string? valor)
+    {
+        _r!.ChaveNFe = string.IsNullOrWhiteSpace(valor) ? null : Sigeo.Domain.Fiscal.ChaveNfe.SoDigitos(valor);
+        if (_r.ChaveNFe is not { Length: 44 }) return;
+        if (!Sigeo.Domain.Fiscal.ChaveNfe.Valida(_r.ChaveNFe)) { Notif.Erro("Chave da NF-e com dígito verificador errado: confira a digitação."); return; }
+        try { await AplicarLeitura(new LeituraNotaCamera.NotaFotografada(await LeituraNota.ResolverChaveAsync(_r.ChaveNFe, Cancelamento), null)); }
+        catch (Sigeo.Domain.Aprovacoes.RegraDeNegocioException ex) { Notif.Erro(ex.Message); }
+    }
+
+    /// <summary>
+    /// Nota lida: importada e ligada ao pedido → recebimento inteiro pela nota (como em Notas fiscais › Receber).
+    /// Senão: chave e número preenchidos; pedido escolhido se o fornecedor tiver um só aguardando entrega (com mais de um, a lista
+    /// fica só com os dele); itens lidos pela IA entram como quantidade recebida pelo nome mais parecido.
+    /// </summary>
+    private async Task AplicarLeitura(LeituraNotaCamera.NotaFotografada x)
+    {
+        var n = x.Nota;
+        if (n.RecebimentoExistente is { } rn) { Notif.Erro($"NF {n.Numero} já recebida no recebimento {rn}."); return; }
+        if (n.Situacao == Sigeo.Domain.Fiscal.SituacaoNota.Cancelada) { Notif.Erro($"NF {n.Numero} cancelada na SEFAZ: não receba com ela."); return; }
+        if (n.ProntaParaReceber)
+        {
+            await NovoDaNota(n.NotaId!.Value);
+            _fotoNota = x.Foto ?? _fotoNota;
+            return;
+        }
+        _fotoNota = x.Foto ?? _fotoNota;
+        _itensLidos = n.Itens.Count > 0 ? n.Itens : null;
+        var avisos = n.Avisos.ToList();
+        if (n.PedidosAbertos.Count == 1)
+        {
+            if (_r!.PedidoId != n.PedidosAbertos[0].Id) await EscolherPedido(n.PedidosAbertos[0].Id.ToString());
+            else if (_itensLidos is not null) AplicarItensLidos(_itensLidos);
+        }
+        else if (n.PedidosAbertos.Count > 1)
+        {
+            if (_r!.PedidoId is not { } atual || n.PedidosAbertos.All(p => p.Id != atual))
+            {
+                _pedidos = n.PedidosAbertos.Select(p => new Opcao(p.Id, $"Pedido {p.Numero} – {p.Obra}")).ToList();
+                _r.Itens.Clear(); _r.PedidoId = null;
+                avisos.Insert(0, $"{n.Fornecedor} tem {n.PedidosAbertos.Count} pedidos aguardando entrega: escolha o pedido desta nota.");
+            }
+            else if (_itensLidos is not null) AplicarItensLidos(_itensLidos);
+        }
+        _r!.ChaveNFe = n.Chave; _r.NumeroNotaFiscal = n.Numero;
+        ErrosForm = (ErrosForm ?? []).Concat(avisos).Distinct().ToList() is { Count: > 0 } l ? l : null;
+        Notif.Aviso($"NF {n.Numero} lida por {n.Origem}: confira o pedido e as quantidades.");
+    }
+
+    /// <summary>Quantidade de cada item do pedido pelo item lido de nome mais parecido (um para um); sem correspondente fica zero.</summary>
+    private void AplicarItensLidos(IReadOnlyList<Sigeo.Application.Fiscal.ItemNotaLido> lidos)
+    {
+        if (_r is null || _r.Itens.Count == 0) return;
+        var pares = (from ri in _r.Itens from l in lidos
+                     let s = Sigeo.Domain.Fiscal.ConferenciaNota.Semelhanca(ri.Descricao, l.Descricao) + (Sigeo.Domain.Fiscal.ConferenciaNota.MesmaUnidade(l.Unidade, ri.Unidade) ? 0.1m : 0)
+                     where s >= 0.35m orderby s descending select (ri, l)).ToList();
+        var usadosR = new HashSet<RecebimentoItem>(); var usadosL = new HashSet<Sigeo.Application.Fiscal.ItemNotaLido>();
+        var avisos = new List<string>();
+        foreach (var (ri, l) in pares)
+        {
+            if (usadosR.Contains(ri) || usadosL.Contains(l)) continue;
+            usadosR.Add(ri); usadosL.Add(l);
+            ri.QtdRecebida = l.Quantidade;
+            if (!Sigeo.Domain.Fiscal.ConferenciaNota.MesmaUnidade(l.Unidade, ri.Unidade)) avisos.Add($"{ri.Descricao}: unidade da nota ({l.Unidade}) diferente do pedido ({ri.Unidade}) — confira a quantidade.");
+            if (l.Quantidade > ri.QtdPedida) avisos.Add($"{ri.Descricao}: nota com {l.Quantidade:0.###} e saldo do pedido {ri.QtdPedida:0.###}.");
+        }
+        foreach (var ri in _r.Itens.Where(i => !usadosR.Contains(i))) ri.QtdRecebida = 0;
+        var sobra = lidos.Count(l => !usadosL.Contains(l));
+        if (sobra > 0) avisos.Add($"{sobra} item(ns) lido(s) na nota sem item do pedido correspondente.");
+        avisos.Add("Quantidades preenchidas pela leitura da foto (IA): confira cada item com a nota.");
+        ErrosForm = (ErrosForm ?? []).Concat(avisos).Distinct().ToList();
+    }
+}

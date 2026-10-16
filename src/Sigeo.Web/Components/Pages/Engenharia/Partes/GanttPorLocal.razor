@@ -1,0 +1,115 @@
+@* Gantt por local (redes › locais › serviços). Modo "ver" e modo "editar" (ligações e barras arrastáveis); o motor do servidor recalcula. *@
+@using Sigeo.Domain.Planejamento
+@inherits PaginaBase
+@implements IAsyncDisposable
+@inject AcompanhamentoServico Acomp
+@inject PlanejamentoServico Plan
+@inject IJSRuntime JS
+
+<Erros Lista="ErrosForm" />
+@if (_dados is null) { <Esqueleto Linhas="10" /> }
+else if (_dados.Tarefas.Count == 0) { <div class="alerta info"><Icone Nome="info" /> Sem atividades nesta versão. Monte as redes e clique em <b>Gerar pelas redes</b>.</div> }
+else
+{
+    @if (Modo == "editar" && !_dados.Editavel) { <div class="alerta aviso"><Icone Nome="info" /> A versão @_dados.Codigo não está em elaboração. Para mudar datas e ligações abra uma <b>Nova reprogramação</b>.</div> }
+}
+<div class="gl" @ref="_el" id="@($"gl-{Modo}")"></div>
+
+@code {
+    [Parameter] public Guid ObraId { get; set; }
+    [Parameter] public Guid VersaoId { get; set; }
+    [Parameter] public string Modo { get; set; } = "ver";
+    [Parameter] public bool PodeEditar { get; set; }
+    /// <summary>Chamado depois de cada mudança gravada (a página atualiza os indicadores).</summary>
+    [Parameter] public EventCallback AoMudar { get; set; }
+    [Parameter] public EventCallback<Guid?> AoSequencia { get; set; }
+    /// <summary>Muda quando a página recarrega a versão (força nova leitura).</summary>
+    [Parameter] public int Versao { get; set; }
+
+    private ElementReference _el;
+    private AcompanhamentoServico.GanttLocal? _dados;
+    private DotNetObjectReference<GanttPorLocal>? _ref;
+    private (Guid, string, int) _carregado;
+    private bool _desenhar;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var chave = (VersaoId, Modo, Versao);
+        if (chave == _carregado) return;
+        _carregado = chave;
+        await Carregar();
+    }
+
+    private async Task Carregar()
+    {
+        _dados = await Acomp.GanttLocalAsync(ObraId, VersaoId, PodeEditar, Cancelamento);
+        _desenhar = true;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_desenhar || _dados is null) return;
+        _desenhar = false;
+        _ref ??= DotNetObjectReference.Create(this);
+        try { await JS.InvokeVoidAsync("qhGantt.montar", _el, Payload(_dados), _ref, Modo); }
+        catch (JSException) { ErrosForm = ["Não foi possível desenhar o Gantt. Recarregue a página."]; StateHasChanged(); }
+        catch (TaskCanceledException) { }
+    }
+
+    private static object Payload(AcompanhamentoServico.GanttLocal d) => new
+    {
+        codigo = d.Codigo, editavel = d.Editavel, ini = Iso(d.Inicio), fim = Iso(d.Fim), hoje = Iso(d.Hoje), status = d.DataStatus is { } s ? Iso(s) : null,
+        redes = d.Redes.Select(r => new { id = r.Id.ToString(), nome = r.Nome, spe = r.Spe, locais = r.Locais.Select(l => new { id = l.Id.ToString(), nome = l.Nome, grupo = l.Grupo }) }),
+        servicos = d.Servicos.Select(s => new { nome = s.Nome, cor = s.Cor }),
+        tarefas = d.Tarefas.Select(t => new
+        {
+            id = t.Id.ToString(), rede = t.RedeId.ToString(), linha = t.LinhaId.ToString(), sv = t.Servico, cor = t.Cor, eap = t.Eap, nome = t.Nome,
+            ini = Iso(t.Inicio), fim = Iso(t.Termino < t.Inicio ? t.Inicio : t.Termino), dur = t.Duracao, av = (int)Math.Round(t.Avanco), crit = t.Critica, folga = t.Folga
+        }),
+        ligs = d.Ligacoes.Select(l => new { id = l.Id.ToString(), de = l.De.ToString(), para = l.Para.ToString(), tipo = l.Tipo, lag = l.Lag })
+    };
+
+    private static string Iso(DateOnly d) => d.ToString("yyyy-MM-dd");
+
+    private async Task Aplicar(Func<Task> acao, string? ok)
+    {
+        var deu = await Executar(acao, ok);
+        await Carregar(); // em erro, volta a barra para a posição calculada
+        StateHasChanged();
+        if (deu) await AoMudar.InvokeAsync();
+    }
+
+    [JSInvokable] public Task Mover(string id, string inicio) =>
+        Aplicar(() => Plan.MoverAsync(VersaoId, Guid.Parse(id), DateOnly.Parse(inicio), null, Cancelamento), "Movida: vira folga na ligação · sucessoras recalculadas.");
+
+    [JSInvokable] public Task Terminar(string id, string termino)
+    {
+        var a = _dados?.Tarefas.FirstOrDefault(t => t.Id == Guid.Parse(id));
+        if (a is null) return Task.CompletedTask;
+        return Aplicar(() => Plan.MoverAsync(VersaoId, a.Id, a.Inicio, DateOnly.Parse(termino), Cancelamento), "Duração alterada · sucessoras recalculadas.");
+    }
+
+    [JSInvokable] public Task Ligar(string de, string para, string tipo) =>
+        Aplicar(() => Plan.LigarAsync(VersaoId, Guid.Parse(de), Guid.Parse(para), TipoDe(tipo), 0, Cancelamento), $"Ligada ({tipo}). Clique na seta para mudar tipo ou folga.");
+
+    [JSInvokable] public Task AlterarLigacao(string id, string tipo, int lag) =>
+        Aplicar(() => Plan.AlterarVinculoAsync(VersaoId, Guid.Parse(id), TipoDe(tipo), lag, Cancelamento), "Ligação alterada · sucessoras recalculadas.");
+
+    [JSInvokable] public Task ExcluirLigacao(string id) =>
+        Aplicar(() => Plan.ExcluirVinculoAsync(VersaoId, Guid.Parse(id), Cancelamento), "Ligação excluída.");
+
+    [JSInvokable] public Task Sequencia(string? redeId) =>
+        AoSequencia.InvokeAsync(Guid.TryParse(redeId, out var r) && r != Guid.Empty ? r : null);
+
+    private static TipoVinculo TipoDe(string s) => s switch
+    {
+        "II" => TipoVinculo.InicioInicio, "TT" => TipoVinculo.TerminoTermino, "IT" => TipoVinculo.InicioTermino, _ => TipoVinculo.TerminoInicio
+    };
+
+    public async ValueTask DisposeAsync()
+    {
+        try { await JS.InvokeVoidAsync("qhGantt.destruir", _el); } catch (JSDisconnectedException) { } catch (JSException) { } catch (TaskCanceledException) { }
+        _ref?.Dispose();
+        Dispose();
+    }
+}

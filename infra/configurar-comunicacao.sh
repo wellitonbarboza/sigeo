@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Groundkey — Azure Communication Services (e-mail e WhatsApp) para a Área do Fornecedor.
+# SIGEO — Azure Communication Services (e-mail e WhatsApp) para a Área do Fornecedor.
 # Uso no Cloud Shell (Bash), depois de publicar o app:
 #   bash configurar-comunicacao.sh
 # Cria (se não existirem):
@@ -8,11 +8,11 @@
 #   3. liga o domínio ao recurso de comunicação
 #   4. dá à identidade gerenciada do App Service o papel "Contributor" SÓ no recurso de comunicação
 #      (o SDK de e-mail com identidade gerenciada exige esse papel; nada de chave/connection string guardada)
-#   5. grava Groundkey__Comunicacao__Endpoint e Groundkey__Comunicacao__EmailRemetente no App Service
+#   5. grava Sigeo__Comunicacao__Endpoint e Sigeo__Comunicacao__EmailRemetente no App Service
 # Cada etapa pede confirmação. WhatsApp: veja as instruções no fim (exige conta WhatsApp Business/Meta).
 set -euo pipefail
 RG="${RG:-rg-qualyhub-prd}"
-WEB="${WEB:-$(az webapp list -g "$RG" --query "([?name=='groundkey'].name)[0] || ([?name=='qualyhub'].name)[0]" -o tsv)}"
+WEB="${WEB:-$(az webapp list -g "$RG" --query "([?name=='sigeo'].name)[0] || ([?name=='groundkey'].name)[0] || ([?name=='qualyhub'].name)[0]" -o tsv)}"
 [[ -n "$WEB" ]] || WEB=$(az webapp list -g "$RG" --query "[0].name" -o tsv)
 ACS="${ACS:-acs-$WEB}"
 MAIL="${MAIL:-acsmail-$WEB}"
@@ -61,8 +61,8 @@ fi
 # 5) Configuração do app
 confirmar "Gravar Endpoint=$ENDPOINT e Remetente=$REMETENTE no app '$WEB' (o app reinicia)?" || exit 1
 az webapp config appsettings set -g "$RG" -n "$WEB" -o none --settings \
-  Groundkey__Comunicacao__Endpoint="$ENDPOINT" \
-  Groundkey__Comunicacao__EmailRemetente="$REMETENTE"
+  Sigeo__Comunicacao__Endpoint="$ENDPOINT" \
+  Sigeo__Comunicacao__EmailRemetente="$REMETENTE"
 
 cat <<TXT
 
@@ -79,8 +79,8 @@ A atribuição de papel pode levar alguns minutos para valer. Teste em /forneced
       "{{1}} convida sua empresa: {{2}}. Acesse {{3}} e entre com o CNPJ e o código enviado ao contato."
 3. Grave no app (troque os valores):
    az webapp config appsettings set -g $RG -n $WEB -o none --settings \\
-     Groundkey__Comunicacao__WhatsAppCanalId=<channel-id> \\
-     Groundkey__Comunicacao__WhatsAppModeloCodigo=qualyhub_codigo \\
-     Groundkey__Comunicacao__WhatsAppModeloConvite=qualyhub_convite \\
-     Groundkey__Comunicacao__WhatsAppIdioma=pt_BR
+     Sigeo__Comunicacao__WhatsAppCanalId=<channel-id> \\
+     Sigeo__Comunicacao__WhatsAppModeloCodigo=qualyhub_codigo \\
+     Sigeo__Comunicacao__WhatsAppModeloConvite=qualyhub_convite \\
+     Sigeo__Comunicacao__WhatsAppIdioma=pt_BR
 TXT

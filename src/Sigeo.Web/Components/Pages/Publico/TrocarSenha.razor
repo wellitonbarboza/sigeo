@@ -1,0 +1,33 @@
+@page "/conta/trocar-senha"
+@attribute [Authorize]
+@attribute [ExcludeFromInteractiveRouting]
+@layout LayoutPublico
+@inject UsuarioAtualWeb Atual
+@inject IHttpContextAccessor Http
+
+<PageTitle>Alterar senha · SIGEO</PageTitle>
+<div class="login">
+    <div class="caixa">
+        <div class="login-marca"><Logo /></div>
+        <h1>@(Obrigatoria ? "Defina a sua senha" : "Alterar senha")</h1>
+        <p class="mudo">@(Obrigatoria ? $"Olá, {Atual.Nome}. Você entrou com uma senha provisória; escolha a sua para continuar." : $"Usuário: {Atual.Nome}")</p>
+        @if (Erro is not null) { <div class="alerta erro" id="troca-erro">@(Erro == "sessao" ? "A página ficou aberta por muito tempo. Tente de novo." : Erro)</div> }
+        <form method="post" action="conta/trocar-senha/salvar" class="form mt-14">
+            <AntiforgeryToken />
+            <div class="campo s12"><label for="atual">Senha atual@(Obrigatoria ? " (provisória)" : "")</label><input id="atual" name="atual" type="password" autocomplete="current-password" required /></div>
+            <div class="campo s12"><label for="nova">Nova senha</label><input id="nova" name="nova" type="password" autocomplete="new-password" minlength="@PoliticaSenha.TamanhoMinimo" required /></div>
+            <div class="campo s12"><label for="confirmacao">Confirme a nova senha</label><input id="confirmacao" name="confirmacao" type="password" autocomplete="new-password" required /></div>
+            <div class="campo s12"><span class="ajuda">Mínimo de @PoliticaSenha.TamanhoMinimo caracteres.</span></div>
+            <div class="campo s12 botoes-dir">
+                @if (!Obrigatoria) { <a class="btn sec" href="">Voltar</a> }
+                else { <a class="btn sec" href="conta/sair">Sair</a> }
+                <button class="btn prim" id="salvar-senha" type="submit">Salvar senha</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@code {
+    [SupplyParameterFromQuery] public string? Erro { get; set; }
+    private bool Obrigatoria => Http.HttpContext?.User.HasClaim(Autenticacao.ClaimTrocarSenha, "1") == true;
+}

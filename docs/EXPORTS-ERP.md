@@ -1,10 +1,10 @@
-# Exports do ERP necessários para o Groundkey
+# Exports do ERP necessários para o SIGEO
 
 **Como enviar:** exporte **.xlsx** (preferível) ou **.csv** direto das telas/relatórios do ERP. **Não é necessário compartilhar login e senha.** Os arquivos bastam e são mais seguros. Para os testes, 20 a 50 linhas reais por arquivo são suficientes. **Funcionários podem vir com CPF e nome fictícios.**
 
 Para cada arquivo, informe também: o caminho no ERP (menu → relatório), se há filtro de obra/período e a frequência desejada (diária, semanal, por medição).
 
-| # | Arquivo | Campos mínimos | Uso no Groundkey |
+| # | Arquivo | Campos mínimos | Uso no SIGEO |
 |---|---|---|---|
 | 1 | **Fornecedores** | Código, CPF/CNPJ, Razão social, Nome fantasia, E-mail, Telefone, Cidade, UF | Base para documentos, qualificação e avaliação |
 | 2 | **Obras / centros de custo** | Código, Nome, Endereço, Datas | Estrutura e filtro de acesso |

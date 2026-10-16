@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Groundkey — publicação automática pelo GitHub Actions (sem senha guardada: OIDC/federação). Uso no Cloud Shell:
+# SIGEO — publicação automática pelo GitHub Actions (sem senha guardada: OIDC/federação). Uso no Cloud Shell:
 #   bash configurar-github.sh
 # Cria um aplicativo no Entra ID só para publicar, dá a ele "Website Contributor" SOMENTE no site (não na assinatura)
 # e a credencial federada para o repositório/branch main. No fim mostra os valores para colar em
 # GitHub › Settings › Secrets and variables › Actions.
 set -euo pipefail
 RG="${RG:-rg-qualyhub-prd}"
-WEB="${WEB:-$(az webapp list -g "$RG" --query "([?name=='groundkey'].name)[0] || ([?name=='qualyhub'].name)[0]" -o tsv)}"
+WEB="${WEB:-$(az webapp list -g "$RG" --query "([?name=='sigeo'].name)[0] || ([?name=='groundkey'].name)[0] || ([?name=='qualyhub'].name)[0]" -o tsv)}"
 REPO="${REPO:-}"
 [[ -n "$REPO" ]] || read -r -p "Repositório GitHub (usuario/repositorio): " REPO
 [[ "$REPO" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || { echo "Formato inválido."; exit 1; }

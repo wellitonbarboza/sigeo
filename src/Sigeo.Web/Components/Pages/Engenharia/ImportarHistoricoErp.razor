@@ -1,0 +1,357 @@
+@page "/engenharia/importar-erp"
+@inherits PaginaBase
+@using Sigeo.Infrastructure.Importacao
+@using Sigeo.Domain.Importacao
+@inject ImportadorHistoricoErp Importador
+@inject CustoRealizadoServico Custos
+@inject FinanceiroServico Fin
+@inject NavigationManager Nav
+
+<Pagina Titulo="Importar histórico da obra (ERP)" AoAtualizar="Recarregar">
+    <ChildContent>
+        <div class="pagina">
+            <div class="barra-filtro">
+                <SeletorObra Id="imp-obra" Valor="_obraId" ValorChanged="TrocarObra" Inicial="ObraQuery" />
+                @if (_obraId is not null)
+                {
+                    <label>Data de corte <input id="imp-corte" type="date" value="@_corte?.ToString("yyyy-MM-dd")" @onchange="TrocarCorte" /></label>
+                }
+            </div>
+            @if (_obraId is null) { <div class="alerta info"><Icone Nome="info" /> Escolha a obra.</div> }
+            else
+            {
+                <div class="alerta info"><Icone Nome="info" />
+                    <span>Envie os relatórios exportados do ERP (Excel .xlsx ou .xls): <b>apropriações de insumos</b> (custo por fase/serviço), <b>medição de ordens de compra</b> (pedidos e recebido),
+                        <b>fornecedores</b> (CPF/CNPJ) e <b>insumos cadastrados</b> (unidade e categoria). Nada entra nos cadastros até você confirmar.
+                        Antes da data de corte tudo entra como <b>histórico</b> (sem aprovações nem FVM/FVS); a partir dela, lance no sistema.</span></div>
+                <div class="acoes-pagina">
+                    <label class="btn prim arquivo cursor-mao" id="imp-enviar-rotulo"><Icone Nome="upload" Tam="16" /> @(_enviando ? "Lendo relatórios…" : "Enviar relatórios")<InputFile id="imp-arquivos" OnChange="Enviar" multiple accept=".xlsx,.xls" class="so-leitor" disabled="@_enviando" /></label>
+                    @if (_lotes.Count > 0)
+                    {
+                        <select id="imp-lote" class="larg-260" value="@_loteId" @onchange="async e => { if (Guid.TryParse(e.Value?.ToString(), out var g)) await AbrirLote(g); }" aria-label="Importação">
+                            @foreach (var l in _lotes) { <option value="@l.Id">@l.CriadoEm.ToLocalTime().ToString("dd/MM/yyyy HH:mm") · @NomeStatus(l.Status)</option> }
+                        </select>
+                    }
+                </div>
+                <Erros Lista="ErrosForm" />
+                @if (_r is not null)
+                {
+                    <div class="kpis">
+                        <Kpi Rotulo="Custo a importar (histórico)" Valor="@_r.ValorCusto.ToString("C0", Br)" Sub="@($"{_r.LinhasCusto} linhas · {(_r.De is { } de ? de.ToString("dd/MM/yy") : "")}–{(_r.Ate is { } ate ? ate.ToString("dd/MM/yy") : "")}")" Tom="info" />
+                        <Kpi Rotulo="Pedidos (OC)" Valor="@_r.Pedidos" Sub="@($"{_r.ItensPedido} itens · {_r.ValorPedidos.ToString("C0", Br)} · {_r.PedidosEmAberto} com saldo")" />
+                        <Kpi Rotulo="Já importados" Valor="@($"{_r.CustosJaImportados} / {_r.PedidosJaImportados}")" Sub="custos / pedidos (não duplicam)" />
+                        @if (_r.Titulos > 0)
+                        {
+                            <Kpi Rotulo="Contas a pagar (documentos)" Valor="@_r.Titulos" Sub="@(_r.FinanceiroAtivo ? $"{_r.ValorTitulos.ToString("C0", Br)} · {_r.TitulosAbertos} em aberto · {_r.TitulosJaImportados} já importados" : "módulo Financeiro não liberado")" Tom="@(_r.FinanceiroAtivo ? "" : "aviso")" />
+                        }
+                        <Kpi Rotulo="Após o corte (não entram)" Valor="@_r.ValorAposCorte.ToString("C0", Br)" Sub="@($"{_r.LinhasAposCorte} linhas")" Tom="@(_r.LinhasAposCorte > 0 ? "aviso" : "")" />
+                    </div>
+                    @foreach (var a in _r.Avisos) { <div class="alerta aviso"><Icone Nome="alerta" /> @a</div> }
+                    <Abas Itens="Abas" @bind-Ativa="_aba" />
+                    @if (_aba == "arq")
+                    {
+                        <table class="itens" id="imp-arquivos-tab">
+                            <thead><tr><th>Arquivo</th><th>Relatório</th><th class="num">Registros</th><th>Observação</th></tr></thead>
+                            <tbody>@foreach (var a in _r.Arquivos) { <tr><td>@a.Nome</td><td><Selo Texto="@a.Relatorio" Tom="@(a.Usado ? "ok" : "neutro")" /></td><td class="num">@a.Linhas</td><td class="mudo">@a.Observacao</td></tr> }</tbody>
+                        </table>
+                    }
+                    else if (_aba == "prod") { @TabelaDePara(_r.Produtos, "Insumo no ERP") }
+                    else if (_aba == "forn") { @TabelaDePara(_r.Fornecedores, "Fornecedor no ERP") }
+                    else if (_aba == "fase") { @TabelaDePara(_r.Fases, "Fase no ERP") }
+                    else if (_aba == "local") { @TabelaDePara(_r.Locais, "Serviço / local no ERP") }
+                    else if (_aba == "conta") { @TabelaDePara(_r.ContasGerenciais ?? [], "Conta gerencial no ERP") }
+                    else if (_aba == "banco") { @TabelaDePara(_r.ContasBancarias ?? [], "Conta bancária no ERP") }
+
+                    @if (_r.Status == StatusImportacao.AguardandoConfirmacao)
+                    {
+                        <div class="barra-acoes mt-12">
+                            <button class="btn prim" id="imp-confirmar" disabled="@(Ocupado || _r.Corte is null)" @onclick="() => _confirmar = true"><Icone Nome="check" Tam="16" /> Confirmar importação</button>
+                            <button class="btn sec" id="imp-cancelar" disabled="@Ocupado" @onclick="Cancelar"><Icone Nome="x" Tam="16" /> Cancelar esta importação</button>
+                        </div>
+                    }
+                    else if (_r.Status == StatusImportacao.Concluida)
+                    {
+                        <div class="alerta ok"><Icone Nome="check-circulo" /> Importação confirmada. <a href="@($"engenharia/custo-realizado?obra={_obraId}")">Ver o custo realizado</a>. Reenviar os relatórios atualizados só acrescenta o que faltar.</div>
+                    }
+                }
+            }
+        </div>
+    </ChildContent>
+</Pagina>
+
+<Confirmacao Pergunta="@(_confirmar && _r is not null ? $"Importar {_r.LinhasCusto - _r.CustosJaImportados} lançamentos de custo ({_r.ValorCusto.ToString("C2", Br)}) e {_r.Pedidos - _r.PedidosJaImportados} pedidos como histórico, criando {_r.Produtos.Count(p => p.Acao == AcaoDePara.Criar)} produtos e {_r.Fornecedores.Count(f => f.Acao == AcaoDePara.Criar)} fornecedores{(_r.FinanceiroAtivo && _r.Titulos > 0 ? $", mais {_r.Titulos - _r.TitulosJaImportados} contas a pagar" : "")}?" : null)"
+             Titulo="Confirmar importação" TextoSim="Importar" AoSim="Confirmar" AoNao="() => _confirmar = false" />
+
+@code {
+    [SupplyParameterFromQuery(Name = "obra")] public Guid? ObraQuery { get; set; }
+    private Guid? _obraId, _loteId;
+    private DateOnly? _corte;
+    private List<Sigeo.Domain.Importacao.LoteImportacao> _lotes = [];
+    private ResumoHistoricoErp? _r;
+    private string _aba = "arq";
+    private bool _enviando, _confirmar;
+    private List<string> _fases = [];
+    private List<Opcao> _locais = [], _produtos = [], _fornecedores = [];
+    private List<Sigeo.Domain.Financeiro.ContaGerencial> _contasGer = [];
+    private List<Sigeo.Domain.Financeiro.ContaBancaria> _bancos = [];
+    private readonly Dictionary<string, string> _busca = [];
+
+    private IReadOnlyList<(string, string)> Abas => _r is null ? [] :
+        [("arq", "Arquivos"), ("prod", $"Produtos ({_r.Produtos.Count})"), ("forn", $"Fornecedores ({_r.Fornecedores.Count})"),
+         ("fase", $"Fases ({_r.Fases.Count})"), ("local", $"Locais ({_r.Locais.Count})"),
+         .. (_r.ContasGerenciais is { Count: > 0 } cg ? new[] { ("conta", $"Contas gerenciais ({cg.Count})") } : []),
+         .. (_r.ContasBancarias is { Count: > 0 } cb ? new[] { ("banco", $"Contas bancárias ({cb.Count})") } : [])];
+
+    private static string NomeStatus(StatusImportacao s) => s switch
+    {
+        StatusImportacao.AguardandoConfirmacao => "em simulação", StatusImportacao.Concluida => "confirmada", StatusImportacao.Cancelada => "cancelada", _ => s.ToString()
+    };
+
+    private static string NomeAcao(AcaoDePara a, TipoVinculoOrigem t) => (a, t) switch
+    {
+        (AcaoDePara.Criar, _) => "Cadastrar novo",
+        (AcaoDePara.Ignorar, TipoVinculoOrigem.Local) => "Obra toda",
+        (AcaoDePara.Ignorar, _) => "Não vincular",
+        _ => "Vincular"
+    };
+
+    private RenderFragment TabelaDePara(IReadOnlyList<ItemDePara> itens, string titulo) => __builder =>
+    {
+        <div class="mudo fonte-13 my-6">
+            @switch (itens.FirstOrDefault()?.Tipo)
+            {
+                case TipoVinculoOrigem.Produto: <span>Nota ≥ 0,90 vincula sozinho. "Cadastrar novo" cria o produto (unidade e categoria do cadastro de insumos; sem categoria correspondente fica "A Cadastrar"). "Não vincular" mantém só o texto no custo.</span> break;
+                case TipoVinculoOrigem.Fornecedor: <span>Casa pelo CPF/CNPJ do relatório de fornecedores ou pelo nome. Novos entram "em qualificação" (sem CNPJ não recebem pedido novo até completar o cadastro).</span> break;
+                case TipoVinculoOrigem.Fase: <span>Fase do ERP → grupo de serviço da EAP de custo (o mesmo das composições). "A apropriar" pode ser classificado depois, no Custo Realizado.</span> break;
+                case TipoVinculoOrigem.Local: <span>Serviço do ERP que é um pavimento vira o local da obra; o resto é custo da obra toda.</span> break;
+                case TipoVinculoOrigem.ContaGerencial: <span>Conta do ERP → plano de contas padrão (sem contas pessoais). Sem conta, o título entra "sem conta gerencial" e aparece separado no DRE.</span> break;
+                case TipoVinculoOrigem.ContaBancaria: <span>Contas usadas nos pagamentos. "Cadastrar nova" cria a conta com o número mascarado (só o final aparece nas telas); informe o saldo inicial em Financeiro › Contas Bancárias.</span> break;
+            }
+            Decisões ficam gravadas e valem para as próximas importações.
+        </div>
+        <div class="tabela-rolavel"><table class="itens" id="@($"imp-depara-{itens.FirstOrDefault()?.Tipo}")">
+            <thead><tr><th>@titulo</th><th>Detalhe</th><th class="num">Linhas</th><th class="num">Valor</th><th>Ação</th><th>Destino no SIGEO</th></tr></thead>
+            <tbody>
+                @foreach (var i in itens)
+                {
+                    var item = i;
+                    <tr @key="item.Chave">
+                        <td>@item.Texto @if (item.Salvo) { <Selo Texto="salvo" Tom="ok" /> }</td>
+                        <td class="mudo">@item.Info</td>
+                        <td class="num">@item.Linhas</td>
+                        <td class="num">@item.Valor.ToString("N2", Br)</td>
+                        <td>
+                            @if (item.Tipo is TipoVinculoOrigem.Produto or TipoVinculoOrigem.Fornecedor or TipoVinculoOrigem.ContaBancaria)
+                            {
+                                <select value="@item.Acao" disabled="@Bloqueado" @onchange="e => TrocarAcao(item, e.Value?.ToString())" aria-label="Ação">
+                                    <option value="@AcaoDePara.Vincular">Vincular</option><option value="@AcaoDePara.Criar">Cadastrar novo</option><option value="@AcaoDePara.Ignorar">Não vincular</option>
+                                </select>
+                            }
+                            else { <span>@NomeAcao(item.Acao, item.Tipo)</span> }
+                        </td>
+                        <td>
+                            @switch (item.Tipo)
+                            {
+                                case TipoVinculoOrigem.Fase:
+                                    <select class="larg-260" value="@item.DestinoTexto" disabled="@Bloqueado" @onchange="e => Gravar(item, AcaoDePara.Vincular, null, e.Value?.ToString())" aria-label="Fase">
+                                        @foreach (var f in _fases.Union(new[] { item.DestinoTexto ?? "" }).Where(x => x.Length > 0).Distinct()) { <option value="@f">@f</option> }
+                                    </select>
+                                    break;
+                                case TipoVinculoOrigem.ContaGerencial:
+                                    <select class="larg-260" value="@(item.DestinoId?.ToString() ?? "")" disabled="@Bloqueado" aria-label="Conta gerencial"
+                                            @onchange="e => Gravar(item, Guid.TryParse(e.Value?.ToString(), out var g) ? AcaoDePara.Vincular : AcaoDePara.Ignorar, Guid.TryParse(e.Value?.ToString(), out var g2) ? g2 : null, null)">
+                                        <option value="">(sem conta)</option>@foreach (var c in _contasGer) { <option value="@c.Id">@c.Rotulo</option> }
+                                    </select>
+                                    break;
+                                case TipoVinculoOrigem.ContaBancaria:
+                                    if (item.Acao == AcaoDePara.Vincular)
+                                    {
+                                        <select class="larg-260" value="@(item.DestinoId?.ToString() ?? "")" disabled="@Bloqueado" aria-label="Conta bancária"
+                                                @onchange="e => { if (Guid.TryParse(e.Value?.ToString(), out var g)) Gravar(item, AcaoDePara.Vincular, g, null); }">
+                                            <option value="">(escolha)</option>@foreach (var b in _bancos) { <option value="@b.Id">@b.Rotulo</option> }
+                                        </select>
+                                    }
+                                    else { <span class="mudo">conta nova</span> }
+                                    break;
+                                case TipoVinculoOrigem.Local:
+                                    <select class="larg-260" value="@(item.DestinoId?.ToString() ?? "")" disabled="@Bloqueado" aria-label="Local"
+                                            @onchange="e => Gravar(item, Guid.TryParse(e.Value?.ToString(), out var g) ? AcaoDePara.Vincular : AcaoDePara.Ignorar, Guid.TryParse(e.Value?.ToString(), out var g2) ? g2 : null, null)">
+                                        <option value="">Obra toda (sem local)</option>@foreach (var l in _locais) { <option value="@l.Id">@l.Texto</option> }
+                                    </select>
+                                    break;
+                                default:
+                                    if (item.Acao == AcaoDePara.Vincular)
+                                    {
+                                        <div>
+                                            @if (item.Sugestoes.Count > 0)
+                                            {
+                                                <select class="larg-260" value="@(item.DestinoId?.ToString() ?? "")" disabled="@Bloqueado" aria-label="Sugestão"
+                                                        @onchange="e => { if (Guid.TryParse(e.Value?.ToString(), out var g)) Gravar(item, AcaoDePara.Vincular, g, null); }">
+                                                    @if (item.DestinoId is null || item.Sugestoes.All(s => s.Id != item.DestinoId)) { <option value="@(item.DestinoId?.ToString() ?? "")">@(item.DestinoTexto ?? "(escolha)")</option> }
+                                                    @foreach (var s in item.Sugestoes) { <option value="@s.Id">@s.Texto · @s.Nota.ToString("N2", Br)</option> }
+                                                </select>
+                                            }
+                                            else { <span>@(item.DestinoTexto ?? "(escolha abaixo)")</span> }
+                                            <input class="larg-260 mt-3" placeholder="Buscar outro no cadastro…" list="@(item.Tipo == TipoVinculoOrigem.Produto ? "imp-lista-prod" : "imp-lista-forn")"
+                                                   value="@_busca.GetValueOrDefault(item.Chave)" disabled="@Bloqueado" @onchange="e => EscolherOutro(item, e.Value?.ToString())" />
+                                        </div>
+                                    }
+                                    else if (item.Acao == AcaoDePara.Criar) { <span class="mudo">novo cadastro</span> }
+                                    else { <span class="mudo">só o texto do ERP</span> }
+                                    break;
+                            }
+                        </td>
+                    </tr>
+                }
+                @if (itens.Count == 0) { <tr><td colspan="6" class="mudo">Nada nesta importação.</td></tr> }
+            </tbody>
+        </table></div>
+        <datalist id="imp-lista-prod">@foreach (var p in _produtos) { <option value="@p.Texto"></option> }</datalist>
+        <datalist id="imp-lista-forn">@foreach (var f in _fornecedores) { <option value="@f.Texto"></option> }</datalist>
+    };
+
+    private bool Bloqueado => Ocupado || _r?.Status != StatusImportacao.AguardandoConfirmacao;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _fases = await Cat.ListaAsync(TipoLista.GrupoServico);
+        if (!_fases.Contains(Sigeo.Domain.Engenharia.CustoRealizado.FaseAApropriar)) _fases.Add(Sigeo.Domain.Engenharia.CustoRealizado.FaseAApropriar);
+        _produtos = await Cat.ProdutosAsync();
+        _fornecedores = await Cat.FornecedoresAsync();
+        _contasGer = (await Fin.ContasGerenciaisAsync(true, Cancelamento)).Where(c => c.Nivel > 1).ToList();
+        _bancos = await Fin.ContasBancariasAsync(true, Cancelamento);
+    }
+
+    private async Task TrocarObra(Guid? id)
+    {
+        _obraId = id; _r = null; _loteId = null;
+        _locais = id is { } o ? await Cat.LocaisComCaminhoAsync(o) : [];
+        await Recarregar();
+    }
+
+    private async Task Recarregar()
+    {
+        if (_obraId is not { } o) return;
+        _corte = (await Custos.PainelAsync(o, Cancelamento)).Corte;
+        _lotes = await Importador.LotesAsync(o, Cancelamento);
+        var abrir = _loteId ?? _lotes.FirstOrDefault(l => l.Status == StatusImportacao.AguardandoConfirmacao)?.Id ?? _lotes.FirstOrDefault()?.Id;
+        if (abrir is { } l) await AbrirLote(l);
+    }
+
+    private async Task AbrirLote(Guid id)
+    {
+        _loteId = id; _busca.Clear();
+        await Executar(async () => _r = await Importador.SimularAsync(id, Cancelamento));
+    }
+
+    private async Task TrocarCorte(ChangeEventArgs e)
+    {
+        if (_obraId is not { } o) return;
+        DateOnly? nova = DateOnly.TryParse(e.Value?.ToString(), out var d) ? d : null;
+        if (await Executar(() => Custos.DefinirCorteAsync(o, nova, Cancelamento), nova is null ? "Data de corte removida." : $"Data de corte: {nova:dd/MM/yyyy}."))
+        {
+            _corte = nova;
+            if (_loteId is { } l) await AbrirLote(l);
+        }
+    }
+
+    private async Task Enviar(InputFileChangeEventArgs e)
+    {
+        if (_obraId is not { } o) return;
+        _enviando = true;
+        try
+        {
+            var arquivos = new List<ArquivoRelatorioErp>();
+            foreach (var f in e.GetMultipleFiles(12))
+            {
+                using var ms = new MemoryStream();
+                await f.OpenReadStream(30 * 1024 * 1024, Cancelamento).CopyToAsync(ms, Cancelamento);
+                arquivos.Add(new ArquivoRelatorioErp(f.Name, ms.ToArray()));
+            }
+            Guid novo = Guid.Empty;
+            if (await Executar(async () => novo = await Importador.EnviarAsync(o, arquivos, Cancelamento), "Relatórios lidos: confira a simulação."))
+            {
+                _loteId = novo; _aba = "arq";
+                await Recarregar();
+            }
+        }
+        catch (IOException) { Notif.Erro("Arquivo maior que 30 MB ou envio interrompido."); }
+        finally { _enviando = false; }
+    }
+
+    private void TrocarAcao(ItemDePara item, string? valor)
+    {
+        if (!Enum.TryParse<AcaoDePara>(valor, out var acao)) return;
+        if (acao == AcaoDePara.Vincular && item.DestinoId is null)
+        {
+            if (item.Sugestoes.FirstOrDefault() is { Id: { } s }) { _ = Gravar(item, acao, s, null); return; }
+            Atualizar(item with { Acao = acao }); // escolhe no campo de busca
+            return;
+        }
+        _ = Gravar(item, acao, acao == AcaoDePara.Vincular ? item.DestinoId : null, null);
+    }
+
+    private async Task EscolherOutro(ItemDePara item, string? texto)
+    {
+        _busca[item.Chave] = texto ?? "";
+        var lista = item.Tipo == TipoVinculoOrigem.Produto ? _produtos : _fornecedores;
+        var achado = lista.FirstOrDefault(x => x.Texto == texto);
+        if (achado is null) { if (!string.IsNullOrWhiteSpace(texto)) Notif.Erro("Escolha um item da lista."); return; }
+        await Gravar(item, AcaoDePara.Vincular, achado.Id, null);
+        _busca.Remove(item.Chave);
+    }
+
+    private async Task Gravar(ItemDePara item, AcaoDePara acao, Guid? destino, string? texto)
+    {
+        if (_obraId is not { } o) return;
+        if (await Executar(() => Importador.SalvarVinculoAsync(o, item.Tipo, item.Chave, item.Texto, acao, destino, texto, Cancelamento)))
+        {
+            var destTexto = item.Tipo switch
+            {
+                TipoVinculoOrigem.Fase => texto,
+                TipoVinculoOrigem.Local => destino is { } l ? _locais.FirstOrDefault(x => x.Id == l)?.Texto : "Obra toda (sem local)",
+                TipoVinculoOrigem.Produto => destino is { } p ? _produtos.FirstOrDefault(x => x.Id == p)?.Texto ?? item.Sugestoes.FirstOrDefault(s => s.Id == p)?.Texto : null,
+                TipoVinculoOrigem.ContaGerencial => destino is { } cgid ? _contasGer.FirstOrDefault(x => x.Id == cgid)?.Rotulo : "(sem conta)",
+                TipoVinculoOrigem.ContaBancaria => destino is { } bid ? _bancos.FirstOrDefault(x => x.Id == bid)?.Rotulo : null,
+                _ => destino is { } f ? _fornecedores.FirstOrDefault(x => x.Id == f)?.Texto ?? item.Sugestoes.FirstOrDefault(s => s.Id == f)?.Texto : null
+            };
+            Atualizar(item with { Acao = acao, DestinoId = destino, DestinoTexto = destTexto, Salvo = true });
+        }
+    }
+
+    private void Atualizar(ItemDePara novo)
+    {
+        if (_r is null) return;
+        static List<ItemDePara> Troca(IReadOnlyList<ItemDePara> l, ItemDePara n) => l.Select(x => x.Chave == n.Chave ? n : x).ToList();
+        _r = novo.Tipo switch
+        {
+            TipoVinculoOrigem.Produto => _r with { Produtos = Troca(_r.Produtos, novo) },
+            TipoVinculoOrigem.Fornecedor => _r with { Fornecedores = Troca(_r.Fornecedores, novo) },
+            TipoVinculoOrigem.Fase => _r with { Fases = Troca(_r.Fases, novo) },
+            TipoVinculoOrigem.ContaGerencial => _r with { ContasGerenciais = Troca(_r.ContasGerenciais ?? [], novo) },
+            TipoVinculoOrigem.ContaBancaria => _r with { ContasBancarias = Troca(_r.ContasBancarias ?? [], novo) },
+            _ => _r with { Locais = Troca(_r.Locais, novo) }
+        };
+        StateHasChanged();
+    }
+
+    private async Task Confirmar()
+    {
+        _confirmar = false;
+        if (_loteId is not { } l) return;
+        ResultadoCargaErp? res = null;
+        if (await Executar(async () => res = await Importador.ConfirmarAsync(l, Cancelamento)))
+        {
+            Notif.Sucesso($"Importados: {res!.Custos} lançamentos de custo ({res.ValorCustos.ToString("C2", Br)}), {res.Pedidos} pedidos ({res.ItensPedido} itens), {res.ProdutosCriados} produtos e {res.FornecedoresCriados} fornecedores novos{(res.Titulos > 0 ? $", {res.Titulos} contas a pagar ({res.ValorTitulos.ToString("C2", Br)})" : "")}.");
+            Cat.Invalidar();
+            await AbrirLote(l);
+            _lotes = await Importador.LotesAsync(_obraId!.Value, Cancelamento);
+        }
+    }
+
+    private async Task Cancelar()
+    {
+        if (_loteId is not { } l) return;
+        if (await Executar(() => Importador.CancelarAsync(l, Cancelamento), "Importação cancelada.")) { _loteId = null; await Recarregar(); }
+    }
+}

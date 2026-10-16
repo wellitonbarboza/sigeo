@@ -1,0 +1,14 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Sigeo.Domain/Sigeo.Domain.csproj" />
+    <Project Path="src/Sigeo.Application/Sigeo.Application.csproj" />
+    <Project Path="src/Sigeo.Infrastructure/Sigeo.Infrastructure.csproj" />
+    <Project Path="src/Sigeo.Contratos/Sigeo.Contratos.csproj" />
+    <Project Path="src/Sigeo.Web/Sigeo.Web.csproj" />
+    <Project Path="src/Sigeo.Web.Client/Sigeo.Web.Client.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Sigeo.Tests/Sigeo.Tests.csproj" />
+    <Project Path="tests/Sigeo.Tests.Integracao/Sigeo.Tests.Integracao.csproj" />
+  </Folder>
+</Solution>

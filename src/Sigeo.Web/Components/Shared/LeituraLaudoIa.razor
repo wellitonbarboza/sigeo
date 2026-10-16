@@ -1,0 +1,56 @@
+@* Leitura de laudo/certificado (PDF ou foto) por IA: Document Intelligence extrai o texto e o modelo organiza número, datas,
+   lote e resultados. Só preenche sugestões na tela — quem aprova o ensaio ou o documento é a pessoa. *@
+@using Sigeo.Application.IA
+@inject AnalisesIaServico Ia
+@inject ILeitorDocumentos Leitor
+
+@if (Leitor.Configurado)
+{
+    <div class="laudo-ia">
+        <label class="btn sec pq arquivo cursor-mao" title="PDF, JPG ou PNG do laudo/certificado (até 20 MB)"><Icone Nome="lupa" Tam="14" /> @(_ocupado ? "Lendo o laudo…" : Rotulo)<InputFile OnChange="Ler" accept=".pdf,.jpg,.jpeg,.png" class="so-leitor" disabled="@_ocupado" /></label>
+        <div aria-live="polite">
+            @if (_erro is not null) { <div class="alerta aviso" role="alert"><Icone Nome="exclamacao" /> @_erro</div> }
+            @if (_r is { } r)
+            {
+                <div class="caixa-sec mt-6">
+                    <div class="fonte-13"><b>@(r.Tipo ?? "Documento")</b> @(r.Numero is null ? "" : $"nº {r.Numero}") · @r.Emitente @(r.DataEmissao is null ? "" : $"· emitido {r.DataEmissao:dd/MM/yyyy}") @(r.Validade is null ? "" : $"· válido até {r.Validade:dd/MM/yyyy}") @(r.Lote is null ? "" : $"· lote {r.Lote}")</div>
+                    @if (r.Resultados.Count > 0)
+                    {
+                        <table class="itens mt-6"><thead><tr><th>Ensaio</th><th>Resultado</th><th>Especificação</th><th>Conforme</th></tr></thead>
+                            <tbody>@foreach (var x in r.Resultados) { <tr><td>@x.Ensaio</td><td>@x.Valor @x.Unidade</td><td>@x.Especificacao</td><td>@if (x.Conforme is { } c) { <Selo Texto="@(c ? "sim" : "não")" Tom="@(c ? "ok" : "erro")" /> } else { <span>—</span> }</td></tr> }</tbody></table>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(r.Conclusao)) { <p class="fonte-13 mt-6">@r.Conclusao</p> }
+                    <p class="mudo">Leitura automática (@r.Paginas pág.): confira com o documento antes de registrar.</p>
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public string Rotulo { get; set; } = "Ler laudo com IA";
+    [Parameter] public string? Especificacao { get; set; }
+    [Parameter] public Guid? ReferenciaId { get; set; }
+    [Parameter] public EventCallback<ResultadoLaudo> AoLer { get; set; }
+
+    private bool _ocupado;
+    private string? _erro;
+    private ResultadoLaudo? _r;
+
+    private async Task Ler(InputFileChangeEventArgs e)
+    {
+        _erro = null; _ocupado = true; _r = null;
+        try
+        {
+            const long max = 20 * 1024 * 1024;
+            if (e.File.Size > max) { _erro = "Arquivo acima de 20 MB."; return; }
+            using var ms = new MemoryStream();
+            await using (var s = e.File.OpenReadStream(max)) await s.CopyToAsync(ms);
+            ms.Position = 0;
+            _r = await Ia.LerLaudoAsync(ms, e.File.ContentType, Especificacao, ReferenciaId);
+            await AoLer.InvokeAsync(_r);
+        }
+        catch (Sigeo.Domain.Aprovacoes.RegraDeNegocioException ex) { _erro = ex.Message; }
+        finally { _ocupado = false; }
+    }
+}

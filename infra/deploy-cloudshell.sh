@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # =====================================================================================
-# Groundkey — publicação pelo Azure Cloud Shell (Bash), sem nada instalado no PC.
-# Uso (no Cloud Shell, após enviar o pacote groundkey-deploy.zip pelo botão "Carregar"):
-#   unzip -o groundkey-deploy.zip -d groundkey && cd groundkey && bash deploy-cloudshell.sh
+# SIGEO — publicação pelo Azure Cloud Shell (Bash), sem nada instalado no PC.
+# Uso (no Cloud Shell, após enviar o pacote sigeo-deploy.zip pelo botão "Carregar"):
+#   unzip -o sigeo-deploy.zip -d sigeo && cd sigeo && bash deploy-cloudshell.sh
 # Cada etapa pede confirmação (s/N). Pode rodar de novo: tudo é idempotente.
 # Não precisa de sqlcmd nem .NET: o app cria as tabelas ao iniciar, com a identidade
 # gerenciada dele como membro do grupo administrador do SQL (QualyHub-DBA).
@@ -41,12 +41,12 @@ if [[ -z "$GRUPO_ID" ]]; then
 else echo "  Já existe ($GRUPO_ID)."; fi
 
 titulo "3/7 Login"
-echo "  Login por usuário e senha do próprio Groundkey (sem conta Microsoft)."
+echo "  Login por usuário e senha do próprio SIGEO (sem conta Microsoft)."
 
 titulo "4/7 Infraestrutura (App Service B1, SQL serverless, Storage, Key Vault, App Insights)"
 echo "  Custo estimado: ~R\$150–400/mês (SQL pausa sozinho sem uso)."
 ok "Criar/atualizar o grupo de recursos $RG e os recursos." || exit 1
-az group create -n "$RG" -l "$LOCAL" --tags sistema=Groundkey ambiente="$AMBIENTE" -o none
+az group create -n "$RG" -l "$LOCAL" --tags sistema=SIGEO ambiente="$AMBIENTE" -o none
 DEP="qualyhub-$(date +%Y%m%d%H%M)"
 if ! az deployment group create -g "$RG" -n "$DEP" --template-file main.json \
       --parameters ambiente="$AMBIENTE" sqlAdminGrupoObjectId="$GRUPO_ID" sqlAdminGrupoNome="$GRUPO_DBA" \
@@ -78,7 +78,7 @@ az keyvault secret show --vault-name "$KV" -n CodigoPlataforma >/dev/null 2>&1 |
 az keyvault secret show --vault-name "$KV" -n CodigoConfiguracaoInicial >/dev/null 2>&1 || \
   az keyvault secret set --vault-name "$KV" -n CodigoConfiguracaoInicial --value "$(openssl rand -hex 12)" -o none
 az webapp config appsettings set -g "$RG" -n "$WEB" --settings Banco__MigrarAoIniciar=true -o none
-az webapp config set -g "$RG" -n "$WEB" --startup-file "dotnet Groundkey.Web.dll" -o none
+az webapp config set -g "$RG" -n "$WEB" --startup-file "dotnet Sigeo.Web.dll" -o none
 
 titulo "6/7 Publicação da aplicação"
 ok "Publicar app.zip no site $WEB." || exit 1

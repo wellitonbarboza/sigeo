@@ -1,4 +1,4 @@
-# Groundkey — Pontos de atenção e como foram tratados
+# SIGEO — Pontos de atenção e como foram tratados
 
 ## 1. Custo do Azure
 
@@ -42,7 +42,7 @@
 
 **Risco:** manter duas stacks aumenta o custo de manutenção.
 
-**Decisão registrada em `docs/ADR-001-ecossistema.md`.** Em resumo, o Groundkey vira a **linha corporativa (.NET/Azure)** para clientes que já estão no Microsoft 365. Os micro-SaaS e apps pessoais seguem em Supabase. O domínio (`Groundkey.Domain`) não depende de infraestrutura, o que permite reaproveitar regras.
+**Decisão registrada em `docs/ADR-001-ecossistema.md`.** Em resumo, o SIGEO vira a **linha corporativa (.NET/Azure)** para clientes que já estão no Microsoft 365. Os micro-SaaS e apps pessoais seguem em Supabase. O domínio (`Sigeo.Domain`) não depende de infraestrutura, o que permite reaproveitar regras.
 
 ## 4. LGPD
 
@@ -55,7 +55,7 @@
 | **Acesso** | Entra ID + filtro por obra + menor privilégio no SQL (`qualyhub_app` sem DELETE) |
 | **Retenção** | `DocumentoSgq.PrazoRetencaoAnos` e versões de blob removidas após 1 ano (ajustável) |
 
-**Pendências contratuais:** definir no contrato com a N Dalmina quem é o **controlador** (N Dalmina) e quem é o **operador** (você/Groundkey), com o prazo de retenção dos registros da qualidade e o descarte ao fim do contrato.
+**Pendências contratuais:** definir no contrato com a N Dalmina quem é o **controlador** (N Dalmina) e quem é o **operador** (você/Sigeo), com o prazo de retenção dos registros da qualidade e o descarte ao fim do contrato.
 
 ⚠️ **Nunca rotacione a chave `CpfHmacChave`** sem reprocessar os hashes. Os funcionários deixariam de casar na importação.
 

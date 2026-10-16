@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Groundkey — sobe TUDO numa única sessão do Cloud Shell, na ordem certa. Cada passo pergunta antes (Enter = pula).
-#   cat groundkey-app.part* > groundkey-app.zip && rm -rf groundkey && unzip -o groundkey-app.zip -d groundkey && cd groundkey && bash subir-tudo.sh
+# SIGEO — sobe TUDO numa única sessão do Cloud Shell, na ordem certa. Cada passo pergunta antes (Enter = pula).
+#   cat sigeo-app.part* > sigeo-app.zip && rm -rf sigeo && unzip -o sigeo-app.zip -d sigeo && cd sigeo && bash subir-tudo.sh
 # Ordem: chave da Syncfusion → IA → SIEG → comunicação → publicar o app (migrations sozinhas) → custos → GitHub → inventário.
 set -uo pipefail
 cd "$(dirname "$0")"
 RG="${RG:-rg-qualyhub-prd}"; export RG
-WEB="${WEB:-$(az webapp list -g "$RG" --query "([?name=='groundkey'].name)[0] || ([?name=='qualyhub'].name)[0]" -o tsv)}"
+WEB="${WEB:-$(az webapp list -g "$RG" --query "([?name=='sigeo'].name)[0] || ([?name=='groundkey'].name)[0] || ([?name=='qualyhub'].name)[0]" -o tsv)}"
 [[ -n "$WEB" ]] || WEB=$(az webapp list -g "$RG" --query "[0].name" -o tsv); export WEB
 KV=$(az keyvault list -g "$RG" --query '[0].name' -o tsv)
 sim() { read -r -p "$1 (s/N) " r; [[ "$r" =~ ^[sS]$ ]]; }
@@ -31,7 +31,7 @@ passo "3/8 SIEG (notas fiscais de entrada)"
 sim "Já tem a API Key, o Client ID e a Secret Key do SIEG?" && bash configurar-sieg.sh
 
 passo "4/8 Comunicação (e-mail/WhatsApp da Área do Fornecedor)"
-if [[ -n "$(config Groundkey__Comunicacao__Endpoint)" ]]; then echo "Comunicação já configurada."
+if [[ -n "$(config Sigeo__Comunicacao__Endpoint)$(config Groundkey__Comunicacao__Endpoint)$(config QualyHub__Comunicacao__Endpoint)" ]]; then echo "Comunicação já configurada."
 else sim "Configurar o envio de e-mail agora?" && bash configurar-comunicacao.sh; fi
 
 passo "5/8 Publicar a nova versão do app (o banco é atualizado sozinho)"
