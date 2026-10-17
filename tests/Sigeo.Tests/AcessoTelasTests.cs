@@ -81,3 +81,24 @@ public sealed class AcessoTelasTests
         Assert.Equal("VX", campo["engenharia/planejamento"]);
     }
 }
+
+/// <summary>Toda tela do catálogo de acesso tem página (@page) no Web: evita item de menu/perfil apontando para rota inexistente.</summary>
+public class CatalogoTemPaginaTests
+{
+    [Fact]
+    public void Toda_rota_do_catalogo_tem_pagina()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "Sigeo.slnx"))) dir = dir.Parent;
+        Assert.NotNull(dir);
+        var paginas = Directory.EnumerateFiles(Path.Combine(dir!.FullName, "src", "Sigeo.Web"), "*.razor", SearchOption.AllDirectories)
+            .Concat(Directory.EnumerateFiles(Path.Combine(dir.FullName, "src"), "*.razor", SearchOption.AllDirectories))
+            .SelectMany(File.ReadLines).Select(l => l.Trim()).Where(l => l.StartsWith("@page \"/"))
+            .Select(l => l[7..].TrimEnd('"').ToLowerInvariant()).ToList();
+        var exatas = paginas.Where(p => !p.Contains('{')).Select(p => p.Trim('/')).ToHashSet();
+        var comParametro = paginas.Where(p => p.Contains('{')).Select(p => p.Split('{')[0].Trim('/') + "/").ToList();
+        var faltam = CatalogoTelas.Telas.Values.Select(t => t.Rota.ToLowerInvariant())
+            .Where(r => !exatas.Contains(r) && !comParametro.Any(r.StartsWith)).ToList();
+        Assert.Empty(faltam);
+    }
+}

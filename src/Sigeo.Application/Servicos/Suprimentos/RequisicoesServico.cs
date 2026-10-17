@@ -69,6 +69,7 @@ public sealed class RequisicoesServico(IFabricaDb fabrica, AprovacaoServico apro
         var statusAtual = await db.Requisicoes.Where(x => x.Id == r.Id).Select(x => (StatusRequisicao?)x.Status).FirstOrDefaultAsync(ct) ?? r.Status;
         if (statusAtual is not (StatusRequisicao.Rascunho or StatusRequisicao.DevolvidaAjuste))
             throw new RegraDeNegocioException("Requisição já enviada: não pode ser alterada.");
+        await LeadTimeCategorias.CompletarAsync(db, r.Itens, ct);
         r.RecalcularPrazo();
         var marcas = await MarcasServico.NormalizarAsync(db, r.Itens.Select(i => i.Marca), ct);
         foreach (var i in r.Itens) { i.Marca = MarcasServico.Oficial(marcas, i.Marca); if (i.Marca is null) i.MesmaMarca = false; }

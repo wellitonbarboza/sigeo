@@ -15,7 +15,12 @@
             <a class="btn sec pq" href="@($"cotacoes?id={_c.Id}")"><Icone Nome="calculadora" Tam="14" /> Cotação</a>
             <button class="btn sec pq" id="mapa-excel" @onclick="Excel"><Icone Nome="excel" Tam="14" /> Excel</button>
             <button class="btn sec pq" @onclick="Imprimir2"><Icone Nome="impressora" Tam="14" /> Imprimir / PDF</button>
-            @if (Editavel) { <button class="btn prim pq" id="mapa-salvar" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="14" /> Salvar preços</button> }
+            @if (Editavel)
+            {
+                <button class="btn sec pq" id="mapa-menor" title="Marca, em cada item, o fornecedor de menor preço como vencedor" @onclick="MenorPrecoEmTodos"><Icone Nome="medalha" Tam="14" /> Menor preço em cada item</button>
+                @if (_c?.VencedorPorItem == true) { <button class="btn sec pq" id="mapa-limpar" @onclick="LimparVencedores">Limpar vencedores</button> }
+                <button class="btn prim pq" id="mapa-salvar" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="14" /> Salvar preços e vencedores</button>
+            }
         }
     </Direita>
     <ChildContent>
@@ -43,6 +48,14 @@
                         <thead><tr><th>Condição</th>@foreach (var f in forns) { <th class="texto-centro @(f.FornecedorId == _c.FornecedorVencedorId ? "destaque" : "")">@Nome(f.FornecedorId)@if (f.FornecedorId == _c.FornecedorVencedorId) { <br /><Selo Texto="vencedor" Tom="ok" /> }</th> }</tr></thead>
                         <tbody>
                             <tr><td>Qualificação</td>@foreach (var f in forns) { <td class="texto-centro"><Selo Texto="@De(f.QualificacaoNaData)" Tom="@Tom(f.QualificacaoNaData)" /></td> }</tr>
+                            @if (forns.Any(f => !string.IsNullOrWhiteSpace(f.PendenciaNaData)))
+                            {
+                                <tr><td>Pendência no convite</td>@foreach (var f in forns) { <td class="texto-centro"><small class="@(string.IsNullOrWhiteSpace(f.PendenciaNaData) ? "mudo" : "texto-erro")">@(f.PendenciaNaData ?? "—")</small></td> }</tr>
+                            }
+                            @if (_c.VencedorPorItem)
+                            {
+                                <tr class="peso-600"><td>Itens vencidos · total</td>@foreach (var f in forns) { var vi = _c.Itens.Where(i => i.FornecedorId == f.FornecedorId && i.Vencedor).ToList(); <td class="num">@(vi.Count == 0 ? "—" : $"{vi.Count} · {Moeda(vi.Sum(i => i.ValorTotalVencido))}")</td> }</tr>
+                            }
                             <tr><td>Situação / resposta</td>@foreach (var f in forns) { <td class="texto-centro">@De(f.Status) @(f.DataResposta is { } d ? $"· {d:dd/MM}" : "")</td> }</tr>
                             <tr><td>Prazo de entrega ofertado</td>@foreach (var f in forns) { <td class="texto-centro @(f.PrazoEntregaOfertado is { } p && p == MelhorPrazo ? "melhor" : "")">@Data(f.PrazoEntregaOfertado)</td> }</tr>
                             <tr><td>Condição de pagamento</td>@foreach (var f in forns) { <td class="texto-centro">@(f.CondicaoPagamento ?? "—")</td> }</tr>
@@ -89,7 +102,14 @@
                                             @if (it.MaterialControlado) { <small class="@(it.AtendeEspecificacao == true ? "" : "texto-erro")">@(it.AtendeEspecificacao switch { true => "atende espec.", false => "não atende espec.", _ => "espec. não avaliada" })</small> }</td>
                                         <td class="larg-110"><input type="number" step="0.01" aria-label="@($"Negociado {Nome(f.FornecedorId)} – {primeiro.Descricao}")" @bind="it.ValorNegociado" @bind:after="Recalcular" disabled="@(!Editavel)" />
                                             @if (it.Economia > 0) { <small class="econ pos">−@Moeda(it.Economia)</small> }</td>
-                                        <td class="num @(melhor ? "melhor" : "")">@(it.ValorUnitarioFinal > 0 ? Moeda(it.ValorTotal) : "—")</td>
+                                        <td class="num @(melhor ? "melhor" : "") @(it.Vencedor ? "destaque" : "")">@(it.ValorUnitarioFinal > 0 ? Moeda(it.ValorTotal) : "—")
+                                            @if (it.PrecoUltimo is { } ult && ult > 0 && it.ValorUnitarioFinal > ult) { <br /><small class="texto-erro" title="Acima do último preço pago">+@(((it.ValorUnitarioFinal - ult) / ult).ToString("P1", Br)) vs. último</small> }
+                                            @if (it.ValorUnitarioFinal > 0)
+                                            {
+                                                <br /><label class="check fonte-12"><input type="radio" name="@($"venc-{primeiro.Id}")" checked="@it.Vencedor" disabled="@(!Editavel)" @onchange="() => Vencer(it)" /> vencer</label>
+                                                @if (it.Vencedor && Editavel) { <input type="number" class="mt-4" step="0.001" min="0" max="@it.Quantidade" title="Quantidade que este fornecedor atende (vazio = toda)" placeholder="qtd. toda" value="@it.QuantidadeVencida" @onchange="e => DefinirQtd(it, e.Value)" aria-label="@($"Quantidade vencida – {primeiro.Descricao}")" /> }
+                                                else if (it.Vencedor && it.QuantidadeVencida is { } qv) { <small>só @Num(qv, 3)</small> }
+                                            }</td>
                                     }
                                     <td class="num">@(menor > 0 ? Moeda(menor) : "—")</td>
                                 </tr>
@@ -103,7 +123,9 @@
                     </table>
                 </div>
                 <datalist id="mapa-marcas">@foreach (var nomeMarca in _marcas) { <option>@nomeMarca</option> }</datalist>
-                <p class="mudo">Marca obrigatória em cada item de material com preço (vai para o pedido). Verde = menor valor do item (negociado, se houver). Valores preenchidos pelo fornecedor na Área do Fornecedor entram aqui sozinhos; os demais são lançados nesta tela.</p>
+                @if (_c.VencedorPorItem && _grupos.Any(g => !g.Any(i => i.Vencedor))) { <div class="alerta aviso"><Icone Nome="alerta" /> @_grupos.Count(g => !g.Any(i => i.Vencedor)) item(ns) sem vencedor: ficam como "a pedir" na requisição.</div> }
+                <p class="mudo">Vencedor item a item: cada fornecedor vencedor recebe um pedido com os itens dele; quantidade menor que a do item (fornecedor só atende parte) devolve o resto para "a pedir". Sem marcação item a item, vale o vencedor geral da cotação.
+                    Marca obrigatória em cada item de material com preço (vai para o pedido). Verde = menor valor do item (negociado, se houver). Valores preenchidos pelo fornecedor na Área do Fornecedor entram aqui sozinhos; os demais são lançados nesta tela.</p>
 
                 <AnaliseIaCotacao Cotacao="_c" AntesDeAnalisar="SalvarAntesDaIa" AoConcluir="Carregar" />
             }
@@ -134,6 +156,31 @@
     private DateOnly? MelhorPrazo => _c!.Fornecedores.Where(f => f.PrazoEntregaOfertado != null).Select(f => f.PrazoEntregaOfertado).Min();
     private string Diferenca(decimal t) => MenorTotal is { } m && m.Total > 0 && t > 0 && t != m.Total ? $"+{(t - m.Total) / m.Total:P1} vs. menor" : "";
     private void Recalcular() => _c!.Recalcular(_p!);
+
+    private void Vencer(CotacaoItem it)
+    {
+        try { _c!.DefinirVencedorItem(it.RequisicaoItemId, it.Descricao, it.FornecedorId); ErrosForm = null; }
+        catch (RegraDeNegocioException e) { ErrosForm = [e.Message]; }
+    }
+
+    private void DefinirQtd(CotacaoItem it, object? valor)
+    {
+        decimal? q = decimal.TryParse(Convert.ToString(valor, System.Globalization.CultureInfo.InvariantCulture), System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out var d) ? d : null;
+        try { _c!.DefinirVencedorItem(it.RequisicaoItemId, it.Descricao, it.FornecedorId, q); ErrosForm = null; }
+        catch (RegraDeNegocioException e) { ErrosForm = [e.Message]; }
+    }
+
+    private void MenorPrecoEmTodos()
+    {
+        foreach (var g in _grupos)
+        {
+            var melhor = g.Where(i => i.ValorUnitarioFinal > 0).OrderBy(i => i.ValorUnitarioFinal).FirstOrDefault();
+            if (melhor is not null) _c!.DefinirVencedorItem(melhor.RequisicaoItemId, melhor.Descricao, melhor.FornecedorId);
+        }
+        ErrosForm = null;
+    }
+
+    private void LimparVencedores() { foreach (var i in _c!.Itens) { i.Vencedor = false; i.QuantidadeVencida = null; } }
     private void AlternarLocais(Guid id) { if (!_abertos.Remove(id)) _abertos.Add(id); }
 
     private EconomiaCotacao Econ => EconomiaCotacao.Calcular(_c!.FornecedorVencedorId is { } v

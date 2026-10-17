@@ -1,0 +1,176 @@
+@page "/suprimentos/documentacao-mensal"
+@inherits PaginaBase
+@inject CompetenciasServico CompetenciasSrv
+@* Conferência da documentação mensal dos contratos de mão de obra (administrativo de obra, engenheiro ou segurança do trabalho):
+   item a item, com motivo na recusa; adiamento pedido pelo fornecedor só o engenheiro da obra aprova (não trava a medição).
+   A medição do mês só é aprovada com a competência conferida. *@
+
+<Pagina Titulo="Documentação mensal (mão de obra)" AoAtualizar="Carregar">
+    <Direita>
+        <label class="check"><input type="checkbox" @bind="_soPendentes" @bind:after="Carregar" /> Só pendentes</label>
+    </Direita>
+    <ChildContent>
+        <div class="pagina">
+            @if (_fila is null) { <Esqueleto Indicadores="3" Linhas="6" /> }
+            else
+            {
+                <div class="kpis">
+                    <Kpi Rotulo="Aguardando conferência" Valor="@_fila.Count(c => c.Situacao is SituacaoCompetencia.Enviada or SituacaoCompetencia.EmConferencia)" Tom="info" />
+                    <Kpi Rotulo="Abertas (fornecedor enviando)" Valor="@_fila.Count(c => c.Situacao == SituacaoCompetencia.Aberta)" />
+                    <Kpi Rotulo="Atrasadas" Valor="@_fila.Count(c => c.Atrasada)" Tom="@(_fila.Any(c => c.Atrasada) ? "erro" : "ok")" />
+                    <Kpi Rotulo="Adiamentos para decidir" Valor="@_fila.Sum(c => c.AdiamentosPendentes)" Tom="@(_fila.Any(c => c.AdiamentosPendentes > 0) ? "aviso" : "ok")" Sub="só o engenheiro da obra" />
+                </div>
+                <div class="tabela-rolavel">
+                    <table class="itens" id="dm-fila">
+                        <thead><tr><th>Contrato · fornecedor</th><th>Obra</th><th>Mês</th><th class="num">Itens</th><th>Situação</th><th>Medição</th><th></th></tr></thead>
+                        <tbody>
+                            @foreach (var c in _fila.OrderByDescending(c => c.Atrasada).ThenBy(c => c.Mes))
+                            {
+                                <tr @key="c.Id" class="@(c.Id == _sel?.Competencia.Id ? "destaque" : "")">
+                                    <td>@c.Contrato · @c.Fornecedor</td><td>@c.Obra</td><td>@c.Mes.ToString("MM/yyyy")</td><td class="num">@c.Entregues de @c.Total</td>
+                                    <td><Selo Texto="@(c.Atrasada ? $"{De(c.Situacao)} · atrasada" : De(c.Situacao))" Tom="@(c.Atrasada ? "erro" : Tom(c.Situacao))" />@if (c.AdiamentosPendentes > 0) { <Selo Texto="@($"{c.AdiamentosPendentes} adiamento(s)")" Tom="aviso" /> }</td>
+                                    <td>@(c.Medicao ?? "—")</td>
+                                    <td><button class="btn sec pq" @onclick="() => Abrir(c.Id)">Conferir</button></td>
+                                </tr>
+                            }
+                            @if (_fila.Count == 0) { <tr><td colspan="7" class="mudo">Nenhuma competência @(_soPendentes ? "pendente" : "").</td></tr> }
+                        </tbody>
+                    </table>
+                </div>
+            }
+
+            @if (_sel is { } d)
+            {
+                var c = d.Competencia;
+                <div class="secao"><Icone Nome="prancheta" /> @d.Contrato · @d.Fornecedor · @c.Mes.ToString("MM/yyyy") <Selo Texto="@De(c.Situacao)" Tom="@Tom(c.Situacao)" />
+                    <span class="acao mudo">@d.Obra · limite @d.Limite.ToString("dd/MM")@(c.EnviadaEm is { } en ? $" · enviada em {en.ToLocalTime():dd/MM HH:mm} por {c.EnviadaPor}" : "")</span></div>
+                <Erros Lista="ErrosForm" />
+                <div class="grade-2">
+                    <div class="tabela-rolavel">
+                        <table class="itens" id="dm-itens">
+                            <thead><tr><th>Item</th><th>Arquivo</th><th>Situação</th><th>Conferência</th></tr></thead>
+                            <tbody>
+                                @foreach (var x in d.Itens)
+                                {
+                                    var i = x.Item;
+                                    <tr @key="i.Id">
+                                        <td>@i.Descricao@if (x.DiasNaObra is { } dn) { <br /><small class="mudo">@dn dia(s) apropriados na obra</small> }@if (x.Observacao is { } ob) { <br /><small class="mudo">@ob</small> }</td>
+                                        <td>@if (i.ArquivoBlob is not null) { <a href="@($"arquivos/competencia/{i.Id}")" target="_blank" rel="noopener">@(i.ArquivoNome ?? "arquivo")</a> } else { <span class="mudo">—</span> }</td>
+                                        <td><Selo Texto="@De(i.Situacao)" Tom="@Tom(i.Situacao)" />
+                                            @if (i.Situacao is SituacaoItemCompetencia.AdiamentoSolicitado or SituacaoItemCompetencia.Adiado) { <br /><small>até @i.AdiadoAte?.ToString("dd/MM") · @i.JustificativaAdiamento</small> }
+                                            @if (i.MotivoRecusa is { } mr) { <br /><small class="texto-erro">@mr</small> }</td>
+                                        <td class="nowrap">
+                                            @if (c.Situacao != SituacaoCompetencia.Conferida)
+                                            {
+                                                @if (i.Situacao is SituacaoItemCompetencia.Enviado or SituacaoItemCompetencia.Recusado or SituacaoItemCompetencia.Aprovado)
+                                                {
+                                                    @if (i.Situacao != SituacaoItemCompetencia.Aprovado) { <button class="btn ok pq" disabled="@Ocupado" @onclick="() => Conferir(i, true)">Aprovar</button> }
+                                                    @if (i.Situacao != SituacaoItemCompetencia.Recusado) { <button class="btn perigo pq" disabled="@Ocupado" @onclick="() => AbrirRecusa(i, false)">Recusar</button> }
+                                                }
+                                                @if (i.Situacao == SituacaoItemCompetencia.AdiamentoSolicitado)
+                                                {
+                                                    <button class="btn ok pq" disabled="@Ocupado" title="Só o engenheiro da obra" @onclick="() => Adiamento(i, true)">Aprovar adiamento</button>
+                                                    <button class="btn perigo pq" disabled="@Ocupado" @onclick="() => AbrirRecusa(i, true)">Recusar</button>
+                                                }
+                                            }
+                                            @if (i.ConferidoPor is { } cp) { <br /><small class="mudo">@cp · @i.ConferidoEm?.ToLocalTime().ToString("dd/MM HH:mm")</small> }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                    <div>
+                        <div class="cartao mb-6">
+                            <h3><Icone Nome="regua" /> Medição do mês</h3>
+                            <p>@(d.Medicao ?? "Ainda sem medição deste mês.")</p>
+                            @if (!c.LiberaMedicao && c.Itens.Count > 0) { <div class="alerta erro">Aprovação da medição bloqueada até a competência @c.Mes.ToString("MM/yyyy") ficar Conferida. Itens adiados com aprovação do engenheiro não travam.</div> }
+                            else { <div class="alerta ok">Competência conferida: libera a medição do mês.</div> }
+                        </div>
+                        <div class="cartao">
+                            <h3><Icone Nome="relogio" /> Histórico do contrato</h3>
+                            @foreach (var h in d.Historico)
+                            {
+                                <div class="linha-espaco" @key="h.Id"><a href="#" @onclick="() => Abrir(h.Id)" @onclick:preventDefault>@h.Mes.ToString("MM/yyyy")</a>
+                                    <span><Selo Texto="@(h.Atrasada ? $"{De(h.Situacao)} · atrasada" : De(h.Situacao))" Tom="@(h.Atrasada ? "erro" : Tom(h.Situacao))" /> <small class="mudo">@h.Entregues/@h.Total</small></span></div>
+                            }
+                        </div>
+                    </div>
+                </div>
+                <div class="linha-botoes mt-12">
+                    @if (c.Situacao == SituacaoCompetencia.Conferida) { <button class="btn sec" id="dm-reabrir" disabled="@Ocupado" @onclick="() => AbrirAcao(true)">Reabrir (com motivo)</button> }
+                    else
+                    {
+                        <button class="btn perigo" id="dm-devolver" disabled="@Ocupado" @onclick="() => AbrirAcao(false)">Devolver com pendência</button>
+                        <button class="btn prim" id="dm-concluir" disabled="@Ocupado" @onclick="Concluir"><Icone Nome="check" Tam="16" /> Concluir: competência conferida</button>
+                    }
+                </div>
+            }
+        </div>
+    </ChildContent>
+    <Faixa><b>Documentação mensal</b><span>Da empresa e por funcionário</span><span>Adiamento só com o engenheiro</span><span>Trava a medição do mês</span></Faixa>
+</Pagina>
+
+<Modal @bind-Aberto="_abertoMotivo" Titulo="@_tituloMotivo" Tamanho="pequena">
+    <ChildContent><Erros Lista="ErrosForm" /><div class="form"><Campo Rotulo="Motivo" Obrigatorio Classe="s12"><input id="dm-motivo" @bind="_motivo" maxlength="300" /></Campo></div></ChildContent>
+    <Rodape><button class="btn perigo" id="dm-motivo-ok" disabled="@Ocupado" @onclick="ConfirmarMotivo">Confirmar</button></Rodape>
+</Modal>
+
+@code {
+    private List<LinhaCompetencia>? _fila;
+    private CompetenciaDetalhe? _sel;
+    private bool _soPendentes = true, _abertoMotivo;
+    private string? _motivo, _tituloMotivo;
+    private Func<Task>? _acaoMotivo;
+
+    protected override Task OnInitializedAsync() => Carregar();
+
+    private async Task Carregar()
+    {
+        _fila = await CompetenciasSrv.FilaAsync(_soPendentes, Cancelamento);
+        if (_sel is not null) _sel = await CompetenciasSrv.DetalheAsync(_sel.Competencia.Id, Cancelamento);
+    }
+
+    private async Task Abrir(Guid id) { ErrosForm = null; _sel = await CompetenciasSrv.DetalheAsync(id, Cancelamento); }
+
+    private async Task Conferir(ItemCompetencia i, bool ok)
+    {
+        if (await Executar(() => CompetenciasSrv.ConferirItemAsync(i.Id, ok, _motivo, Cancelamento))) await Carregar();
+    }
+
+    private async Task Adiamento(ItemCompetencia i, bool ok)
+    {
+        if (await Executar(() => CompetenciasSrv.DecidirAdiamentoAsync(i.Id, ok, _motivo, Cancelamento), ok ? "Adiamento aprovado." : "Adiamento recusado.")) await Carregar();
+    }
+
+    private void AbrirRecusa(ItemCompetencia i, bool adiamento)
+    {
+        _motivo = null; ErrosForm = null; _tituloMotivo = adiamento ? "Recusar adiamento" : $"Recusar: {i.Descricao}";
+        _acaoMotivo = adiamento ? () => Adiamento(i, false) : () => Conferir(i, false);
+        _abertoMotivo = true;
+    }
+
+    private void AbrirAcao(bool reabrir)
+    {
+        _motivo = null; ErrosForm = null; _tituloMotivo = reabrir ? "Reabrir competência conferida" : "Devolver ao fornecedor";
+        var id = _sel!.Competencia.Id;
+        _acaoMotivo = async () =>
+        {
+            if (await Executar(() => reabrir ? CompetenciasSrv.ReabrirAsync(id, _motivo, Cancelamento) : CompetenciasSrv.DevolverAsync(id, _motivo, Cancelamento), reabrir ? "Competência reaberta." : "Devolvida ao fornecedor."))
+                await Carregar();
+        };
+        _abertoMotivo = true;
+    }
+
+    private async Task ConfirmarMotivo()
+    {
+        if (_acaoMotivo is null) return;
+        await _acaoMotivo();
+        if (ErrosForm is null or { Count: 0 }) { _abertoMotivo = false; _motivo = null; }
+    }
+
+    private async Task Concluir()
+    {
+        if (await Executar(() => CompetenciasSrv.ConcluirAsync(_sel!.Competencia.Id, Cancelamento), "Competência conferida: medição do mês liberada.")) await Carregar();
+    }
+}

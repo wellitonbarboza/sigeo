@@ -91,6 +91,7 @@ public sealed class RecebimentosServico(IFabricaDb fabrica, IUsuarioAtual usuari
         var custos = r.PedidoId is { } pidCusto ? await db.Set<PedidoItem>().AsNoTracking().Where(i => i.PedidoId == pidCusto).ToDictionaryAsync(i => i.Id, i => i.ValorUnitario, ct) : [];
         await MotorEstoque.EntradaRecebimentoAsync(db, r, custos, relogio.GetUtcNow(), ct);
 
+        Guid? requisicaoAtendida = null;
         if (r.PedidoId is { } pedidoId && r.Destino != DestinoRecebimento.Devolvido)
         {
             var ped = await db.Pedidos.Include(p => p.Itens).FirstAsync(p => p.Id == pedidoId, ct);
@@ -100,12 +101,18 @@ public sealed class RecebimentosServico(IFabricaDb fabrica, IUsuarioAtual usuari
                 pi.QuantidadeRecebidaAceita += ri.QtdRecebida;
             }
             ped.Status = ped.Itens.All(i => i.QuantidadeRecebidaAceita >= i.Quantidade) ? StatusPedido.Entregue : StatusPedido.EntregueParcial;
+            requisicaoAtendida = ped.RequisicaoId;
         }
         // Material recebido entra no custo realizado da obra (preço do pedido, fase/local da requisição).
         await CustoRealizadoServico.GerarDoRecebimentoAsync(db, r, ct);
         if (RegrasAvaliacao.PlanoPorFvm(r, Hoje, await AvaliacaoFornecedoresServico.NumeroPlanoAsync(db, ct)) is { } plano) db.PlanosAcao.Add(plano);
         await Fiscal.NotasFiscaisServico.MarcarRecebidaAsync(db, r.Id, r.ChaveNFe, ct); // nota importada (SIEG/XML) sai da fila
         await db.SaveChangesAsync(ct);
+        if (requisicaoAtendida is not null)
+        {
+            await AtendimentoServico.AtualizarAsync(db, requisicaoAtendida, ct); // requisição: parcialmente atendida / atendida
+            await db.SaveChangesAsync(ct);
+        }
         return r.Id;
     }
 }

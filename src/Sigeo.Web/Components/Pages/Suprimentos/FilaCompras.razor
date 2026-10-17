@@ -1,0 +1,109 @@
+@page "/suprimentos/fila"
+@inherits PaginaBase
+@inject AtendimentoServico AtendimentoSrv
+@inject NavigationManager Nav
+@* Fila do comprador: lotes da carteira dele (e os que está cobrindo como substituto) por data limite de compra.
+   O gestor vê a fila sem comprador e reatribui. *@
+
+<Pagina Titulo="Minha fila de compras" AoAtualizar="Carregar">
+    <Direita>
+        @if (Gestor)
+        {
+            <div class="abas" role="tablist">
+                <button role="tab" class="@(_visao == "minha" ? "on" : "")" id="fila-minha" @onclick='() => Mudar("minha")'>Minha fila</button>
+                <button role="tab" class="@(_visao == "todos" ? "on" : "")" id="fila-todos" @onclick='() => Mudar("todos")'>Todos os lotes (gestor)</button>
+            </div>
+        }
+    </Direita>
+    <ChildContent>
+        <div class="pagina">
+            @if (_l is null) { <Esqueleto Indicadores="4" Linhas="6" /> }
+            else
+            {
+                var meus = _l;
+                <div class="kpis">
+                    <Kpi Rotulo="Aguardando cotação" Valor="@meus.Count(x => x.Situacao.StartsWith("Aguardando cotação"))" />
+                    <Kpi Rotulo="Em cotação" Valor="@meus.Count(x => x.CotacaoAberta != null)" Tom="info" />
+                    <Kpi Rotulo="Saldo a pedir" Valor="@meus.Count(x => x.Situacao.StartsWith("Saldo"))" Tom="aviso" />
+                    <Kpi Rotulo="Prazo de compra vencido" Valor="@meus.Count(x => x.DiasAtraso > 0)" Tom="@(meus.Any(x => x.DiasAtraso > 0) ? "erro" : "ok")" />
+                    @if (_visao == "minha") { <Kpi Rotulo="Como substituto" Valor="@meus.Count(x => x.Substituicao)" Tom="aviso" /> }
+                    else { <Kpi Rotulo="Sem comprador" Valor="@meus.Count(x => x.Comprador == null)" Tom="@(meus.Any(x => x.Comprador == null) ? "erro" : "ok")" /> }
+                </div>
+                <div class="barra-filtro">
+                    <label>Filtro <select @bind="_filtro"><option value="">Todos</option><option value="atraso">Atrasados</option><option value="subst">Substituição</option><option value="sem">Sem comprador</option></select></label>
+                </div>
+                <div class="tabela-rolavel">
+                    <table class="itens" id="fila-lotes">
+                        <thead><tr><th>Limite</th><th>Lote</th><th>Obra</th><th>Categoria</th><th class="num">Itens</th><th>Situação</th><th>Origem</th>@if (_visao == "todos") { <th>Comprador</th> }<th></th></tr></thead>
+                        <tbody>
+                            @foreach (var x in Filtrados)
+                            {
+                                <tr @key="x.LoteId" class="@(x.DiasAtraso > 0 ? "linha-erro" : "")">
+                                    <td class="@(x.DiasAtraso > 0 ? "texto-erro peso-600" : "")">@(x.Limite?.ToString("dd/MM") ?? "—")@(x.DiasAtraso > 0 ? $" · {x.DiasAtraso} dia(s) de atraso" : "")</td>
+                                    <td>REQ @x.Requisicao · @x.Letra</td><td>@x.Obra</td><td>@x.Categoria</td><td class="num">@x.Itens</td>
+                                    <td>@x.Situacao</td>
+                                    <td>@if (x.Substituicao || x.Comprador is null) { <Selo Texto="@x.Origem" Tom="aviso" /> } else { @x.Origem }</td>
+                                    @if (_visao == "todos")
+                                    {
+                                        <td><select aria-label="Comprador do lote" value="@(x.Comprador is null ? "" : _compradorDe.GetValueOrDefault(x.LoteId).ToString())" @onchange="e => _destino[x.LoteId] = Guid.TryParse(e.Value?.ToString(), out var g) ? g : null">
+                                            <option value="">(fila do gestor)</option>@foreach (var u in _usuarios) { <option value="@u.Id">@u.Texto</option> }</select>
+                                            <label class="check fonte-12"><input type="checkbox" @onchange="e => _incluir[x.LoteId] = (bool)e.Value!" /> incluir categoria na carteira</label></td>
+                                    }
+                                    <td class="nowrap">
+                                        @if (x.CotacaoAberta is { } cid) { <a class="btn sec pq" href="@($"cotacoes?id={cid}")">Abrir cotação</a> }
+                                        else { <a class="btn prim pq" href="@($"requisicoes?id={x.RequisicaoId}")">Cotar</a> }
+                                        @if (_visao == "todos") { <button class="btn sec pq" disabled="@Ocupado" @onclick="() => Atribuir(x)">Atribuir</button> }
+                                    </td>
+                                </tr>
+                            }
+                            @if (!Filtrados.Any()) { <tr><td colspan="9" class="mudo">Nenhum lote nesta fila.</td></tr> }
+                        </tbody>
+                    </table>
+                </div>
+                <Erros Lista="ErrosForm" />
+            }
+        </div>
+    </ChildContent>
+    <Faixa><b>Fila de compras</b><span>Por data limite (necessidade − lead time)</span><span>Substituição nas ausências</span><span>Fila do gestor sem comprador</span></Faixa>
+</Pagina>
+
+@code {
+    private List<LinhaFila>? _l;
+    private string _visao = "minha";
+    private string _filtro = "";
+    private List<Opcao> _usuarios = [];
+    private Dictionary<Guid, Guid?> _compradorDe = [];
+    private readonly Dictionary<Guid, Guid?> _destino = [];
+    private readonly Dictionary<Guid, bool> _incluir = [];
+    private bool Gestor => Perfil(PerfilUsuario.Administrador, PerfilUsuario.Diretoria, PerfilUsuario.Suprimentos);
+
+    private IEnumerable<LinhaFila> Filtrados => (_l ?? []).Where(x => _filtro switch
+    {
+        "atraso" => x.DiasAtraso > 0, "subst" => x.Substituicao, "sem" => x.Comprador is null, _ => true
+    });
+
+    protected override async Task OnInitializedAsync()
+    {
+        _usuarios = await Cat.UsuariosAsync();
+        await Carregar();
+    }
+
+    private async Task Mudar(string v) { _visao = v; await Carregar(); }
+
+    private async Task Carregar()
+    {
+        _l = await AtendimentoSrv.FilaAsync(Usuario.UsuarioId, _visao == "todos", Cancelamento);
+        if (_visao == "todos")
+        {
+            await using var db = Fabrica.CriarLeitura();
+            var ids = _l.Select(x => x.LoteId).ToList();
+            _compradorDe = await db.LotesCompra.AsNoTracking().Where(x => ids.Contains(x.Id)).ToDictionaryAsync(x => x.Id, x => x.CompradorUsuarioId, Cancelamento);
+        }
+    }
+
+    private async Task Atribuir(LinhaFila x)
+    {
+        var novo = _destino.TryGetValue(x.LoteId, out var d) ? d : _compradorDe.GetValueOrDefault(x.LoteId);
+        if (await Executar(() => AtendimentoSrv.ReatribuirAsync(x.LoteId, novo, null, _incluir.GetValueOrDefault(x.LoteId), Cancelamento), "Lote atribuído.")) await Carregar();
+    }
+}

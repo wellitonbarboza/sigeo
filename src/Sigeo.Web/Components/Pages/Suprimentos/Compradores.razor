@@ -1,0 +1,160 @@
+@page "/suprimentos/compradores"
+@inherits PaginaBase
+@inject AtendimentoServico AtendimentoSrv
+@* Carteira de compras: categorias que cada comprador compra (grupo, subgrupo ou categoria de serviço, por obra ou todas),
+   substituto e ausências. A requisição autorizada é dividida em lotes e cada lote vai sozinho para o comprador da categoria. *@
+
+<Pagina Titulo="Carteira de compradores" Grade="_grade" AoNovo="Novo" AoAtualizar="Carregar">
+    <ChildContent>
+        <div class="pagina">
+            <div class="kpis">
+                <Kpi Rotulo="Compradores" Valor="@_itens?.Count(c => c.Ativa)" />
+                <Kpi Rotulo="Ausentes hoje" Valor="@_itens?.Count(c => c.Ausente)" Tom="aviso" />
+                <Kpi Rotulo="Categorias atribuídas" Valor="@_itens?.Sum(c => c.Categorias)" />
+            </div>
+            <Grade T="Linha" @ref="_grade" Itens="_itens" AoClicar="Abrir" NomeExportacao="compradores" Vazio="Nenhum comprador. Sem carteira, os lotes de compra vão para a fila do gestor.">
+                <Colunas>
+                    <Coluna T="Linha" Titulo="Comprador" Valor="l => l.Nome" />
+                    <Coluna T="Linha" Titulo="Categorias" Valor="l => l.Resumo" />
+                    <Coluna T="Linha" Titulo="Substituto" Valor="l => l.Substituto" />
+                    <Coluna T="Linha" Titulo="Situação" Valor="l => l.Ausente"><Modelo><Selo Texto="@(context.Ausente ? $"Ausente até {context.AusenteAte:dd/MM}" : context.Ativa ? "Ativo" : "Inativo")" Tom="@(context.Ausente ? "aviso" : context.Ativa ? "ok" : "neutro")" /></Modelo></Coluna>
+                </Colunas>
+            </Grade>
+            <div class="alerta info"><Icone Nome="info" /> Encaminhamento: subgrupo + obra → grupo + obra → subgrupo → grupo (todas as obras) → fila do gestor.
+                Ausente: vai para o substituto; substituto também ausente: fila do gestor. Ao voltar, o que o substituto não começou volta ao titular.</div>
+        </div>
+    </ChildContent>
+    <Faixa><b>Carteira de compras</b><span>Categoria → comprador</span><span>Substituto e ausências</span><span>Lotes por comprador na autorização</span></Faixa>
+</Pagina>
+
+<Modal @bind-Aberto="_aberto" Titulo="@(_c?.Nome is { Length: > 0 } n ? $"Carteira de {n}" : "Novo comprador")" Tamanho="grande">
+    <ChildContent>
+        @if (_c is not null)
+        {
+            <Erros Lista="ErrosForm" />
+            <div class="form">
+                <Campo Rotulo="Comprador (usuário)" Obrigatorio Classe="s4"><select id="comp-usuario" @bind="_c.UsuarioId"><option value="@Guid.Empty">Selecione…</option>@foreach (var u in _usuarios) { <option value="@u.Id">@u.Texto</option> }</select></Campo>
+                <Campo Rotulo="Substituto na ausência" Classe="s4"><select id="comp-subs" @bind="_c.SubstitutoUsuarioId"><option value="">— (vai para a fila do gestor)</option>@foreach (var u in _usuarios.Where(u => u.Id != _c.UsuarioId)) { <option value="@u.Id">@u.Texto</option> }</select></Campo>
+                <Campo Rotulo="Limite de lotes abertos" Classe="s2" Ajuda="Avisa o gestor acima disto"><input type="number" min="1" @bind="_c.LimiteCarga" /></Campo>
+                <Campo Rotulo="" Classe="s2"><label class="check"><input type="checkbox" @bind="_c.Ativa" /> Ativa</label></Campo>
+            </div>
+
+            <div class="secao"><Icone Nome="lista" /> Categorias que compra <span class="acao">
+                <button class="btn sec pq" id="comp-add-grupo" @onclick="AddGrupo"><Icone Nome="mais" Tam="14" /> Grupo de produto</button>
+                <button class="btn sec pq" @onclick="AddServico"><Icone Nome="mais" Tam="14" /> Categoria de serviço</button></span></div>
+            <table class="itens">
+                <thead><tr><th>Grupo / categoria de serviço</th><th>Subgrupo (vazio = grupo inteiro)</th><th>Obra (vazio = todas)</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var x in _c.Categorias)
+                    {
+                        <tr @key="x">
+                            <td>@if (x.CategoriaServico is not null || x.Grupo is null && _servicoNovo.Contains(x))
+                                {
+                                    <select @bind="x.CategoriaServico"><option value="">Selecione…</option>@foreach (var c in _catsServico) { <option>@c</option> }</select>
+                                }
+                                else
+                                {
+                                    <select @bind="x.Grupo"><option value="">Selecione…</option>@foreach (var g in _grupos) { <option>@g.Texto</option> }</select>
+                                }</td>
+                            <td>@if (x.CategoriaServico is null && !_servicoNovo.Contains(x))
+                                {
+                                    <select @bind="x.SubGrupo"><option value="">(grupo inteiro)</option>@foreach (var sg in Subgrupos(x.Grupo)) { <option>@sg</option> }</select>
+                                }</td>
+                            <td><select @bind="x.ObraId"><option value="">Todas</option>@foreach (var o in _obras) { <option value="@o.Id">@o.Texto</option> }</select></td>
+                            <td><button class="icone-btn" title="Remover" @onclick="() => _c.Categorias.Remove(x)"><Icone Nome="lixeira" Tam="16" /></button></td>
+                        </tr>
+                    }
+                    @if (_c.Categorias.Count == 0) { <tr><td colspan="4" class="mudo">Inclua os grupos do catálogo (ou categorias de serviço) que este comprador compra.</td></tr> }
+                </tbody>
+            </table>
+
+            <div class="secao"><Icone Nome="calendario" /> Ausências <span class="acao"><button class="btn sec pq" id="comp-add-aus" @onclick="AddAusencia"><Icone Nome="mais" Tam="14" /> Registrar ausência</button></span></div>
+            <table class="itens">
+                <thead><tr><th>Início</th><th>Fim</th><th>Motivo</th><th>Lotes em aberto</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var a in _c.Ausencias.OrderByDescending(a => a.Inicio))
+                    {
+                        <tr @key="a">
+                            <td class="larg-150"><input type="date" @bind="a.Inicio" /></td>
+                            <td class="larg-150"><input type="date" @bind="a.Fim" /></td>
+                            <td><input @bind="a.Motivo" maxlength="200" placeholder="Férias, licença, treinamento…" /></td>
+                            <td><select @bind="a.TransferirAbertos"><option value="@true">Transferir os não iniciados ao substituto</option><option value="@false">Ficam comigo (só os novos vão ao substituto)</option></select></td>
+                            <td><button class="icone-btn" title="Remover" @onclick="() => _c.Ausencias.Remove(a)"><Icone Nome="lixeira" Tam="16" /></button></td>
+                        </tr>
+                    }
+                    @if (_c.Ausencias.Count == 0) { <tr><td colspan="5" class="mudo">Sem ausências registradas.</td></tr> }
+                </tbody>
+            </table>
+        }
+    </ChildContent>
+    <Rodape>
+        <BotaoExcluir Tipo="typeof(CarteiraComprador)" Id="@(_c?.CriadoEm == default ? Guid.Empty : _c!.Id)" IdBotao="exc-carteira" AoExcluir="async () => { _aberto = false; await Carregar(); }" />
+        <button class="btn prim" id="comp-salvar" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="16" /> Salvar carteira</button>
+    </Rodape>
+</Modal>
+
+@code {
+    private sealed record Linha(Guid Id, string Nome, string Resumo, string? Substituto, bool Ativa, bool Ausente, DateOnly? AusenteAte, int Categorias);
+    private Grade<Linha>? _grade;
+    private List<Linha>? _itens;
+    private List<CarteiraComprador> _carteiras = [];
+    private CarteiraComprador? _c;
+    private bool _aberto;
+    private List<Opcao> _usuarios = [], _grupos = [], _obras = [];
+    private List<string> _catsServico = [];
+    private Dictionary<string, List<string>> _subgrupos = [];
+    private readonly HashSet<CarteiraCategoria> _servicoNovo = [];
+
+    private IEnumerable<string> Subgrupos(string? grupo) => grupo is not null && _subgrupos.TryGetValue(grupo, out var l) ? l : [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _usuarios = await Cat.UsuariosAsync(); _grupos = await Cat.GruposProdutoAsync(); _obras = await Cat.ObrasAsync();
+        _catsServico = await Cat.ListaAsync(TipoLista.CategoriaServico);
+        await using (var db = Fabrica.CriarLeitura())
+        {
+            var cats = await db.CategoriasProduto.AsNoTracking().Where(c => c.Ativo).Select(c => new { c.Id, c.PaiId, c.Nome }).ToListAsync(Cancelamento);
+            var porId = cats.ToDictionary(c => c.Id);
+            _subgrupos = cats.Where(c => c.PaiId != null && porId.ContainsKey(c.PaiId.Value)).GroupBy(c => porId[c.PaiId!.Value].Nome)
+                .ToDictionary(g => g.Key, g => g.Select(x => x.Nome).OrderBy(x => x).ToList());
+        }
+        await Carregar();
+    }
+
+    private async Task Carregar()
+    {
+        _carteiras = await AtendimentoSrv.CarteirasAsync(Cancelamento);
+        _itens = _carteiras.Select(c =>
+        {
+            var aus = c.Ausencias.FirstOrDefault(a => a.Inicio <= Hoje && a.Fim >= Hoje);
+            return new Linha(c.Id, c.Nome, string.Join(", ", c.Categorias.Select(x => x.Rotulo + (x.ObraId is { } o ? $" ({_obras.FirstOrDefault(y => y.Id == o)?.Texto})" : "")).Take(6)) + (c.Categorias.Count > 6 ? "…" : ""),
+                c.SubstitutoNome, c.Ativa, aus is not null, aus?.Fim, c.Categorias.Count);
+        }).ToList();
+    }
+
+    private void Novo() { _c = new CarteiraComprador(); _servicoNovo.Clear(); ErrosForm = null; _aberto = true; }
+
+    private void Abrir(Linha l)
+    {
+        var o = _carteiras.First(c => c.Id == l.Id);
+        // Cópia para editar sem mexer na lista.
+        _c = new CarteiraComprador
+        {
+            Id = o.Id, UsuarioId = o.UsuarioId, Nome = o.Nome, SubstitutoUsuarioId = o.SubstitutoUsuarioId, LimiteCarga = o.LimiteCarga, Ativa = o.Ativa, CriadoEm = o.CriadoEm, RowVersion = o.RowVersion,
+            Categorias = o.Categorias.Select(x => new CarteiraCategoria { Id = x.Id, CarteiraId = o.Id, Grupo = x.Grupo, SubGrupo = x.SubGrupo, CategoriaServico = x.CategoriaServico, ObraId = x.ObraId }).ToList(),
+            Ausencias = o.Ausencias.Select(a => new AusenciaComprador { Id = a.Id, CarteiraId = o.Id, Inicio = a.Inicio, Fim = a.Fim, Motivo = a.Motivo, TransferirAbertos = a.TransferirAbertos }).ToList()
+        };
+        _servicoNovo.Clear(); ErrosForm = null; _aberto = true;
+    }
+
+    private void AddGrupo() => _c!.Categorias.Add(new CarteiraCategoria { CarteiraId = _c.Id });
+    private void AddServico() { var x = new CarteiraCategoria { CarteiraId = _c!.Id, CategoriaServico = "" }; _servicoNovo.Add(x); _c.Categorias.Add(x); }
+    private void AddAusencia() => _c!.Ausencias.Add(new AusenciaComprador { CarteiraId = _c.Id, Inicio = Hoje, Fim = Hoje.AddDays(14) });
+
+    private async Task Salvar()
+    {
+        foreach (var x in _c!.Categorias.Where(x => x.CategoriaServico == "")) x.CategoriaServico = null;
+        _c.Categorias = _c.Categorias.Where(x => !string.IsNullOrWhiteSpace(x.Grupo) || !string.IsNullOrWhiteSpace(x.CategoriaServico)).ToList();
+        if (await Executar(() => AtendimentoSrv.SalvarCarteiraAsync(_c!, Cancelamento), "Carteira salva.")) { _aberto = false; await Carregar(); }
+    }
+}

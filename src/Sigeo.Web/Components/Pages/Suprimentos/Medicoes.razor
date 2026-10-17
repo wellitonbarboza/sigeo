@@ -75,6 +75,11 @@
                 </table>
             </div>
 
+            @if (_comp is { } cp)
+            {
+                <div class="alerta @(cp.LiberaMedicao ? "ok" : "aviso")" id="med-competencia"><Icone Nome="prancheta" /> Documentação mensal @cp.Mes.ToString("MM/yyyy"): <b>@De(cp.Situacao)</b> (@cp.Entregues de @cp.Itens.Count itens)@(cp.LiberaMedicao ? " — libera a aprovação." : " — a aprovação fica bloqueada até a conferência.")
+                    <a href="suprimentos/documentacao-mensal">Abrir conferência</a></div>
+            }
             @if (_colabBloq > 0) { <div class="alerta aviso"><Icone Nome="alerta" /> @_colabBloq colaborador(es) desta empresa bloqueado(s) na obra no período (ASO/integração) — verificar antes de aprovar.</div> }
             <div class="secao"><Icone Nome="grafico" /> Avaliação do prestador (0 a 10)</div>
             @if (_sugestao is not null) { <div class="alerta info"><Icone Nome="info" /> @_sugestao</div> }
@@ -123,6 +128,7 @@
     private Grade<Linha>? _grade;
     private List<Linha>? _itens;
     private Medicao? _m;
+    private CompetenciaDocumental? _comp;
     private ParametrosVigentes? _p;
     private bool _aberto, _nova;
     private int _versao;
@@ -208,6 +214,9 @@
         var rncs = await db.Rncs.AsNoTracking().CountAsync(r => r.FornecedorId == fornId && r.Origem == OrigemRnc.Fvs, Cancelamento);
         _sugestao = doPeriodo.Count == 0 ? null : $"Qualidade do serviço sugerida pelas FVS: {10m * doPeriodo.Count(f => f.Aprovada1aInspecao) / doPeriodo.Count:0.0} ({doPeriodo.Count(f => f.Aprovada1aInspecao)}/{doPeriodo.Count} aprovadas na 1ª inspeção; {rncs} RNC de FVS do prestador).";
         _fvsLib = _fvsLib.Where(f => f.Status == StatusFvs.Liberada).ToList();
+        var comps = await CompetenciasServico.DoContratoAsync(db, _m.ContratoId, Hoje, _m.PeriodoFim, Cancelamento);
+        var mesMed = new DateOnly(_m.PeriodoFim.Year, _m.PeriodoFim.Month, 1);
+        _comp = comps.FirstOrDefault(c => c.Mes == mesMed) ?? comps.OrderByDescending(c => c.Mes).FirstOrDefault();
         _colabBloq = await db.Colaboradores.CountAsync(c => c.FornecedorId == fornId && c.ObraId == _m.ObraId && c.Situacao == SituacaoColaborador.Bloqueado && (c.DataSaida == null || c.DataSaida >= _m.PeriodoInicio), Cancelamento);
         ErrosForm = null; _versao++; _aberto = true;
     }

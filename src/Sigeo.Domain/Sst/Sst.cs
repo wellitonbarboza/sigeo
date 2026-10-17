@@ -59,6 +59,11 @@ public class Colaborador : EntidadeDaObra, IHistoricoTemporal
     public SituacaoColaborador Situacao { get; set; } = SituacaoColaborador.Pendente;
     public AtividadeRisco Restricoes { get; set; }
     public string? Pendencias { get; set; }
+    /// <summary>Cadastrado pelo fornecedor no portal: só entra na obra depois da validação da construtora.</summary>
+    public bool CadastradoPeloFornecedor { get; set; }
+    public bool AguardandoValidacao { get; set; }
+    public string? ValidadoPor { get; set; }
+    public DateTimeOffset? ValidadoEm { get; set; }
     public string QrToken { get; set; } = Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(10)).ToLowerInvariant();
 
     public static string Mascarar(string cpfDigitos) =>

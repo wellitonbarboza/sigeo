@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Sigeo.Application.Comum;
 using Sigeo.Domain.Aprovacoes;
 using Sigeo.Domain.Cadastros;
 using Sigeo.Domain.Common;
@@ -20,7 +21,32 @@ public sealed record SessaoPortal(Guid EmpresaId, string EmpresaNome, Fornecedor
 {
     public IReadOnlyList<ColaboradorPortal> Colaboradores { get; init; } = [];
     public IReadOnlyList<(Guid Id, string Nome)> Exigencias { get; init; } = [];
+    /// <summary>Contratos de mão de obra ativos do fornecedor (obras onde os funcionários trabalham).</summary>
+    public IReadOnlyList<ContratoPortal> Contratos { get; init; } = [];
+    public IReadOnlyList<(Guid Id, string Nome)> Funcoes { get; init; } = [];
+    public bool MaoDeObra => Contratos.Count > 0 || Fornecedor.TipoFornecimento.HasFlag(TipoFornecimento.ServicoObra);
 }
+
+public sealed record ContratoPortal(Guid Id, string Numero, Guid ObraId, string Obra);
+
+/// <summary>Pendência mostrada no Início do portal (ordem de urgência: 1 = mais urgente).</summary>
+public sealed record PendenciaPortal(int Urgencia, string Selo, string Tom, string Titulo, string Detalhe, string Aba, Guid? Id = null);
+public sealed record InicioPortal(string Situacao, string Tom, string Motivo, int CotacoesAbertas, string? CotacaoUrgente, int DocsValidos, int DocsTotal, int DocsVencendo, int DocsRecusados,
+    int Funcionarios, int FuncionariosPendencia, int FuncionariosAguardando, string? Competencia, int CompetenciaEntregues, int CompetenciaTotal, IReadOnlyList<PendenciaPortal> Pendencias,
+    IReadOnlyList<string> EmailsAvisos);
+public sealed record PedidoPortal(Guid Id, int Numero, string Obra, DateOnly Data, DateOnly Entrega, StatusPedido Status, decimal Valor, IReadOnlyList<(string Item, string Unidade, decimal Pedido, decimal Recebido)> Itens);
+public sealed record VersaoDocumentoPortal(Guid Id, DateTimeOffset Enviado, string? Responsavel, DateOnly? Validade, StatusDocumento Status, string? Motivo, string? Arquivo, bool Vigente);
+public sealed class ColaboradorForm
+{
+    public Guid? Id { get; set; }
+    public string Nome { get; set; } = "";
+    public string? Cpf { get; set; }
+    public Guid FuncaoId { get; set; }
+    public DateOnly Admissao { get; set; }
+    public Guid? ContratoId { get; set; }
+    public DateOnly? Desligamento { get; set; }
+}
+public sealed record CompetenciaPortal(Guid Id, Guid ContratoId, string Contrato, string Obra, DateOnly Mes, SituacaoCompetencia Situacao, bool Atrasada, int Entregues, int Total, DateOnly Limite);
 
 /// <summary>Proposta de cotação preenchida pelo fornecedor no portal (link da cotação, sem login).</summary>
 public sealed record PropostaPortal(string EmpresaNome, string FornecedorNome, int CotacaoNumero, string CotacaoNome, string? EnderecoEntrega,
@@ -32,7 +58,13 @@ public sealed record PropostaPortal(string EmpresaNome, string FornecedorNome, i
     public bool Material { get; init; }
     /// <summary>Marca pedida na requisição por item da proposta (e se aceita similar).</summary>
     public IReadOnlyDictionary<Guid, (string Marca, bool Somente)> MarcasPedidas { get; init; } = new Dictionary<Guid, (string, bool)>();
+    public DateTimeOffset? PrazoResposta { get; init; }
+    public RascunhoProposta? Rascunho { get; init; }
+    public IReadOnlyList<PropostaVersao> Versoes { get; init; } = [];
+    public SituacaoPropostaFornecedor.Resultado? Situacao { get; init; }
 }
+
+public sealed record RascunhoProposta(IReadOnlyList<ItemPropostaPortal> Itens, decimal? Frete, string? Condicao, DateOnly? Validade, DateOnly? Prazo);
 
 /// <summary>Dados cadastrais que o fornecedor completa pelo portal (pré-cadastro).</summary>
 public sealed class DadosPortal
@@ -58,13 +90,22 @@ public sealed class DadosPortal
 public sealed record ItemPropostaPortal(Guid ItemId, decimal ValorUnitario, DateOnly? Entrega, string? Marca = null);
 
 /// <summary>Funcionário da empresa terceira visto no portal (aba Funcionários): só nome, função e pendências — sem CPF.</summary>
-public sealed record ColaboradorPortal(Guid Id, string Nome, string Funcao, string Situacao, string? Pendencias);
+public sealed record ColaboradorPortal(Guid Id, string Nome, string Funcao, string Situacao, string? Pendencias)
+{
+    public string? CpfMascarado { get; init; }
+    public Guid FuncaoId { get; init; }
+    public DateOnly Admissao { get; init; }
+    public DateOnly? Desligamento { get; init; }
+    public Guid? ContratoId { get; init; }
+    public string? Obra { get; init; }
+    public bool AguardandoValidacao { get; init; }
+}
 
 /// <summary>
 /// Portal do fornecedor: acesso externo por link com token (sem login), prazo e registro de IP.
 /// O documento enviado entra "Em validação" — Suprimentos aprova ou recusa com motivo.
 /// </summary>
-public sealed class PortalServico(IFabricaSistema sistema, IFabricaDb fabrica, IArmazenamento armazenamento, IUsuarioAtual usuario, TimeProvider relogio)
+public sealed class PortalServico(IFabricaSistema sistema, IFabricaDb fabrica, IArmazenamento armazenamento, IUsuarioAtual usuario, TimeProvider relogio, ProtecaoCpf cpf)
 {
     public async Task<(string Token, string Codigo)> GerarLinkAsync(Guid fornecedorId, int dias, CancellationToken ct = default)
     {
@@ -107,7 +148,12 @@ public sealed class PortalServico(IFabricaSistema sistema, IFabricaDb fabrica, I
 
         // Documentos pedidos: os escolhidos no pré-cadastro (exigências do fornecedor) ou, sem escolha, a matriz pelo tipo de fornecimento.
         var exigF = f.Exigencias.ToDictionary(x => x.TipoDocumentoExigidoId, x => x.Obrigatorio);
+        var contratos = await (from k in db.Contratos.AsNoTracking() join o in db.Obras.AsNoTracking() on k.ObraId equals o.Id
+                               where k.FornecedorId == f.Id && (k.Status == StatusContrato.Ativo || k.Status == StatusContrato.AguardandoAssinaturas)
+                               orderby k.Numero select new ContratoPortal(k.Id, k.Numero, k.ObraId, o.Nome)).ToListAsync(ct);
+        // Mensais de contrato de mão de obra vão por competência (aba Medições e documentação mensal); de funcionário, na aba Funcionários.
         var docs = tipos.Where(t => exigF.Count > 0 ? exigF.ContainsKey(t.Id) : MatrizExigencias.Aplica(t, f.TipoFornecimento, f.IncluirDocsFuncionarios))
+            .Where(t => !(t.Frequencia == FrequenciaDocumento.Mensal && contratos.Count > 0) && !(t.DeFuncionario && t.Frequencia == FrequenciaDocumento.Mensal))
             .Select(t =>
             {
                 var obrig = exigF.Count > 0 ? exigF[t.Id] : t.Obrigatorio;
@@ -124,13 +170,21 @@ public sealed class PortalServico(IFabricaSistema sistema, IFabricaDb fabrica, I
         var vence = docs.Where(d => d.Validade is { } v && v >= hoje && v <= hoje.AddDays(30)).OrderBy(d => d.Validade).FirstOrDefault();
         var alerta = vence is null ? null : $"Seu documento '{vence.Nome}' vence em {vence.Validade:dd/MM/yyyy}. Sem documento válido, novos pedidos ficam bloqueados.";
         var funcoes = await db.Funcoes.AsNoTracking().ToDictionaryAsync(x => x.Id, x => x.Descricao, ct);
-        var cols = await db.Colaboradores.AsNoTracking().Where(c => c.FornecedorId == f.Id && (c.DataSaida == null || c.DataSaida > hoje)).OrderBy(c => c.Nome)
-            .Select(c => new { c.Id, c.Nome, c.FuncaoObraId, c.Situacao, c.Pendencias }).ToListAsync(ct);
+        var cols = await db.Colaboradores.AsNoTracking().Where(c => c.FornecedorId == f.Id && (c.DataSaida == null || c.DataSaida > hoje.AddDays(-60))).OrderBy(c => c.Nome)
+            .Select(c => new { c.Id, c.Nome, c.FuncaoObraId, c.Situacao, c.Pendencias, c.CpfMascarado, c.DataInicio, c.DataSaida, c.ContratoId, c.ObraId, c.AguardandoValidacao }).ToListAsync(ct);
+        var obras = await db.Obras.AsNoTracking().Select(o => new { o.Id, o.Nome }).ToDictionaryAsync(o => o.Id, o => o.Nome, ct);
         var exig = await db.Exigencias.AsNoTracking().Where(x => x.Tipo != Domain.Common.TipoExigencia.Epi).OrderBy(x => x.Ordem).Select(x => new { x.Id, x.Descricao }).ToListAsync(ct);
         return new SessaoPortal(empresaId, empresa, f, link, docs, alerta)
         {
-            Colaboradores = cols.Select(c => new ColaboradorPortal(c.Id, c.Nome, funcoes.GetValueOrDefault(c.FuncaoObraId, ""), c.Situacao.ToString(), c.Pendencias)).ToList(),
-            Exigencias = exig.Select(x => (x.Id, x.Descricao)).ToList()
+            Colaboradores = cols.Select(c => new ColaboradorPortal(c.Id, c.Nome, funcoes.GetValueOrDefault(c.FuncaoObraId, ""),
+                c.DataSaida is { } ds && ds <= hoje ? SituacaoColaborador.DesligadoDaObra.ToString() : c.Situacao.ToString(), c.Pendencias)
+            {
+                CpfMascarado = c.CpfMascarado, FuncaoId = c.FuncaoObraId, Admissao = c.DataInicio, Desligamento = c.DataSaida, ContratoId = c.ContratoId,
+                Obra = obras.GetValueOrDefault(c.ObraId), AguardandoValidacao = c.AguardandoValidacao
+            }).ToList(),
+            Exigencias = exig.Select(x => (x.Id, x.Descricao)).ToList(),
+            Contratos = contratos,
+            Funcoes = funcoes.OrderBy(x => x.Value).Select(x => (x.Key, x.Value)).ToList()
         };
     }
 
@@ -161,8 +215,12 @@ public sealed class PortalServico(IFabricaSistema sistema, IFabricaDb fabrica, I
                     db.Remove(antigo);
                 await db.SaveChangesAsync(ct);
             }
+            // Nova versão nunca apaga a anterior (que continua valendo até a própria validade enquanto esta é validada).
+            var anterior = comp is null ? await db.FornecedorDocumentos.AsNoTracking().Where(x => x.FornecedorId == sessao.Fornecedor.Id && x.TipoDocumentoExigidoId == tipoId)
+                .OrderByDescending(x => x.CriadoEm).Select(x => (Guid?)x.Id).FirstOrDefaultAsync(ct) : null;
             db.FornecedorDocumentos.Add(new FornecedorDocumento
             {
+                SubstituiDocumentoId = anterior,
                 EmpresaId = sessao.EmpresaId, FornecedorId = sessao.Fornecedor.Id, TipoDocumentoExigidoId = tipoId, Numero = numero?.Trim(), DataEmissao = emissao,
                 DataValidade = validade, ArquivoBlob = salvo.Blob, ArquivoNomeOriginal = Path.GetFileName(nomeArquivo), ArquivoHashSha256 = salvo.Hash,
                 Status = StatusDocumento.EmValidacao, EnviadoPeloPortal = true, ResponsavelEnvio = responsavel.Trim(), Competencia = comp, Bloqueia = bloqueia
@@ -256,6 +314,12 @@ public sealed class PortalServico(IFabricaSistema sistema, IFabricaDb fabrica, I
         d.ValidadoPorUsuarioId = usuario.UsuarioId; d.ValidadoEm = relogio.GetUtcNow();
         d.MotivoRecusa = aprovado ? null : motivo;
         d.Status = aprovado ? StatusDocumentoCalculo.Calcular(d.DataValidade, true, d.TipoDocumento.DiasAlertaAntesVencimento, DateOnly.FromDateTime(relogio.GetLocalNow().Date)) : StatusDocumento.Reprovado;
+        if (!aprovado)
+        {
+            var f = await db.Fornecedores.AsNoTracking().Include(x => x.Contatos).FirstAsync(x => x.Id == d.FornecedorId, ct);
+            await AvisosServico.EnfileirarExternoAsync(db, Domain.Colaboracao.EventosAviso.DocumentoRecusado, AvisosServico.DestinosFornecedor(f), $"recusa:{d.Id:N}",
+                new Dictionary<string, string?> { ["documento"] = d.TipoDocumento.Nome, ["motivo"] = motivo, ["assunto"] = $"Documento recusado: {d.TipoDocumento.Nome}" }, "fornecedor", ct);
+        }
         await db.SaveChangesAsync(ct);
     }
 
@@ -293,17 +357,29 @@ public sealed class PortalServico(IFabricaSistema sistema, IFabricaDb fabrica, I
         var porItem = itens.Where(i => i.RequisicaoItemId is { } r && locs.ContainsKey(r)).ToDictionary(i => i.Id, i => locs[i.RequisicaoItemId!.Value]);
         var pedidas = await db.Set<RequisicaoItem>().AsNoTracking().Where(r => reqItens.Contains(r.Id) && r.Marca != null).ToDictionaryAsync(r => r.Id, r => (r.Marca!, r.MesmaMarca), ct);
         var marcas = itens.Where(i => i.RequisicaoItemId is { } r && pedidas.ContainsKey(r)).ToDictionary(i => i.Id, i => pedidas[i.RequisicaoItemId!.Value]);
-        return new PropostaPortal(emp, forn, c.Numero, c.Nome, c.EnderecoEntrega, c.Frete, CotacaoAberta(c) && conv.Status != StatusConvite.Declinou, conv, itens, fat, destino)
-            { Locais = porItem, Material = c.Tipo == TipoRequisicao.Material, MarcasPedidas = marcas };
+        var agora = relogio.GetUtcNow();
+        if (conv.VisualizadoEm is null)
+            await db.Set<CotacaoFornecedor>().Where(x => x.Id == conv.Id && x.VisualizadoEm == null).ExecuteUpdateAsync(u => u.SetProperty(x => x.VisualizadoEm, agora), ct);
+        var versoes = await db.PropostasVersao.AsNoTracking().Where(v => v.CotacaoFornecedorId == conv.Id).OrderByDescending(v => v.Versao).ToListAsync(ct);
+        conv.Versoes = versoes;
+        var decidida = c.Status is StatusCotacao.AguardandoAprovacao or StatusCotacao.Aprovado or StatusCotacao.PedidoGerado;
+        var venc = decidida ? (c.VencedorPorItem ? itens.Count(i => i.Vencedor) : c.FornecedorVencedorId == conv.FornecedorId ? itens.Count : 0) : 0;
+        var sit = SituacaoPropostaFornecedor.Calcular(c.Status, c.PrazoResposta, conv, venc, itens.Count, decidida, agora);
+        RascunhoProposta? rasc = null;
+        if (!string.IsNullOrWhiteSpace(conv.RascunhoJson))
+            try { rasc = System.Text.Json.JsonSerializer.Deserialize<RascunhoProposta>(conv.RascunhoJson); } catch (System.Text.Json.JsonException) { }
+        return new PropostaPortal(emp, forn, c.Numero, c.Nome, c.EnderecoEntrega, c.Frete, sit.PodeEditar && conv.Status != StatusConvite.Declinou, conv, itens, fat, destino)
+            { Locais = porItem, Material = c.Tipo == TipoRequisicao.Material, MarcasPedidas = marcas, PrazoResposta = c.PrazoResposta, Rascunho = rasc, Versoes = versoes, Situacao = sit };
     }
 
     public async Task EnviarPropostaAsync(Guid token, IReadOnlyList<ItemPropostaPortal> itens, decimal? frete, string? condicao, DateOnly? validade,
-        DateOnly? prazoEntrega, CancellationToken ct = default)
+        DateOnly? prazoEntrega, CancellationToken ct = default, string? enviadoPor = null)
     {
         if (await LocalizarConviteAsync(token, ct) is not { } loc) throw new RegraDeNegocioException("Link inválido.");
         await using var db = sistema.Criar(loc.EmpresaId, "PortalCotacao");
         var c = await db.Cotacoes.IgnoreQueryFilters().Include(x => x.Fornecedores).Include(x => x.Itens).FirstAsync(x => x.Id == loc.CotacaoId, ct);
         if (!CotacaoAberta(c)) throw new RegraDeNegocioException("Esta cotação já foi encerrada. Fale com o setor de Suprimentos.");
+        if (c.PrazoResposta is { } pz && pz <= relogio.GetUtcNow()) throw new RegraDeNegocioException($"O prazo de resposta terminou em {pz.ToLocalTime():dd/MM/yyyy HH:mm}.");
         var conv = c.Fornecedores.First(f => f.LinkResposta == token);
         if (conv.Status == StatusConvite.Declinou) throw new RegraDeNegocioException("Você declinou desta cotação. Fale com Suprimentos para reabrir o convite.");
         var hoje = DateOnly.FromDateTime(relogio.GetLocalNow().Date);
@@ -341,10 +417,283 @@ public sealed class PortalServico(IFabricaSistema sistema, IFabricaDb fabrica, I
         conv.ValorFrete = c.Frete == TipoFrete.NaoSeAplica ? null : frete; conv.CondicaoPagamento = string.IsNullOrWhiteSpace(condicao) ? null : condicao.Trim();
         conv.ValidadeProposta = validade; conv.PrazoEntregaOfertado = prazoEntrega;
         conv.Status = StatusConvite.Respondido; conv.DataResposta = hoje;
+        conv.RascunhoEm = null; conv.RascunhoJson = null;
+        // Cada envio guarda uma versão (o comprador vê a última e o histórico).
+        var nVersao = await db.PropostasVersao.CountAsync(v => v.CotacaoFornecedorId == conv.Id, ct) + 1;
+        db.PropostasVersao.Add(new PropostaVersao
+        {
+            CotacaoFornecedorId = conv.Id, Versao = nVersao, EnviadaEm = relogio.GetUtcNow(), EnviadaPor = enviadoPor,
+            ValorItens = meus.Values.Sum(i => Math.Round(i.ValorOfertado * i.Quantidade, 2)), ValorFrete = conv.ValorFrete, PrazoEntrega = prazoEntrega,
+            CondicaoPagamento = conv.CondicaoPagamento, Validade = validade,
+            ItensJson = System.Text.Json.JsonSerializer.Serialize(meus.Values.OrderBy(i => i.Descricao).Select(i => new { i.Descricao, i.Unidade, i.Quantidade, i.ValorOfertado, i.Marca, i.Entrega }))
+        });
         if (c.Status is StatusCotacao.Aberto or StatusCotacao.AguardandoPropostas) c.Status = StatusCotacao.EmAnalise;
         c.Recalcular(await ParametrosServico.CarregarAsync(db, ct));
         await db.SaveChangesAsync(ct);
     }
+    // ---------------- Proposta: rascunho e declínio ----------------
+
+    public async Task SalvarRascunhoAsync(Guid token, RascunhoProposta r, CancellationToken ct = default)
+    {
+        if (await LocalizarConviteAsync(token, ct) is not { } loc) throw new RegraDeNegocioException("Link inválido.");
+        await using var db = sistema.Criar(loc.EmpresaId, "PortalCotacao");
+        var c = await db.Cotacoes.IgnoreQueryFilters().Include(x => x.Fornecedores).FirstAsync(x => x.Id == loc.CotacaoId, ct);
+        if (!CotacaoAberta(c) || c.PrazoResposta is { } pz && pz <= relogio.GetUtcNow()) throw new RegraDeNegocioException("Esta cotação não está mais recebendo propostas.");
+        var conv = c.Fornecedores.First(f => f.LinkResposta == token);
+        conv.RascunhoJson = System.Text.Json.JsonSerializer.Serialize(r);
+        conv.RascunhoEm = relogio.GetUtcNow();
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>Fornecedor informa que não vai cotar (com motivo) ou volta atrás enquanto a cotação está aberta.</summary>
+    public async Task DeclinarAsync(Guid token, bool declinar, string? motivo, CancellationToken ct = default)
+    {
+        if (await LocalizarConviteAsync(token, ct) is not { } loc) throw new RegraDeNegocioException("Link inválido.");
+        await using var db = sistema.Criar(loc.EmpresaId, "PortalCotacao");
+        var c = await db.Cotacoes.IgnoreQueryFilters().Include(x => x.Fornecedores).Include(x => x.Itens).FirstAsync(x => x.Id == loc.CotacaoId, ct);
+        if (!CotacaoAberta(c) || c.PrazoResposta is { } pz && pz <= relogio.GetUtcNow()) throw new RegraDeNegocioException("Esta cotação já foi encerrada.");
+        var conv = c.Fornecedores.First(f => f.LinkResposta == token);
+        if (declinar)
+        {
+            if (string.IsNullOrWhiteSpace(motivo)) throw new RegraDeNegocioException("Informe o motivo (ex.: sem estoque, sem equipe disponível).");
+            conv.Status = StatusConvite.Declinou; conv.MotivoDeclinio = motivo.Trim().Length > 300 ? motivo.Trim()[..300] : motivo.Trim();
+        }
+        else
+        {
+            var temPreco = c.Itens.Any(i => i.FornecedorId == conv.FornecedorId && i.ValorOfertado > 0);
+            conv.Status = temPreco ? StatusConvite.Respondido : StatusConvite.Convidado; conv.MotivoDeclinio = null;
+        }
+        c.Recalcular(await ParametrosServico.CarregarAsync(db, ct));
+        await db.SaveChangesAsync(ct);
+    }
+
+    // ---------------- Início, pedidos e versões de documento ----------------
+
+    public async Task<InicioPortal> InicioAsync(string token, CancellationToken ct = default)
+    {
+        var s = await AbrirAsync(token, null, ct) ?? throw new RegraDeNegocioException("Sessão expirada.");
+        var hoje = DateOnly.FromDateTime(relogio.GetLocalNow().Date);
+        var agora = relogio.GetUtcNow();
+        await using var db = sistema.Criar(s.EmpresaId, "Portal");
+        var pend = new List<PendenciaPortal>();
+        foreach (var d in s.Documentos.Where(d => !d.PorEntrega))
+        {
+            if (d.Situacao == StatusDocumento.Reprovado) pend.Add(new(1, "Recusado", "erro", d.Nome, d.Detalhe ?? "", "empresa", d.TipoId));
+            else if (d.Situacao == StatusDocumento.Vencido) pend.Add(new(1, "Vencido", "erro", d.Nome, $"Venceu em {d.Validade:dd/MM/yyyy}", "empresa", d.TipoId));
+            else if (d.Situacao == StatusDocumento.PendenteEnvio && d.Obrigatorio) pend.Add(new(2, "Pendente", "aviso", d.Nome, "Documento obrigatório ainda não enviado", "empresa", d.TipoId));
+            else if (d.Validade is { } v && v >= hoje && v <= hoje.AddDays(30) && d.Situacao != StatusDocumento.EmValidacao)
+                pend.Add(new(v <= hoje.AddDays(7) ? 2 : 3, $"Vence em {v.DayNumber - hoje.DayNumber} dias", "aviso", d.Nome, $"Validade {v:dd/MM/yyyy}", "empresa", d.TipoId));
+        }
+        var abertos = SincronizacaoCadastros.CotacoesAbertas;
+        var cots = await (from cf in db.Set<CotacaoFornecedor>().AsNoTracking()
+                          join c in db.Cotacoes.AsNoTracking() on cf.CotacaoId equals c.Id
+                          where cf.FornecedorId == s.Fornecedor.Id && abertos.Contains(c.Status) && cf.Status != StatusConvite.Declinou && (c.PrazoResposta == null || c.PrazoResposta > agora)
+                          select new { c.Id, c.Numero, c.Nome, c.PrazoResposta, cf.Status, cf.RascunhoEm }).ToListAsync(ct);
+        foreach (var c in cots.Where(c => c.Status == StatusConvite.Convidado))
+        {
+            var horas = c.PrazoResposta is { } pr ? (pr - agora).TotalHours : (double?)null;
+            pend.Add(new(horas is < 48 ? 1 : 3, horas is { } h ? (h < 24 ? $"Fecha em {Math.Max(1, (int)h)} h" : $"Fecha {c.PrazoResposta!.Value.ToLocalTime():dd/MM HH'h'}") : "Aberta",
+                horas is < 48 ? "aviso" : "info", $"Cotação {c.Numero} · {c.Nome}", c.RascunhoEm is null ? "Proposta não enviada" : "Rascunho salvo, ainda não enviado", "cot", c.Id));
+        }
+        var cols = s.Colaboradores.Where(c => c.Situacao != SituacaoColaborador.DesligadoDaObra.ToString()).ToList();
+        foreach (var c in cols.Where(c => c.Situacao is nameof(SituacaoColaborador.Bloqueado) or nameof(SituacaoColaborador.Pendente) or nameof(SituacaoColaborador.AptoComRestricao)))
+            pend.Add(new(c.Situacao == nameof(SituacaoColaborador.Bloqueado) ? 1 : 3, c.Situacao == nameof(SituacaoColaborador.Bloqueado) ? "Funcionário bloqueado" : "Funcionário",
+                c.Situacao == nameof(SituacaoColaborador.Bloqueado) ? "erro" : "aviso", c.Nome, c.Pendencias ?? "Documentos pendentes", "func", c.Id));
+        var comps = await CompetenciasAsync(token, ct);
+        foreach (var c in comps.Where(c => c.Situacao is SituacaoCompetencia.Aberta or SituacaoCompetencia.ComPendencia))
+            pend.Add(new(c.Atrasada ? 1 : 2, c.Atrasada ? "Atrasada" : c.Situacao == SituacaoCompetencia.ComPendencia ? "Com pendência" : "Competência aberta", c.Atrasada ? "erro" : "info",
+                $"Documentação mensal {c.Mes:MM/yyyy} · contrato {c.Contrato} {c.Obra}", $"{c.Entregues} de {c.Total} itens · limite {c.Limite:dd/MM}", "med", c.Id));
+        var bloqueado = TravasQualidade.DocumentosBloqueantes(s.Fornecedor, hoje).ToList();
+        var st = s.Fornecedor.CalcularStatus(hoje);
+        var (sit, tom, motivo) = bloqueado.Count > 0 || st is StatusQualificacao.Desqualificado
+            ? ("Bloqueado", "erro", bloqueado.Count > 0 ? string.Join(" ", bloqueado) + " Pedidos e medições ficam bloqueados até regularizar." : "Fornecedor desqualificado. Fale com Suprimentos.")
+            : pend.Count > 0 ? ("Com pendência", "aviso", pend.OrderBy(p => p.Urgencia).First() is var p1 ? $"{p1.Titulo}: {p1.Detalhe}." : "")
+            : ("Apto", "ok", "Tudo em dia.");
+        var comp = comps.Where(c => c.Situacao != SituacaoCompetencia.Conferida).OrderByDescending(c => c.Mes).FirstOrDefault();
+        var emails = s.Fornecedor.Contatos.Where(c => c.RecebeAvisos && !string.IsNullOrWhiteSpace(c.Email)).Select(c => c.Email!).ToList();
+        if (emails.Count == 0 && !string.IsNullOrWhiteSpace(s.Fornecedor.Emails)) emails = s.Fornecedor.Emails.Split([';', ',', ' '], StringSplitOptions.RemoveEmptyEntries).ToList();
+        var docsAtivos = s.Documentos.Where(d => !d.PorEntrega).ToList();
+        var urgente = cots.Where(c => c.PrazoResposta != null).OrderBy(c => c.PrazoResposta).FirstOrDefault();
+        return new InicioPortal(sit, tom, motivo, cots.Count, urgente is null ? null : $"cotação {urgente.Numero} fecha {urgente.PrazoResposta!.Value.ToLocalTime():dd/MM HH'h'}",
+            docsAtivos.Count(d => d.Situacao is StatusDocumento.Valido or StatusDocumento.AVencer), docsAtivos.Count, docsAtivos.Count(d => d.Situacao == StatusDocumento.AVencer),
+            docsAtivos.Count(d => d.Situacao == StatusDocumento.Reprovado), cols.Count, cols.Count(c => c.Situacao is nameof(SituacaoColaborador.Bloqueado) or nameof(SituacaoColaborador.Pendente)),
+            cols.Count(c => c.AguardandoValidacao), comp is null ? null : $"{comp.Mes:MM/yyyy}", comp?.Entregues ?? 0, comp?.Total ?? 0,
+            pend.OrderBy(p => p.Urgencia).ThenBy(p => p.Titulo).ToList(), emails);
+    }
+
+    public async Task<IReadOnlyList<PedidoPortal>> PedidosAsync(string token, CancellationToken ct = default)
+    {
+        var s = await AbrirAsync(token, null, ct) ?? throw new RegraDeNegocioException("Sessão expirada.");
+        await using var db = sistema.Criar(s.EmpresaId, "Portal");
+        var visiveis = new[] { StatusPedido.Aprovado, StatusPedido.EnviadoFornecedor, StatusPedido.EntregueParcial, StatusPedido.Entregue };
+        var peds = await db.Pedidos.AsNoTracking().Include(p => p.Itens).Where(p => p.FornecedorId == s.Fornecedor.Id && visiveis.Contains(p.Status))
+            .OrderByDescending(p => p.Numero).Take(100).ToListAsync(ct);
+        var obras = await db.Obras.AsNoTracking().ToDictionaryAsync(o => o.Id, o => o.Nome, ct);
+        return peds.Select(p => new PedidoPortal(p.Id, p.Numero, obras.GetValueOrDefault(p.ObraId, ""), DateOnly.FromDateTime(p.CriadoEm.ToLocalTime().Date), p.Entrega, p.Status, p.Valor,
+            p.Itens.Select(i => (i.Descricao, i.Unidade ?? "", i.Quantidade, i.QuantidadeRecebidaAceita)).ToList())).ToList();
+    }
+
+    public async Task<IReadOnlyList<VersaoDocumentoPortal>> VersoesDocumentoAsync(string token, Guid tipoId, CancellationToken ct = default)
+    {
+        var s = await AbrirAsync(token, null, ct) ?? throw new RegraDeNegocioException("Sessão expirada.");
+        await using var db = sistema.Criar(s.EmpresaId, "Portal");
+        var l = await db.FornecedorDocumentos.AsNoTracking().Include(d => d.TipoDocumento).Where(d => d.FornecedorId == s.Fornecedor.Id && d.TipoDocumentoExigidoId == tipoId)
+            .OrderByDescending(d => d.CriadoEm).Take(30).ToListAsync(ct);
+        var hoje = DateOnly.FromDateTime(relogio.GetLocalNow().Date);
+        var vigente = l.Where(d => d.Status is not (StatusDocumento.EmValidacao or StatusDocumento.Reprovado) && d.ArquivoBlob is not null).Select(d => (Guid?)d.Id).FirstOrDefault();
+        return l.Select(d => new VersaoDocumentoPortal(d.Id, d.CriadoEm, d.ResponsavelEnvio ?? d.CriadoPor, d.DataValidade, StatusDocumentoCalculo.Calcular(d, hoje), d.MotivoRecusa, d.ArquivoNomeOriginal, d.Id == vigente)).ToList();
+    }
+
+    // ---------------- Funcionários cadastrados pelo fornecedor ----------------
+
+    /// <summary>
+    /// Cadastro do funcionário pelo fornecedor: entra "Aguardando validação" e só vai para a obra depois que a construtora valida.
+    /// CPF protegido (só o hash e a máscara ficam gravados). Desligamento tira da lista ativa e da cobrança de documentos.
+    /// </summary>
+    public async Task<Guid> SalvarColaboradorAsync(string token, ColaboradorForm f, CancellationToken ct = default)
+    {
+        var s = await AbrirAsync(token, null, ct) ?? throw new RegraDeNegocioException("Sessão expirada.");
+        var e = new List<string>();
+        if (string.IsNullOrWhiteSpace(f.Nome) || f.Nome.Trim().Length > 150) e.Add("Informe o nome (até 150 caracteres).");
+        if (s.Funcoes.All(x => x.Id != f.FuncaoId)) e.Add("Escolha a função.");
+        if (f.Admissao == default) e.Add("Informe a data de admissão.");
+        if (f.Desligamento is { } dsl && dsl < f.Admissao) e.Add("Desligamento antes da admissão.");
+        var contrato = f.ContratoId is { } kid ? s.Contratos.FirstOrDefault(k => k.Id == kid) : s.Contratos.Count == 1 ? s.Contratos[0] : null;
+        if (contrato is null) e.Add("Escolha a obra/contrato em que o funcionário vai trabalhar.");
+        await using var db = sistema.Criar(s.EmpresaId, "Portal");
+        Domain.Sst.Colaborador? c = null;
+        if (f.Id is { } id)
+        {
+            c = await db.Colaboradores.FirstOrDefaultAsync(x => x.Id == id && x.FornecedorId == s.Fornecedor.Id, ct);
+            if (c is null) e.Add("Funcionário não pertence a esta empresa.");
+        }
+        string? hash = null, mascara = null;
+        if (!string.IsNullOrWhiteSpace(f.Cpf))
+        {
+            var d = Conversor.SomenteDigitos(f.Cpf);
+            if (!Conversor.CpfValido(d)) e.Add("CPF inválido.");
+            else { hash = cpf.Hash(d); mascara = ProtecaoCpf.Mascarar(d); }
+        }
+        else if (c is null) e.Add("Informe o CPF.");
+        if (hash is not null && contrato is not null && await db.Colaboradores.AnyAsync(x => x.CpfHash == hash && x.ObraId == contrato.ObraId && x.Id != (f.Id ?? Guid.Empty), ct))
+            e.Add("Já existe funcionário com este CPF nesta obra.");
+        ValidacaoException.Se(e);
+        if (c is null)
+        {
+            c = new Domain.Sst.Colaborador
+            {
+                EmpresaId = s.EmpresaId, Vinculo = VinculoColaborador.Terceiro, FornecedorId = s.Fornecedor.Id, CadastradoPeloFornecedor = true,
+                AguardandoValidacao = true, Situacao = SituacaoColaborador.AguardandoValidacao, Pendencias = "Aguardando validação da construtora"
+            };
+            db.Colaboradores.Add(c);
+        }
+        var mudouObra = c.ObraId != contrato!.ObraId || c.ContratoId != contrato.Id;
+        c.Nome = f.Nome.Trim(); c.FuncaoObraId = f.FuncaoId; c.DataInicio = f.Admissao; c.DataSaida = f.Desligamento;
+        c.ObraId = contrato.ObraId; c.ContratoId = contrato.Id;
+        if (hash is not null) { mudouObra |= c.CpfHash != hash; c.CpfHash = hash; c.CpfMascarado = mascara!; }
+        if (mudouObra && c.CriadoEm != default && !c.AguardandoValidacao)
+        {
+            c.AguardandoValidacao = true; c.Situacao = SituacaoColaborador.AguardandoValidacao; c.Pendencias = "Dados alterados pelo fornecedor: aguardando nova validação";
+        }
+        if (c.DataSaida is { } saida && saida <= DateOnly.FromDateTime(relogio.GetLocalNow().Date)) c.Situacao = SituacaoColaborador.DesligadoDaObra;
+        await db.SaveChangesAsync(ct);
+        return c.Id;
+    }
+
+    // ---------------- Documentação mensal (competências) ----------------
+
+    public async Task<IReadOnlyList<CompetenciaPortal>> CompetenciasAsync(string token, CancellationToken ct = default)
+    {
+        var s = await AbrirAsync(token, null, ct) ?? throw new RegraDeNegocioException("Sessão expirada.");
+        var hoje = DateOnly.FromDateTime(relogio.GetLocalNow().Date);
+        await using var db = sistema.Criar(s.EmpresaId, "Portal");
+        if (s.Contratos.Count > 0) { await CompetenciasServico.GarantirAtivosAsync(db, hoje, s.Fornecedor.Id, ct); await db.SaveChangesAsync(ct); }
+        var p = await ParametrosServico.CarregarAsync(db, ct);
+        var dia = p.Int(Domain.Estrutura.Parametros.DiaLimiteCompetencia);
+        var l = await db.CompetenciasDocumentais.AsNoTracking().Include(c => c.Itens).Where(c => c.FornecedorId == s.Fornecedor.Id).OrderByDescending(c => c.Mes).Take(60).ToListAsync(ct);
+        var ks = s.Contratos.ToDictionary(k => k.Id);
+        var nums = await db.Contratos.AsNoTracking().Where(k => k.FornecedorId == s.Fornecedor.Id).ToDictionaryAsync(k => k.Id, k => (k.Numero, k.ObraId), ct);
+        var obras = await db.Obras.AsNoTracking().ToDictionaryAsync(o => o.Id, o => o.Nome, ct);
+        return l.Select(c => new CompetenciaPortal(c.Id, c.ContratoId, nums.GetValueOrDefault(c.ContratoId).Numero ?? "", obras.GetValueOrDefault(c.ObraId, ""), c.Mes, c.Situacao,
+            c.Atrasada(hoje, dia), c.Entregues, c.Itens.Count, c.Limite(dia))).ToList();
+    }
+
+    private async Task<(SessaoPortal S, ISigeoDb Db, CompetenciaDocumental C)> CompetenciaDoFornecedorAsync(string token, Guid competenciaId, CancellationToken ct)
+    {
+        var s = await AbrirAsync(token, null, ct) ?? throw new RegraDeNegocioException("Sessão expirada.");
+        var db = sistema.Criar(s.EmpresaId, "Portal");
+        var c = await db.CompetenciasDocumentais.Include(x => x.Itens).FirstOrDefaultAsync(x => x.Id == competenciaId && x.FornecedorId == s.Fornecedor.Id, ct);
+        if (c is null) { await db.DisposeAsync(); throw new RegraDeNegocioException("Competência não encontrada para esta empresa."); }
+        return (s, db, c);
+    }
+
+    public async Task<CompetenciaDetalhe> CompetenciaAsync(string token, Guid competenciaId, CancellationToken ct = default)
+    {
+        var (_, db, c) = await CompetenciaDoFornecedorAsync(token, competenciaId, ct);
+        await using var _d = db;
+        return await CompetenciasServico.DetalheAsync(db, c, DateOnly.FromDateTime(relogio.GetLocalNow().Date), ct);
+    }
+
+    public async Task EnviarItemCompetenciaAsync(string token, Guid competenciaId, Guid itemId, string responsavel, Stream arquivo, string nomeArquivo, string? contentType, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(responsavel) || responsavel.Length > 150) throw new RegraDeNegocioException("Informe o responsável pelo envio (até 150 caracteres).");
+        var (s, db, c) = await CompetenciaDoFornecedorAsync(token, competenciaId, ct);
+        await using var _d = db;
+        if (c.Situacao == SituacaoCompetencia.Conferida) throw new RegraDeNegocioException("Competência já conferida (fechada). Fale com a construtora para reabrir.");
+        var i = c.Itens.FirstOrDefault(x => x.Id == itemId) ?? throw new RegraDeNegocioException("Item não pertence a esta competência.");
+        arquivo = await ArquivoPortal.ConferirAsync(arquivo, nomeArquivo, ct);
+        var salvo = await armazenamento.SalvarAsync(arquivo, nomeArquivo, i.ColaboradorId is null ? "fornecedores" : "sst", contentType, ct);
+        var agora = relogio.GetUtcNow();
+        i.Enviado(salvo.Blob, Path.GetFileName(nomeArquivo), responsavel.Trim(), agora);
+        if (i.ColaboradorId is null)
+        {
+            // Documento da empresa: também vira documento do fornecedor da competência (cadastro e relatórios).
+            var bloqueia = await db.TiposDocumento.Where(t => t.Id == i.TipoDocumentoExigidoId).Select(t => t.BloqueiaQuandoVencido).FirstAsync(ct);
+            foreach (var antigo in await db.FornecedorDocumentos.Where(x => x.FornecedorId == s.Fornecedor.Id && x.TipoDocumentoExigidoId == i.TipoDocumentoExigidoId && x.Competencia == c.Mes).ToListAsync(ct))
+                db.Remove(antigo);
+            var doc = new FornecedorDocumento
+            {
+                EmpresaId = s.EmpresaId, FornecedorId = s.Fornecedor.Id, TipoDocumentoExigidoId = i.TipoDocumentoExigidoId, Competencia = c.Mes, ArquivoBlob = salvo.Blob,
+                ArquivoNomeOriginal = Path.GetFileName(nomeArquivo), ArquivoHashSha256 = salvo.Hash, Status = StatusDocumento.EmValidacao, EnviadoPeloPortal = true,
+                ResponsavelEnvio = responsavel.Trim(), Bloqueia = bloqueia
+            };
+            db.FornecedorDocumentos.Add(doc);
+            i.FornecedorDocumentoId = doc.Id;
+        }
+        if (c.Situacao is SituacaoCompetencia.ComPendencia && c.Itens.All(x => x.Situacao is not (SituacaoItemCompetencia.Pendente or SituacaoItemCompetencia.Recusado))) c.Situacao = SituacaoCompetencia.Enviada;
+        await db.SaveChangesAsync(ct);
+    }
+
+    public async Task SolicitarAdiamentoAsync(string token, Guid competenciaId, Guid itemId, string? justificativa, DateOnly? ate, CancellationToken ct = default)
+    {
+        var (_, db, c) = await CompetenciaDoFornecedorAsync(token, competenciaId, ct);
+        await using var _d = db;
+        var i = c.Itens.FirstOrDefault(x => x.Id == itemId) ?? throw new RegraDeNegocioException("Item não pertence a esta competência.");
+        i.SolicitarAdiamento(justificativa, ate, DateOnly.FromDateTime(relogio.GetLocalNow().Date));
+        await db.SaveChangesAsync(ct);
+    }
+
+    public async Task MarcarCompetenciaCompletaAsync(string token, Guid competenciaId, string responsavel, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(responsavel)) throw new RegraDeNegocioException("Informe o responsável.");
+        var (_, db, c) = await CompetenciaDoFornecedorAsync(token, competenciaId, ct);
+        await using var _d = db;
+        c.Enviar(responsavel.Trim(), relogio.GetUtcNow());
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>Contato que recebe os avisos (vencimento, recusa, competência): marcado pelo próprio fornecedor.</summary>
+    public async Task DefinirAvisosAsync(string token, IReadOnlyCollection<Guid> contatos, CancellationToken ct = default)
+    {
+        var s = await AbrirAsync(token, null, ct) ?? throw new RegraDeNegocioException("Sessão expirada.");
+        await using var db = sistema.Criar(s.EmpresaId, "Portal");
+        var l = await db.FornecedorContatos.Where(c => c.FornecedorId == s.Fornecedor.Id).ToListAsync(ct);
+        if (contatos.Any(id => l.All(c => c.Id != id))) throw new RegraDeNegocioException("Contato inválido.");
+        if (contatos.Count > 0 && l.Where(c => contatos.Contains(c.Id)).All(c => string.IsNullOrWhiteSpace(c.Email))) throw new RegraDeNegocioException("Escolha ao menos um contato com e-mail.");
+        foreach (var c in l) c.RecebeAvisos = contatos.Contains(c.Id);
+        await db.SaveChangesAsync(ct);
+    }
+
 }
 
 /// <summary>Conferência do arquivo enviado pelo portal: extensão permitida e conteúdo compatível (assinatura do arquivo), até 20 MB.</summary>

@@ -1,0 +1,122 @@
+@* Aba "Atendimento" da requisição: saldo de cada item (requisitado, em cotação, pedido, recebido, cancelado, a pedir, a receber),
+   lotes por comprador e a linha do tempo de cotações, pedidos e recebimentos. Encerrar saldo exige justificativa. *@
+@inherits PaginaBase
+@inject AtendimentoServico AtendimentoSrv
+
+@if (_a is null) { <Esqueleto Linhas="4" /> }
+else
+{
+    <div class="secao"><Icone Nome="caixa" /> Atendimento <Selo Texto="@De(_a.Status)" Tom="@Tom(_a.Status)" />
+        <span class="acao">
+            @if (PodeEncerrar && _a.Itens.Any(i => i.Saldo.APedir > 0)) { <button class="btn perigo pq" id="req-encerrar" disabled="@Ocupado" @onclick="AbrirEncerrar"><Icone Nome="x-circulo" Tam="14" /> Encerrar saldo</button> }
+        </span>
+    </div>
+    <div class="kpis">
+        <Kpi Rotulo="Requisitado" Valor="@Moeda(_a.ValorRequisitado)" Sub="@($"{_a.Itens.Count} itens · {_a.Lotes.Count} lote(s)")" />
+        <Kpi Rotulo="Pedido" Valor="@Moeda(_a.ValorPedido)" Sub="@($"{_a.Pedidos} pedido(s)")" Tom="info" />
+        <Kpi Rotulo="Recebido" Valor="@Moeda(_a.ValorRecebido)" Sub="@($"{_a.Recebimentos} recebimento(s)")" Tom="ok" />
+        <Kpi Rotulo="A pedir" Valor="@Moeda(_a.ValorAPedir)" Sub="@(_a.ValorCancelado > 0 ? $"{Moeda(_a.ValorCancelado)} cancelado" : "a preço de referência")" Tom="@(_a.ValorAPedir > 0 ? "aviso" : "ok")" />
+    </div>
+    <Erros Lista="ErrosForm" />
+    <div class="tabela-rolavel">
+        <table class="itens" id="req-saldo">
+            <thead><tr><th>Item</th><th>UN</th><th class="num">Requisitado</th><th class="num">Em cotação</th><th class="num">Pedido</th><th class="num">Recebido</th><th class="num">Cancelado</th>
+                <th class="num">A pedir</th><th class="num">A receber</th><th>Situação</th><th>Lote · comprador</th></tr></thead>
+            <tbody>
+                @foreach (var i in _a.Itens)
+                {
+                    var s = i.Saldo;
+                    <tr @key="i.ItemId">
+                        <td>@i.Descricao @if (!string.IsNullOrWhiteSpace(i.MotivoCancelamento)) { <br /><small class="mudo" title="Motivo do encerramento">@i.MotivoCancelamento</small> }</td>
+                        <td>@i.Unidade</td>
+                        <td class="num">@Num(s.Requisitado, 3)</td><td class="num">@Num(s.EmCotacao, 3)</td><td class="num">@Num(s.Pedido, 3)</td><td class="num">@Num(s.Recebido, 3)</td>
+                        <td class="num">@Num(s.Cancelado, 3)</td><td class="num @(s.APedir > 0 ? "texto-aviso peso-600" : "")">@Num(s.APedir, 3)</td><td class="num @(s.AReceber > 0 ? "peso-600" : "")">@Num(s.AReceber, 3)</td>
+                        <td><Selo Texto="@s.Situacao" Tom="@(s.Situacao switch { "Atendido" => "ok", "A receber" => "info", "Parcial" or "A pedir" => "aviso", _ => "neutro" })" /></td>
+                        <td>@(i.Lote is null ? "—" : $"{i.Lote} · {i.Comprador ?? "fila do gestor"}")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    @if (_a.Lotes.Count > 0)
+    {
+        <div class="grade-2 mt-12">
+            <div>
+                <h4 class="sem-margem mb-6">Lotes por comprador</h4>
+                @foreach (var l in _a.Lotes)
+                {
+                    <div class="cartao mb-6" @key="l.Id">
+                        <b>Lote @l.Letra · @l.Categoria</b> <Selo Texto="@De(l.Situacao)" Tom="@Tom(l.Situacao)" /><br />
+                        <span class="mudo">@(l.Comprador ?? "Fila do gestor (sem comprador na carteira)")@(l.ComSubstituto ? $", substituindo {l.Titular}" : "") · @l.Detalhe@(l.Limite is { } d ? $" · comprar até {d:dd/MM}" : "")</span>
+                    </div>
+                }
+            </div>
+            <div>
+                <h4 class="sem-margem mb-6">Linha do tempo</h4>
+                <ol class="linha-tempo">
+                    @foreach (var e in _a.Linha)
+                    {
+                        <li><span class="mudo">@e.Quando.ToLocalTime().ToString("dd/MM")</span> <b>@e.Tipo</b> · @if (e.Link is not null) { <a href="@e.Link">@e.Texto</a> } else { @e.Texto }</li>
+                    }
+                </ol>
+            </div>
+        </div>
+    }
+}
+
+<Modal @bind-Aberto="_encerrar" Titulo="Encerrar saldo" Tamanho="media">
+    <ChildContent>
+        <Erros Lista="ErrosForm" />
+        <p class="mudo">O que falta pedir dos itens marcados é cancelado e não será mais comprado. Fica no histórico e o solicitante vê pela nota da requisição.</p>
+        @if (_a is not null)
+        {
+            <table class="itens">
+                <thead><tr><th></th><th>Item</th><th class="num">A pedir</th></tr></thead>
+                <tbody>
+                    @foreach (var i in _a.Itens.Where(i => i.Saldo.APedir > 0))
+                    {
+                        <tr @key="i.ItemId"><td class="larg-30"><input type="checkbox" checked="@_sel.Contains(i.ItemId)" @onchange="e => { if ((bool)e.Value!) _sel.Add(i.ItemId); else _sel.Remove(i.ItemId); }" /></td>
+                            <td>@i.Descricao</td><td class="num">@Num(i.Saldo.APedir, 3) @i.Unidade</td></tr>
+                    }
+                </tbody>
+            </table>
+        }
+        <div class="form mt-12"><Campo Rotulo="Justificativa" Obrigatorio Classe="s12"><input id="req-encerrar-motivo" @bind="_motivo" maxlength="300" placeholder="ex.: usaremos as sobras da obra vizinha" /></Campo></div>
+    </ChildContent>
+    <Rodape><button class="btn perigo" id="req-encerrar-ok" disabled="@(Ocupado || _sel.Count == 0)" @onclick="Encerrar"><Icone Nome="check" Tam="16" /> Encerrar (@_sel.Count)</button></Rodape>
+</Modal>
+
+@code {
+    [Parameter, EditorRequired] public Guid RequisicaoId { get; set; }
+    [Parameter] public int Versao { get; set; }
+    [Parameter] public bool PodeEncerrar { get; set; }
+    [Parameter] public EventCallback AoAlterar { get; set; }
+    private AtendimentoDto? _a;
+    private int _versaoCarregada = -1;
+    private bool _encerrar;
+    private string? _motivo;
+    private readonly HashSet<Guid> _sel = [];
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_versaoCarregada == Versao && _a?.RequisicaoId == RequisicaoId) return;
+        _versaoCarregada = Versao;
+        _a = await AtendimentoSrv.AtendimentoAsync(RequisicaoId, Cancelamento);
+    }
+
+    private void AbrirEncerrar()
+    {
+        _sel.Clear(); foreach (var i in _a!.Itens.Where(i => i.Saldo.APedir > 0)) _sel.Add(i.ItemId);
+        _motivo = null; ErrosForm = null; _encerrar = true;
+    }
+
+    private async Task Encerrar()
+    {
+        if (await Executar(() => AtendimentoSrv.EncerrarSaldoAsync(RequisicaoId, _sel.ToList(), _motivo, Cancelamento), "Saldo encerrado."))
+        {
+            _encerrar = false;
+            _a = await AtendimentoSrv.AtendimentoAsync(RequisicaoId, Cancelamento);
+            await AoAlterar.InvokeAsync();
+        }
+    }
+}

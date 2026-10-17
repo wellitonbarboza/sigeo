@@ -59,4 +59,10 @@ public static class EventosAviso
     public const string TarefaAtribuida = "Tarefa atribuída";
     public const string TarefaAtrasada = "Tarefa atrasada";
     public const string RestricaoVencendo = "Restrição do planejamento vencendo";
+    public const string DocumentoFornecedorVencendo = "Documento do fornecedor vencendo";
+    public const string DocumentoRecusado = "Documento recusado";
+    /// <summary>Resumo diário ao fornecedor: documentos vencendo/vencidos, documentação mensal e cotação fechando (um e-mail por dia).</summary>
+    public const string PendenciasFornecedor = "Pendências do fornecedor (resumo diário)";
+    /// <summary>Aviso interno: documentação mensal atrasada / adiamento aguardando o engenheiro.</summary>
+    public const string DocumentacaoMensal = "Documentação mensal do fornecedor";
 }

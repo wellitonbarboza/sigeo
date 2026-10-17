@@ -72,7 +72,10 @@ public static class CatalogoTelas
             T("sup", "transferencias", "Transferências", "enviar"), T("sup", "medicoes", "Medições", "regua", "VIEAX"),
             T("sup", "pagamentos", "Liberação Pagamento", "dinheiro", "VIEAX"), T("sup", "contratos/parcelas", "Parcelas de Contratos", "calendario", "VIEAX"),
             T("sup", "estoque", "Estoque e Almoxarifados", "caixa", "VIEAX"), T("sup", "estoque/kits", "Kits de Material", "lista", "VIEX"),
-            T("sup", "equipamentos", "Equipamentos e Manutenção", "ferramenta", "VIEAX")]),
+            T("sup", "equipamentos", "Equipamentos e Manutenção", "ferramenta", "VIEAX"),
+            T("sup", "suprimentos/fila", "Minha Fila de Compras", "lista", "VIX"), T("sup", "suprimentos/compradores", "Carteira de Compradores", "pessoa", "VIEX"),
+            T("sup", "suprimentos/economia", "Economia Real e Metas", "dinheiro", "VX"), T("sup", "suprimentos/precos", "Histórico de Preços", "grafico", "VX"),
+            T("sup", "suprimentos/painel", "Painel de Suprimentos", "grafico", "VX"), T("sup", "suprimentos/documentacao-mensal", "Documentação Mensal", "arquivo", "VIAX")]),
         new("sgq", "Qualidade", "medalha", false, [
             T("sgq", "sgq/documentos", "Documentos SGQ", "pasta", "VIEAX"), T("sgq", "sgq/copias", "Cópias Controladas", "impressora"),
             T("sgq", "sgq/lista-mestra", "Lista Mestra", "lista", "VX"), T("sgq", "sgq/externos", "Documentos Externos", "livro"),
@@ -91,6 +94,7 @@ public static class CatalogoTelas
             T("sst", "sst/epi", "Entrega de EPI", "escudo"), T("sst", "sst/inspecoes", "Inspeções de Segurança", "prancheta"),
             T("sst", "sst/pt", "Permissão de Trabalho", "chave", "VIEAX"), T("sst", "sst/ocorrencias", "Ocorrências e Acidentes", "alerta"),
             T("sst", "sst/painel", "Painel SST", "grafico", "VX")]),
+        new("ges", "Gestão", "alvo", false, [T("ges", "gestao/metas", "Metas e Entregas", "alvo", "VIEAX")]),
         // Módulos adicionais (contratados à parte): nascem bloqueados na construtora; a plataforma libera.
         new("fin", "Financeiro", "dinheiro", false, [
             T("fin", "financeiro/pagar", "Contas a Pagar", "dinheiro", "VIEAX"), T("fin", "financeiro/receber", "Contas a Receber", "dinheiro", "VIEX"),
@@ -105,6 +109,24 @@ public static class CatalogoTelas
             T("sis", "sistema/parametros", "Parâmetros e Notificações", "ferramenta", "VI"), T("sis", "sistema/permissoes", "Permissões SGQ", "escudo", "VI"),
             T("sis", "sistema/log", "Log de Auditoria", "relogio", "VX")]),
     ];
+
+    /// <summary>Versão do catálogo: suba ao incluir telas e liste-as em <see cref="TelasDaVersao"/> (perfis gravados antes herdam o padrão delas).</summary>
+    public const int Versao = 1;
+    public static readonly IReadOnlyDictionary<int, string[]> TelasDaVersao = new Dictionary<int, string[]>
+    {
+        [1] = ["suprimentos/fila", "suprimentos/compradores", "suprimentos/economia", "suprimentos/precos", "suprimentos/painel", "suprimentos/documentacao-mensal", "gestao/metas"],
+    };
+
+    /// <summary>Completa as regras de um perfil gravado numa versão antiga com o padrão das telas que surgiram depois.</summary>
+    public static Dictionary<string, string> Atualizar(Dictionary<string, string> regras, int versaoGravada, PerfilUsuario? baseDoPerfil)
+    {
+        if (versaoGravada >= Versao || baseDoPerfil is not { } b) return regras;
+        var padrao = PerfisPadrao.Regras(b);
+        foreach (var (v, rotas) in TelasDaVersao.Where(x => x.Key > versaoGravada))
+            foreach (var r in rotas)
+                if (!regras.ContainsKey(r) && padrao.TryGetValue(r, out var a)) regras[r] = a;
+        return regras;
+    }
 
     /// <summary>Módulos adicionais: a construtora nova nasce com eles bloqueados (a plataforma libera quando contratar).</summary>
     public static readonly string[] Adicionais = ["fin", "inc"];
@@ -196,7 +218,7 @@ public static class CatalogoTelas
 /// </summary>
 public static class PerfisPadrao
 {
-    private static readonly string[] Operacao = ["cad", "eng", "sup", "sgq", "qob", "sst"];
+    private static readonly string[] Operacao = ["cad", "eng", "sup", "sgq", "qob", "sst", "ges"];
 
     public static Dictionary<string, string> Regras(PerfilUsuario perfil)
     {
@@ -215,7 +237,7 @@ public static class PerfisPadrao
                 foreach (var m in CatalogoTelas.Modulos) Modulo(m.Id, AcaoTela.Todas);
                 break;
             case PerfilUsuario.Diretoria:
-                Ver(); foreach (var m in Operacao) Modulo(m, "A");
+                Ver(); foreach (var m in Operacao) Modulo(m, "A"); Dar("gestao/metas", "IE");
                 Modulo("fin", "VAX"); Modulo("inc", "VAX");
                 Dar("engenharia/cronograma", "I"); Dar("sgq/documentos", "I"); Dar("sistema/log", "VX");
                 break;
@@ -224,6 +246,7 @@ public static class PerfisPadrao
                 foreach (var x in new[] { "requisicoes", "medicoes", "recebimentos", "transferencias" }) Dar(x, "IEA");
                 foreach (var x in new[] { "cotacoes", "pedidos", "contratos", "pagamentos" }) Dar(x, "A");
                 foreach (var x in new[] { "estoque", "estoque/kits", "equipamentos", "contratos/parcelas" }) Dar(x, "IEA");
+                Dar("suprimentos/documentacao-mensal", "IA"); Dar("gestao/metas", "I");
                 break;
             case PerfilUsuario.Qualidade:
                 Ver(); Modulo("sgq", "IEA"); Modulo("qob", "IEA"); Modulo("cad", "IEA"); Dar("sistema/permissoes", "VI");
@@ -231,6 +254,7 @@ public static class PerfisPadrao
             case PerfilUsuario.Suprimentos:
                 Ver(); Modulo("sup", "IE"); Modulo("cad", "IE");
                 foreach (var x in new[] { "requisicoes", "cotacoes", "pedidos", "contratos", "estoque" }) Dar(x, "A");
+                Dar("suprimentos/documentacao-mensal", "A"); Dar("gestao/metas", "I");
                 break;
             case PerfilUsuario.Financeiro:
                 Ver(); Dar("pagamentos", "IEA"); Dar("notas-fiscais", "IE"); Dar("medicoes", "A"); Dar("contratos/parcelas", "IA");
@@ -240,13 +264,14 @@ public static class PerfisPadrao
             case PerfilUsuario.Campo:
                 Ver();
                 foreach (var x in new[] { "requisicoes", "recebimentos", "transferencias", "obra/fvs", "obra/rnc", "obra/acoes", "engenharia/last-planner", "equipamentos" }) Dar(x, "I");
+                Dar("suprimentos/documentacao-mensal", "IA"); // administrativo de obra confere a documentação mensal
                 break;
             case PerfilUsuario.Almoxarifado:
                 Modulo("sup", "VX"); Modulo("cad", "VX");
                 foreach (var x in new[] { "recebimentos", "transferencias", "notas-fiscais", "estoque", "estoque/kits", "equipamentos", "contratos/parcelas" }) Dar(x, "I");
                 break;
             case PerfilUsuario.Seguranca:
-                Ver(); Modulo("sst", "IEA");
+                Ver(); Modulo("sst", "IEA"); Dar("suprimentos/documentacao-mensal", "IA");
                 break;
             case PerfilUsuario.Terceiro:
                 Dar("sst/colaboradores", "VI"); Dar("sst/documentos", "VI");

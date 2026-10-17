@@ -81,7 +81,9 @@ public sealed class MedicoesServico(IFabricaDb fabrica, AprovacaoServico aprovac
             return cels[cid].Where(sub.Contains).ToList();
         }
         var tipos = await db.TiposDocumento.AsNoTracking().Where(t => t.AplicaA == AplicaA.Fornecedor).ToListAsync(ct);
-        var trava = TravasQualidade.VerificarMedicao(m, fvs, Hoje, locais, Exigidos, tipos);
+        // Documentação mensal (portal): a competência do mês da medição precisa estar conferida; adiamento aprovado não trava.
+        var competencias = await CompetenciasServico.DoContratoAsync(db, m.ContratoId, Hoje, m.PeriodoFim, ct);
+        var trava = TravasQualidade.VerificarMedicao(m, fvs, Hoje, locais, Exigidos, tipos, competencias);
         m.Bloqueios = trava.Resumo;
         if (!trava.Liberado) { await db.SaveChangesAsync(ct); ValidacaoException.Se(trava.Bloqueios); }
         if (m.PlanoAcaoId is null && RegrasAvaliacao.PlanoPorMedicao(m, m.Contrato.FornecedorId, Hoje, await AvaliacaoFornecedoresServico.NumeroPlanoAsync(db, ct)) is { } plano)

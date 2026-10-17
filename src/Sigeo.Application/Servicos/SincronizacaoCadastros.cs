@@ -16,7 +16,7 @@ public static class SincronizacaoCadastros
     public static readonly StatusRequisicao[] RequisicoesAbertas =
     [
         StatusRequisicao.Rascunho, StatusRequisicao.DevolvidaAjuste, StatusRequisicao.AguardandoEngenheiro,
-        StatusRequisicao.AguardandoDiretorTecnico, StatusRequisicao.Autorizada, StatusRequisicao.EmCotacao
+        StatusRequisicao.AguardandoDiretorTecnico, StatusRequisicao.Autorizada, StatusRequisicao.EmCotacao, StatusRequisicao.ParcialmenteAtendida
     ];
 
     /// <summary>Cotação em edição (dá para incluir/retirar fornecedor e mexer em preço).</summary>

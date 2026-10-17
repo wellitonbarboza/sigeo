@@ -21,6 +21,16 @@
         </header>
         @if (_msg is not null) { <div class="alerta @(_ok ? "ok" : "erro")">@_msg</div> }
         @if (_erros is { Count: > 0 }) { <div class="alerta erro"><ul class="sem-margem">@foreach (var e in _erros) { <li>@e</li> }</ul></div> }
+        @if (_s.Situacao is { } st)
+        {
+            <div class="linha-espaco mb-10" id="prop-situacao"><span class="selo-situacao"><Selo Texto="@st.Texto" Tom="@st.Tom" /></span>
+                @if (_s.PrazoResposta is { } pz && _s.Aberta) { <b class="@(pz - DateTimeOffset.UtcNow < TimeSpan.FromHours(24) ? "texto-erro" : "")" id="prop-prazo">Prazo para responder: @pz.ToLocalTime().ToString("dd/MM/yyyy HH:mm") · @Falta(pz)</b> }</div>
+        }
+        @if (Declinou)
+        {
+            <div class="alerta info"><Icone Nome="info" /> Você informou que não vai cotar: @_s.Convite.MotivoDeclinio
+                @if (_s.Aberta) { <button class="btn sec pq" id="prop-voltar" disabled="@_enviando" @onclick="() => Declinar(false)">Voltar atrás e cotar</button> }</div>
+        }
         @if (!_s.Aberta)
         {
             <div class="alerta aviso"><Icone Nome="alerta" /> Esta cotação não está mais recebendo propostas. @(_s.Convite.DataResposta is { } d ? $"Sua proposta foi registrada em {d:dd/MM/yyyy}." : "")</div>
@@ -62,10 +72,30 @@
             <div class="campo s3"><label>Condição de pagamento</label><input @bind="_condicao" placeholder="ex.: 28 dias" maxlength="100" disabled="@(!_s.Aberta)" /></div>
             <div class="campo s3"><label>Validade da proposta</label><input type="date" @bind="_validade" disabled="@(!_s.Aberta)" /></div>
         </div>
-        @if (_s.Aberta)
+        @if (_s.Aberta && !Declinou)
         {
-            <p class="mudo">Os preços ficam registrados com data e hora. Documentos (proposta assinada, catálogos, laudos) podem ser enviados ao comprador junto com o pedido.</p>
-            <button class="btn prim" disabled="@_enviando" @onclick="Enviar"><Icone Nome="enviar" Tam="16" /> Enviar proposta</button>
+            <p class="mudo">Os preços ficam registrados com data e hora. Cada envio vira uma versão. @(_s.Convite.RascunhoEm is { } re ? $"Rascunho salvo em {re.ToLocalTime():dd/MM HH:mm}." : "")</p>
+            <div class="linha-botoes">
+                <button class="btn prim" id="prop-enviar" disabled="@_enviando" @onclick="Enviar"><Icone Nome="enviar" Tam="16" /> Enviar proposta</button>
+                <button class="btn sec" id="prop-rascunho" disabled="@_enviando" @onclick="SalvarRascunho">Salvar rascunho</button>
+                @if (_s.Convite.DataResposta is null) { <button class="btn sec" id="prop-declinar" disabled="@_enviando" @onclick="() => _declinando = true">Não vou cotar</button> }
+            </div>
+            @if (_declinando)
+            {
+                <div class="caixa-envio">
+                    <div class="form"><Campo Rotulo="Motivo" Obrigatorio Classe="s8"><input id="prop-motivo" @bind="_motivo" maxlength="300" placeholder="ex.: sem estoque, sem equipe no período" /></Campo></div>
+                    <button class="btn perigo" disabled="@_enviando" @onclick="() => Declinar(true)">Confirmar: não vou cotar</button>
+                    <button class="btn sec" @onclick="() => _declinando = false">Cancelar</button>
+                </div>
+            }
+        }
+        @if (_s.Versoes.Count > 0)
+        {
+            <h3 class="mt-18">Versões enviadas</h3>
+            <table class="itens" id="prop-versoes">
+                <thead><tr><th>Versão</th><th>Enviada</th><th>Por</th><th class="num">Itens</th><th class="num">Frete</th><th>Prazo</th><th>Pagamento</th></tr></thead>
+                <tbody>@foreach (var v in _s.Versoes.OrderByDescending(v => v.Versao)) { <tr @key="v.Id"><td>@v.Versao</td><td>@v.EnviadaEm.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td><td>@v.EnviadaPor</td><td class="num">@Rotulos.Moeda(v.ValorItens)</td><td class="num">@(v.ValorFrete is { } vf ? Rotulos.Moeda(vf) : "—")</td><td>@v.PrazoEntrega?.ToString("dd/MM/yyyy")</td><td>@v.CondicaoPagamento</td></tr> }</tbody>
+            </table>
         }
     }
 </div>
@@ -82,6 +112,33 @@
     private DateOnly? _prazo, _validade;
     private List<LinhaProp> _linhas = [];
     private readonly HashSet<Guid> _abertos = [];
+    private bool _declinando;
+    private string? _motivo;
+    private bool Declinou => _s?.Convite.Status == StatusConvite.Declinou;
+
+    private static string Falta(DateTimeOffset prazo)
+    {
+        var f = prazo - DateTimeOffset.UtcNow;
+        return f <= TimeSpan.Zero ? "encerrado" : f.TotalHours < 24 ? $"faltam {(int)f.TotalHours}h{f.Minutes:00}" : $"faltam {(int)f.TotalDays} dia(s)";
+    }
+
+    private RascunhoProposta Atual() => new(_linhas.Select(l => new ItemPropostaPortal(l.Id, l.Valor, l.Entrega, l.Marca)).ToList(), _frete, _condicao, _validade, _prazo);
+
+    private async Task SalvarRascunho()
+    {
+        _enviando = true; _msg = null; _erros = null;
+        try { await Portal.SalvarRascunhoAsync(Token, Atual()); _ok = true; _msg = "Rascunho salvo. Ainda não foi enviado ao comprador."; await Abrir(); }
+        catch (RegraDeNegocioException e) { _ok = false; _msg = e.Message; }
+        finally { _enviando = false; }
+    }
+
+    private async Task Declinar(bool declinar)
+    {
+        _enviando = true; _msg = null; _erros = null;
+        try { await Portal.DeclinarAsync(Token, declinar, _motivo); _ok = true; _msg = declinar ? "Registrado: você não vai cotar. Obrigado pelo retorno." : "Pode preencher e enviar a proposta."; _declinando = false; await Abrir(); }
+        catch (RegraDeNegocioException e) { _ok = false; _msg = e.Message; }
+        finally { _enviando = false; }
+    }
 
     private sealed class LinhaProp
     {
@@ -103,6 +160,13 @@
         {
             _linhas = _s.Itens.Select(i => new LinhaProp { Id = i.Id, Descricao = i.Descricao, Unidade = i.Unidade, Quantidade = i.Quantidade, Valor = i.ValorOfertado, Entrega = i.Entrega, Marca = i.Marca }).ToList();
             _frete = _s.Convite.ValorFrete; _prazo = _s.Convite.PrazoEntregaOfertado; _condicao = _s.Convite.CondicaoPagamento; _validade = _s.Convite.ValidadeProposta;
+            if (_s.Rascunho is { } r && _s.Aberta)
+            {
+                // Rascunho salvo mais recente que o último envio: volta a tela com o que foi digitado.
+                var porItem = r.Itens.ToDictionary(i => i.ItemId);
+                foreach (var l in _linhas) if (porItem.TryGetValue(l.Id, out var ri)) { l.Valor = ri.ValorUnitario; l.Entrega = ri.Entrega; l.Marca = ri.Marca; }
+                _frete = r.Frete; _condicao = r.Condicao; _validade = r.Validade; _prazo = r.Prazo;
+            }
         }
         _carregando = false;
     }
@@ -112,7 +176,7 @@
         _enviando = true; _msg = null; _erros = null;
         try
         {
-            await Portal.EnviarPropostaAsync(Token, _linhas.Select(l => new ItemPropostaPortal(l.Id, l.Valor, l.Entrega, l.Marca)).ToList(), _frete, _condicao, _validade, _prazo);
+            await Portal.EnviarPropostaAsync(Token, _linhas.Select(l => new ItemPropostaPortal(l.Id, l.Valor, l.Entrega, l.Marca)).ToList(), _frete, _condicao, _validade, _prazo, default, NaArea ? "Área do Fornecedor" : "Link da cotação");
             _ok = true; _msg = "Proposta enviada. Obrigado! O comprador já pode ver seus preços.";
             await Abrir();
         }

@@ -62,6 +62,14 @@ public static class Endpoints
             return d?.ArquivoBlob is null ? Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "Documento do fornecedor não encontrado") : Results.File(await arm.AbrirAsync(d.ArquivoBlob), "application/octet-stream", d.ArquivoNomeOriginal ?? "documento");
         }).RequireAuthorization();
 
+        // Item da documentação mensal: o item não tem filtro próprio, então passa pela competência (filtro de empresa e obra).
+        app.MapGet("/arquivos/competencia/{itemId:guid}", async (Guid itemId, IFabricaDb fabrica, IArmazenamento arm) =>
+        {
+            await using var db = fabrica.Criar();
+            var i = await db.CompetenciasDocumentais.AsNoTracking().SelectMany(c => c.Itens).FirstOrDefaultAsync(x => x.Id == itemId);
+            return i?.ArquivoBlob is null ? Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "Arquivo da documentação mensal não encontrado") : Results.File(await arm.AbrirAsync(i.ArquivoBlob), "application/octet-stream", i.ArquivoNome ?? "documento");
+        }).RequireAuthorization();
+
         app.MapGet("/arquivos/sgq/{revisaoId:guid}/{tipo}", async (Guid revisaoId, string tipo, IFabricaDb fabrica, IArmazenamento arm, DocumentosServico docs) =>
         {
             await using var db = fabrica.Criar();

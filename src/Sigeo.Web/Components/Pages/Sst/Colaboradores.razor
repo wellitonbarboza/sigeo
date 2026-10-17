@@ -11,6 +11,7 @@
                 <Kpi Rotulo="Aptos" Valor="@_ativos.Count(c => c.Situacao == SituacaoColaborador.Apto)" Tom="ok" />
                 <Kpi Rotulo="Aptos com restrição" Valor="@_ativos.Count(c => c.Situacao == SituacaoColaborador.AptoComRestricao)" Sub="não liberados p/ alguma atividade" Tom="aviso" />
                 <Kpi Rotulo="Bloqueados / pendentes" Valor="@_ativos.Count(c => c.Situacao is SituacaoColaborador.Bloqueado or SituacaoColaborador.Pendente)" Sub="ASO ou integração vencidos" Tom="erro" />
+                <Kpi Rotulo="Aguardando validação" Valor="@_ativos.Count(c => c.AguardandoValidacao)" Sub="cadastrados pelo fornecedor no portal" Tom="@(_ativos.Any(c => c.AguardandoValidacao) ? "aviso" : "ok")" />
             </div>
             <Grade T="Linha" @ref="_grade" Itens="_itens" AoClicar="l => Abrir(l.Id)" NomeExportacao="colaboradores">
                 <Colunas>
@@ -33,6 +34,14 @@
         @if (_c is not null)
         {
             <Erros Lista="ErrosForm" />
+            @if (_c.AguardandoValidacao)
+            {
+                <div class="alerta aviso" id="colab-validar">Cadastrado/alterado pelo fornecedor no portal. Confira nome, CPF, função e obra e valide antes de liberar a entrada.
+                    <div class="form mt-10"><Campo Rotulo="Motivo (se recusar)" Classe="s8"><input id="colab-motivo" @bind="_motivoValidacao" maxlength="300" /></Campo></div>
+                    <button class="btn ok pq" id="colab-validar-ok" disabled="@Ocupado" @onclick="() => Validar(true)">Validar cadastro</button>
+                    <button class="btn perigo pq" id="colab-validar-recusar" disabled="@Ocupado" @onclick="() => Validar(false)">Recusar</button>
+                </div>
+            }
             @if (_c.CriadoEm != default) { <div class="cabecalho-doc"><Selo Texto="@De(_c.Situacao)" Tom="@Tom(_c.Situacao)" /> @if (_c.Restricoes != AtividadeRisco.Nenhuma) { <span>Restrito: <b>@De(_c.Restricoes)</b></span> } </div> }
             <Abas Itens="_abas" @bind-Ativa="_aba" />
             @if (_aba == "dados")
@@ -153,6 +162,14 @@
         _epis = (await db.EntregasEpi.AsNoTracking().Where(e => e.ColaboradorId == id).Join(db.Epis, e => e.EpiId, p => p.Id, (e, p) => new { p.Descricao, p.Ca, e.Quantidade, e.DataEntrega, e.TrocaPrevista, e.Assinatura }).ToListAsync(Cancelamento))
             .Select(x => ($"{x.Descricao} (CA {x.Ca})", x.Quantidade, x.DataEntrega, x.TrocaPrevista, x.Assinatura)).ToList();
         _cpf = null; ErrosForm = null; _aberto = true;
+    }
+
+    private string? _motivoValidacao;
+
+    private async Task Validar(bool aprovar)
+    {
+        var id = _c!.Id;
+        if (await Executar(() => Sst.ValidarColaboradorAsync(id, aprovar, _motivoValidacao, Cancelamento), aprovar ? "Cadastro validado." : "Cadastro recusado: fornecedor avisado.")) { _motivoValidacao = null; await Carregar(); await Abrir(id); }
     }
 
     private async Task Salvar()

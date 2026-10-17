@@ -118,9 +118,10 @@ public sealed class AreaFornecedorTests(BancoFixture f)
         var enviada = await CotacaoAsync(filial.Id, StatusCotacao.EmAnalise, StatusConvite.Respondido);
         var encerrada = await CotacaoAsync(filial.Id, StatusCotacao.Aprovado, StatusConvite.Respondido);
         var cots = (await s.CotacoesAsync(id, filial.Id)).ToDictionary(c => c.CotacaoId);
-        Assert.Equal(("Não enviada", false, true), (cots[naoEnviada.Id].Situacao, cots[naoEnviada.Id].Enviada, cots[naoEnviada.Id].PodeEditar));
-        Assert.Equal(("Enviada", true, true), (cots[enviada.Id].Situacao, cots[enviada.Id].Enviada, cots[enviada.Id].PodeEditar));
+        Assert.Equal(("Convite recebido", false, true), (cots[naoEnviada.Id].Situacao, cots[naoEnviada.Id].Enviada, cots[naoEnviada.Id].PodeEditar));
+        Assert.Equal(("Proposta enviada", true, true), (cots[enviada.Id].Situacao, cots[enviada.Id].Enviada, cots[enviada.Id].PodeEditar));
         Assert.False(cots[encerrada.Id].PodeEditar);
+        Assert.Equal(SituacaoProposta.NaoVencedora, cots[encerrada.Id].Codigo); // sem item vencido
 
         // Convite: só do fornecedor convidado e só para quem tem acesso a ele.
         Assert.NotEqual(Guid.Empty, await s.ConviteAsync(id, filial.Id, naoEnviada.Id));

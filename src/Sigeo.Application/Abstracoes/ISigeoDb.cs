@@ -65,6 +65,12 @@ public interface ISigeoDb : IDisposable, IAsyncDisposable
     DbSet<RequisicaoItem> RequisicaoItens { get; }
     DbSet<Cotacao> Cotacoes { get; }
     DbSet<CotacaoFornecedor> CotacaoFornecedores { get; }
+    DbSet<PropostaVersao> PropostasVersao { get; }
+    DbSet<LoteCompra> LotesCompra { get; }
+    DbSet<CarteiraComprador> CarteirasComprador { get; }
+    DbSet<CompetenciaDocumental> CompetenciasDocumentais { get; }
+    DbSet<ItemCompetencia> ItensCompetencia { get; }
+    DbSet<Domain.Colaboracao.Meta> Metas { get; }
     DbSet<CotacaoItem> CotacaoItens { get; }
     DbSet<Pedido> Pedidos { get; }
     DbSet<PedidoItem> PedidoItens { get; }

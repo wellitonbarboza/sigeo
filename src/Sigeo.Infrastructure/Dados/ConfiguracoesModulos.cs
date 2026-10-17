@@ -225,6 +225,9 @@ internal sealed class CotacaoFornecedorCfg : IEntityTypeConfiguration<CotacaoFor
         b.HasOne(x => x.Fornecedor).WithMany().HasForeignKey(x => x.FornecedorId);
         b.HasIndex(x => new { x.CotacaoId, x.FornecedorId }).IsUnique();
         b.HasIndex(x => x.LinkResposta).IsUnique();
+        b.Property(x => x.RascunhoJson).HasColumnType("nvarchar(max)");
+        b.Property(x => x.PendenciaNaData).HasMaxLength(1000);
+        b.Property(x => x.MotivoDeclinio).HasMaxLength(300).HasAnnotation(SigeoDbContext.TamanhoFixo, true);
     }
 }
 

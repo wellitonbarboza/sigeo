@@ -113,7 +113,7 @@ public static class CargaPadrao
         ("eSocial / DCTFWeb (mês anterior)", "Trabalhista / previdenciário", FrequenciaDocumento.Mensal, null, TipoFornecimento.ServicoObra, false, true, false, "eSocial / Receita"),
         ("Guia e comprovante INSS (mês anterior)", "Trabalhista / previdenciário", FrequenciaDocumento.Mensal, null, TipoFornecimento.ServicoObra, false, true, false, "Receita Federal"),
         ("Guia e comprovante FGTS Digital (mês anterior)", "Trabalhista / previdenciário", FrequenciaDocumento.Mensal, null, TipoFornecimento.ServicoObra, false, true, false, "MTE / Caixa"),
-        ("Folha de pagamento e recibos (mês anterior)", "Trabalhista / previdenciário", FrequenciaDocumento.Mensal, null, TipoFornecimento.ServicoObra, true, true, true, "CLT"),
+        ("Folha de pagamento e recibos (mês anterior)", "Trabalhista / previdenciário", FrequenciaDocumento.Mensal, null, TipoFornecimento.ServicoObra, false, true, true, "CLT"),
         ("PGR – Programa de Gerenciamento de Riscos", "SST", FrequenciaDocumento.Validade, 730, TipoFornecimento.ServicoObra, false, true, false, "NR-01 / NR-18"),
         ("PCMSO", "SST", FrequenciaDocumento.Validade, 365, TipoFornecimento.ServicoObra, false, true, false, "NR-07"),
         ("ART / RRT do serviço", "Técnico", FrequenciaDocumento.PorContrato, null, TipoFornecimento.ServicoObra | TipoFornecimento.ServicoEspecializadoEngenharia, false, false, false, "CREA / CAU"),
@@ -203,7 +203,15 @@ public static class CargaPadrao
     /// Versão da carga padrão. Suba quando incluir itens novos nas listas/cadastros padrão: empresas existentes recebem a carga
     /// uma vez por versão (itens que o usuário renomeou ou excluiu não voltam a cada reinício do app).
     /// </summary>
-    public const int Versao = 8;
+    /// <summary>Documentos mensais por funcionário (documentação mensal da medição): nome e se pode ser adiado com aprovação do engenheiro.</summary>
+    public static readonly (string Nome, bool PodeAdiar, bool Sensivel)[] DocumentosMensaisFuncionario =
+    [
+        ("Holerite / recibo de pagamento do funcionário (mês)", false, true),
+        ("Cartão de ponto do funcionário (mês)", true, false),
+        ("Recibo de entrega de EPI do funcionário (mês)", true, false),
+    ];
+
+    public const int Versao = 9;
     private const string ChaveVersao = "Sistema:CargaPadrao";
 
     /// <summary>Aplica a carga só se a empresa ainda não recebeu esta versão (usado na inicialização do app).</summary>
@@ -281,6 +289,17 @@ public static class CargaPadrao
                 BloqueiaQuandoVencido = t.Bloqueia, PorEntrega = t.Freq == FrequenciaDocumento.PorEntrega, DiasAlertaAntesVencimento = 30, Fonte = t.Fonte, Ordem = ++ordemDoc,
                 Momento = t.Freq == FrequenciaDocumento.PorContrato ? MomentoDocumento.PorContrato : MomentoDocumento.Cadastro, ContemDadoSensivel = t.Sensivel
             });
+
+        foreach (var t in DocumentosMensaisFuncionario.Where(t => !tipos.Contains(t.Nome)))
+            db.TiposDocumento.Add(new TipoDocumentoExigido
+            {
+                EmpresaId = empresaId, AplicaA = AplicaA.Fornecedor, Nome = t.Nome, Categoria = "RH (funcionários)", Frequencia = FrequenciaDocumento.Mensal, DiaLimite = 20,
+                ExigidoPara = TipoFornecimento.ServicoObra, DeFuncionario = true, Obrigatorio = true, BloqueiaQuandoVencido = true, DiasAlertaAntesVencimento = 30,
+                Fonte = "CLT / NR-06", Ordem = ++ordemDoc, PodeAdiar = t.PodeAdiar, ContemDadoSensivel = t.Sensivel
+            });
+        // v9: a folha é documento da empresa (os recibos de cada funcionário são itens à parte na documentação mensal).
+        foreach (var t in await db.TiposDocumento.IgnoreQueryFilters().Where(t => t.EmpresaId == empresaId && t.Nome == "Folha de pagamento e recibos (mês anterior)" && t.DeFuncionario).ToListAsync(ct))
+            t.DeFuncionario = false;
 
         var mats = await db.MateriaisControlados.IgnoreQueryFilters().Where(m => m.EmpresaId == empresaId).Select(m => m.Codigo).ToListAsync(ct);
         foreach (var m in MateriaisControlados.Where(m => !mats.Contains(m.Codigo)))
@@ -427,6 +446,11 @@ public static class CargaPadrao
         N(Domain.Colaboracao.EventosAviso.NovaMensagem, null, null, "Participantes da conversa", CanalNotificacao.Pendencias | CanalNotificacao.Email, "{remetente} enviou uma mensagem: {titulo}\n{mensagem}");
         N(Domain.Colaboracao.EventosAviso.TarefaAtribuida, null, null, "Responsável da tarefa", CanalNotificacao.Pendencias | CanalNotificacao.Email, "{solicitante} atribuiu a você a tarefa {tarefa}, prazo {data}.");
         N(Domain.Colaboracao.EventosAviso.TarefaAtrasada, null, "diária", "Responsável da tarefa", CanalNotificacao.Pendencias | CanalNotificacao.Email, "A tarefa {tarefa} venceu em {data}.");
+        // v5: portal do fornecedor (resumo diário ao fornecedor) e documentação mensal (interno).
+        N(Domain.Colaboracao.EventosAviso.PendenciasFornecedor, "30, 15 e 7 dias", "diária (um e-mail por dia)", "Contatos do fornecedor que recebem avisos", CanalNotificacao.Email,
+            "Pendências na {construtora}:\n{itens}\nAcesse a Área do Fornecedor para enviar: {link}");
+        N(Domain.Colaboracao.EventosAviso.DocumentacaoMensal, null, "diária", "Engenheiro da obra · Administrativo de obra · SST", CanalNotificacao.Pendencias | CanalNotificacao.Email,
+            "{itens}\nConferência: {link}");
         N(Domain.Colaboracao.EventosAviso.RestricaoVencendo, "2 dias", "diária", "Responsável da restrição", CanalNotificacao.Pendencias | CanalNotificacao.Email, "Restrição {restricao} da atividade {atividade} precisa ser removida até {data}.");
     }
 }

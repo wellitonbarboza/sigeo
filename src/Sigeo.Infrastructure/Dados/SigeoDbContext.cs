@@ -51,6 +51,12 @@ public class SigeoDbContext(DbContextOptions<SigeoDbContext> options, IUsuarioAt
     public DbSet<RequisicaoItem> RequisicaoItens => Set<RequisicaoItem>();
     public DbSet<Cotacao> Cotacoes => Set<Cotacao>();
     public DbSet<CotacaoFornecedor> CotacaoFornecedores => Set<CotacaoFornecedor>();
+    public DbSet<PropostaVersao> PropostasVersao => Set<PropostaVersao>();
+    public DbSet<LoteCompra> LotesCompra => Set<LoteCompra>();
+    public DbSet<CarteiraComprador> CarteirasComprador => Set<CarteiraComprador>();
+    public DbSet<CompetenciaDocumental> CompetenciasDocumentais => Set<CompetenciaDocumental>();
+    public DbSet<ItemCompetencia> ItensCompetencia => Set<ItemCompetencia>();
+    public DbSet<Domain.Colaboracao.Meta> Metas => Set<Domain.Colaboracao.Meta>();
     public DbSet<CotacaoItem> CotacaoItens => Set<CotacaoItem>();
     public DbSet<Pedido> Pedidos => Set<Pedido>();
     public DbSet<PedidoItem> PedidoItens => Set<PedidoItem>();

@@ -59,6 +59,7 @@ public sealed class ColaboracaoServico(IFabricaDb fabrica, IUsuarioAtual usuario
             if (atual.Prazo != t.Prazo) throw new RegraDeNegocioException("Para mudar o prazo use \"Prorrogar\" (com justificativa).");
             atual.Titulo = t.Titulo; atual.Descricao = t.Descricao; atual.Tipo = t.Tipo; atual.Prioridade = t.Prioridade;
             atual.ObraId = t.ObraId; atual.ResponsavelId = t.ResponsavelId; atual.ResponsavelNome = t.ResponsavelNome;
+            atual.MetaId = t.MetaId; atual.EquipeId = t.EquipeId;
         }
         await db.SaveChangesAsync(ct);
         return t.Id;
@@ -79,6 +80,7 @@ public sealed class ColaboracaoServico(IFabricaDb fabrica, IUsuarioAtual usuario
         await using var db = fabrica.Criar();
         var t = await db.Tarefas.FirstAsync(x => x.Id == id, ct);
         t.Concluir(resolucao, usuario.Nome, relogio.GetUtcNow());
+        if (t.MetaId is not null) t.Aceite = Domain.Colaboracao.AceiteTarefa.Aguardando; // entrega de meta: o gestor aceita ou devolve
         await db.SaveChangesAsync(ct);
     }
 

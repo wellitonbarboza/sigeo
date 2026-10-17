@@ -14,6 +14,10 @@ public class Cotacao : EntidadeDaObra, IHistoricoTemporal
     public string Nome { get; set; } = string.Empty;
     public Guid? RequisicaoId { get; set; }
     public Requisicao? Requisicao { get; set; }
+    /// <summary>Lote da requisição (comprador) que esta cotação atende; nulo = requisição inteira (cotações antigas).</summary>
+    public Guid? LoteCompraId { get; set; }
+    /// <summary>Prazo de resposta dos fornecedores: depois dele o portal não aceita mais envio nem edição.</summary>
+    public DateTimeOffset? PrazoResposta { get; set; }
     public TipoRequisicao Tipo { get; set; }
     public TipoFrete Frete { get; set; } = TipoFrete.CIF;
     public string? EnderecoEntrega { get; set; }
@@ -37,6 +41,40 @@ public class Cotacao : EntidadeDaObra, IHistoricoTemporal
 
     public ICollection<CotacaoFornecedor> Fornecedores { get; set; } = [];
     public ICollection<CotacaoItem> Itens { get; set; } = [];
+
+    /// <summary>Há vencedor escolhido item a item (senão vale o vencedor geral para todos os itens).</summary>
+    public bool VencedorPorItem => Itens.Any(i => i.Vencedor);
+
+    /// <summary>Itens vencedores: os marcados item a item ou, sem marcação, todos os do vencedor geral.</summary>
+    public IReadOnlyList<CotacaoItem> ItensVencedores() => VencedorPorItem
+        ? Itens.Where(i => i.Vencedor && i.ValorUnitarioFinal > 0).ToList()
+        : Itens.Where(i => i.FornecedorId == FornecedorVencedorId && FornecedorVencedorId != null).ToList();
+
+    /// <summary>Fornecedores com algum item vencido (um pedido para cada).</summary>
+    public IReadOnlyList<Guid> FornecedoresVencedores() => ItensVencedores().Select(i => i.FornecedorId).Distinct().ToList();
+
+    /// <summary>
+    /// Marca o vencedor de um item: só um fornecedor por item (o outro perde a marca). Quantidade vencida opcional:
+    /// menor que a do item quando o fornecedor só atende parte (o resto volta para "a pedir").
+    /// </summary>
+    public void DefinirVencedorItem(Guid? requisicaoItemId, string descricao, Guid? fornecedorId, decimal? quantidade = null)
+    {
+        var linhas = Itens.Where(i => i.RequisicaoItemId == requisicaoItemId && (requisicaoItemId != null || i.Descricao == descricao)).ToList();
+        foreach (var l in linhas) { l.Vencedor = false; l.QuantidadeVencida = null; }
+        if (fornecedorId is null) return;
+        var alvo = linhas.FirstOrDefault(l => l.FornecedorId == fornecedorId) ?? throw new Aprovacoes.RegraDeNegocioException("Fornecedor não cotou este item.");
+        if (alvo.ValorUnitarioFinal <= 0) throw new Aprovacoes.RegraDeNegocioException($"{alvo.Descricao}: o fornecedor não deu preço para este item.");
+        if (quantidade is { } q && (q <= 0 || q > alvo.Quantidade)) throw new Aprovacoes.RegraDeNegocioException($"{alvo.Descricao}: quantidade vencida entre 0 e {alvo.Quantidade:0.###}.");
+        alvo.Vencedor = true;
+        alvo.QuantidadeVencida = quantidade is { } q2 && q2 < alvo.Quantidade ? q2 : null;
+    }
+
+    /// <summary>Vencedor geral = fornecedor com maior valor entre os itens vencidos (listas e relatórios).</summary>
+    public void AtualizarVencedorGeral()
+    {
+        if (!VencedorPorItem) return;
+        FornecedorVencedorId = ItensVencedores().GroupBy(i => i.FornecedorId).OrderByDescending(g => g.Sum(i => i.ValorTotalVencido)).Select(g => (Guid?)g.Key).FirstOrDefault();
+    }
 
     public string FaixaAlcada(ParametrosVigentes p) =>
         ValorEstimado <= p[Parametros.LimiteUmOrcamento] ? $"≤ {p[Parametros.LimiteUmOrcamento]:C0}" : $"> {p[Parametros.LimiteUmOrcamento]:C0}";
@@ -68,6 +106,31 @@ public class CotacaoFornecedor : Entidade
     public string? CondicaoPagamento { get; set; }
     public DateOnly? ValidadeProposta { get; set; }
     public bool TemAnexoProposta { get; set; }
+    /// <summary>Fornecedor abriu o convite no portal / salvou rascunho sem enviar.</summary>
+    public DateTimeOffset? VisualizadoEm { get; set; }
+    public DateTimeOffset? RascunhoEm { get; set; }
+    /// <summary>Rascunho salvo no portal (preços, marcas, condições) — só vira proposta no envio.</summary>
+    public string? RascunhoJson { get; set; }
+    public string? MotivoDeclinio { get; set; }
+    /// <summary>Pendência do fornecedor no convite (bloqueado, em qualificação, documento vencido): aparece no convite e no mapa.</summary>
+    public string? PendenciaNaData { get; set; }
+    public ICollection<PropostaVersao> Versoes { get; set; } = [];
+}
+
+/// <summary>Cada envio da proposta pelo portal guarda uma versão (a cotação mostra a última; o histórico fica para conferência).</summary>
+public class PropostaVersao : Entidade
+{
+    public Guid CotacaoFornecedorId { get; set; }
+    public int Versao { get; set; }
+    public DateTimeOffset EnviadaEm { get; set; }
+    public string? EnviadaPor { get; set; }
+    public decimal ValorItens { get; set; }
+    public decimal? ValorFrete { get; set; }
+    public DateOnly? PrazoEntrega { get; set; }
+    public string? CondicaoPagamento { get; set; }
+    public DateOnly? Validade { get; set; }
+    /// <summary>Itens da versão: descrição, quantidade, unitário e marca (texto JSON, só para consulta).</summary>
+    public string? ItensJson { get; set; }
 }
 
 /// <summary>T06 · Mapa de cotação (item × fornecedor).</summary>
@@ -89,6 +152,12 @@ public class CotacaoItem : Entidade
     public bool? AtendeEspecificacao { get; set; }
     /// <summary>Marca cotada (obrigatória em item de material com preço).</summary>
     public string? Marca { get; set; }
+    /// <summary>Vencedor deste item (escolha item a item entre os fornecedores).</summary>
+    public bool Vencedor { get; set; }
+    /// <summary>Quantidade que o vencedor atende, quando menor que a do item (o resto volta para "a pedir").</summary>
+    public decimal? QuantidadeVencida { get; set; }
+    public decimal QuantidadePedido => QuantidadeVencida ?? Quantidade;
+    public decimal ValorTotalVencido => Math.Round(ValorUnitarioFinal * QuantidadePedido, 2);
 
     /// <summary>Último preço unitário pago pelo mesmo produto (pedido anterior) — fotografado ao abrir/salvar.</summary>
     public decimal? PrecoUltimo { get; set; }

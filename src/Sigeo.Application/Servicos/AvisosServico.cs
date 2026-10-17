@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Sigeo.Application.Comum;
 using Sigeo.Domain.Aprovacoes;
+using Sigeo.Domain.Cadastros;
 using Sigeo.Domain.Colaboracao;
 using Sigeo.Domain.Common;
 using Sigeo.Domain.Estrutura;
@@ -65,6 +66,74 @@ public static class AvisosServico
     }
 
     private static string Limitar(string s, int max) => s.Length <= max ? s : s[..max];
+
+    /// <summary>E-mails do fornecedor que recebem avisos: contatos marcados; sem marcação, os e-mails do cadastro.</summary>
+    public static List<(string Email, string Nome)> DestinosFornecedor(Domain.Cadastros.Fornecedor f)
+    {
+        var l = f.Contatos.Where(c => c.RecebeAvisos && Destinos.Email(c.Email) is not null).Select(c => (Destinos.Email(c.Email)!, c.Nome)).ToList();
+        if (l.Count == 0 && !string.IsNullOrWhiteSpace(f.Emails))
+            l = f.Emails.Split([';', ',', ' '], StringSplitOptions.RemoveEmptyEntries).Select(Destinos.Email).OfType<string>().Select(e => (e, f.NomeExibicao)).ToList();
+        return l.DistinctBy(x => x.Item1).Take(5).ToList();
+    }
+
+    /// <summary>Aviso para fora (fornecedor): sem usuário interno, a chave é por e-mail.</summary>
+    public static async Task<int> EnfileirarExternoAsync(ISigeoDb db, string evento, IReadOnlyList<(string Email, string Nome)> destinos, string chave,
+        IReadOnlyDictionary<string, string?> valores, string? link, CancellationToken ct = default)
+    {
+        var regra = await RegraAsync(db, evento, ct);
+        if (regra is null || destinos.Count == 0) return 0;
+        var chaves = destinos.ToDictionary(d => d.Email, d => Limitar($"{chave}:{d.Email.ToLowerInvariant()}", 200));
+        var lista = chaves.Values.ToList();
+        var existentes = (await db.AvisosEmail.AsNoTracking().Where(a => lista.Contains(a.Chave)).Select(a => a.Chave).ToListAsync(ct))
+            .Concat(db.AvisosEmail.Local.Select(a => a.Chave)).ToHashSet();
+        var n = 0;
+        foreach (var d in destinos)
+        {
+            if (existentes.Contains(chaves[d.Email])) continue;
+            var v = new Dictionary<string, string?>(valores, StringComparer.OrdinalIgnoreCase) { ["nome"] = d.Nome.Split(' ')[0], ["link"] = "{link}" };
+            var assunto = valores.TryGetValue("assunto", out var a) && !string.IsNullOrWhiteSpace(a) ? a! : regra.Evento;
+            db.AvisosEmail.Add(new AvisoEmail
+            {
+                Evento = regra.Evento, Chave = chaves[d.Email], UsuarioId = null, Para = d.Email, NomeDestinatario = d.Nome,
+                Assunto = Limitar($"SIGEO · {assunto}", 250), Texto = AvisoEmail.Preencher(regra.ModeloMensagem, v), Link = link
+            });
+            n++;
+        }
+        return n;
+    }
+
+    /// <summary>
+    /// Itens do resumo diário de um fornecedor: documentos que vencem em 30/15/7 dias ou hoje, vencidos (a cada N dias),
+    /// documentação mensal aberta (dia 1), 5 dias antes do limite e atrasada (a cada 3 dias), cotação que fecha em 24 h.
+    /// </summary>
+    public static List<string> ItensFornecedor(Domain.Cadastros.Fornecedor f, IEnumerable<Domain.Suprimentos.CompetenciaDocumental> competencias,
+        IEnumerable<(int Numero, string Nome, DateTimeOffset Prazo)> cotacoes, DateOnly hoje, DateTimeOffset agora, int diaLimite, int lembreteVencido)
+    {
+        var l = new List<string>();
+        var docs = f.Documentos.Where(d => !d.Excluido && d.TipoDocumento is { PorEntrega: false } && d.TipoDocumento.Frequencia != FrequenciaDocumento.Mensal && d.Status != StatusDocumento.Reprovado)
+            .GroupBy(d => d.TipoDocumentoExigidoId).Select(g => g.OrderByDescending(d => d.DataValidade ?? DateOnly.MaxValue).First());
+        foreach (var d in docs)
+        {
+            if (d.DataValidade is not { } v) continue;
+            var dias = v.DayNumber - hoje.DayNumber;
+            if (dias is 30 or 15 or 7) l.Add($"• {d.TipoDocumento.Nome}: vence em {dias} dias ({v:dd/MM/yyyy}).");
+            else if (dias == 0) l.Add($"• {d.TipoDocumento.Nome}: vence HOJE. A partir de amanhã pedidos e medições ficam bloqueados.");
+            else if (dias < 0 && lembreteVencido > 0 && (-dias) % lembreteVencido == 0) l.Add($"• {d.TipoDocumento.Nome}: vencido desde {v:dd/MM/yyyy}. Pedidos e medições estão bloqueados.");
+        }
+        foreach (var c in competencias.Where(c => c.Situacao != Domain.Suprimentos.SituacaoCompetencia.Conferida))
+        {
+            var limite = c.Limite(diaLimite);
+            var faltam = c.Itens.Count(i => i.Situacao is Domain.Suprimentos.SituacaoItemCompetencia.Pendente or Domain.Suprimentos.SituacaoItemCompetencia.Recusado);
+            if (hoje == c.Mes.AddMonths(1)) l.Add($"• Documentação mensal {c.Mes:MM/yyyy} aberta: envie até {limite:dd/MM} ({c.Itens.Count} itens).");
+            else if (limite.DayNumber - hoje.DayNumber == 5 && faltam > 0) l.Add($"• Documentação mensal {c.Mes:MM/yyyy}: faltam {faltam} itens, limite {limite:dd/MM}.");
+            else if (hoje > limite && (hoje.DayNumber - limite.DayNumber) % 3 == 0 && faltam > 0) l.Add($"• Documentação mensal {c.Mes:MM/yyyy} ATRASADA: faltam {faltam} itens. A medição do mês fica bloqueada.");
+            else if (c.Situacao == Domain.Suprimentos.SituacaoCompetencia.ComPendencia && c.Itens.Any(i => i.ConferidoEm is { } ce && ce > agora.AddDays(-1) && i.Situacao == Domain.Suprimentos.SituacaoItemCompetencia.Recusado))
+                l.Add($"• Documentação mensal {c.Mes:MM/yyyy}: há itens recusados. Veja o motivo e reenvie.");
+        }
+        foreach (var (num, nome, prazo) in cotacoes.Where(x => x.Prazo > agora && x.Prazo <= agora.AddHours(24)))
+            l.Add($"• Cotação {num} ({nome}) fecha {prazo.ToLocalTime():dd/MM 'às' HH'h'mm} e sua proposta ainda não foi enviada.");
+        return l;
+    }
 
     // ───────── Varredura periódica (lembretes e prazos) ─────────
 
@@ -142,6 +211,26 @@ public static class AvisosServico
                     $"obra/rnc?id={r.Id}", ct);
         }
 
+        if (regras.ContainsKey(EventosAviso.PendenciasFornecedor))
+            n += await AvisosFornecedoresAsync(db, hoje, agora, ct);
+        if (regras.TryGetValue(EventosAviso.DocumentacaoMensal, out var rDm))
+        {
+            // Interno: adiamento aguardando o engenheiro e competência atrasada (uma vez por dia, aos engenheiros com acesso à obra).
+            var p = await ParametrosServico.CarregarAsync(db, ct);
+            var dl = p.Int(Domain.Estrutura.Parametros.DiaLimiteCompetencia);
+            var comps = await db.CompetenciasDocumentais.AsNoTracking().Include(c => c.Itens).Where(c => c.Situacao != Domain.Suprimentos.SituacaoCompetencia.Conferida).Take(500).ToListAsync(ct);
+            foreach (var g in comps.GroupBy(c => c.ObraId))
+            {
+                var itens = g.Where(c => c.Itens.Any(i => i.Situacao == Domain.Suprimentos.SituacaoItemCompetencia.AdiamentoSolicitado)).Select(c => $"• {c.Mes:MM/yyyy}: pedido de adiamento aguardando o engenheiro.")
+                    .Concat(g.Where(c => c.Atrasada(hoje, dl)).Select(c => $"• {c.Mes:MM/yyyy}: documentação mensal atrasada ({c.Entregues} de {c.Itens.Count} itens)."))
+                    .Concat(g.Where(c => c.Situacao == Domain.Suprimentos.SituacaoCompetencia.Enviada).Select(c => $"• {c.Mes:MM/yyyy}: enviada pelo fornecedor, aguardando conferência.")).ToList();
+                if (itens.Count == 0) continue;
+                var eng = usuarios.Where(u => u.Perfil == PerfilUsuario.Engenharia && (u.VeTodasObras || u.Obras.Any(o => o.ObraId == g.Key))).Select(u => (Guid?)u.Id);
+                n += await EnfileirarAsync(db, rDm, Ds(eng), $"docmensal:{g.Key:N}:{dia}",
+                    new Dictionary<string, string?> { ["itens"] = string.Join("\n", itens), ["assunto"] = "Documentação mensal de fornecedores" }, "suprimentos/documentacao-mensal", ct);
+            }
+        }
+
         if (regras.TryGetValue(EventosAviso.RestricaoVencendo, out var rRes))
         {
             var limite = hoje.AddDays(2);
@@ -151,6 +240,40 @@ public static class AvisosServico
                     new Dictionary<string, string?> { ["restricao"] = $"{r.Numero} – {r.Descricao}", ["atividade"] = r.AtividadeNome, ["data"] = r.DataLimite.ToString("dd/MM/yyyy"),
                         ["assunto"] = r.DataLimite < hoje ? $"Restrição vencida: {r.AtividadeNome}" : $"Restrição vence em {r.DataLimite:dd/MM}: {r.AtividadeNome}" },
                     $"engenharia/last-planner?obra={r.ObraId}&aba=medio&restricao={r.Id}", ct);
+        }
+        return n;
+    }
+
+    /// <summary>Resumo diário de cada fornecedor com relação ativa (contrato, pedido em 6 meses ou cotação aberta): um e-mail por dia.</summary>
+    private static async Task<int> AvisosFornecedoresAsync(ISigeoDb db, DateOnly hoje, DateTimeOffset agora, CancellationToken ct)
+    {
+        var p = await ParametrosServico.CarregarAsync(db, ct);
+        var desde = agora.AddMonths(-6);
+        var abertas = SincronizacaoCadastros.CotacoesAbertas;
+        var convites = await (from cf in db.Set<Domain.Suprimentos.CotacaoFornecedor>().AsNoTracking()
+                              join c in db.Cotacoes.AsNoTracking() on cf.CotacaoId equals c.Id
+                              where abertas.Contains(c.Status) && cf.Status == StatusConvite.Convidado && c.PrazoResposta != null && c.PrazoResposta > agora
+                              select new { cf.FornecedorId, c.Numero, c.Nome, Prazo = c.PrazoResposta!.Value }).ToListAsync(ct);
+        var ids = (await db.Contratos.AsNoTracking().Where(k => k.Status == StatusContrato.Ativo).Select(k => k.FornecedorId).ToListAsync(ct))
+            .Concat(await db.Pedidos.AsNoTracking().Where(x => x.CriadoEm >= desde).Select(x => x.FornecedorId).ToListAsync(ct))
+            .Concat(convites.Select(c => c.FornecedorId)).Distinct().ToList();
+        if (ids.Count == 0) return 0;
+        var empresa = await db.Empresas.AsNoTracking().Where(e => e.Id == db.EmpresaAtualId).Select(e => e.NomeFantasia != "" ? e.NomeFantasia : e.RazaoSocial).FirstOrDefaultAsync(ct) ?? "construtora";
+        var n = 0;
+        foreach (var lote in ids.Chunk(200))
+        {
+            var fs = await db.Fornecedores.AsNoTracking().Include(f => f.Contatos).Include(f => f.Documentos).ThenInclude(d => d.TipoDocumento)
+                .Where(f => lote.Contains(f.Id) && f.Ativo).ToListAsync(ct);
+            var comps = (await db.CompetenciasDocumentais.AsNoTracking().Include(c => c.Itens).Where(c => lote.Contains(c.FornecedorId) && c.Situacao != Domain.Suprimentos.SituacaoCompetencia.Conferida).ToListAsync(ct))
+                .ToLookup(c => c.FornecedorId);
+            foreach (var f in fs)
+            {
+                var itens = ItensFornecedor(f, comps[f.Id], convites.Where(c => c.FornecedorId == f.Id).Select(c => (c.Numero, c.Nome, c.Prazo)), hoje, agora,
+                    p.Int(Domain.Estrutura.Parametros.DiaLimiteCompetencia), p.Int(Domain.Estrutura.Parametros.LembreteDocVencidoDias));
+                if (itens.Count == 0) continue;
+                n += await EnfileirarExternoAsync(db, EventosAviso.PendenciasFornecedor, DestinosFornecedor(f), $"forn:{f.Id:N}:{hoje:yyyyMMdd}",
+                    new Dictionary<string, string?> { ["itens"] = string.Join("\n", itens), ["construtora"] = empresa, ["assunto"] = $"Pendências na {empresa}" }, "fornecedor", ct);
+            }
         }
         return n;
     }

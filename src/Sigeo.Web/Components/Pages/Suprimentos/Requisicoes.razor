@@ -149,7 +149,8 @@
             <div class="form mt-14">
                 <Campo Rotulo="Observação" Classe="s8"><textarea @bind="_r.Observacao" disabled="@(!Editavel)"></textarea></Campo>
                 <Campo Rotulo="Sem orçamento (compra direta)" Classe="s4">
-                    <div class="checks"><label><input type="checkbox" @bind="_r.SemOrcamento" disabled="@(!Editavel)" /> Compra sem orçamento</label></div>
+                    <div class="checks"><label><input type="checkbox" @bind="_r.SemOrcamento" disabled="@(!Editavel)" /> Compra sem orçamento</label>
+                        <label title="Prazo menor que o lead time: fica fora da base de preço da economia real"><input type="checkbox" id="req-emergencial" @bind="_r.Emergencial" disabled="@(!Editavel)" /> Compra emergencial</label></div>
                     @if (_r.SemOrcamento) { <input placeholder="Justificativa (obrigatória)" @bind="_r.JustificativaSemOrcamento" disabled="@(!Editavel)" /> }
                 </Campo>
                 @if (_r.Itens.Any(i => i.Locais.Count > 0 && i.Quantidade > i.Locais.Sum(l => l.Quantidade) + 0.001m))
@@ -163,7 +164,8 @@
             {
                 @if (_r.Tipo == TipoRequisicao.Servico) { <Anexos Entidade="Requisicao" EntidadeId="_r.Id" Categoria="Escopo" Titulo="Edital / escopo (projetos, memoriais, croquis, ITS)" SomenteLeitura="!Editavel" /> }
                 @if (_r.CriadoEm != default) { <Notas Entidade="Requisicao" EntidadeId="_r.Id" /> }
-                @if (_r.Status is StatusRequisicao.EmCotacao or StatusRequisicao.PedidoEmitido or StatusRequisicao.Concluida) { <FornecedoresCotacao RequisicaoId="_r.Id" Versao="_versao" /> }
+                @if (EmAtendimento) { <AtendimentoRequisicao RequisicaoId="_r.Id" Versao="_versao" PodeEncerrar="EmCompra" AoAlterar="Recarregar" /> }
+                @if (_r.Status is StatusRequisicao.EmCotacao or StatusRequisicao.PedidoEmitido or StatusRequisicao.Concluida or StatusRequisicao.ParcialmenteAtendida or StatusRequisicao.Atendida or StatusRequisicao.EncerradaComSaldo) { <FornecedoresCotacao RequisicaoId="_r.Id" Versao="_versao" /> }
                 <Autorizacoes Entidade="EntidadeAprovavel.Requisicao" EntidadeId="_r.Id" Versao="_versao" AoDecidir="Recarregar" />
             }
         }
@@ -177,7 +179,7 @@
             {
                 <button class="btn sec" id="req-central" disabled="@Ocupado" @onclick="AtenderDoCentral" title="Cria uma transferência do almoxarifado central com o que houver em estoque"><Icone Nome="caixa" Tam="16" /> Atender do estoque central</button>
             }
-            @if (_r.Status == StatusRequisicao.Autorizada) { <button class="btn laranja" @onclick="AbrirCotacao"><Icone Nome="calculadora" Tam="16" /> Gerar cotação</button> }
+            @if (EmCompra) { <button class="btn laranja" id="req-cotar" @onclick="AbrirCotacao"><Icone Nome="calculadora" Tam="16" /> @(_r.Status == StatusRequisicao.Autorizada ? "Gerar cotação" : "Nova cotação com o saldo")</button> }
             @if (PodeVoltar) { <button class="btn sec" id="req-voltar" disabled="@Ocupado" @onclick="VoltarEdicao"><Icone Nome="editar" Tam="16" /> Voltar para edição</button> }
             @if (PodeExcluir) { <button class="btn perigo" id="req-excluir" disabled="@Ocupado" @onclick="Excluir"><Icone Nome="lixeira" Tam="16" /> Excluir requisição</button> }
             @if (Editavel && _r.Numero > 0) { <button class="btn ok" disabled="@Ocupado" @onclick="Enviar"><Icone Nome="enviar" Tam="16" /> Enviar p/ aprovação</button> }
@@ -203,8 +205,18 @@
 
 <Modal @bind-Aberto="_cotar" Titulo="Gerar cotação — convidar fornecedores" Tamanho="media">
     <ChildContent>
-        <p class="mudo">Convide os fornecedores. A situação de qualificação na data fica registrada; fornecedor não qualificado pode ser convidado, mas não pode vencer.
+        <Erros Lista="ErrosForm" />
+        <p class="mudo">Convide os fornecedores. A cotação leva só o saldo a pedir (o que já foi pedido ou está em outra cotação aberta fica de fora).
+            Fornecedor bloqueado ou em qualificação pode ser convidado: a pendência fica registrada no convite e aparece no mapa, mas ele não pode vencer.
             <b>Sugeridos</b> = atendem os grupos do catálogo (ou as ITS) dos itens.</p>
+        <div class="form">
+            @if (_lotes.Count > 1)
+            {
+                <Campo Rotulo="Lote (comprador)" Classe="s6"><select id="cot-lote" @bind="_loteCotacao"><option value="">Todos os itens com saldo</option>
+                    @foreach (var l in _lotes) { <option value="@l.Id">Lote @l.Letra · @l.Categoria · @(l.CompradorNome ?? "fila do gestor")</option> }</select></Campo>
+            }
+            <Campo Rotulo="Prazo de resposta (opcional)" Classe="s6" Ajuda="Depois dele o portal não aceita mais envio nem edição"><input type="datetime-local" id="cot-prazo" @bind="_prazoResposta" /></Campo>
+        </div>
         <table class="itens">
             <thead><tr><th></th><th>Fornecedor</th><th>Qualificação</th></tr></thead>
             <tbody>
@@ -254,6 +266,12 @@
     private readonly HashSet<Guid> _convidados = [];
 
     private bool Editavel => _r is { Status: StatusRequisicao.Rascunho or StatusRequisicao.DevolvidaAjuste };
+    /// <summary>Autorizada e ainda com saldo para comprar (várias cotações/pedidos até atender).</summary>
+    private bool EmCompra => _r is { Status: StatusRequisicao.Autorizada or StatusRequisicao.EmCotacao or StatusRequisicao.PedidoEmitido or StatusRequisicao.ParcialmenteAtendida };
+    private bool EmAtendimento => _r is not null && (EmCompra || _r.Status is StatusRequisicao.Atendida or StatusRequisicao.EncerradaComSaldo or StatusRequisicao.Concluida);
+    private List<LoteCompra> _lotes = [];
+    private Guid? _loteCotacao;
+    private DateTime? _prazoResposta;
     private bool Solicitante => _r is not null && _r.SolicitanteUsuarioId == Usuario.UsuarioId;
     /// <summary>Solicitante pode retirar da aprovação enquanto ninguém decidiu (1ª aprovação).</summary>
     private bool PodeVoltar => _r is { Status: StatusRequisicao.AguardandoEngenheiro } && Solicitante;
@@ -343,7 +361,8 @@
                 reprov && r.AprovadoEngenheiroEm is null ? "erro" : Est(r.AprovadoEngenheiroEm is not null, r.Status == StatusRequisicao.AguardandoEngenheiro)),
             new("Aprov. Diretor Técnico", r.AprovadoDiretorEm is { } d ? Rotulos.DataHora(d) : r.Status == StatusRequisicao.AguardandoDiretorTecnico ? "pendente" : "—",
                 reprov && r.AprovadoEngenheiroEm is not null ? "erro" : Est(r.AprovadoDiretorEm is not null, r.Status == StatusRequisicao.AguardandoDiretorTecnico)),
-            new("Cotação", "Comprador", Est(r.Status is StatusRequisicao.EmCotacao or StatusRequisicao.PedidoEmitido or StatusRequisicao.Concluida, r.Status == StatusRequisicao.Autorizada)),
+            new("Compra", "Comprador", Est(r.Status is StatusRequisicao.EmCotacao or StatusRequisicao.PedidoEmitido or StatusRequisicao.Concluida or StatusRequisicao.ParcialmenteAtendida or StatusRequisicao.Atendida or StatusRequisicao.EncerradaComSaldo, r.Status == StatusRequisicao.Autorizada)),
+            new("Atendimento", "Recebimentos", Est(r.Status is StatusRequisicao.Atendida or StatusRequisicao.EncerradaComSaldo or StatusRequisicao.Concluida, r.Status is StatusRequisicao.ParcialmenteAtendida or StatusRequisicao.EmCotacao or StatusRequisicao.PedidoEmitido)),
         ];
     }
 
@@ -487,13 +506,18 @@
         (_fornecedores, _sugeridos) = await SugestaoFornecedores.ParaAsync(db, Forn, _r!.Tipo, _r.Itens, Cancelamento);
         _convidados.Clear();
         foreach (var f in _sugeridos.Where(id => _fornecedores.Any(x => x.Id == id))) _convidados.Add(f);
+        _lotes = await db.LotesCompra.AsNoTracking().Where(l => l.RequisicaoId == _r.Id && l.Situacao == SituacaoLote.EmCompra).OrderBy(l => l.Letra).ToListAsync(Cancelamento);
+        // Comprador abre a cotação do próprio lote por padrão.
+        _loteCotacao = _lotes.Count > 1 ? _lotes.FirstOrDefault(l => l.CompradorUsuarioId == Usuario.UsuarioId)?.Id : null;
+        _prazoResposta = null; ErrosForm = null;
         _cotar = true;
     }
 
     private async Task GerarCotacao()
     {
         Guid id = default;
-        if (await Executar(async () => id = await CotacoesSrv.GerarCotacaoAsync(_r!.Id, _convidados, Cancelamento), "Cotação criada."))
+        DateTimeOffset? prazo = _prazoResposta is { } p ? new DateTimeOffset(p, Relogio.GetLocalNow().Offset) : null;
+        if (await Executar(async () => id = await CotacoesSrv.GerarCotacaoAsync(_r!.Id, _convidados, _loteCotacao, null, prazo, Cancelamento), "Cotação criada."))
         { _cotar = false; _aberto = false; Nav.NavigateTo($"cotacoes?id={id}"); }
     }
 }

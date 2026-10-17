@@ -49,6 +49,14 @@ public class Tarefa : EntidadeAuditavel, IHistoricoTemporal
     public string? OrigemEntidade { get; set; }
     public Guid? OrigemId { get; set; }
     public string? OrigemDescricao { get; set; }
+    /// <summary>Meta a que a tarefa contribui (placar por pessoa, equipe e serviço).</summary>
+    public Guid? MetaId { get; set; }
+    /// <summary>Tarefa da equipe: todos veem; quem conclui fica registrado.</summary>
+    public Guid? EquipeId { get; set; }
+    public AceiteTarefa Aceite { get; set; } = AceiteTarefa.NaoSeAplica;
+    public string? AceitaPor { get; set; }
+    public DateTimeOffset? AceitaEm { get; set; }
+    public string? MotivoDevolucao { get; set; }
 
     public ICollection<TarefaProrrogacao> Prorrogacoes { get; set; } = [];
     public ICollection<TarefaLeitura> Leituras { get; set; } = [];

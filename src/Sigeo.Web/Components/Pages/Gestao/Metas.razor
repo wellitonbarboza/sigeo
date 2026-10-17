@@ -1,0 +1,216 @@
+@page "/gestao/metas"
+@inherits PaginaBase
+@inject MetasServico MetasSrv
+@inject ColaboracaoServico ColabSrv
+@* Metas e entregas: metas do setor, individuais ou de equipe (valor automático pelos indicadores ou manual com evidência),
+   tarefas ligadas à meta com aceite do gestor e placar por pessoa, equipe/setor e serviço.
+   A nota do placar serve para acompanhar e avaliar o desempenho: não altera nenhuma meta (a de economia continua sozinha). *@
+
+<Pagina Titulo="Metas e entregas" AoNovo="NovaMeta" AoAtualizar="Carregar">
+    <Direita>
+        <select aria-label="Período" @bind="_periodo" @bind:after="Carregar"><option value="tri">Trimestre atual</option><option value="mes">Mês atual</option><option value="ano">Ano</option></select>
+        <button class="btn sec pq" id="metas-tarefa" @onclick="NovaTarefa"><Icone Nome="mais" Tam="14" /> Nova tarefa</button>
+        <button class="btn sec pq" id="metas-fechar" disabled="@Ocupado" title="Congela o valor de cada meta no mês (comparação e avaliação de desempenho)" @onclick="FecharMes"><Icone Nome="cadeado" Tam="14" /> Fechar mês</button>
+    </Direita>
+    <ChildContent>
+        <div class="pagina">
+            <Erros Lista="ErrosForm" />
+            @if (_d is null) { <Esqueleto Indicadores="3" Linhas="8" /> }
+            else
+            {
+                <p class="mudo">@Inicio.ToString("dd/MM/yyyy") a @Fim.ToString("dd/MM/yyyy") · metas do setor ou individuais · tarefas com aceite do gestor</p>
+                <div class="grade-3" id="metas-cartoes">
+                    @foreach (var m in _d.Metas)
+                    {
+                        <div class="cartao" @key="m.Meta.Id">
+                            <div class="linha-espaco"><b><a href="#" @onclick="() => AbrirMeta(m.Meta)" @onclick:preventDefault>@m.Meta.Nome</a></b><Selo Texto="@m.Situacao" Tom="@m.Tom" /></div>
+                            <small class="mudo">@(m.Meta.Dono switch { DonoMeta.Pessoa => "Individual", DonoMeta.Equipe => "Equipe", _ => "Setor" }) · @m.Meta.DonoNome · @De(m.Meta.Indicador)@(m.Meta.Servico is { } sv ? $" · {sv}" : "") · peso @m.Meta.Peso.ToString("0")</small>
+                            <div class="barra-meta mt-4"><span class="@m.Tom" style="width:@(Math.Clamp(m.Atingido ?? 0, 0, 1) * 100)%"></span></div>
+                            <small>@(m.Valor is { } v ? $"{v:0.0}{m.Meta.Unidade}" : "sem dado") de @($"{m.Meta.Alvo:0.#}{m.Meta.Unidade}") @(m.Meta.MenorMelhor ? "(menor é melhor)" : "")@(m.Tarefas > 0 ? $" · tarefas {m.TarefasConcluidas}/{m.Tarefas}" : "")</small>
+                        </div>
+                    }
+                    @if (_d.Metas.Count == 0) { <p class="mudo">Nenhuma meta no período. Clique em Novo para criar.</p> }
+                </div>
+
+                <div class="secao"><Icone Nome="grafico" /> Placar
+                    <span class="acao abas">
+                        <button class="@(_placar == "pessoa" ? "on" : "")" @onclick='() => _placar = "pessoa"'>Por pessoa</button>
+                        <button class="@(_placar == "equipe" ? "on" : "")" @onclick='() => _placar = "equipe"'>Por equipe / setor</button>
+                        <button class="@(_placar == "servico" ? "on" : "")" @onclick='() => _placar = "servico"'>Por serviço</button>
+                    </span></div>
+                <table class="itens" id="metas-placar">
+                    <thead><tr><th>@(_placar == "pessoa" ? "Pessoa" : _placar == "equipe" ? "Equipe / setor" : "Serviço")</th><th class="num">Metas atingidas</th><th class="num">Tarefas no prazo</th><th class="num">Atrasadas</th><th class="num">Nota</th></tr></thead>
+                    <tbody>
+                        @foreach (var p in Placar)
+                        {
+                            <tr @key="p.Chave"><td>@p.Nome</td><td class="num">@p.MetasAtingidas de @p.Metas</td><td class="num">@p.TarefasNoPrazo de @p.TarefasTotal</td><td class="num @(p.Atrasadas > 0 ? "texto-erro" : "")">@p.Atrasadas</td>
+                                <td class="num peso-600 @(p.Nota >= 8 ? "texto-ok" : p.Nota >= 6 ? "texto-aviso" : p.Nota is null ? "mudo" : "texto-erro")">@(p.Nota?.ToString("0.0") ?? "—")</td></tr>
+                        }
+                        @if (!Placar.Any()) { <tr><td colspan="5" class="mudo">Sem dados no período.</td></tr> }
+                    </tbody>
+                </table>
+                <p class="mudo">Nota = metas atingidas (60%, ponderadas pelo peso, cada uma limitada a 100%) + tarefas aceitas no prazo original (40%). Serve para acompanhar e avaliar o desempenho; não altera a meta.</p>
+
+                <div class="secao"><Icone Nome="lista" /> Tarefas ligadas às metas</div>
+                <div class="tabela-rolavel">
+                    <table class="itens" id="metas-tarefas">
+                        <thead><tr><th>Tarefa</th><th>Meta</th><th>Responsável</th><th>Prazo</th><th>Situação</th><th>Entrega</th><th></th></tr></thead>
+                        <tbody>
+                            @foreach (var t in _d.Tarefas)
+                            {
+                                <tr @key="t.Id">
+                                    <td><a href="@($"tarefas?id={t.Id}")">@t.Numero · @t.Titulo</a></td><td>@(t.Meta ?? "—")</td><td>@t.Responsavel@(t.Equipe is { } e ? $" · {e}" : "")</td>
+                                    <td class="@(t.Atrasada ? "texto-erro peso-600" : "")">@t.Prazo.ToString("dd/MM")@(t.Prazo != t.PrazoOriginal ? $" (orig. {t.PrazoOriginal:dd/MM})" : "")</td>
+                                    <td><Selo Texto="@De(t.Status)" Tom="@(t.Atrasada ? "erro" : t.Status == StatusTarefa.Concluida ? "ok" : "info")" /></td>
+                                    <td><Selo Texto="@De(t.Aceite)" Tom="@Tom(t.Aceite)" />@if (t.Motivo is { } mo) { <br /><small class="mudo">@mo</small> }</td>
+                                    <td class="nowrap">@if (t.Aceite == AceiteTarefa.Aguardando)
+                                        {
+                                            <button class="btn ok pq" disabled="@Ocupado" @onclick="() => Decidir(t, true)">Aceitar</button>
+                                            <button class="btn perigo pq" disabled="@Ocupado" @onclick="() => AbrirDevolver(t)">Devolver</button>
+                                        }</td>
+                                </tr>
+                            }
+                            @if (_d.Tarefas.Count == 0) { <tr><td colspan="7" class="mudo">Nenhuma tarefa ligada a meta no período.</td></tr> }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </ChildContent>
+    <Faixa><b>Metas e entregas</b><span>Setor, pessoa ou equipe</span><span>Indicadores automáticos ou manual</span><span>Nota para acompanhar e avaliar</span></Faixa>
+</Pagina>
+
+<Modal @bind-Aberto="_abertoMeta" Titulo="@(_m?.CriadoEm == default ? "Nova meta" : $"Meta: {_m?.Nome}")" Tamanho="media">
+    <ChildContent>
+        @if (_m is not null)
+        {
+            <Erros Lista="ErrosForm" />
+            <div class="form">
+                <Campo Rotulo="Nome" Obrigatorio Classe="s12"><input id="meta-nome" @bind="_m.Nome" maxlength="200" placeholder="ex.: Economia real 5%" /></Campo>
+                <Campo Rotulo="Dono" Obrigatorio Classe="s4"><select id="meta-dono" @bind="_m.Dono"><option value="@DonoMeta.Setor">Setor</option><option value="@DonoMeta.Pessoa">Individual (pessoa)</option><option value="@DonoMeta.Equipe">Equipe</option></select></Campo>
+                @if (_m.Dono == DonoMeta.Setor) { <Campo Rotulo="Setor" Obrigatorio Classe="s8"><select id="meta-setor" @bind="_m.Setor"><option value="">Selecione…</option>@foreach (var s in Setores) { <option>@s</option> }</select></Campo> }
+                else if (_m.Dono == DonoMeta.Pessoa) { <Campo Rotulo="Pessoa" Obrigatorio Classe="s8"><select id="meta-pessoa" @bind="_m.UsuarioId"><option value="">Selecione…</option>@foreach (var u in _usuarios) { <option value="@u.Id">@u.Texto</option> }</select></Campo> }
+                else { <Campo Rotulo="Equipe" Obrigatorio Classe="s8"><select @bind="_m.EquipeId"><option value="">Selecione…</option>@foreach (var e in _equipes) { <option value="@e.Id">@e.Texto</option> }</select></Campo> }
+                <Campo Rotulo="Indicador" Obrigatorio Classe="s6"><select id="meta-ind" @bind="_m.Indicador" @bind:after="SugerirUnidade">@foreach (var i in Enum.GetValues<IndicadorMeta>()) { <option value="@i">@De(i)</option> }</select></Campo>
+                <Campo Rotulo="Alvo" Obrigatorio Classe="s3"><input type="number" step="0.1" id="meta-alvo" @bind="_m.Alvo" /></Campo>
+                <Campo Rotulo="Unidade" Classe="s3"><input @bind="_m.Unidade" maxlength="20" /></Campo>
+                <Campo Rotulo="Início" Obrigatorio Classe="s3"><input type="date" @bind="_m.Inicio" /></Campo>
+                <Campo Rotulo="Fim" Obrigatorio Classe="s3"><input type="date" @bind="_m.Fim" /></Campo>
+                <Campo Rotulo="Peso na nota (0–100)" Classe="s3"><input type="number" min="0" max="100" @bind="_m.Peso" /></Campo>
+                <Campo Rotulo="" Classe="s3"><label class="check"><input type="checkbox" @bind="_m.MenorMelhor" /> Menor é melhor</label></Campo>
+                <Campo Rotulo="Obra (opcional)" Classe="s6"><select @bind="_m.ObraId"><option value="">Todas</option>@foreach (var o in _obras) { <option value="@o.Id">@o.Texto</option> }</select></Campo>
+                <Campo Rotulo="Serviço (opcional, placar por serviço)" Classe="s6"><input @bind="_m.Servico" maxlength="150" placeholder="ex.: Alvenaria Torre 2" /></Campo>
+                @if (_m.Indicador == IndicadorMeta.Manual)
+                {
+                    <Campo Rotulo="Valor realizado (manual)" Classe="s4"><input type="number" step="0.1" @bind="_m.ValorManual" /></Campo>
+                    <Campo Rotulo="Evidência" Classe="s8"><input @bind="_m.Evidencia" placeholder="link, documento ou registro que comprova" /></Campo>
+                }
+                <Campo Rotulo="" Classe="s4"><label class="check"><input type="checkbox" @bind="_m.Ativa" /> Ativa</label></Campo>
+            </div>
+            <p class="mudo">Automáticos: economia real e tempo de compra do comprador (individual) ou do setor; entrega no prazo; cotações com 3+ propostas; atendimento até a necessidade; PPC do Last Planner; tarefas no prazo do dono.</p>
+        }
+    </ChildContent>
+    <Rodape>
+        <BotaoExcluir Tipo="typeof(Meta)" Id="@(_m?.CriadoEm == default ? Guid.Empty : _m!.Id)" IdBotao="exc-meta" AoExcluir="async () => { _abertoMeta = false; await Carregar(); }" />
+        <button class="btn prim" id="meta-salvar" disabled="@Ocupado" @onclick="SalvarMeta"><Icone Nome="check" Tam="16" /> Salvar meta</button>
+    </Rodape>
+</Modal>
+
+<Modal @bind-Aberto="_abertoTarefa" Titulo="Nova tarefa ligada a meta" Tamanho="media">
+    <ChildContent>
+        @if (_t is not null)
+        {
+            <Erros Lista="ErrosForm" />
+            <div class="form">
+                <Campo Rotulo="Tarefa" Obrigatorio Classe="s12"><input id="mt-titulo" @bind="_t.Titulo" maxlength="200" /></Campo>
+                <Campo Rotulo="Meta" Obrigatorio Classe="s6"><select id="mt-meta" @bind="_t.MetaId"><option value="">Selecione…</option>@foreach (var m in _d?.Metas ?? []) { <option value="@m.Meta.Id">@m.Meta.Nome</option> }</select></Campo>
+                <Campo Rotulo="Responsável" Obrigatorio Classe="s6"><select id="mt-resp" @bind="_t.ResponsavelId"><option value="@Guid.Empty">Selecione…</option>@foreach (var u in _usuarios) { <option value="@u.Id">@u.Texto</option> }</select></Campo>
+                <Campo Rotulo="Equipe (opcional)" Classe="s6"><select @bind="_t.EquipeId"><option value="">—</option>@foreach (var e in _equipes) { <option value="@e.Id">@e.Texto</option> }</select></Campo>
+                <Campo Rotulo="Prazo" Obrigatorio Classe="s6"><input type="date" id="mt-prazo" @bind="_t.Prazo" /></Campo>
+                <Campo Rotulo="Descrição" Classe="s12"><textarea @bind="_t.Descricao"></textarea></Campo>
+            </div>
+            <p class="mudo">Concluída pelo responsável, a tarefa fica "entregue, aguarda aceite" até o gestor aceitar ou devolver.</p>
+        }
+    </ChildContent>
+    <Rodape><button class="btn prim" id="mt-salvar" disabled="@Ocupado" @onclick="SalvarTarefa"><Icone Nome="check" Tam="16" /> Criar tarefa</button></Rodape>
+</Modal>
+
+<Modal @bind-Aberto="_abertoDev" Titulo="Devolver entrega" Tamanho="pequena">
+    <ChildContent><Erros Lista="ErrosForm" /><div class="form"><Campo Rotulo="Motivo" Obrigatorio Classe="s12"><input id="mt-dev-motivo" @bind="_motivoDev" /></Campo></div></ChildContent>
+    <Rodape><button class="btn perigo" disabled="@Ocupado" @onclick="() => Decidir(_dev!, false)">Devolver</button></Rodape>
+</Modal>
+
+@code {
+    private MetasDto? _d;
+    private string _periodo = "tri", _placar = "pessoa";
+    private Meta? _m;
+    private Tarefa? _t;
+    private LinhaTarefaMeta? _dev;
+    private string? _motivoDev;
+    private bool _abertoMeta, _abertoTarefa, _abertoDev;
+    private List<Opcao> _usuarios = [], _obras = [], _equipes = [];
+    private static readonly string[] Setores = ["Suprimentos", "Engenharia", "Qualidade", "Segurança do trabalho", "Financeiro", "Obra", "Diretoria"];
+
+    private DateOnly Inicio => _periodo switch
+    {
+        "mes" => new DateOnly(Hoje.Year, Hoje.Month, 1), "ano" => new DateOnly(Hoje.Year, 1, 1),
+        _ => new DateOnly(Hoje.Year, ((Hoje.Month - 1) / 3) * 3 + 1, 1)
+    };
+    private DateOnly Fim => _periodo switch { "mes" => Inicio.AddMonths(1).AddDays(-1), "ano" => new DateOnly(Hoje.Year, 12, 31), _ => Inicio.AddMonths(3).AddDays(-1) };
+    private IEnumerable<LinhaPlacar> Placar => _d is null ? [] : _placar switch { "equipe" => _d.PorEquipe, "servico" => _d.PorServico, _ => _d.PorPessoa };
+
+    protected override async Task OnInitializedAsync()
+    {
+        _usuarios = await Cat.UsuariosAsync(); _obras = await Cat.ObrasAsync();
+        await using (var db = Fabrica.CriarLeitura())
+            _equipes = await db.Equipes.AsNoTracking().Where(e => e.Ativa).OrderBy(e => e.Nome).Select(e => new Opcao(e.Id, e.Nome, null)).ToListAsync(Cancelamento);
+        await Carregar();
+    }
+
+    private async Task Carregar() => _d = await MetasSrv.CarregarAsync(Inicio, Fim, Cancelamento);
+
+    private void NovaMeta() { _m = new Meta { Inicio = Inicio, Fim = Fim, Indicador = IndicadorMeta.EconomiaReal, Setor = "Suprimentos", Alvo = 5 }; ErrosForm = null; _abertoMeta = true; }
+    private void AbrirMeta(Meta m)
+    {
+        _m = new Meta
+        {
+            Id = m.Id, CriadoEm = m.CriadoEm, RowVersion = m.RowVersion, Nome = m.Nome, Dono = m.Dono, Setor = m.Setor, UsuarioId = m.UsuarioId, EquipeId = m.EquipeId, ObraId = m.ObraId,
+            Servico = m.Servico, Inicio = m.Inicio, Fim = m.Fim, Indicador = m.Indicador, Alvo = m.Alvo, MenorMelhor = m.MenorMelhor, Unidade = m.Unidade, Peso = m.Peso,
+            ValorManual = m.ValorManual, Evidencia = m.Evidencia, Ativa = m.Ativa
+        };
+        ErrosForm = null; _abertoMeta = true;
+    }
+
+    private void SugerirUnidade()
+    {
+        if (_m is null) return;
+        (_m.Unidade, _m.MenorMelhor) = _m.Indicador == IndicadorMeta.TempoCompra ? (" dias", true) : _m.Indicador == IndicadorMeta.Manual ? (_m.Unidade, _m.MenorMelhor) : ("%", false);
+    }
+
+    private async Task SalvarMeta()
+    {
+        if (await Executar(() => MetasSrv.SalvarAsync(_m!, Cancelamento), "Meta salva.")) { _abertoMeta = false; await Carregar(); }
+    }
+
+    private void NovaTarefa() { _t = new Tarefa { Prazo = Hoje.AddDays(7), Tipo = "Meta" }; ErrosForm = null; _abertoTarefa = true; }
+
+    private async Task SalvarTarefa()
+    {
+        if (_t!.MetaId is null) { ErrosForm = ["Escolha a meta."]; return; }
+        _t.PrazoOriginal = _t.Prazo;
+        if (await Executar(() => ColabSrv.SalvarTarefaAsync(_t!, Cancelamento), "Tarefa criada.")) { _abertoTarefa = false; await Carregar(); }
+    }
+
+    private void AbrirDevolver(LinhaTarefaMeta t) { _dev = t; _motivoDev = null; ErrosForm = null; _abertoDev = true; }
+
+    private async Task Decidir(LinhaTarefaMeta t, bool aceitar)
+    {
+        if (await Executar(() => MetasSrv.DecidirEntregaAsync(t.Id, aceitar, _motivoDev, Cancelamento), aceitar ? "Entrega aceita." : "Entrega devolvida.")) { _abertoDev = false; await Carregar(); }
+    }
+
+    private async Task FecharMes()
+    {
+        var n = 0;
+        if (await Executar(async () => n = await MetasSrv.FecharMesAsync(Hoje, Cancelamento), "Mês fechado: valores das metas congelados.")) await Carregar();
+    }
+}

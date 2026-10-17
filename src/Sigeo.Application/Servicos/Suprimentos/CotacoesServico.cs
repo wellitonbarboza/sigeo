@@ -17,33 +17,75 @@ public sealed class CotacoesServico(IFabricaDb fabrica, AprovacaoServico aprovac
 
     // ───────── T04–T06 Cotação ─────────
 
-    public async Task<Guid> GerarCotacaoAsync(Guid requisicaoId, IReadOnlyCollection<Guid> fornecedores, CancellationToken ct = default)
+    public Task<Guid> GerarCotacaoAsync(Guid requisicaoId, IReadOnlyCollection<Guid> fornecedores, CancellationToken ct = default) =>
+        GerarCotacaoAsync(requisicaoId, fornecedores, null, null, null, ct);
+
+    /// <summary>
+    /// Cotação com o saldo da requisição: todos os itens com saldo (ou só os do lote / os escolhidos, com a quantidade escolhida).
+    /// Nunca passa do saldo a pedir menos o que já está em cotação aberta. Fornecedor bloqueado ou em qualificação pode ser
+    /// convidado: a pendência fica registrada no convite e aparece no mapa.
+    /// </summary>
+    public async Task<Guid> GerarCotacaoAsync(Guid requisicaoId, IReadOnlyCollection<Guid> fornecedores, Guid? loteId, IReadOnlyDictionary<Guid, decimal>? quantidades,
+        DateTimeOffset? prazoResposta, CancellationToken ct = default)
     {
         await using var db = fabrica.Criar();
         var r = await db.Requisicoes.Include(x => x.Itens).FirstAsync(x => x.Id == requisicaoId, ct);
-        if (r.Status != StatusRequisicao.Autorizada) throw new RegraDeNegocioException("A requisição precisa estar autorizada (Engenheiro + Diretor Técnico).");
+        if (r.Status is not (StatusRequisicao.Autorizada or StatusRequisicao.EmCotacao or StatusRequisicao.PedidoEmitido or StatusRequisicao.ParcialmenteAtendida))
+            throw new RegraDeNegocioException("A requisição precisa estar autorizada (Engenheiro + Diretor Técnico) e com saldo a pedir.");
         if (fornecedores.Count == 0) throw new RegraDeNegocioException("Convide ao menos um fornecedor.");
-        var fs = await db.Fornecedores.Include(f => f.Qualificacoes).Where(f => fornecedores.Contains(f.Id)).ToListAsync(ct);
+        if (prazoResposta is { } pr && pr < relogio.GetUtcNow()) throw new RegraDeNegocioException("Prazo de resposta no passado.");
+        var saldos = (await AtendimentoServico.SaldosAsync(db, r.Id, ct)).ToDictionary(s => s.ItemId);
+        var itens = r.Itens.Where(i => saldos.TryGetValue(i.Id, out var s) && s.DisponivelCotacao > 0)
+            .Where(i => loteId is null || i.LoteCompraId == loteId)
+            .Where(i => quantidades is null || quantidades.Count == 0 || quantidades.ContainsKey(i.Id)).ToList();
+        if (itens.Count == 0) throw new RegraDeNegocioException("Não há saldo a cotar para os itens escolhidos (já pedidos, em cotação aberta ou encerrados).");
+        var erros = new List<string>();
+        var qtd = new Dictionary<Guid, decimal>();
+        foreach (var i in itens)
+        {
+            var disp = saldos[i.Id].DisponivelCotacao;
+            var q = quantidades is not null && quantidades.TryGetValue(i.Id, out var x) ? x : disp;
+            if (q <= 0 || q > disp) erros.Add($"{i.Descricao}: quantidade entre 0 e {disp:0.###} (saldo disponível).");
+            qtd[i.Id] = q;
+        }
+        ValidacaoException.Se(erros);
+        var fs = await db.Fornecedores.Include(f => f.Qualificacoes).Include(f => f.Documentos).ThenInclude(d => d.TipoDocumento).Where(f => fornecedores.Contains(f.Id)).ToListAsync(ct);
+        var lote = loteId ?? (itens.Select(i => i.LoteCompraId).Distinct().Count() == 1 ? itens[0].LoteCompraId : null);
         var c = new Cotacao
         {
-            ObraId = r.ObraId, RequisicaoId = r.Id, Numero = await Numerador.ProximoAsync(db, "Cotacao", ct), Tipo = r.Tipo,
+            ObraId = r.ObraId, RequisicaoId = r.Id, LoteCompraId = lote, PrazoResposta = prazoResposta, Numero = await Numerador.ProximoAsync(db, "Cotacao", ct), Tipo = r.Tipo,
             Nome = $"SC {r.Numero} - {r.Atividade}".ToUpperInvariant(), EnderecoEntrega = r.EnderecoEntrega, Status = StatusCotacao.AguardandoPropostas
         };
         foreach (var f in fs)
         {
-            c.Fornecedores.Add(new CotacaoFornecedor { FornecedorId = f.Id, QualificacaoNaData = f.CalcularStatus(Hoje) });
-            foreach (var i in r.Itens.Where(i => i.Status != StatusItemRequisicao.Cancelado))
+            c.Fornecedores.Add(new CotacaoFornecedor { FornecedorId = f.Id, QualificacaoNaData = f.CalcularStatus(Hoje), PendenciaNaData = PendenciaFornecedor(f, Hoje) });
+            foreach (var i in itens)
                 c.Itens.Add(new CotacaoItem
                 {
-                    FornecedorId = f.Id, RequisicaoItemId = i.Id, Descricao = i.Descricao, Unidade = i.Unidade, Quantidade = i.Quantidade,
+                    FornecedorId = f.Id, RequisicaoItemId = i.Id, Descricao = i.Descricao, Unidade = i.Unidade, Quantidade = qtd[i.Id],
                     Entrega = i.DataNecessidade ?? r.DataEntrega, MaterialControlado = i.MaterialControlado, Marca = i.Marca
                 });
         }
-        foreach (var i in r.Itens) i.Status = StatusItemRequisicao.Orcado;
-        r.Status = StatusRequisicao.EmCotacao;
         db.Cotacoes.Add(c);
         await db.SaveChangesAsync(ct);
+        await AtendimentoServico.AtualizarAsync(db, r.Id, ct);
+        await db.SaveChangesAsync(ct);
         return c.Id;
+    }
+
+    /// <summary>Pendência do fornecedor no convite (não impede convidar): qualificação e documentos vencidos/pendentes.</summary>
+    public static string? PendenciaFornecedor(Fornecedor f, DateOnly hoje)
+    {
+        var l = new List<string>();
+        var st = f.CalcularStatus(hoje);
+        if (!f.Ativo) l.Add("Inativo");
+        if (st != StatusQualificacao.Qualificado) l.Add(st switch
+        {
+            StatusQualificacao.EmQualificacao => "Em qualificação", StatusQualificacao.Vencida => "Qualificação vencida",
+            StatusQualificacao.NaoQualificado => "Não qualificado", StatusQualificacao.Desqualificado => "Bloqueado (desqualificado)", _ => st.ToString()
+        });
+        l.AddRange(TravasQualidade.DocumentosBloqueantes(f, hoje).Select(d => d.Replace("Documento do fornecedor ", "Documento ")));
+        return l.Count == 0 ? null : string.Join("; ", l.Distinct());
     }
 
     public async Task SalvarCotacaoAsync(Cotacao c, CancellationToken ct = default)
@@ -63,6 +105,7 @@ public sealed class CotacoesServico(IFabricaDb fabrica, AprovacaoServico aprovac
             i.RequisicaoItemId is { } rq && pedidas.TryGetValue(rq, out var m) ? m.Marca : null, i.RequisicaoItemId is { } rq2 && pedidas.TryGetValue(rq2, out var m2) && m2.MesmaMarca))
             .OfType<string>().Distinct().ToList());
         c.Recalcular(p);
+        c.AtualizarVencedorGeral();
         await PrecosReferenciaAsync(db, c, ct);
         await Grafo.SalvarAsync(db, c, nameof(Cotacao.Fornecedores), nameof(Cotacao.Itens));
         await db.SaveChangesAsync(ct);
@@ -174,86 +217,118 @@ public sealed class CotacoesServico(IFabricaDb fabrica, AprovacaoServico aprovac
                         .FirstAsync(x => x.Id == id, ct);
         var p = await ParametrosServico.CarregarAsync(db, ct);
         await SincronizacaoCadastros.QualificacaoNasCotacoesAsync(db, c.Fornecedores.Select(f => f.FornecedorId).ToList(), Hoje, ct);
-        var trava = TravasQualidade.VerificarCotacao(c, p, Hoje);
+        c.AtualizarVencedorGeral();
+        var ids = c.FornecedoresVencedores().ToList();
+        var vencedores = await db.Fornecedores.Include(f => f.Qualificacoes).Include(f => f.Documentos).ThenInclude(d => d.TipoDocumento)
+            .Where(f => ids.Contains(f.Id)).ToDictionaryAsync(f => f.Id, ct);
+        var trava = TravasQualidade.VerificarCotacao(c, p, Hoje, vencedores);
         ValidacaoException.Se(trava.Bloqueios);
-        foreach (var f in c.Fornecedores) if (f.FornecedorId == c.FornecedorVencedorId) f.Status = StatusConvite.Vencedor;
+        foreach (var f in c.Fornecedores)
+            if (ids.Contains(f.FornecedorId)) f.Status = StatusConvite.Vencedor;
+            else if (f.Status == StatusConvite.Vencedor) f.Status = StatusConvite.Respondido;
         var speCotacao = c.RequisicaoId is { } rq ? await db.Requisicoes.Where(x => x.Id == rq).Select(x => x.SpeId).FirstOrDefaultAsync(ct) : null;
         await aprovacoes.EnviarAsync(db, EntidadeAprovavel.Cotacao, c.Id, c.ObraId, c.Nome, c.ValorEstimado, ct, speCotacao);
         c.Status = StatusCotacao.AguardandoAprovacao;
         await db.SaveChangesAsync(ct);
     }
 
-    /// <summary>Monta pedido (material) a partir da cotação aprovada — leva especificação e documentos exigidos dos itens controlados.</summary>
-    public async Task<Guid> GerarPedidoAsync(Guid cotacaoId, CancellationToken ct = default)
+    /// <summary>Compatível com a tela antiga: gera os pedidos e devolve o primeiro.</summary>
+    public async Task<Guid> GerarPedidoAsync(Guid cotacaoId, CancellationToken ct = default) => (await GerarPedidosAsync(cotacaoId, ct))[0];
+
+    /// <summary>
+    /// Pedidos (material) da cotação aprovada: um por fornecedor vencedor (vencedor item a item ou geral), com a quantidade vencida.
+    /// Leva especificação e documentos exigidos dos itens controlados. O que sobrar volta para "a pedir" na requisição.
+    /// </summary>
+    public async Task<IReadOnlyList<Guid>> GerarPedidosAsync(Guid cotacaoId, CancellationToken ct = default)
     {
         await using var db = fabrica.Criar();
-        var c = await db.Cotacoes.Include(x => x.Itens).ThenInclude(i => i.RequisicaoItem).Include(x => x.Requisicao).FirstAsync(x => x.Id == cotacaoId, ct);
+        var c = await db.Cotacoes.Include(x => x.Fornecedores).Include(x => x.Itens).ThenInclude(i => i.RequisicaoItem).Include(x => x.Requisicao).FirstAsync(x => x.Id == cotacaoId, ct);
         if (c.Status != StatusCotacao.Aprovado) throw new RegraDeNegocioException("Cotação ainda não aprovada.");
-        var itens = c.Itens.Where(i => i.FornecedorId == c.FornecedorVencedorId).ToList();
-        var p = new Pedido
+        var vencidos = c.ItensVencedores();
+        if (vencidos.Count == 0) throw new RegraDeNegocioException("Nenhum item com vencedor.");
+        var central = c.Requisicao?.Tipo == TipoRequisicao.Material && await db.Estabelecimentos.AnyAsync(e => e.AlmoxarifadoCentral && e.Ativo, ct);
+        var ids = new List<Guid>();
+        foreach (var g in vencidos.GroupBy(i => i.FornecedorId))
         {
-            ObraId = c.ObraId, Numero = await Numerador.ProximoAsync(db, "Pedido", ct), CotacaoId = c.Id, RequisicaoId = c.RequisicaoId,
-            SpeId = c.Requisicao?.SpeId, EstabelecimentoFaturamentoId = c.Requisicao?.EstabelecimentoFaturamentoId,
-            EntregaAlmoxarifadoCentral = c.Requisicao?.Tipo == TipoRequisicao.Material && await db.Estabelecimentos.AnyAsync(e => e.AlmoxarifadoCentral && e.Ativo, ct),
-            FornecedorId = c.FornecedorVencedorId!.Value, Frete = c.Frete, EnderecoEntrega = c.EnderecoEntrega,
-            Entrega = itens.Select(i => i.Entrega).Max() ?? Hoje.AddDays(7), SemOrcamento = c.SemOrcamento,
-            CondicaoPagamento = c.Fornecedores.FirstOrDefault(f => f.FornecedorId == c.FornecedorVencedorId)?.CondicaoPagamento,
-            ValorFrete = c.Frete == TipoFrete.NaoSeAplica ? null : c.Fornecedores.FirstOrDefault(f => f.FornecedorId == c.FornecedorVencedorId)?.ValorFrete
-        };
-        foreach (var i in itens)
-            p.Itens.Add(new PedidoItem
+            var conv = c.Fornecedores.FirstOrDefault(f => f.FornecedorId == g.Key);
+            var itens = g.ToList();
+            var p = new Pedido
             {
-                RequisicaoItemId = i.RequisicaoItemId, ProdutoId = i.RequisicaoItem?.ProdutoId, Descricao = i.Descricao, Unidade = i.Unidade,
-                Quantidade = i.Quantidade, ValorUnitario = i.ValorUnitarioFinal, ValorTotal = i.ValorTotal,
-                MaterialControladoId = i.RequisicaoItem?.MaterialControladoId, EspecificacaoTecnica = i.RequisicaoItem?.EspecificacaoTecnica,
-                DocumentosExigidos = i.RequisicaoItem?.DocumentosExigidos, Marca = i.Marca
-            });
-        p.EspecificacoesIncluidas = p.Itens.Where(i => i.MaterialControladoId is not null).All(i => !string.IsNullOrWhiteSpace(i.EspecificacaoTecnica));
+                ObraId = c.ObraId, Numero = await Numerador.ProximoAsync(db, "Pedido", ct), CotacaoId = c.Id, RequisicaoId = c.RequisicaoId,
+                SpeId = c.Requisicao?.SpeId, EstabelecimentoFaturamentoId = c.Requisicao?.EstabelecimentoFaturamentoId, EntregaAlmoxarifadoCentral = central,
+                FornecedorId = g.Key, Frete = c.Frete, EnderecoEntrega = c.EnderecoEntrega,
+                Entrega = itens.Select(i => i.Entrega).Max() ?? conv?.PrazoEntregaOfertado ?? Hoje.AddDays(7), SemOrcamento = c.SemOrcamento,
+                CondicaoPagamento = conv?.CondicaoPagamento, ValorFrete = c.Frete == TipoFrete.NaoSeAplica ? null : conv?.ValorFrete
+            };
+            foreach (var i in itens)
+                p.Itens.Add(new PedidoItem
+                {
+                    RequisicaoItemId = i.RequisicaoItemId, ProdutoId = i.RequisicaoItem?.ProdutoId, Descricao = i.Descricao, Unidade = i.Unidade,
+                    Quantidade = i.QuantidadePedido, ValorUnitario = i.ValorUnitarioFinal, ValorTotal = i.ValorTotalVencido,
+                    MaterialControladoId = i.RequisicaoItem?.MaterialControladoId, EspecificacaoTecnica = i.RequisicaoItem?.EspecificacaoTecnica,
+                    DocumentosExigidos = i.RequisicaoItem?.DocumentosExigidos, Marca = i.Marca
+                });
+            p.EspecificacoesIncluidas = p.Itens.Where(i => i.MaterialControladoId is not null).All(i => !string.IsNullOrWhiteSpace(i.EspecificacaoTecnica));
+            db.Pedidos.Add(p);
+            ids.Add(p.Id);
+        }
         c.Status = StatusCotacao.PedidoGerado; c.Concluido = true;
-        if (c.Requisicao is { } r) r.Status = StatusRequisicao.PedidoEmitido;
-        db.Pedidos.Add(p);
         await db.SaveChangesAsync(ct);
-        return p.Id;
+        await AtendimentoServico.AtualizarAsync(db, c.RequisicaoId, ct);
+        await db.SaveChangesAsync(ct);
+        return ids;
     }
 
     /// <summary>Monta a minuta do contrato (serviço) a partir da cotação aprovada.</summary>
-    public async Task<Guid> GerarContratoAsync(Guid cotacaoId, CancellationToken ct = default)
+    public async Task<Guid> GerarContratoAsync(Guid cotacaoId, CancellationToken ct = default) => (await GerarContratosAsync(cotacaoId, ct))[0];
+
+    /// <summary>Minutas de contrato (serviço): uma por fornecedor vencedor (item a item ou geral).</summary>
+    public async Task<IReadOnlyList<Guid>> GerarContratosAsync(Guid cotacaoId, CancellationToken ct = default)
     {
         await using var db = fabrica.Criar();
         var c = await db.Cotacoes.Include(x => x.Itens).ThenInclude(i => i.RequisicaoItem!).ThenInclude(ri => ri.Locais).Include(x => x.Requisicao).FirstAsync(x => x.Id == cotacaoId, ct);
         if (c.Status != StatusCotacao.Aprovado) throw new RegraDeNegocioException("Cotação ainda não aprovada.");
         var p = await ParametrosServico.CarregarAsync(db, ct);
-        var n = await Numerador.ProximoAsync(db, $"Contrato-{Hoje.Year}", ct);
-        var k = new Contrato
+        var vencidos = c.ItensVencedores();
+        if (vencidos.Count == 0) throw new RegraDeNegocioException("Nenhum item com vencedor.");
+        var ids = new List<Guid>();
+        foreach (var g in vencidos.GroupBy(i => i.FornecedorId))
         {
-            ObraId = c.ObraId, Numero = $"CT-{Hoje.Year}-{n:000}", FornecedorId = c.FornecedorVencedorId!.Value, RequisicaoId = c.RequisicaoId, CotacaoId = c.Id,
-            SpeId = c.Requisicao?.SpeId, EstabelecimentoFaturamentoId = c.Requisicao?.EstabelecimentoFaturamentoId,
-            Categoria = c.Requisicao?.CategoriaServico ?? "Serviço de obra", Objeto = c.Nome, RetencaoPerc = p[Parametros.RetencaoPadraoPerc],
-            VigenciaInicio = Hoje, VigenciaFim = Hoje.AddMonths(6)
-        };
-        var seq = 0;
-        foreach (var i in c.Itens.Where(i => i.FornecedorId == c.FornecedorVencedorId))
-        {
-            seq++;
-            var ki = new ContratoItem
+            var n = await Numerador.ProximoAsync(db, $"Contrato-{Hoje.Year}", ct);
+            var k = new Contrato
             {
-                Item = $"1.{seq}", Descricao = i.Descricao, ServicoControladoId = i.RequisicaoItem?.ServicoControladoId, Unidade = i.Unidade,
-                Quantidade = i.Quantidade, PrecoUnitario = i.ValorUnitarioFinal, ComposicaoId = i.RequisicaoItem?.ComposicaoId
+                ObraId = c.ObraId, Numero = $"CT-{Hoje.Year}-{n:000}", FornecedorId = g.Key, RequisicaoId = c.RequisicaoId, CotacaoId = c.Id,
+                SpeId = c.Requisicao?.SpeId, EstabelecimentoFaturamentoId = c.Requisicao?.EstabelecimentoFaturamentoId,
+                Categoria = c.Requisicao?.CategoriaServico ?? "Serviço de obra", Objeto = c.Nome, RetencaoPerc = p[Parametros.RetencaoPadraoPerc],
+                VigenciaInicio = Hoje, VigenciaFim = Hoje.AddMonths(6)
             };
-            // Quantidade por local: proporcional à quebra da requisição (soma = quantidade contratada).
-            var ls = i.RequisicaoItem?.Locais.ToList() ?? [];
-            var totalLs = ls.Sum(l => l.Quantidade);
-            foreach (var l in ls)
-                ki.Locais.Add(new ContratoItemLocal { ContratoItemId = ki.Id, LocalId = l.LocalId, Quantidade = totalLs == 0 ? 0 : Math.Round(i.Quantidade * l.Quantidade / totalLs, 4) });
-            if (ki.Locais.Count > 0) ki.Locais.Last().Quantidade += i.Quantidade - ki.Locais.Sum(l => l.Quantidade);
-            k.Itens.Add(ki);
+            var seq = 0;
+            foreach (var i in g)
+            {
+                seq++;
+                var qtd = i.QuantidadePedido;
+                var ki = new ContratoItem
+                {
+                    Item = $"1.{seq}", Descricao = i.Descricao, ServicoControladoId = i.RequisicaoItem?.ServicoControladoId, Unidade = i.Unidade,
+                    Quantidade = qtd, PrecoUnitario = i.ValorUnitarioFinal, ComposicaoId = i.RequisicaoItem?.ComposicaoId
+                };
+                // Quantidade por local: proporcional à quebra da requisição (soma = quantidade contratada).
+                var ls = i.RequisicaoItem?.Locais.ToList() ?? [];
+                var totalLs = ls.Sum(l => l.Quantidade);
+                foreach (var l in ls)
+                    ki.Locais.Add(new ContratoItemLocal { ContratoItemId = ki.Id, LocalId = l.LocalId, Quantidade = totalLs == 0 ? 0 : Math.Round(qtd * l.Quantidade / totalLs, 4) });
+                if (ki.Locais.Count > 0) ki.Locais.Last().Quantidade += qtd - ki.Locais.Sum(l => l.Quantidade);
+                k.Itens.Add(ki);
+            }
+            foreach (var sid in k.Itens.Where(i => i.ServicoControladoId is not null).Select(i => i.ServicoControladoId!.Value).Distinct())
+                k.ServicosVinculados.Add(new ContratoServico { ServicoControladoId = sid });
+            db.Contratos.Add(k);
+            ids.Add(k.Id);
         }
-        foreach (var sid in k.Itens.Where(i => i.ServicoControladoId is not null).Select(i => i.ServicoControladoId!.Value).Distinct())
-            k.ServicosVinculados.Add(new ContratoServico { ServicoControladoId = sid });
         c.Status = StatusCotacao.PedidoGerado; c.Concluido = true;
-        if (c.Requisicao is { } r) r.Status = StatusRequisicao.PedidoEmitido;
-        db.Contratos.Add(k);
         await db.SaveChangesAsync(ct);
-        return k.Id;
+        await AtendimentoServico.AtualizarAsync(db, c.RequisicaoId, ct);
+        await db.SaveChangesAsync(ct);
+        return ids;
     }
 }

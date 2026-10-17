@@ -50,7 +50,8 @@
                     {
                         var total = Total(f.FornecedorId);
                         <tr @key="f" class="@(f.FornecedorId == _c.FornecedorVencedorId ? "destaque" : "")">
-                            <td><b>@Nome(f.FornecedorId)</b></td>
+                            <td><b>@Nome(f.FornecedorId)</b>@if (!string.IsNullOrWhiteSpace(f.PendenciaNaData)) { <br /><small class="texto-erro" title="Pendência registrada no convite">Pendência: @f.PendenciaNaData</small> }
+                                @if (f.Status == StatusConvite.Declinou && !string.IsNullOrWhiteSpace(f.MotivoDeclinio)) { <br /><small class="mudo">Declinou: @f.MotivoDeclinio</small> }</td>
                             <td><Selo Texto="@De(f.QualificacaoNaData)" Tom="@Tom(f.QualificacaoNaData)" /></td>
                             <td>
                                 <select @bind="f.Status" disabled="@(!Editavel)">@foreach (var s in Enum.GetValues<StatusConvite>()) { <option value="@s">@De(s)</option> }</select>
@@ -80,16 +81,24 @@
             </div>
 
             <div class="form mt-14">
-                <Campo Rotulo="Fornecedor vencedor" Obrigatorio Classe="s4">
-                    <select @bind="_c.FornecedorVencedorId" disabled="@(!Editavel)"><option value="">Selecione…</option>
-                        @foreach (var f in _c.Fornecedores) { <option value="@f.FornecedorId">@Nome(f.FornecedorId) (@De(f.QualificacaoNaData))</option> }
-                    </select>
-                </Campo>
+                @if (_c.VencedorPorItem)
+                {
+                    <Campo Rotulo="Vencedores (item a item, no mapa)" Classe="s4"><input id="cot-venc-item" readonly value="@string.Join(", ", _c.FornecedoresVencedores().Select(Nome))" /></Campo>
+                }
+                else
+                {
+                    <Campo Rotulo="Fornecedor vencedor (todos os itens)" Obrigatorio Classe="s4" Ajuda="Ou escolha o vencedor item a item no mapa">
+                        <select @bind="_c.FornecedorVencedorId" disabled="@(!Editavel)"><option value="">Selecione…</option>
+                            @foreach (var f in _c.Fornecedores) { <option value="@f.FornecedorId">@Nome(f.FornecedorId) (@De(f.QualificacaoNaData))</option> }
+                        </select>
+                    </Campo>
+                }
                 <Campo Rotulo="Critério de seleção" Obrigatorio Classe="s3">
                     <select @bind="_c.CriterioSelecao" disabled="@(!Editavel)"><option value="">Selecione…</option>@foreach (var c in Enum.GetValues<CriterioSelecao>()) { <option value="@c">@De(c)</option> }</select>
                 </Campo>
                 <Campo Rotulo="Frete" Classe="s3"><select id="cot-frete" @bind="_c.Frete" disabled="@(!Editavel)"><option value="@TipoFrete.CIF">CIF (fornecedor entrega)</option><option value="@TipoFrete.FOB">FOB (retirar / transportadora)</option><option value="@TipoFrete.NaoSeAplica">N/A (não se aplica)</option></select></Campo>
                 <Campo Rotulo="Endereço de entrega" Classe="s2"><input @bind="_c.EnderecoEntrega" disabled="@(!Editavel)" /></Campo>
+                <Campo Rotulo="Prazo de resposta dos fornecedores" Classe="s4" Ajuda="Depois dele o portal não aceita envio nem edição"><input type="datetime-local" id="cot-prazo-resp" @bind="PrazoLocal" disabled="@(!Editavel)" /></Campo>
                 @if (_c.PropostasRecebidas < _c.PropostasExigidas || _c.CriterioSelecao is not null and not CriterioSelecao.MenorPreco)
                 {
                     <Campo Rotulo="Justificativa (propostas abaixo do mínimo / critério diferente de menor preço)" Classe="s12"><textarea @bind="_c.JustificativaPropostas" disabled="@(!Editavel)"></textarea></Campo>
@@ -105,8 +114,9 @@
         {
             @if (_c.Status == StatusCotacao.Aprovado)
             {
-                if (_c.Tipo == TipoRequisicao.Material) { <button class="btn laranja" disabled="@Ocupado" @onclick="GerarPedido"><Icone Nome="sacola" Tam="16" /> Gerar pedido</button> }
-                else { <button class="btn laranja" disabled="@Ocupado" @onclick="GerarContrato"><Icone Nome="contrato" Tam="16" /> Gerar contrato</button> }
+                var nForn = Math.Max(1, _c.FornecedoresVencedores().Count);
+                if (_c.Tipo == TipoRequisicao.Material) { <button class="btn laranja" id="cot-gerar-pedidos" disabled="@Ocupado" @onclick="GerarPedido"><Icone Nome="sacola" Tam="16" /> @(nForn > 1 ? $"Gerar {nForn} pedidos" : "Gerar pedido")</button> }
+                else { <button class="btn laranja" disabled="@Ocupado" @onclick="GerarContrato"><Icone Nome="contrato" Tam="16" /> @(nForn > 1 ? $"Gerar {nForn} contratos" : "Gerar contrato")</button> }
             }
             @if (Editavel)
             {
@@ -261,15 +271,24 @@
         if (await Executar(async () => { await CotacoesSrv.SalvarCotacaoAsync(_c!, Cancelamento); await CotacoesSrv.EnviarCotacaoAprovacaoAsync(_c!.Id, Cancelamento); }, "Cotação enviada para aprovação.")) await Recarregar();
     }
 
+    /// <summary>Prazo de resposta na hora local do navegador da construtora.</summary>
+    private DateTime? PrazoLocal
+    {
+        get => _c?.PrazoResposta?.ToLocalTime().DateTime;
+        set { if (_c is not null) _c.PrazoResposta = value is { } v ? new DateTimeOffset(v, Relogio.GetLocalNow().Offset) : null; }
+    }
+
     private async Task GerarPedido()
     {
-        Guid id = default;
-        if (await Executar(async () => id = await CotacoesSrv.GerarPedidoAsync(_c!.Id, Cancelamento), "Pedido gerado.")) { _aberto = false; Nav.NavigateTo($"pedidos?id={id}"); }
+        IReadOnlyList<Guid> ids = [];
+        if (await Executar(async () => ids = await CotacoesSrv.GerarPedidosAsync(_c!.Id, Cancelamento), "Pedido(s) gerado(s)."))
+        { _aberto = false; Nav.NavigateTo(ids.Count == 1 ? $"pedidos?id={ids[0]}" : "pedidos"); }
     }
 
     private async Task GerarContrato()
     {
-        Guid id = default;
-        if (await Executar(async () => id = await CotacoesSrv.GerarContratoAsync(_c!.Id, Cancelamento), "Minuta de contrato gerada.")) { _aberto = false; Nav.NavigateTo($"contratos?id={id}"); }
+        IReadOnlyList<Guid> ids = [];
+        if (await Executar(async () => ids = await CotacoesSrv.GerarContratosAsync(_c!.Id, Cancelamento), "Minuta(s) de contrato gerada(s)."))
+        { _aberto = false; Nav.NavigateTo(ids.Count == 1 ? $"contratos?id={ids[0]}" : "contratos"); }
     }
 }

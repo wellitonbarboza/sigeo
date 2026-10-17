@@ -713,3 +713,26 @@ pre.composicao { white-space: pre-wrap; font-family: inherit; font-size: 13px; b
 .s-vend { background: color-mix(in srgb, #c0392b 18%, transparent); border-color: #c0392b; }
 .s-perm { background: color-mix(in srgb, #8e44ad 18%, transparent); border-color: #8e44ad; }
 .s-bloq { background: color-mix(in srgb, #777 18%, transparent); border-color: #777; }
+
+/* ───── Atendimento, metas, portal (v17-10) ───── */
+.linha-tempo { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
+.linha-tempo li { border-left: 3px solid var(--borda, #e7e4dc); padding-left: 8px; }
+.barra-meta { height: 8px; background: #efede8; border-radius: 999px; overflow: hidden; }
+.barra-meta > span { display: block; height: 8px; border-radius: 999px; background: var(--primaria, #43597a); }
+.barra-meta > span.ok { background: #166534; } .barra-meta > span.aviso { background: #a35a0a; } .barra-meta > span.erro { background: #991b1b; }
+.pendencias-portal { list-style: none; margin: 0; padding: 0; }
+.pendencias-portal li { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--borda, #e7e4dc); }
+.selo-situacao { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; border-radius: 12px; padding: 14px 16px; margin: 8px 0 14px; }
+.selo-situacao.ok { background: #dcfce7; } .selo-situacao.aviso { background: #fef3c7; } .selo-situacao.erro { background: #fee2e2; }
+.meses-competencia { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 10px; }
+.meses-competencia button { flex: 0 0 150px; text-align: left; border: 1px solid var(--borda, #e7e4dc); background: #fff; border-radius: 10px; padding: 8px 10px; cursor: pointer; }
+.meses-competencia button.on { border: 2px solid var(--primaria, #43597a); }
+.grafico-linha { width: 100%; height: 200px; }
+.linha-espaco { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
+.barras-verticais { display: flex; align-items: flex-end; gap: 10px; height: 190px; border-bottom: 1px solid var(--borda, #e7e4dc); padding: 0 4px; }
+.barra-v { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 3px; font-size: 11.5px; }
+.barra-v span { display: block; width: 100%; min-height: 2px; background: var(--primaria, #43597a); border-radius: 4px 4px 0 0; }
+.barra-v span.ok { background: #166534; } .barra-v span.erro { background: #991b1b; }
+.texto-ok { color: #166534; }
+.nowrap { white-space: nowrap; }
+.grade-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; margin-bottom: 14px; }

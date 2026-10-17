@@ -1,0 +1,94 @@
+@page "/suprimentos/precos"
+@inherits PaginaBase
+@inject EconomiaServico EconomiaSrv
+@inject NavigationManager Nav
+@* Histórico de preço do item: todas as compras (preço com frete), último preço pago, alterações contra a compra anterior
+   (aumentos em vermelho, reduções em verde), variação em 6 e 12 meses, maior aumento e aumentos seguidos. Sem correção por índice. *@
+
+<Pagina Titulo="Histórico de preço do item" AoAtualizar="Carregar">
+    <ChildContent>
+        <div class="pagina">
+            <div class="form">
+                <Campo Rotulo="Produto" Classe="s8"><BuscaProduto Produtos="_produtos" Valor="Produto" AoEscolher="Escolher" /></Campo>
+            </div>
+            @if (Produto is null) { <p class="mudo">Escolha um produto para ver as compras e as alterações de preço.</p> }
+            else if (_h is null) { <Esqueleto Indicadores="4" Linhas="6" /> }
+            else
+            {
+                var r = _h.Resultado;
+                <h2 class="mt-12">@_h.Produto <small class="mudo">· @_h.Unidade · @(_h.Grupo ?? "sem grupo")</small></h2>
+                <div class="kpis">
+                    <Kpi Rotulo="Último preço pago (base)" Valor="@(r.Ultimo is { } u ? Moeda(u.PrecoUnitario) : "—")" Sub="@(r.Ultimo is { } u2 ? $"{u2.Data:dd/MM/yyyy} · {u2.Fornecedor} · pedido {u2.PedidoNumero}" : "sem compra")" Tom="info" />
+                    <Kpi Rotulo="Variação em 12 meses" Valor="@(r.Variacao12m is { } v12 ? $"{v12:+0.0;-0.0;0}%" : "—")" Tom="@(r.Variacao12m > 0 ? "erro" : "ok")" />
+                    <Kpi Rotulo="Variação em 6 meses" Valor="@(r.Variacao6m is { } v6 ? $"{v6:+0.0;-0.0;0}%" : "—")" Tom="@(r.Variacao6m > 0 ? "erro" : "ok")" />
+                    <Kpi Rotulo="Maior aumento (12 meses)" Valor="@(r.MaiorAumento is { } ma ? $"+{ma.VariacaoPerc:0.0}%" : "—")" Sub="@(r.MaiorAumento is { } m2 ? $"em {m2.Compra.Data:dd/MM/yyyy}, de {Moeda(m2.Anterior)}" : "")" Tom="@(r.MaiorAumento is null ? "ok" : "erro")" />
+                    <Kpi Rotulo="Aumentos seguidos" Valor="@r.AumentosSeguidos" Sub="@(r.Media6m is { } md ? $"média 6 meses {Moeda(md)} (referência)" : "")" Tom="@(r.AumentosSeguidos >= 3 ? "erro" : r.AumentosSeguidos > 0 ? "aviso" : "ok")" />
+                </div>
+                @if (r.Linhas.Count >= 2)
+                {
+                    var pts = r.Linhas.Where(l => !l.Compra.Emergencial).ToList();
+                    var min = pts.Min(l => l.Compra.PrecoUnitario); var max = pts.Max(l => l.Compra.PrecoUnitario);
+                    var faixa = max - min == 0 ? 1 : max - min;
+                    double X(int i) => pts.Count == 1 ? 580 : 40 + i * (1120.0 / (pts.Count - 1));
+                    double Y(decimal v) => 190 - (double)((v - min) / faixa) * 160;
+                    <div class="cartao mt-12">
+                        <h3><Icone Nome="grafico" /> Preço por compra</h3>
+                        <svg viewBox="0 0 1180 220" class="grafico-linha" role="img" aria-label="@($"Preço de {Moeda(pts[0].Compra.PrecoUnitario)} a {Moeda(pts[^1].Compra.PrecoUnitario)}")">
+                            <line x1="40" y1="190" x2="1160" y2="190" stroke="#e7e4dc" />
+                            <polyline fill="none" stroke="#43597a" stroke-width="3" points="@string.Join(" ", pts.Select((l, i) => FormattableString.Invariant($"{X(i):0.#},{Y(l.Compra.PrecoUnitario):0.#}")))" />
+                            @for (var i = 0; i < pts.Count; i++)
+                            {
+                                var l = pts[i];
+                                <circle cx="@X(i).ToString(System.Globalization.CultureInfo.InvariantCulture)" cy="@Y(l.Compra.PrecoUnitario).ToString(System.Globalization.CultureInfo.InvariantCulture)" r="5" fill="@(l.Aumento ? "#991b1b" : l.Reducao ? "#166534" : "#43597a")"><title>@($"{l.Compra.Data:dd/MM/yyyy} · {Moeda(l.Compra.PrecoUnitario)}")</title></circle>
+                            }
+                        </svg>
+                        <small class="mudo">Vermelho = aumento sobre a compra anterior · verde = redução · emergenciais não entram na linha</small>
+                    </div>
+                }
+                <div class="secao"><Icone Nome="tabela" /> Compras e alterações de preço</div>
+                <div class="tabela-rolavel">
+                    <table class="itens" id="hist-compras">
+                        <thead><tr><th>Data</th><th>Fornecedor</th><th>Obra</th><th class="num">Qtd</th><th>UN</th><th class="num">Preço (com frete)</th><th class="num">Variação</th><th>Pedido</th></tr></thead>
+                        <tbody>
+                            @foreach (var l in r.Linhas.Reverse())
+                            {
+                                <tr @key="l.Compra.PedidoItemId">
+                                    <td>@l.Compra.Data.ToString("dd/MM/yy")</td><td>@l.Compra.Fornecedor</td><td>@l.Compra.Obra</td><td class="num">@Num(l.Compra.Quantidade, 3)</td><td>@l.Compra.Unidade</td>
+                                    <td class="num peso-600">@Moeda(l.Compra.PrecoUnitario)</td>
+                                    <td class="num @(l.Aumento ? "texto-erro" : l.Reducao ? "texto-ok" : "mudo")">
+                                        @if (l.Compra.Emergencial) { <span>emergencial, fora</span> }
+                                        else if (l.Variacao is { } v) { <span>@($"{(v > 0 ? "+" : "")}{Moeda(v)} · {(l.VariacaoPerc > 0 ? "+" : "")}{l.VariacaoPerc:0.0}%")</span> }
+                                        else { <span>primeira compra</span> }</td>
+                                    <td><a href="@($"pedidos?id={l.Compra.PedidoId}")">@l.Compra.PedidoNumero</a></td>
+                                </tr>
+                            }
+                            @if (r.Linhas.Count == 0) { <tr><td colspan="8" class="mudo">Nenhuma compra deste produto nos últimos 24 meses.</td></tr> }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </ChildContent>
+    <Faixa><b>Histórico de preço</b><span>Último preço = base da economia real</span><span>Aumentos e reduções</span><span>Sem correção por índice</span></Faixa>
+</Pagina>
+
+@code {
+    [SupplyParameterFromQuery(Name = "produto")] public Guid? Produto { get; set; }
+    private List<ProdutoBusca> _produtos = [];
+    private HistoricoDto? _h;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _produtos = await Cat.ProdutosBuscaAsync();
+        await Carregar();
+    }
+
+    private async Task Escolher(ProdutoBusca p)
+    {
+        Produto = p.Id; _h = null;
+        Nav.NavigateTo($"suprimentos/precos?produto={p.Id}", replace: true);
+        await Carregar();
+    }
+
+    private async Task Carregar() { if (Produto is { } id) _h = await EconomiaSrv.HistoricoAsync(id, Cancelamento); }
+}

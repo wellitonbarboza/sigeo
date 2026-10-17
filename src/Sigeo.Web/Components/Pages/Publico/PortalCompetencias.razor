@@ -1,0 +1,146 @@
+@inject PortalServico Portal
+@* Medições e documentação mensal (fornecedor de mão de obra): meses de cada contrato (histórico + mês atual aberto),
+   envio por item (empresa e por funcionário), pedido de adiamento com justificativa (só itens que permitem; o engenheiro da obra aprova)
+   e "marcar como completa" para a conferência da construtora. *@
+
+@if (_msg is not null) { <div class="alerta @(_ok ? "ok" : "erro")">@_msg</div> }
+@if (_lista is null) { <p class="mudo">Carregando…</p> }
+else if (_lista.Count == 0) { <p class="mudo">Nenhum contrato de mão de obra ativo com documentação mensal.</p> }
+else
+{
+    @foreach (var g in _lista.GroupBy(c => (c.ContratoId, c.Contrato, c.Obra)))
+    {
+        <h3 class="mt-10">Contrato @g.Key.Contrato · @g.Key.Obra</h3>
+        <div class="meses-competencia" id="@($"comp-{g.Key.ContratoId}")">
+            @foreach (var c in g.OrderByDescending(c => c.Mes))
+            {
+                <button type="button" @key="c.Id" class="@(c.Id == _sel?.Competencia.Id ? "on" : "")" @onclick="() => Abrir(c.Id)">
+                    <b>@c.Mes.ToString("MM/yyyy")</b>
+                    <Selo Texto="@(c.Atrasada ? "atrasada" : Rotulos.De(c.Situacao))" Tom="@(c.Atrasada ? "erro" : Rotulos.Tom(c.Situacao))" />
+                    <small>@c.Entregues/@c.Total · até @c.Limite.ToString("dd/MM")</small>
+                </button>
+            }
+        </div>
+    }
+
+    @if (_sel is { } d)
+    {
+        var c = d.Competencia;
+        var fechada = c.Situacao is SituacaoCompetencia.Conferida;
+        <div class="caixa-envio">
+            <h3>Competência @c.Mes.ToString("MM/yyyy") · contrato @d.Contrato <Selo Texto="@Rotulos.De(c.Situacao)" Tom="@Rotulos.Tom(c.Situacao)" /></h3>
+            <p class="mudo">Entregar até @d.Limite.ToString("dd/MM/yyyy"). @(d.Medicao is { } m ? $"Medição: {m}." : "") A medição do mês só é aprovada depois da conferência da construtora.</p>
+            <div class="form">
+                <Campo Rotulo="Seu nome (responsável pelo envio)" Obrigatorio Classe="s6"><input id="comp-resp" @bind="_responsavel" maxlength="150" /></Campo>
+            </div>
+            <div class="tabela-rolavel">
+                <table class="itens" id="comp-itens">
+                    <thead><tr><th>Documento</th><th>Situação</th><th>Arquivo</th><th></th></tr></thead>
+                    <tbody>
+                        @foreach (var x in d.Itens)
+                        {
+                            var i = x.Item;
+                            <tr @key="i.Id">
+                                <td><b>@i.Descricao</b>@if (x.DiasNaObra is { } dn) { <br /><small class="mudo">@dn dia(s) na obra no mês</small> }</td>
+                                <td><Selo Texto="@Rotulos.De(i.Situacao)" Tom="@Rotulos.Tom(i.Situacao)" />
+                                    @if (i.MotivoRecusa is { } mr) { <br /><small class="texto-erro">Recusado: @mr</small> }
+                                    @if (i.AdiadoAte is { } aa) { <br /><small>adiado até @aa.ToString("dd/MM") · @i.JustificativaAdiamento</small> }</td>
+                                <td>@(i.ArquivoNome ?? "—")</td>
+                                <td class="nowrap">
+                                    @if (!fechada && i.Situacao is not (SituacaoItemCompetencia.Aprovado or SituacaoItemCompetencia.AdiamentoSolicitado))
+                                    {
+                                        <button class="btn sec pq" @onclick="() => { _item = i; _adiar = false; _arquivo = null; _msg = null; }">@(i.ArquivoBlob is null ? "Enviar" : "Substituir")</button>
+                                        @if (i.PodeAdiar && i.Situacao is SituacaoItemCompetencia.Pendente or SituacaoItemCompetencia.Recusado)
+                                        {
+                                            <button class="btn sec pq" @onclick="() => { _item = i; _adiar = true; _justificativa = null; _ate = null; _msg = null; }">Pedir adiamento</button>
+                                        }
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            @if (_item is not null)
+            {
+                <div class="cartao mt-12">
+                    @if (_adiar)
+                    {
+                        <h3>Pedir adiamento: @_item.Descricao</h3>
+                        <div class="form">
+                            <Campo Rotulo="Entregar até" Obrigatorio Classe="s3"><input type="date" id="comp-ate" @bind="_ate" /></Campo>
+                            <Campo Rotulo="Justificativa" Obrigatorio Classe="s9"><input id="comp-just" @bind="_justificativa" maxlength="300" /></Campo>
+                        </div>
+                        <p class="mudo">O engenheiro da obra aprova ou recusa. Aprovado, o item não trava a medição até a nova data (máximo 60 dias).</p>
+                        <button class="btn prim" disabled="@_enviando" @onclick="PedirAdiamento">Enviar pedido</button>
+                    }
+                    else
+                    {
+                        <h3>Enviar: @_item.Descricao</h3>
+                        <div class="form"><Campo Rotulo="Arquivo (PDF, JPG ou PNG, até 15 MB)" Obrigatorio Classe="s8"><InputFile OnChange="e => _arquivo = e.File" accept=".pdf,.jpg,.jpeg,.png" /></Campo></div>
+                        <button class="btn prim" disabled="@_enviando" @onclick="EnviarItem"><Icone Nome="enviar" Tam="16" /> Enviar</button>
+                    }
+                    <button class="btn sec" @onclick="() => _item = null">Cancelar</button>
+                </div>
+            }
+
+            @if (!fechada && c.Situacao is SituacaoCompetencia.Aberta or SituacaoCompetencia.ComPendencia)
+            {
+                <div class="linha-botoes mt-12">
+                    <button class="btn prim" id="comp-completa" disabled="@(_enviando || c.Itens.Any(i => i.Situacao is SituacaoItemCompetencia.Pendente or SituacaoItemCompetencia.Recusado))" @onclick="MarcarCompleta">
+                        <Icone Nome="check" Tam="16" /> Marcar como completa (enviar para conferência)</button>
+                    @if (c.Itens.Any(i => i.Situacao is SituacaoItemCompetencia.Pendente or SituacaoItemCompetencia.Recusado)) { <span class="mudo">Envie (ou peça adiamento de) todos os itens pendentes.</span> }
+                </div>
+            }
+        </div>
+    }
+}
+
+@code {
+    [Parameter, EditorRequired] public string Token { get; set; } = "";
+    private IReadOnlyList<CompetenciaPortal>? _lista;
+    private CompetenciaDetalhe? _sel;
+    private ItemCompetencia? _item;
+    private bool _adiar, _enviando, _ok;
+    private string? _responsavel, _justificativa, _msg;
+    private DateOnly? _ate;
+    private IBrowserFile? _arquivo;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _lista = await Portal.CompetenciasAsync(Token);
+        var atual = _lista.Where(c => c.Situacao != SituacaoCompetencia.Conferida).OrderBy(c => c.Mes).FirstOrDefault() ?? _lista.FirstOrDefault();
+        if (atual is not null && _sel is null) await Abrir(atual.Id);
+    }
+
+    private async Task Abrir(Guid id) { _item = null; _sel = await Portal.CompetenciaAsync(Token, id); }
+
+    private async Task Recarregar()
+    {
+        _lista = await Portal.CompetenciasAsync(Token);
+        if (_sel is not null) _sel = await Portal.CompetenciaAsync(Token, _sel.Competencia.Id);
+    }
+
+    private async Task Rodar(Func<Task> acao, string ok)
+    {
+        _enviando = true; _msg = null;
+        try { await acao(); _ok = true; _msg = ok; _item = null; await Recarregar(); }
+        catch (ValidacaoException v) { _ok = false; _msg = string.Join(" ", v.Erros); }
+        catch (RegraDeNegocioException e) { _ok = false; _msg = e.Message; }
+        catch (IOException) { _ok = false; _msg = "Arquivo acima de 15 MB."; }
+        finally { _enviando = false; }
+    }
+
+    private Task EnviarItem() => _arquivo is null ? Falha("Selecione o arquivo.") : Rodar(async () =>
+    {
+        await using var s = _arquivo.OpenReadStream(15 * 1024 * 1024);
+        await Portal.EnviarItemCompetenciaAsync(Token, _sel!.Competencia.Id, _item!.Id, _responsavel ?? "", s, _arquivo.Name, _arquivo.ContentType);
+    }, $"'{_item!.Descricao}' enviado.");
+
+    private Task PedirAdiamento() => Rodar(() => Portal.SolicitarAdiamentoAsync(Token, _sel!.Competencia.Id, _item!.Id, _justificativa, _ate), "Pedido de adiamento enviado ao engenheiro da obra.");
+
+    private Task MarcarCompleta() => Rodar(() => Portal.MarcarCompetenciaCompletaAsync(Token, _sel!.Competencia.Id, _responsavel ?? ""), "Competência enviada para conferência da construtora.");
+
+    private Task Falha(string m) { _ok = false; _msg = m; return Task.CompletedTask; }
+}

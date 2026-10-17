@@ -38,6 +38,8 @@ public class TipoDocumentoExigido : EntidadeAuditavel
     public string? Categoria { get; set; }
     /// <summary>Documento dos funcionários do fornecedor (ASO, ficha de registro, treinamentos…): entra quando o pré-cadastro inclui funcionários.</summary>
     public bool DeFuncionario { get; set; }
+    /// <summary>Documento mensal que o fornecedor pode pedir para adiar (com justificativa aprovada pelo engenheiro) sem travar a medição.</summary>
+    public bool PodeAdiar { get; set; }
     public int Ordem { get; set; }
 }
 
@@ -53,6 +55,8 @@ public class FornecedorContato : Entidade
     public string? Celular { get; set; }
     public string? Email { get; set; }
     public bool Principal { get; set; }
+    /// <summary>Recebe os avisos de vencimento e de documentação do portal.</summary>
+    public bool RecebeAvisos { get; set; }
 }
 
 public class Fornecedor : EntidadeAuditavel, IOrigemErp, IHistoricoTemporal
@@ -228,6 +232,8 @@ public class FornecedorDocumento : EntidadeAuditavel, IHistoricoTemporal
     public Guid? ValidadoPorUsuarioId { get; set; }
     public DateTimeOffset? ValidadoEm { get; set; }
     public string? Observacao { get; set; }
+    /// <summary>Versão anterior deste documento (nova versão nunca apaga a anterior).</summary>
+    public Guid? SubstituiDocumentoId { get; set; }
 }
 
 /// <summary>Link seguro do portal do fornecedor (tela 24): envio de documentos sem login, com prazo e registro de IP.</summary>

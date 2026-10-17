@@ -406,6 +406,11 @@ public static class Parametros
     public const string MetaAptosPerc = "SST.META_APTOS_PERC";
     public const string MetaConformidadeInspecaoPerc = "SST.META_CONFORMIDADE_PERC";
     public const string FrequenciaInspecaoDias = "SST.FREQUENCIA_INSPECAO_DIAS";
+    // Economia real, histórico de preço e portal
+    public const string DesvioEconomiaPerc = "SUP.DESVIO_ECONOMIA_PERC";
+    public const string AlertaAumentoPrecoPerc = "SUP.ALERTA_AUMENTO_PRECO_PERC";
+    public const string LembreteDocVencidoDias = "DOC.LEMBRETE_VENCIDO_DIAS";
+    public const string DiaLimiteCompetencia = "DOC.DIA_LIMITE_COMPETENCIA";
 
     /// <summary>Padrão genérico SiAC/PBQP-H (sem dados de empresa). Chave → (valor, unidade, descrição, grupo).</summary>
     public static readonly IReadOnlyDictionary<string, (decimal Valor, string Unidade, string Descricao, string Grupo)> Padrao =
@@ -439,6 +444,10 @@ public static class Parametros
             [PrazoCheckoutDias] = (5m, "dias", "Prazo máximo de check-out", "Documentos do SGQ"),
             [VerificacaoExternosMeses] = (6m, "meses", "Verificação de atualização de documentos externos", "Documentos do SGQ"),
             [LimiteAditivoPerc] = (25m, "%", "Alerta quando aditivos acumulados passam deste % do contrato", "Contratos"),
+            [DesvioEconomiaPerc] = (40m, "%", "Economia real: compra com diferença acima deste % do último preço fica fora da base", "Suprimentos"),
+            [AlertaAumentoPrecoPerc] = (10m, "%", "Aumento de preço acima deste % pede motivo e entra na lista do gestor", "Suprimentos"),
+            [LembreteDocVencidoDias] = (3m, "dias", "Documento vencido: lembrete ao fornecedor a cada N dias até regularizar", "Suprimentos"),
+            [DiaLimiteCompetencia] = (20m, "dia", "Documentação mensal: dia limite do mês seguinte ao trabalhado", "Suprimentos"),
             [ValidadeLinkPortalDias] = (15m, "dias", "Validade do link do portal do fornecedor", "Suprimentos"),
             [PrazoValidarDocDias] = (2m, "dias úteis", "Prazo para validar documento enviado pelo portal", "Suprimentos"),
             [MetaFvs1aInspecaoPerc] = (85m, "%", "Meta de FVS aprovadas na 1ª inspeção", "Qualidade da obra"),
@@ -502,4 +511,6 @@ public class PerfilAcesso : EntidadeAuditavel
     /// <summary>Perfil de usuário de que este é o padrão (usuários sem perfil de acesso escolhido caem aqui).</summary>
     public PerfilUsuario? Base { get; set; }
     public string Regras { get; set; } = string.Empty;
+    /// <summary>Versão do catálogo de telas quando o perfil foi gravado: telas criadas depois herdam o padrão do perfil base.</summary>
+    public int CatalogoVersao { get; set; }
 }

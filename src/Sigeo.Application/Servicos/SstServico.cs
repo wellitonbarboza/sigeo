@@ -43,6 +43,26 @@ public sealed class SstServico(IFabricaDb fabrica, IUsuarioAtual usuario, TimePr
         return c.Id;
     }
 
+    /// <summary>A construtora confere o funcionário cadastrado pelo fornecedor (dados e documentos) e libera para a obra.</summary>
+    public async Task ValidarColaboradorAsync(Guid id, bool aprovar, string? motivo, CancellationToken ct = default)
+    {
+        await using (var db = fabrica.Criar())
+        {
+            var c = await db.Colaboradores.FirstAsync(x => x.Id == id, ct);
+            if (!c.AguardandoValidacao) throw new RegraDeNegocioException("Funcionário não está aguardando validação.");
+            if (!aprovar)
+            {
+                if (string.IsNullOrWhiteSpace(motivo)) throw new RegraDeNegocioException("Informe o motivo para o fornecedor corrigir.");
+                c.Pendencias = $"Validação recusada: {motivo.Trim()}";
+                await db.SaveChangesAsync(ct);
+                return;
+            }
+            c.AguardandoValidacao = false; c.ValidadoPor = usuario.Nome; c.ValidadoEm = Agora;
+            await db.SaveChangesAsync(ct);
+        }
+        await RecalcularAsync([id], ct);
+    }
+
     /// <summary>Recalcula situação e restrições pelas exigências da função (matriz S03A).</summary>
     public async Task<IReadOnlyDictionary<Guid, SituacaoCalculada>> RecalcularAsync(IReadOnlyCollection<Guid>? ids = null, CancellationToken ct = default)
     {
@@ -63,6 +83,9 @@ public sealed class SstServico(IFabricaDb fabrica, IUsuarioAtual usuario, TimePr
             var s = RegrasSst.Calcular(c, matriz, exig, docs.Where(d => d.ColaboradorId == c.Id), parts.Where(p => p.ColaboradorId == c.Id).Select(p => (p.TreinamentoId, p.ValidoAte)), epis.Contains(c.Id), Hoje);
             c.Situacao = s.Situacao; c.Restricoes = s.Restricoes;
             c.Pendencias = string.Join("; ", s.Detalhe.Where(d => !d.Ok).Select(d => $"{d.Exigencia} ({d.Situacao.ToLowerInvariant()})"));
+            // Cadastrado pelo fornecedor e ainda não validado pela construtora: não entra na obra.
+            if (c.AguardandoValidacao) { c.Situacao = SituacaoColaborador.AguardandoValidacao; c.Pendencias = "Aguardando validação da construtora" + (c.Pendencias is { Length: > 0 } pd ? $"; {pd}" : ""); }
+            else if (c.DataSaida is { } saida && saida <= Hoje) c.Situacao = SituacaoColaborador.DesligadoDaObra;
             r[c.Id] = s;
         }
         await db.SaveChangesAsync(ct);

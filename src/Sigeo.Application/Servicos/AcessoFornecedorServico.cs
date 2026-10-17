@@ -19,7 +19,20 @@ public sealed record IdentidadeFornecedor(string Documento, string DestinoVerifi
 public sealed record AcessoCnpj(Guid EmpresaId, string Construtora, Guid FornecedorId, string RazaoSocial, string CpfCnpj, int CotacoesAbertas);
 
 /// <summary>Cotação para a qual o fornecedor foi convidado, com a situação da proposta dele.</summary>
-public sealed record CotacaoDoFornecedor(Guid CotacaoId, int Numero, string Nome, string? Obra, string Situacao, bool Enviada, bool PodeEditar, DateOnly? DataResposta);
+public sealed record CotacaoDoFornecedor(Guid CotacaoId, int Numero, string Nome, string? Obra, string Situacao, bool Enviada, bool PodeEditar, DateOnly? DataResposta)
+{
+    public SituacaoProposta Codigo { get; init; }
+    public string Tom { get; init; } = "neutro";
+    public DateTimeOffset? Prazo { get; init; }
+    public DateTimeOffset? CriadaEm { get; init; }
+    /// <summary>Pedido(s)/contrato(s) gerados para este fornecedor a partir da cotação.</summary>
+    public string? Resultado { get; init; }
+    public int Versoes { get; init; }
+    public decimal? Total { get; init; }
+    public TipoRequisicao Tipo { get; init; }
+    public int Itens { get; init; }
+    public string? MotivoDeclinio { get; init; }
+}
 
 /// <summary>
 /// Área do Fornecedor: entrada por CNPJ/CPF + código de uso único enviado a um contato do cadastro (e-mail ou WhatsApp).
@@ -180,30 +193,48 @@ public sealed class AcessoFornecedorServico(IFabricaSistema sistema, IEnvioMensa
         (await AcessosAsync(id, ct)).FirstOrDefault(a => a.FornecedorId == fornecedorId)
         ?? throw new RegraDeNegocioException("Você não tem acesso a este fornecedor.");
 
-    /// <summary>Cotações para as quais o fornecedor foi convidado, com situação da proposta e se ainda pode editar.</summary>
+    /// <summary>
+    /// Histórico de todas as cotações em que o fornecedor foi convidado, com a situação vista por ele (vencedora, parcial,
+    /// não vencedora, prazo encerrado…), versões enviadas e o pedido/contrato gerado. Nunca mostra concorrentes.
+    /// </summary>
     public async Task<IReadOnlyList<CotacaoDoFornecedor>> CotacoesAsync(IdentidadeFornecedor id, Guid fornecedorId, CancellationToken ct = default)
     {
         var a = await ExigirAcessoAsync(id, fornecedorId, ct);
         await using var db = sistema.Criar(a.EmpresaId, "AreaFornecedor");
+        var agora = relogio.GetUtcNow();
         var lista = await (from cf in db.Set<CotacaoFornecedor>().AsNoTracking()
                            join c in db.Cotacoes.AsNoTracking() on cf.CotacaoId equals c.Id
                            join o in db.Obras.AsNoTracking() on c.ObraId equals o.Id into og
                            from o in og.DefaultIfEmpty()
-                           where cf.FornecedorId == fornecedorId && c.Status != StatusCotacao.Cancelado
+                           where cf.FornecedorId == fornecedorId
                            orderby c.Numero descending
-                           select new { c, cf.Status, cf.DataResposta, Obra = o != null ? o.Nome : null }).Take(200).ToListAsync(ct);
+                           select new { c, cf, Obra = o != null ? o.Nome : null }).Take(300).ToListAsync(ct);
+        var cotIds = lista.Select(x => x.c.Id).ToList();
+        var itens = await db.Set<CotacaoItem>().AsNoTracking().Where(i => cotIds.Contains(i.CotacaoId))
+            .Select(i => new { i.CotacaoId, i.FornecedorId, i.Vencedor, i.ValorOfertado, i.ValorNegociado, i.Quantidade }).ToListAsync(ct);
+        var convIds = lista.Select(x => x.cf.Id).ToList();
+        var versoes = await db.PropostasVersao.AsNoTracking().Where(v => convIds.Contains(v.CotacaoFornecedorId)).GroupBy(v => v.CotacaoFornecedorId)
+            .Select(g => new { g.Key, N = g.Count() }).ToDictionaryAsync(x => x.Key, x => x.N, ct);
+        var pedidos = await db.Pedidos.AsNoTracking().Where(p => p.CotacaoId != null && cotIds.Contains(p.CotacaoId.Value) && p.FornecedorId == fornecedorId && p.Status != StatusPedido.Cancelado)
+            .Select(p => new { CotacaoId = p.CotacaoId!.Value, p.Numero }).ToListAsync(ct);
+        var contratos = await db.Contratos.AsNoTracking().Where(k => k.CotacaoId != null && cotIds.Contains(k.CotacaoId.Value) && k.FornecedorId == fornecedorId)
+            .Select(k => new { CotacaoId = k.CotacaoId!.Value, k.Numero }).ToListAsync(ct);
         return lista.Select(x =>
         {
-            var aberta = PortalServico.CotacaoAberta(x.c);
-            var enviada = x.Status is StatusConvite.Respondido or StatusConvite.Vencedor;
-            var situacao = x.Status switch
+            var meus = itens.Where(i => i.CotacaoId == x.c.Id && i.FornecedorId == fornecedorId).ToList();
+            var porItem = itens.Any(i => i.CotacaoId == x.c.Id && i.Vencedor);
+            var decidida = x.c.Status is StatusCotacao.AguardandoAprovacao or StatusCotacao.Aprovado or StatusCotacao.PedidoGerado;
+            var venc = !decidida ? 0 : porItem ? meus.Count(i => i.Vencedor) : x.c.FornecedorVencedorId == fornecedorId ? meus.Count : 0;
+            x.cf.Versoes = Enumerable.Range(0, versoes.GetValueOrDefault(x.cf.Id)).Select(_ => new PropostaVersao()).ToList();
+            var s = SituacaoPropostaFornecedor.Calcular(x.c.Status, x.c.PrazoResposta, x.cf, venc, meus.Count, decidida, agora);
+            var res = string.Join(" · ", pedidos.Where(p => p.CotacaoId == x.c.Id).Select(p => $"Pedido {p.Numero}").Concat(contratos.Where(k => k.CotacaoId == x.c.Id).Select(k => $"Contrato {k.Numero}")));
+            var enviada = x.cf.Status is StatusConvite.Respondido or StatusConvite.Vencedor;
+            decimal? total = enviada ? meus.Sum(i => Math.Round((i.ValorNegociado ?? i.ValorOfertado) * i.Quantidade, 2)) : null;
+            return new CotacaoDoFornecedor(x.c.Id, x.c.Numero, x.c.Nome, x.Obra, s.Texto, enviada, s.PodeEditar, x.cf.DataResposta)
             {
-                StatusConvite.Declinou => "Declinada",
-                StatusConvite.Vencedor => "Enviada · vencedora",
-                StatusConvite.Respondido => aberta ? "Enviada" : "Enviada · cotação encerrada",
-                _ => aberta ? "Não enviada" : "Não enviada · cotação encerrada"
+                Codigo = s.Situacao, Tom = s.Tom, Prazo = x.c.PrazoResposta, CriadaEm = x.c.CriadoEm, Resultado = res.Length == 0 ? null : res,
+                Versoes = versoes.GetValueOrDefault(x.cf.Id), Total = total, Tipo = x.c.Tipo, Itens = meus.Count, MotivoDeclinio = x.cf.MotivoDeclinio
             };
-            return new CotacaoDoFornecedor(x.c.Id, x.c.Numero, x.c.Nome, x.Obra, situacao, enviada, aberta && x.Status != StatusConvite.Declinou, x.DataResposta);
         }).ToList();
     }
 

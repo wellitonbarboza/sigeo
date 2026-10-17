@@ -41,7 +41,8 @@ public enum TipoRequisicao { Material = 1, Servico = 2 }
 public enum StatusRequisicao
 {
     Rascunho = 0, AguardandoEngenheiro = 1, AguardandoDiretorTecnico = 2, Autorizada = 3,
-    NaoAutorizada = 4, DevolvidaAjuste = 5, EmCotacao = 6, PedidoEmitido = 7, Concluida = 8, Cancelada = 9
+    NaoAutorizada = 4, DevolvidaAjuste = 5, EmCotacao = 6, PedidoEmitido = 7, Concluida = 8, Cancelada = 9,
+    ParcialmenteAtendida = 10, Atendida = 11, EncerradaComSaldo = 12
 }
 
 public enum StatusItemRequisicao { Aberto = 1, Orcado = 2, Pedido = 3, Recebido = 4, Cancelado = 5 }
@@ -154,7 +155,7 @@ public enum StatusLote { EmVerificacao = 1, EmQuarentena = 2, Liberado = 3, Devo
 
 // ───────── Segurança e pessoas (S01–S13) ─────────
 public enum VinculoColaborador { Proprio = 1, Terceiro = 2 }
-public enum SituacaoColaborador { Apto = 1, AptoComRestricao = 2, Pendente = 3, Bloqueado = 4, DesligadoDaObra = 5 }
+public enum SituacaoColaborador { Apto = 1, AptoComRestricao = 2, Pendente = 3, Bloqueado = 4, DesligadoDaObra = 5, AguardandoValidacao = 6 }
 public enum TipoExigencia { Documento = 1, ExameAso = 2, Treinamento = 3, Epi = 4 }
 public enum EfeitoVencimento { BloqueiaPessoa = 1, RestringeAtividade = 2, SoAlerta = 3 }
 public enum Obrigatoriedade { Obrigatorio = 1, ConformeAtividade = 2 }

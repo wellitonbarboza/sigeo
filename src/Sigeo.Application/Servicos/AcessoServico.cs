@@ -76,10 +76,9 @@ public sealed class AcessoServico(IFabricaDb fabrica, IUsuarioAtual usuario, Tim
     /// <summary>Regras do perfil de acesso do usuário: o escolhido; senão o padrão do perfil dele (gravado ou o do sistema).</summary>
     private static async Task<Dictionary<string, string>> RegrasDoUsuarioAsync(ISigeoDb db, PerfilUsuario perfil, Guid? perfilAcessoId, CancellationToken ct)
     {
-        string? texto = null;
-        if (perfilAcessoId is { } pid) texto = await db.PerfisAcesso.AsNoTracking().Where(p => p.Id == pid).Select(p => p.Regras).FirstOrDefaultAsync(ct);
-        texto ??= await db.PerfisAcesso.AsNoTracking().Where(p => p.Base == perfil).Select(p => p.Regras).FirstOrDefaultAsync(ct);
-        return texto is null ? PerfisPadrao.Regras(perfil) : CatalogoTelas.LerRegras(texto);
+        var gravado = perfilAcessoId is { } pid ? await db.PerfisAcesso.AsNoTracking().Where(p => p.Id == pid).Select(p => new { p.Regras, p.CatalogoVersao, p.Base }).FirstOrDefaultAsync(ct) : null;
+        gravado ??= await db.PerfisAcesso.AsNoTracking().Where(p => p.Base == perfil).Select(p => new { p.Regras, p.CatalogoVersao, p.Base }).FirstOrDefaultAsync(ct);
+        return gravado is null ? PerfisPadrao.Regras(perfil) : CatalogoTelas.Atualizar(CatalogoTelas.LerRegras(gravado.Regras), gravado.CatalogoVersao, gravado.Base ?? perfil);
     }
 
     public static string Recusa(SituacaoTela s, TelaSistema t, char acao) => s == SituacaoTela.NaoContratada
@@ -123,13 +122,13 @@ public sealed class AcessoServico(IFabricaDb fabrica, IUsuarioAtual usuario, Tim
             {
                 var nome = Rotulo(p);
                 if (nomes.Contains(nome, StringComparer.OrdinalIgnoreCase)) nome += " (padrão)";
-                db.PerfisAcesso.Add(new PerfilAcesso { Nome = nome, Base = p, Regras = CatalogoTelas.EscreverRegras(PerfisPadrao.Regras(p)) });
+                db.PerfisAcesso.Add(new PerfilAcesso { Nome = nome, Base = p, Regras = CatalogoTelas.EscreverRegras(PerfisPadrao.Regras(p)), CatalogoVersao = CatalogoTelas.Versao });
             }
             await db.SaveChangesAsync(ct);
         }
         var lista = await db.PerfisAcesso.AsNoTracking().OrderBy(p => p.Base == null).ThenBy(p => p.Nome).ToListAsync(ct);
         var usuarios = await db.Usuarios.AsNoTracking().Where(u => u.Ativo).Select(u => new { u.Perfil, u.PerfilAcessoId }).ToListAsync(ct);
-        return lista.Select(p => new LinhaPerfil(p.Id, p.Nome, p.Base, CatalogoTelas.LerRegras(p.Regras),
+        return lista.Select(p => new LinhaPerfil(p.Id, p.Nome, p.Base, CatalogoTelas.Atualizar(CatalogoTelas.LerRegras(p.Regras), p.CatalogoVersao, p.Base),
             usuarios.Count(u => u.Perfil != PerfilUsuario.Administrador && (u.PerfilAcessoId == p.Id || (u.PerfilAcessoId == null && p.Base == u.Perfil))))).ToList();
     }
 
@@ -151,7 +150,7 @@ public sealed class AcessoServico(IFabricaDb fabrica, IUsuarioAtual usuario, Tim
         var p = await db.PerfisAcesso.FirstOrDefaultAsync(x => x.Id == id, ct) ?? throw new RegraDeNegocioException("Perfil não encontrado.");
         if (await db.PerfisAcesso.AnyAsync(x => x.Id != id && x.Nome == nome, ct)) throw new RegraDeNegocioException("Já existe perfil com esse nome.");
         p.Nome = nome;
-        p.Regras = CatalogoTelas.EscreverRegras(Limpar(regras));
+        p.Regras = CatalogoTelas.EscreverRegras(Limpar(regras)); p.CatalogoVersao = CatalogoTelas.Versao;
         await db.SaveChangesAsync(ct);
         Invalidar();
     }
@@ -181,7 +180,7 @@ public sealed class AcessoServico(IFabricaDb fabrica, IUsuarioAtual usuario, Tim
         await ExigirAdminAsync(db);
         var p = await db.PerfisAcesso.FirstOrDefaultAsync(x => x.Id == id, ct) ?? throw new RegraDeNegocioException("Perfil não encontrado.");
         if (p.Base is not { } b) throw new RegraDeNegocioException("Só perfil padrão volta ao padrão do sistema.");
-        p.Regras = CatalogoTelas.EscreverRegras(PerfisPadrao.Regras(b));
+        p.Regras = CatalogoTelas.EscreverRegras(PerfisPadrao.Regras(b)); p.CatalogoVersao = CatalogoTelas.Versao;
         await db.SaveChangesAsync(ct);
         Invalidar();
     }

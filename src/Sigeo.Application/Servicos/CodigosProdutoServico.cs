@@ -171,6 +171,16 @@ public sealed class CodigosProdutoServico(IFabricaDb fabrica)
         await db.SaveChangesAsync(ct);
     }
 
+    /// <summary>Lead time da categoria (grupo ou subgrupo), em dias corridos da autorização ao recebimento. Vazio = herda do grupo.</summary>
+    public async Task SalvarLeadTimeAsync(Guid categoriaId, int? dias, CancellationToken ct = default)
+    {
+        if (dias is < 0 or > 365) throw new RegraDeNegocioException("Lead time entre 0 e 365 dias.");
+        await using var db = fabrica.Criar();
+        var g = await db.CategoriasProduto.FirstAsync(x => x.Id == categoriaId, ct);
+        g.LeadTimeDias = dias;
+        await db.SaveChangesAsync(ct);
+    }
+
     /// <summary>Mescla um subgrupo em outro do mesmo grupo (ex.: "Eletrica" → "Elétricas"): move os produtos e recodifica os não usados.</summary>
     public async Task<int> MesclarAsync(Guid origemId, Guid destinoId, CancellationToken ct = default)
     {

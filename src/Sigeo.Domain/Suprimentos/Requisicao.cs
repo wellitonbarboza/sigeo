@@ -42,6 +42,8 @@ public class Requisicao : EntidadeDaObra, IHistoricoTemporal
     public string? ChaveNFe { get; set; }
     public Guid SolicitanteUsuarioId { get; set; }
     public string SolicitanteNome { get; set; } = string.Empty;
+    /// <summary>Compra emergencial (prazo menor que o lead time): fica fora da base de preço da economia real.</summary>
+    public bool Emergencial { get; set; }
 
     public ICollection<RequisicaoItem> Itens { get; set; } = [];
 
@@ -107,6 +109,11 @@ public class RequisicaoItem : Entidade
     public DateOnly? DataNecessidade { get; set; }
     public StatusItemRequisicao Status { get; set; } = StatusItemRequisicao.Aberto;
     public string? Observacao { get; set; }
+    /// <summary>Saldo encerrado (cancelado) com justificativa — não será mais pedido.</summary>
+    public decimal QtdCancelada { get; set; }
+    public string? MotivoCancelamento { get; set; }
+    /// <summary>Lote de compra (comprador) a que o item foi encaminhado na autorização.</summary>
+    public Guid? LoteCompraId { get; set; }
     /// <summary>Serviço do orçamento de origem (serviço contratado ou material puxado da composição).</summary>
     public Guid? ComposicaoId { get; set; }
     /// <summary>Quebra por local (serviço × local × quantidade) quando o item vem do orçamento.</summary>

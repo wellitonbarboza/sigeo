@@ -20,6 +20,8 @@ public class CategoriaProduto : EntidadeAuditavel
     public Common.TipoCusto? TipoCustoPadrao { get; set; }
     /// <summary>Fase padrão do orçamento (grupo de serviço da EAP) para compra sem composição: o custo realizado cai nela.</summary>
     public string? FasePadrao { get; set; }
+    /// <summary>Lead time padrão do grupo/subgrupo (dias): produto sem lead time herda (subgrupo, senão grupo).</summary>
+    public int? LeadTimeDias { get; set; }
     public ICollection<CategoriaProduto> Subgrupos { get; set; } = [];
 }
 

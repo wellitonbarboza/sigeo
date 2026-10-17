@@ -13,16 +13,22 @@
     }
     else
     {
+        @if (Aba is null)
+        {
         <header class="portal-topo">
             <div><small>Portal do fornecedor · @_s.EmpresaNome</small><h1>@_s.Fornecedor.RazaoSocial</h1><span class="mudo">@_s.Fornecedor.CpfCnpj@(NaArea ? "" : $" · solicitação {_s.Link.Codigo} · link válido até {_s.Link.ValidoAte.ToLocalTime():dd/MM/yyyy}")</span></div>
         </header>
+        }
         @if (_s.Alerta is not null) { <div class="alerta aviso"><Icone Nome="alerta" /> @_s.Alerta</div> }
         @if (_msg is not null) { <div class="alerta @(_ok ? "ok" : "erro")">@_msg</div> }
+        @if (Aba is null)
+        {
         <div class="abas mb-10">
             @if (_s.Fornecedor.PreCadastro) { <button class="@(_aba == "dados" ? "on" : "")" id="aba-dados" @onclick='() => _aba = "dados"'>Dados cadastrais (completar)</button> }
             <button class="@(_aba == "empresa" ? "on" : "")" @onclick='() => _aba = "empresa"'>Documentos da empresa</button>
             <button class="@(_aba == "func" ? "on" : "")" @onclick='() => _aba = "func"'>Funcionários (@_s.Colaboradores.Count)</button>
         </div>
+        }
         @if (_aba == "dados")
         {
             <div class="form" id="form-dados">
@@ -44,19 +50,58 @@
                 <Campo Rotulo="Contato — telefone" Classe="s4"><input @bind="_d.ContatoTelefone" /></Campo>
             </div>
             <button class="btn prim" id="pd-salvar" disabled="@_enviando" @onclick="SalvarDados"><Icone Nome="check" Tam="16" /> Salvar dados</button>
+            @if (_s.Fornecedor.Contatos.Count > 0)
+            {
+                <h3 class="mt-18">Quem recebe os avisos por e-mail</h3>
+                <p class="mudo">Vencimento de documentos (30, 15 e 7 dias), documento recusado, documentação mensal e cotação encerrando. Sem marcação, vai para os e-mails do cadastro.</p>
+                <table class="itens" id="pd-avisos">
+                    <thead><tr><th></th><th>Contato</th><th>E-mail</th></tr></thead>
+                    <tbody>
+                        @foreach (var c in _s.Fornecedor.Contatos)
+                        {
+                            <tr @key="c.Id"><td><input type="checkbox" checked="@_avisos.Contains(c.Id)" disabled="@string.IsNullOrWhiteSpace(c.Email)" aria-label="@($"Avisos para {c.Nome}")" @onchange="e => { if (e.Value is true) _avisos.Add(c.Id); else _avisos.Remove(c.Id); }" /></td><td>@c.Nome</td><td>@(c.Email ?? "sem e-mail")</td></tr>
+                        }
+                    </tbody>
+                </table>
+                <button class="btn sec" id="pd-avisos-salvar" disabled="@_enviando" @onclick="SalvarAvisos">Salvar quem recebe</button>
+            }
         }
         else if (_aba == "func")
         {
+            @if (_s.MaoDeObra)
+            {
+                <div class="linha-botoes mb-10"><button class="btn prim pq" id="pf-novo" @onclick="() => NovoColab(null)"><Icone Nome="mais" Tam="16" /> Cadastrar funcionário</button>
+                    <span class="mudo">O funcionário só pode entrar na obra depois da validação da construtora e com os documentos em dia.</span></div>
+            }
+            @if (_form is not null)
+            {
+                <div class="caixa-envio" id="pf-form">
+                    <h3>@(_form.Id is null ? "Novo funcionário" : $"Editar: {_form.Nome}")</h3>
+                    <div class="form">
+                        <Campo Rotulo="Nome completo" Obrigatorio Classe="s6"><input id="pf-nome" @bind="_form.Nome" maxlength="150" /></Campo>
+                        <Campo Rotulo="@(_form.Id is null ? "CPF" : "CPF (só se for corrigir)")" Obrigatorio="@(_form.Id is null)" Classe="s3"><input id="pf-cpf" @bind="_form.Cpf" maxlength="14" autocomplete="off" /></Campo>
+                        <Campo Rotulo="Função" Obrigatorio Classe="s3"><select id="pf-funcao" @bind="_form.FuncaoId"><option value="@Guid.Empty">Selecione…</option>@foreach (var f in _s.Funcoes) { <option value="@f.Id">@f.Nome</option> }</select></Campo>
+                        <Campo Rotulo="Obra / contrato" Obrigatorio Classe="s6"><select id="pf-contrato" @bind="_form.ContratoId"><option value="">Selecione…</option>@foreach (var k in _s.Contratos) { <option value="@k.Id">@k.Obra · contrato @k.Numero</option> }</select></Campo>
+                        <Campo Rotulo="Admissão" Obrigatorio Classe="s3"><input type="date" id="pf-adm" @bind="_form.Admissao" /></Campo>
+                        <Campo Rotulo="Desligamento da obra" Classe="s3"><input type="date" @bind="_form.Desligamento" /></Campo>
+                    </div>
+                    <p class="mudo">CPF fica protegido (só os últimos dígitos aparecem). Mudar obra ou CPF manda o funcionário para nova validação.</p>
+                    <button class="btn prim" id="pf-salvar" disabled="@_enviando" @onclick="SalvarColab"><Icone Nome="check" Tam="16" /> Salvar</button>
+                    <button class="btn sec" @onclick="() => _form = null">Cancelar</button>
+                </div>
+            }
             <div class="tabela-rolavel">
-                <table class="itens">
+                <table class="itens" id="pf-lista">
                     <thead><tr><th>Funcionário</th><th>Função</th><th>Situação</th><th>Pendências</th><th></th></tr></thead>
                     <tbody>
                         @foreach (var c in _s.Colaboradores)
                         {
                             <tr><td><b>@c.Nome</b></td><td>@c.Funcao</td><td><Selo Texto="@(Enum.TryParse<SituacaoColaborador>(c.Situacao, out var sc) ? Rotulos.De(sc) : c.Situacao)" Tom="@(Enum.TryParse<SituacaoColaborador>(c.Situacao, out var sc2) ? Rotulos.Tom(sc2) : "neutro")" /></td>
-                                <td><small>@c.Pendencias</small></td><td><button class="btn sec pq" @onclick="() => { _colab = c; _exig = null; _tipo = null; _msg = null; }">Enviar documento</button></td></tr>
+                                <td>@if (c.CpfMascarado is { } cm) { <small class="mudo">@cm · </small> }<small>@c.Pendencias</small>@if (c.Obra is { } ob) { <br /><small class="mudo">@ob</small> }</td>
+                                <td class="nowrap"><button class="btn sec pq" @onclick="() => { _colab = c; _exig = null; _tipo = null; _msg = null; }">Enviar documento</button>
+                                    @if (_s.MaoDeObra) { <button class="btn sec pq" @onclick="() => NovoColab(c)">Editar</button> }</td></tr>
                         }
-                        @if (_s.Colaboradores.Count == 0) { <tr><td colspan="5" class="mudo">Nenhum funcionário cadastrado para esta empresa na obra. Informe a construtora.</td></tr> }
+                        @if (_s.Colaboradores.Count == 0) { <tr><td colspan="5" class="mudo">Nenhum funcionário cadastrado. Use "Cadastrar funcionário".</td></tr> }
                     </tbody>
                 </table>
             </div>
@@ -89,13 +134,28 @@
                             <td><b>@d.Nome</b>@if (d.Obrigatorio) { <small class="mudo"> · obrigatório</small> }</td>
                             <td><Selo Texto="@Rotulos.De(d.Situacao)" Tom="@Rotulos.Tom(d.Situacao)" /></td>
                             <td>@d.Detalhe</td>
-                            <td>@if (!d.PorEntrega && d.Situacao != StatusDocumento.EmValidacao) { <button class="btn sec pq" @onclick="() => Escolher(d)">Enviar</button> }</td>
+                            <td class="nowrap">@if (!d.PorEntrega && d.Situacao != StatusDocumento.EmValidacao) { <button class="btn sec pq" @onclick="() => Escolher(d)">@(d.Situacao is StatusDocumento.Valido or StatusDocumento.AVencer or StatusDocumento.Vencido ? "Atualizar" : "Enviar")</button> }
+                                <button class="btn sec pq" @onclick="() => Versoes(d)">Histórico</button></td>
                         </tr>
                     }
                 </tbody>
             </table>
         </div>
 
+        @if (_versoes is not null)
+        {
+            <div class="caixa-envio" id="pf-versoes">
+                <h3>Histórico: @_versoesNome</h3>
+                <table class="itens">
+                    <thead><tr><th>Enviado</th><th>Responsável</th><th>Validade</th><th>Situação</th><th>Arquivo</th></tr></thead>
+                    <tbody>
+                        @foreach (var v in _versoes) { <tr @key="v.Id"><td>@v.Enviado.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td><td>@v.Responsavel</td><td>@v.Validade?.ToString("dd/MM/yyyy")</td><td><Selo Texto="@(v.Vigente ? $"{Rotulos.De(v.Status)} · vigente" : Rotulos.De(v.Status))" Tom="@Rotulos.Tom(v.Status)" />@if (v.Motivo is { } mo) { <br /><small class="texto-erro">@mo</small> }</td><td>@v.Arquivo</td></tr> }
+                        @if (_versoes.Count == 0) { <tr><td colspan="5" class="mudo">Nenhum envio ainda.</td></tr> }
+                    </tbody>
+                </table>
+                <button class="btn sec" @onclick="() => _versoes = null">Fechar</button>
+            </div>
+        }
         @if (_tipo is not null)
         {
             <div class="caixa-envio">
@@ -121,6 +181,46 @@
     [Parameter] public string Token { get; set; } = "";
     /// <summary>Dentro da Área do Fornecedor (sessão por código): sem a moldura e os dados do link.</summary>
     [Parameter] public bool NaArea { get; set; }
+    /// <summary>Área do Fornecedor: mostra só uma aba (empresa, func, dados) sem o cabeçalho e as abas internas.</summary>
+    [Parameter] public string? Aba { get; set; }
+    private ColaboradorForm? _form;
+    private IReadOnlyList<VersaoDocumentoPortal>? _versoes;
+    private string? _versoesNome;
+    private HashSet<Guid> _avisos = [];
+
+    protected override void OnParametersSet() { if (Aba is not null) _aba = Aba; }
+
+    private async Task Versoes(DocumentoSolicitado d) { _tipo = null; _versoesNome = d.Nome; _versoes = await Portal.VersoesDocumentoAsync(Token, d.TipoId); }
+
+    private void NovoColab(ColaboradorPortal? c)
+    {
+        _msg = null; _colab = null;
+        _form = c is null
+            ? new ColaboradorForm { Admissao = DateOnly.FromDateTime(DateTime.Today), ContratoId = _s!.Contratos.Count == 1 ? _s.Contratos[0].Id : null }
+            : new ColaboradorForm { Id = c.Id, Nome = c.Nome, FuncaoId = c.FuncaoId, Admissao = c.Admissao, Desligamento = c.Desligamento, ContratoId = c.ContratoId };
+    }
+
+    private async Task SalvarColab()
+    {
+        _enviando = true;
+        try
+        {
+            await Portal.SalvarColaboradorAsync(Token, _form!);
+            _ok = true; _msg = $"{_form!.Nome} salvo. Aguarde a validação da construtora e envie os documentos (ASO, NR, ficha de EPI)."; _form = null;
+            await Abrir();
+        }
+        catch (ValidacaoException v) { _ok = false; _msg = string.Join(" ", v.Erros); }
+        catch (RegraDeNegocioException e) { _ok = false; _msg = e.Message; }
+        finally { _enviando = false; }
+    }
+
+    private async Task SalvarAvisos()
+    {
+        _enviando = true;
+        try { await Portal.DefinirAvisosAsync(Token, _avisos.ToList()); _ok = true; _msg = "Contatos dos avisos salvos."; await Abrir(); }
+        catch (RegraDeNegocioException e) { _ok = false; _msg = e.Message; }
+        finally { _enviando = false; }
+    }
     private SessaoPortal? _s;
     private bool _carregando = true, _enviando, _ok;
     private DocumentoSolicitado? _tipo;
@@ -167,7 +267,8 @@
             Complemento = f.Complemento, Bairro = f.Bairro, Cidade = f.Cidade, Uf = f.Uf, Telefones = f.Telefones, Emails = f.Emails, Site = f.Site,
             ContatoNome = c?.Nome, ContatoEmail = c?.Email, ContatoTelefone = c?.Telefone
         };
-        if (f.PreCadastro && _aba == "empresa" && string.IsNullOrWhiteSpace(f.Endereco)) _aba = "dados";
+        _avisos = f.Contatos.Where(x => x.RecebeAvisos).Select(x => x.Id).ToHashSet();
+        if (Aba is null && f.PreCadastro && _aba == "empresa" && string.IsNullOrWhiteSpace(f.Endereco)) _aba = "dados";
     }
 
     private void Escolher(DocumentoSolicitado d) { _tipo = d; _numero = null; _emissao = null; _validade = null; _arquivo = null; _msg = null; _comp = d.Competencia; }
@@ -183,7 +284,7 @@
         try
         {
             await Portal.AtualizarDadosAsync(Token, _d);
-            _ok = true; _msg = "Dados salvos. Agora envie os documentos na aba Documentos da empresa."; _aba = "empresa";
+            _ok = true; _msg = "Dados salvos. Agora envie os documentos na aba Documentos da empresa."; if (Aba is null) _aba = "empresa";
             await Abrir();
         }
         catch (ValidacaoException v) { _ok = false; _msg = string.Join(" ", v.Erros); }

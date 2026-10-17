@@ -174,6 +174,7 @@ public sealed class AprovacaoServico(IUsuarioAtual usuario, TimeProvider relogio
                 r.Status = aprovado ? StatusRequisicao.Autorizada : reprovado ? StatusRequisicao.NaoAutorizada
                          : devolvido ? StatusRequisicao.DevolvidaAjuste : StatusRequisicao.AguardandoDiretorTecnico;
                 if (reprovado || devolvido) r.MotivoReprovacao = just;
+                if (aprovado) await AtendimentoServico.EncaminharAsync(db, r, DateOnly.FromDateTime(agora.ToLocalTime().Date), agora, ct); // lotes por comprador
                 break;
             case EntidadeAprovavel.Cotacao:
                 var c = await db.Cotacoes.FirstAsync(x => x.Id == s.EntidadeId, ct);

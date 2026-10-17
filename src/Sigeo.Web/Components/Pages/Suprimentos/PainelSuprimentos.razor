@@ -1,0 +1,132 @@
+@page "/suprimentos/painel"
+@inherits PaginaBase
+@inject PainelSuprimentosServico PainelSrv
+@* Painel do gestor de suprimentos: metas configuradas por comprador e setor, lead time por categoria, necessidades sem pedido,
+   entrega no prazo por fornecedor, alertas de avaliação/documentos, não conformidades em recebimentos e volume de requisições. *@
+
+<Pagina Titulo="Painel de suprimentos" AoAtualizar="Carregar">
+    <Direita>
+        <select aria-label="Período" @bind="_periodo" @bind:after="Carregar"><option value="mes">Mês atual</option><option value="90">Últimos 90 dias</option><option value="ano">Ano</option></select>
+        <select aria-label="Obra" @bind="_obra" @bind:after="Carregar"><option value="">Todas as obras</option>@foreach (var o in _obras) { <option value="@o.Id">@o.Texto</option> }</select>
+    </Direita>
+    <ChildContent>
+        <div class="pagina">
+            @if (_d is null) { <Esqueleto Indicadores="5" Linhas="10" /> }
+            else
+            {
+                <div class="secao"><Icone Nome="alvo" /> Metas por comprador · realizado / meta configurada</div>
+                <div class="tabela-rolavel">
+                    <table class="itens" id="painel-compradores">
+                        <thead><tr><th>Comprador</th><th class="num">Economia real</th><th class="num">Tempo de compra</th><th class="num">Entrega no prazo</th><th class="num">Lotes abertos</th><th class="num">Atrasados</th></tr></thead>
+                        <tbody>
+                            @foreach (var c in new[] { _d.Setor }.Concat(_d.Compradores))
+                            {
+                                var setor = ReferenceEquals(c, _d.Setor);
+                                <tr class="@(setor ? "peso-600 destaque" : "")">
+                                    <td>@c.Nome @if (c.Ausente) { <Selo Texto="ausente" Tom="aviso" /> }</td>
+                                    <td class="num @TomMaior(c.Economia, c.MetaEconomia)">@Par(c.Economia, c.MetaEconomia, "%")</td>
+                                    <td class="num @TomMenor(c.TempoCompra, c.MetaTempo)">@Par(c.TempoCompra, c.MetaTempo, " d")</td>
+                                    <td class="num @TomMaior(c.NoPrazo, c.MetaNoPrazo)">@Par(c.NoPrazo, c.MetaNoPrazo, "%")</td>
+                                    <td class="num">@c.LotesAbertos</td><td class="num @(c.Atrasados > 0 ? "texto-erro" : "")">@c.Atrasados</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                <p class="mudo">Alvos vêm das metas de cada comprador (individuais) ou, sem meta individual, da meta do setor. Sem meta configurada aparece só o valor.</p>
+
+                <div class="kpis">
+                    <Kpi Rotulo="Requisições recebidas" Valor="@_d.Volume.Recebidas" Sub="autorizadas no período" />
+                    <Kpi Rotulo="Atendidas" Valor="@_d.Volume.Atendidas" Sub="@Moeda(_d.Volume.ValorAtendido)" Tom="ok" />
+                    <Kpi Rotulo="Parcialmente atendidas" Valor="@_d.Volume.Parciais" Sub="@($"saldo {Moeda(_d.Volume.SaldoParcial)}")" Tom="aviso" />
+                    <Kpi Rotulo="Encerradas com saldo" Valor="@_d.Volume.EncerradasComSaldo" Sub="@($"{_d.Volume.EmCompra} em compra")" />
+                    <Kpi Rotulo="Atendidas até a necessidade" Valor="@(_d.AteNecessidadePerc is { } an ? $"{an:0}%" : "—")" Sub="@(_d.MetaNecessidade is { } mn ? $"meta {mn:0}%" : "itens com data de necessidade")" Tom="@(TomKpi(_d.AteNecessidadePerc, _d.MetaNecessidade))" />
+                </div>
+
+                <div class="grade-2">
+                    <div>
+                        <div class="secao"><Icone Nome="relogio" /> Lead time por categoria · autorização até recebimento</div>
+                        <table class="itens" id="painel-lead">
+                            <thead><tr><th>Categoria</th><th class="num">Cadastrado</th><th class="num">Real (média)</th><th class="num">Dentro do lead time</th><th class="num">Até a necessidade</th></tr></thead>
+                            <tbody>
+                                @foreach (var l in _d.LeadTime)
+                                {
+                                    <tr><td>@l.Categoria</td><td class="num">@(l.Cadastrado is { } c ? $"{c:0} d" : "—")</td><td class="num">@(l.Real is { } r ? $"{r:0.0} d" : "—")</td>
+                                        <td class="num @(l.DentroLeadPerc < 75 ? "texto-erro" : l.DentroLeadPerc < 90 ? "texto-aviso" : "texto-ok")">@(l.DentroLeadPerc is { } d ? $"{d:0}%" : "—")</td>
+                                        <td class="num">@(l.AteNecessidadePerc is { } a ? $"{a:0}%" : "—")</td></tr>
+                                }
+                                @if (_d.LeadTime.Count == 0) { <tr><td colspan="5" class="mudo">Sem itens com necessidade no período.</td></tr> }
+                            </tbody>
+                        </table>
+                        <p class="mudo">Lead time cadastrado: no produto ou, sem ele, no grupo/subgrupo (Cadastros › Categorias de Produto).</p>
+                    </div>
+                    <div>
+                        <div class="secao"><Icone Nome="calendario" /> Necessidade nos próximos 7 dias sem pedido</div>
+                        <table class="itens" id="painel-proximos">
+                            <thead><tr><th>Item</th><th>Requisição</th><th class="num">A pedir</th><th>Necessidade</th><th>Comprador</th></tr></thead>
+                            <tbody>
+                                @foreach (var n in _d.Proximos7Dias) { <tr><td>@n.Item</td><td><a href="@($"requisicoes?id={n.RequisicaoId}")">REQ @n.Requisicao</a></td><td class="num">@Num(n.Quantidade, 3) @n.Unidade</td><td class="@(n.Necessidade <= Hoje.AddDays(2) ? "texto-erro peso-600" : "")">@n.Necessidade.ToString("dd/MM")</td><td>@(n.Comprador ?? "fila do gestor")</td></tr> }
+                                @if (_d.Proximos7Dias.Count == 0) { <tr><td colspan="5" class="mudo">Nada vencendo sem pedido.</td></tr> }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="grade-2 mt-12">
+                    <div class="cartao">
+                        <h3><Icone Nome="enviar" /> Entrega no prazo por fornecedor (data prometida e completa)</h3>
+                        @foreach (var e in _d.Entregas)
+                        {
+                            <div class="mb-6"><div class="linha-espaco"><span>@e.Fornecedor</span><b>@e.Perc.ToString("0")% <small class="mudo">(@e.NoPrazo/@e.Pedidos)</small></b></div>
+                                <div class="barra-meta"><span class="@(e.Perc >= 90 ? "ok" : e.Perc >= 75 ? "aviso" : "erro")" style="width:@e.Perc%"></span></div></div>
+                        }
+                        @if (_d.Entregas.Count == 0) { <p class="mudo">Sem pedidos com entrega no período.</p> }
+                    </div>
+                    <div>
+                        <div class="secao"><Icone Nome="alerta" /> Alertas de avaliação de fornecedores</div>
+                        <table class="itens" id="painel-alertas">
+                            <thead><tr><th>Fornecedor</th><th>Alerta</th><th class="num">Pedidos abertos</th></tr></thead>
+                            <tbody>
+                                @foreach (var a in _d.Alertas.Take(20)) { <tr><td><a href="@($"fornecedores?id={a.FornecedorId}")">@a.Fornecedor</a></td><td><Selo Texto="@a.Tipo" Tom="@a.Tom" /> <small>@a.Detalhe</small></td><td class="num">@a.PedidosAbertos@(a.ValorAberto > 0 ? $" · {Moeda(a.ValorAberto)}" : "")</td></tr> }
+                                @if (_d.Alertas.Count == 0) { <tr><td colspan="3" class="mudo">Nenhum alerta para fornecedores com pedido ou contrato aberto.</td></tr> }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="secao"><Icone Nome="x-circulo" /> Não conformidades em recebimentos
+                    <span class="acao abas">
+                        @foreach (var d in new[] { 7, 15, 30 }) { <button class="@(_dias == d ? "on" : "")" @onclick="() => _dias = d">@d dias · @_d.NaoConformidades.Count(n => n.Data >= Hoje.AddDays(-d))</button> }
+                    </span></div>
+                <table class="itens" id="painel-nc">
+                    <thead><tr><th>Data</th><th>Fornecedor</th><th>Item · obra</th><th>Tipo</th><th>Tratamento</th></tr></thead>
+                    <tbody>
+                        @foreach (var n in _d.NaoConformidades.Where(n => n.Data >= Hoje.AddDays(-_dias)))
+                        {
+                            <tr><td>@n.Data.ToString("dd/MM")</td><td>@n.Fornecedor</td><td><a href="@($"recebimentos?id={n.RecebimentoId}")">@n.Itens</a> · @n.Obra</td><td><Selo Texto="@n.Tipo" Tom="@(n.Tipo.StartsWith("FVM") || n.Tipo == "Devolução" ? "erro" : "aviso")" /></td><td>@n.Tratamento</td></tr>
+                        }
+                        @if (!_d.NaoConformidades.Any(n => n.Data >= Hoje.AddDays(-_dias))) { <tr><td colspan="5" class="mudo">Nenhuma não conformidade no período.</td></tr> }
+                    </tbody>
+                </table>
+            }
+        </div>
+    </ChildContent>
+    <Faixa><b>Painel de suprimentos</b><span>Metas por comprador</span><span>Lead time e necessidade</span><span>Fornecedores: prazo, avaliação e NC</span></Faixa>
+</Pagina>
+
+@code {
+    private PainelSuprimentosDto? _d;
+    private string _periodo = "mes";
+    private Guid? _obra;
+    private int _dias = 7;
+    private List<Opcao> _obras = [];
+    private DateOnly Inicio => _periodo switch { "90" => Hoje.AddDays(-89), "ano" => new DateOnly(Hoje.Year, 1, 1), _ => new DateOnly(Hoje.Year, Hoje.Month, 1) };
+
+    protected override async Task OnInitializedAsync() { _obras = await Cat.ObrasAsync(); await Carregar(); }
+    private async Task Carregar() => _d = await PainelSrv.CarregarAsync(Inicio, Hoje, _obra, Cancelamento);
+
+    private static string Par(decimal? v, decimal? meta, string un) => v is null ? "—" : $"{v:0.0}{un}{(meta is { } m ? $" / {m:0.#}{un}" : "")}";
+    private static string TomMaior(decimal? v, decimal? m) => v is null || m is null ? "" : v >= m ? "texto-ok" : v >= m * 0.85m ? "texto-aviso" : "texto-erro";
+    private static string TomMenor(decimal? v, decimal? m) => v is null || m is null ? "" : v <= m ? "texto-ok" : v <= m * 1.15m ? "texto-aviso" : "texto-erro";
+    private static string TomKpi(decimal? v, decimal? m) => v is null ? "neutro" : m is null ? "info" : v >= m ? "ok" : "aviso";
+}

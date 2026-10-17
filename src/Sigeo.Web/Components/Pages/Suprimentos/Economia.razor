@@ -1,0 +1,119 @@
+@page "/suprimentos/economia"
+@inherits PaginaBase
+@inject EconomiaServico EconomiaSrv
+@* Economia real: quanto se pagou a menos que o último preço pago do próprio item (mesma unidade, frete incluso, sem índice).
+   Emergenciais e desvios acima do limite ficam fora. Meta x realizado por comprador e por setor (metas configuradas em Gestão › Metas). *@
+
+<Pagina Titulo="Economia real e metas" AoAtualizar="Carregar">
+    <Direita>
+        <select aria-label="Período" @bind="_periodo" @bind:after="Carregar"><option value="mes">Mês atual</option><option value="tri">Últimos 3 meses</option><option value="ano">Ano</option><option value="12">Últimos 12 meses</option></select>
+        <select aria-label="Obra" @bind="_obra" @bind:after="Carregar"><option value="">Todas as obras</option>@foreach (var o in _obras) { <option value="@o.Id">@o.Texto</option> }</select>
+        <a class="btn sec pq" href="gestao/metas">Definir metas</a>
+    </Direita>
+    <ChildContent>
+        <div class="pagina">
+            @if (_d is null) { <Esqueleto Indicadores="4" Linhas="8" /> }
+            else
+            {
+                var r = _d.Resumo;
+                <p class="mudo">@Inicio.ToString("dd/MM/yyyy") a @Fim.ToString("dd/MM/yyyy") · base = último preço pago do item, mesma unidade, frete incluso · emergenciais e diferenças acima do limite ficam fora · sem correção por índice</p>
+                <div class="kpis">
+                    <Kpi Rotulo="Economia real" Valor="@Moeda(r.Economia)" Sub="@($"{r.Percentual:0.0}% sobre {Moeda(r.BaseTotal)} com base")" Tom="@(r.Economia >= 0 ? "ok" : "erro")" />
+                    <Kpi Rotulo="Meta do setor" Valor="@(_d.MetaSetorPerc is { } m ? $"{m:0.0}%" : "—")" Sub="@(_d.MetaSetorPerc is { } m2 && m2 > 0 ? $"{Math.Round(r.Percentual / m2 * 100):0}% da meta" : "configure em Gestão › Metas")" Tom="@(_d.MetaSetorPerc is { } m3 && r.Percentual >= m3 ? "ok" : "aviso")" />
+                    <Kpi Rotulo="Cobertura da base" Valor="@($"{r.Cobertura:0}%")" Sub="do valor comprado tem histórico" />
+                    <Kpi Rotulo="Perda (pagou mais)" Valor="@Moeda(r.Perdas)" Sub="já descontada do total" Tom="erro" />
+                    <Kpi Rotulo="@($"Aumentos acima de {_d.LimiteAumento:0}%")" Valor="@_d.Aumentos.Count" Sub="lista do gestor (abaixo)" Tom="@(_d.Aumentos.Count > 0 ? "aviso" : "ok")" />
+                </div>
+
+                <div class="grade-2">
+                    <div class="cartao">
+                        <h3><Icone Nome="pessoa" /> Meta × realizado por comprador</h3>
+                        @foreach (var c in _d.PorComprador)
+                        {
+                            var pct = c.MetaPerc is > 0 ? Math.Clamp(c.Percentual / c.MetaPerc.Value, 0, 1) : (decimal?)null;
+                            <div class="mb-6" @key="c.Chave">
+                                <div class="linha-espaco"><b>@c.Nome</b><span>@($"{c.Percentual:0.0}%")@(c.MetaPerc is { } mt ? $" / meta {mt:0.0}%" : "") · @Moeda(c.Economia)</span></div>
+                                <div class="barra-meta"><span class="@(pct is null ? "" : pct >= 1 ? "ok" : pct >= 0.85m ? "aviso" : "erro")" style="width:@((pct ?? Math.Clamp(c.Percentual / 10m, 0, 1)) * 100)%"></span></div>
+                            </div>
+                        }
+                        @if (_d.PorComprador.Count == 0) { <p class="mudo">Sem compras com base no período.</p> }
+                    </div>
+                    <div class="cartao">
+                        <h3><Icone Nome="grafico" /> Evolução mensal (% de economia)</h3>
+                        @{ var maxM = Math.Max(1m, _d.Mensal.Select(x => Math.Abs(x.Percentual)).DefaultIfEmpty(1).Max()); }
+                        <div class="barras-verticais">
+                            @foreach (var mm in _d.Mensal)
+                            {
+                                <div class="barra-v" title="@($"{mm.Mes:MM/yyyy}: {mm.Percentual:0.0}% · {Moeda(mm.Economia)}")">
+                                    <small>@mm.Percentual.ToString("0.0")</small>
+                                    <span class="@(mm.Percentual < 0 ? "erro" : _d.MetaSetorPerc is { } ms && mm.Percentual >= ms ? "ok" : "")" style="height:@(Math.Abs(mm.Percentual) / maxM * 140)px"></span>
+                                    <small class="mudo">@mm.Mes.ToString("MMM", Br)</small>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <div class="secao"><Icone Nome="lista" /> Por categoria (grupo do catálogo)</div>
+                <table class="itens" id="eco-categorias">
+                    <thead><tr><th>Categoria</th><th class="num">Comprado</th><th class="num">Base</th><th class="num">Economia</th><th class="num">%</th></tr></thead>
+                    <tbody>@foreach (var c in _d.PorCategoria) { <tr @key="c.Chave"><td>@c.Nome</td><td class="num">@Moeda(c.Comprado)</td><td class="num">@Moeda(c.BaseTotal)</td><td class="num @(c.Economia < 0 ? "texto-erro" : "")">@Moeda(c.Economia)</td><td class="num">@c.Percentual.ToString("0.0")</td></tr> }</tbody>
+                </table>
+
+                <div class="grade-2 mt-12">
+                    <div>
+                        <div class="secao"><Icone Nome="medalha" /> Maiores economias</div>
+                        <table class="itens"><thead><tr><th>Item</th><th class="num">Base</th><th class="num">Pago</th><th class="num">Resultado</th><th>Comprador</th></tr></thead>
+                            <tbody>@foreach (var a in _d.Ganhos) { <tr><td><a href="@($"suprimentos/precos?produto={a.Compra.ProdutoId}")">@a.Compra.Descricao</a> <small class="mudo">(@a.Compra.Unidade)</small></td><td class="num">@Moeda(a.PrecoBase)</td><td class="num">@Moeda(a.Compra.PrecoUnitario)</td><td class="num texto-ok">+@Moeda(a.Economia)</td><td>@(a.Compra.Comprador ?? "—")</td></tr> }</tbody></table>
+                    </div>
+                    <div>
+                        <div class="secao"><Icone Nome="alerta" /> Maiores perdas (pagou mais)</div>
+                        <table class="itens"><thead><tr><th>Item</th><th class="num">Base</th><th class="num">Pago</th><th class="num">Resultado</th><th>Comprador</th></tr></thead>
+                            <tbody>@foreach (var a in _d.Perdas) { <tr><td><a href="@($"suprimentos/precos?produto={a.Compra.ProdutoId}")">@a.Compra.Descricao</a> <small class="mudo">(@a.Compra.Unidade)</small></td><td class="num">@Moeda(a.PrecoBase)</td><td class="num">@Moeda(a.Compra.PrecoUnitario)</td><td class="num texto-erro">@Moeda(a.Economia)</td><td>@(a.Compra.Comprador ?? "—")</td></tr> }</tbody></table>
+                    </div>
+                </div>
+
+                <div class="grade-2 mt-12">
+                    <div>
+                        <div class="secao"><Icone Nome="alerta" /> Aumentos acima de @_d.LimiteAumento.ToString("0")% (lista do gestor)</div>
+                        <table class="itens" id="eco-aumentos"><thead><tr><th>Item</th><th>Fornecedor</th><th class="num">Último</th><th class="num">Pago</th><th class="num">Aumento</th><th>Pedido</th></tr></thead>
+                            <tbody>
+                                @foreach (var a in _d.Aumentos) { <tr><td><a href="@($"suprimentos/precos?produto={a.Compra.ProdutoId}")">@a.Compra.Descricao</a></td><td>@a.Compra.Fornecedor</td><td class="num">@Moeda(a.PrecoBase)</td><td class="num">@Moeda(a.Compra.PrecoUnitario)</td><td class="num texto-erro peso-600">+@a.VariacaoPerc?.ToString("0.0")%</td><td><a href="@($"pedidos?id={a.Compra.PedidoId}")">@a.Compra.PedidoNumero</a></td></tr> }
+                                @if (_d.Aumentos.Count == 0) { <tr><td colspan="6" class="mudo">Nenhum aumento acima do limite no período.</td></tr> }
+                            </tbody></table>
+                    </div>
+                    <div class="cartao">
+                        <h3><Icone Nome="info" /> Sem base (não entram no %)</h3>
+                        <p>@r.SemBase item(ns) · @Moeda(r.ValorSemBase)</p>
+                        <ul class="sem-margem">@foreach (var s in _d.SemBase) { <li>@s.Motivo: @s.Itens (@Moeda(s.Valor))</li> }</ul>
+                        <p class="mudo mt-12">Sem base: primeira compra do item ou unidade diferente. Emergencial (marcada na requisição) e diferença acima de @Desvio% do último preço também ficam fora, e não viram base da próxima compra.</p>
+                    </div>
+                </div>
+            }
+        </div>
+    </ChildContent>
+    <Faixa><b>Economia real</b><span>Base = último preço pago</span><span>Sem índice (INCC)</span><span>Metas por comprador e setor</span></Faixa>
+</Pagina>
+
+@code {
+    private EconomiaDto? _d;
+    private string _periodo = "mes";
+    private Guid? _obra;
+    private List<Opcao> _obras = [];
+    private decimal Desvio = 40;
+    private DateOnly Fim => Hoje;
+    private DateOnly Inicio => _periodo switch
+    {
+        "tri" => new DateOnly(Hoje.Year, Hoje.Month, 1).AddMonths(-2), "ano" => new DateOnly(Hoje.Year, 1, 1), "12" => Hoje.AddMonths(-12).AddDays(1),
+        _ => new DateOnly(Hoje.Year, Hoje.Month, 1)
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        _obras = await Cat.ObrasAsync();
+        await using (var db = Fabrica.CriarLeitura()) Desvio = (await ParametrosServico.CarregarAsync(db, Cancelamento))[Parametros.DesvioEconomiaPerc];
+        await Carregar();
+    }
+
+    private async Task Carregar() => _d = await EconomiaSrv.PainelAsync(Inicio, Fim, _obra, Cancelamento);
+}

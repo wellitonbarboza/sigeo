@@ -5,7 +5,9 @@
 @implements IDisposable
 @inject AcessoFornecedorServico Acesso
 @inject NavigationManager Nav
-@* Área do Fornecedor (sessão por CNPJ + código): escolhe o CNPJ/construtora, vê as cotações e o cadastro/documentos. *@
+@inject PortalServico Portal
+@* Área do Fornecedor (sessão por CNPJ + código): escolhe o CNPJ/construtora; Início (pendências), Cotações (histórico com situação),
+   Pedidos, Documentos da empresa, Funcionários, Medições e documentação mensal (mão de obra) e Dados cadastrais. *@
 
 <PageTitle>Área do Fornecedor · SIGEO</PageTitle>
 <div class="portal">
@@ -39,8 +41,10 @@
         @if (_atual is not null)
         {
             <div class="abas mt-14 mb-10" role="tablist">
-                <button role="tab" aria-selected="@(_aba == "cot")" class="@(_aba == "cot" ? "on" : "")" id="aba-cotacoes" @onclick='() => _aba = "cot"'>Cotações</button>
-                <button role="tab" aria-selected="@(_aba == "cad")" class="@(_aba == "cad" ? "on" : "")" id="aba-cadastro" @onclick="AbrirCadastro">Cadastro e documentos</button>
+                @foreach (var (k, t) in Abas)
+                {
+                    <button role="tab" aria-selected="@(_aba == k)" class="@(_aba == k ? "on" : "")" id="@($"aba-{k}")" @onclick="() => Ir(k)">@t</button>
+                }
             </div>
             @if (_aba == "cot")
             {
@@ -48,32 +52,92 @@
                 else if (_cotacoes.Count == 0) { <p class="mudo">Nenhuma cotação para este CNPJ.</p> }
                 else
                 {
+                    <div class="abas pq mb-10">
+                        @foreach (var (k, t) in new[] { ("todas", "Todas"), ("abertas", "Abertas"), ("enviadas", "Enviadas"), ("encerradas", "Encerradas") })
+                        { <button class="@(_filtro == k ? "on" : "")" @onclick="() => _filtro = k">@t</button> }
+                    </div>
                     <div class="tabela-rolavel">
                         <table class="itens" id="forn-cotacoes">
-                            <thead><tr><th>Nº</th><th>Cotação</th><th>Obra</th><th>Situação</th><th></th></tr></thead>
+                            <thead><tr><th>Nº</th><th>Cotação</th><th>Obra</th><th class="num">Itens</th><th>Prazo</th><th>Situação</th><th class="num">Sua proposta</th><th>Resultado</th><th></th></tr></thead>
                             <tbody>
-                                @foreach (var c in _cotacoes)
+                                @foreach (var c in Filtradas)
                                 {
                                     <tr @key="c.CotacaoId">
                                         <td>@c.Numero</td>
-                                        <td>@c.Nome</td>
+                                        <td>@c.Nome<br /><small class="mudo">@(c.Tipo == TipoRequisicao.Material ? "Material" : "Serviço / mão de obra") · convite @c.CriadaEm?.ToLocalTime().ToString("dd/MM/yyyy")</small></td>
                                         <td>@(c.Obra ?? "—")</td>
-                                        <td><Selo Texto="@c.Situacao" Tom="@(c.Situacao.StartsWith("Declinada") ? "neutro" : c.Enviada ? "ok" : c.PodeEditar ? "aviso" : "neutro")" />
-                                            @if (c.DataResposta is { } d) { <span class="mudo texto-pq"> em @d.ToString("dd/MM/yyyy")</span> }</td>
+                                        <td class="num">@c.Itens</td>
+                                        <td>@if (c.Prazo is { } pz) { <span class="@(c.PodeEditar && pz - DateTimeOffset.UtcNow < TimeSpan.FromHours(24) ? "texto-erro peso-600" : "")">@pz.ToLocalTime().ToString("dd/MM HH:mm")</span> } else { <span class="mudo">—</span> }</td>
+                                        <td><span class="selo-situacao"><Selo Texto="@c.Situacao" Tom="@c.Tom" /></span>
+                                            @if (c.DataResposta is { } d) { <br /><small class="mudo">enviada em @d.ToString("dd/MM/yyyy")@(c.Versoes > 1 ? $" · {c.Versoes} versões" : "")</small> }
+                                            @if (c.MotivoDeclinio is { } md) { <br /><small class="mudo">@md</small> }</td>
+                                        <td class="num">@(c.Total is { } t ? Rotulos.Moeda(t) : "—")</td>
+                                        <td>@(c.Resultado ?? "—")</td>
                                         <td>
                                             @if (c.PodeEditar) { <a class="btn prim pq" href="@($"fornecedor/cotacao/{c.CotacaoId}?f={_atual.FornecedorId}")">@(c.Enviada ? "Editar proposta" : "Preencher proposta")</a> }
                                             else { <a class="btn sec pq" href="@($"fornecedor/cotacao/{c.CotacaoId}?f={_atual.FornecedorId}")">Ver</a> }
                                         </td>
                                     </tr>
                                 }
+                                @if (!Filtradas.Any()) { <tr><td colspan="9" class="mudo">Nenhuma cotação neste filtro.</td></tr> }
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="mudo">Você vê só a sua proposta e a situação. Preços e nomes de outros fornecedores não aparecem.</p>
+                }
+            }
+            else if (_tokenPortal is null) { <p class="mudo">Carregando…</p> }
+            else if (_aba == "ini")
+            {
+                @if (_inicio is not { } i) { <p class="mudo">Carregando…</p> }
+                else
+                {
+                    <div class="alerta @i.Tom" id="forn-situacao"><b>@i.Situacao</b> · @i.Motivo</div>
+                    <div class="kpis">
+                        <Kpi Rotulo="Cotações abertas" Valor="@i.CotacoesAbertas" Sub="@(i.CotacaoUrgente ?? "")" Tom="@(i.CotacaoUrgente is null ? "info" : "aviso")" />
+                        <Kpi Rotulo="Documentos da empresa" Valor="@($"{i.DocsValidos}/{i.DocsTotal}")" Sub="@($"{i.DocsVencendo} vencendo · {i.DocsRecusados} recusado(s)")" Tom="@(i.DocsRecusados > 0 ? "erro" : i.DocsVencendo > 0 ? "aviso" : "ok")" />
+                        @if (_sessao?.MaoDeObra == true)
+                        {
+                            <Kpi Rotulo="Funcionários" Valor="@i.Funcionarios" Sub="@($"{i.FuncionariosPendencia} com pendência · {i.FuncionariosAguardando} aguardando validação")" Tom="@(i.FuncionariosPendencia > 0 ? "aviso" : "ok")" />
+                            <Kpi Rotulo="Documentação mensal" Valor="@(i.Competencia ?? "—")" Sub="@(i.Competencia is null ? "" : $"{i.CompetenciaEntregues}/{i.CompetenciaTotal} entregues")" Tom="@(i.CompetenciaTotal > 0 && i.CompetenciaEntregues < i.CompetenciaTotal ? "aviso" : "ok")" />
+                        }
+                    </div>
+                    <h3>O que fazer agora</h3>
+                    <div class="pendencias-portal" id="forn-pendencias">
+                        @foreach (var p in i.Pendencias.OrderBy(p => p.Urgencia))
+                        {
+                            <button type="button" class="cartao" @onclick="() => Ir(p.Aba)"><Selo Texto="@p.Selo" Tom="@p.Tom" /> <b>@p.Titulo</b><br /><small>@p.Detalhe</small></button>
+                        }
+                        @if (i.Pendencias.Count == 0) { <p class="mudo">Nada pendente. Tudo em dia.</p> }
+                    </div>
+                    <p class="mudo mt-12">Avisos por e-mail para: @(i.EmailsAvisos.Count == 0 ? "nenhum e-mail cadastrado" : string.Join(", ", i.EmailsAvisos)). Altere em Dados cadastrais.</p>
+                }
+            }
+            else if (_aba == "ped")
+            {
+                @if (_pedidos is null) { <p class="mudo">Carregando…</p> }
+                else
+                {
+                    <div class="tabela-rolavel">
+                        <table class="itens" id="forn-pedidos">
+                            <thead><tr><th>Pedido</th><th>Obra</th><th>Emissão</th><th>Entrega</th><th>Situação</th><th class="num">Valor</th><th>Itens (pedido / recebido)</th></tr></thead>
+                            <tbody>
+                                @foreach (var p in _pedidos)
+                                {
+                                    <tr @key="p.Id"><td>@p.Numero</td><td>@p.Obra</td><td>@p.Data.ToString("dd/MM/yyyy")</td><td>@p.Entrega.ToString("dd/MM/yyyy")</td><td><Selo Texto="@Rotulos.De(p.Status)" Tom="@Rotulos.Tom(p.Status)" /></td>
+                                        <td class="num">@Rotulos.Moeda(p.Valor)</td>
+                                        <td><small>@string.Join(" · ", p.Itens.Select(x => $"{x.Item}: {Rotulos.Num(x.Pedido, 2)}/{Rotulos.Num(x.Recebido, 2)} {x.Unidade}"))</small></td></tr>
+                                }
+                                @if (_pedidos.Count == 0) { <tr><td colspan="7" class="mudo">Nenhum pedido para este CNPJ.</td></tr> }
                             </tbody>
                         </table>
                     </div>
                 }
             }
-            else if (_tokenPortal is not null)
+            else if (_aba == "med") { <Sigeo.Web.Components.Pages.Publico.PortalCompetencias Token="@_tokenPortal" /> }
+            else
             {
-                <Sigeo.Web.Components.Pages.Publico.PortalFornecedor Token="@_tokenPortal" NaArea="true" />
+                <Sigeo.Web.Components.Pages.Publico.PortalFornecedor @key="_aba" Token="@_tokenPortal" NaArea="true" Aba="@(_aba switch { "func" => "func", "dados" => "dados", _ => "empresa" })" />
             }
         }
     }
@@ -87,8 +151,32 @@
     private IReadOnlyList<AcessoCnpj>? _acessos;
     private AcessoCnpj? _atual;
     private IReadOnlyList<CotacaoDoFornecedor>? _cotacoes;
-    private string _aba = "cot";
+    private string _aba = "ini", _filtro = "todas";
     private string? _tokenPortal, _erro;
+    private SessaoPortal? _sessao;
+    private InicioPortal? _inicio;
+    private IReadOnlyList<PedidoPortal>? _pedidos;
+
+    private IEnumerable<(string, string)> Abas
+    {
+        get
+        {
+            yield return ("ini", "Início");
+            yield return ("cot", $"Cotações{(_atual?.CotacoesAbertas > 0 ? $" ({_atual.CotacoesAbertas})" : "")}");
+            yield return ("ped", "Pedidos");
+            yield return ("doc", "Documentos da empresa");
+            if (_sessao?.MaoDeObra == true) { yield return ("func", "Funcionários"); yield return ("med", "Medições e documentação mensal"); }
+            yield return ("dados", "Dados cadastrais");
+        }
+    }
+
+    private IEnumerable<CotacaoDoFornecedor> Filtradas => (_cotacoes ?? []).Where(c => _filtro switch
+    {
+        "abertas" => c.PodeEditar,
+        "enviadas" => c.Enviada,
+        "encerradas" => !c.PodeEditar,
+        _ => true
+    });
 
     protected override async Task OnInitializedAsync()
     {
@@ -101,17 +189,27 @@
 
     private async Task Escolher(AcessoCnpj a)
     {
-        _erro = null; _atual = a; _aba = "cot"; _cotacoes = null; _tokenPortal = null;
+        _erro = null; _atual = a; _aba = "ini"; _cotacoes = null; _tokenPortal = null; _sessao = null; _inicio = null; _pedidos = null;
         Nav.NavigateTo($"fornecedor/area?f={a.FornecedorId}", replace: true);
-        try { _cotacoes = await Acesso.CotacoesAsync(_id!, a.FornecedorId, _cts.Token); }
-        catch (Domain.Aprovacoes.RegraDeNegocioException e) { _erro = e.Message; _cotacoes = []; }
+        try
+        {
+            _cotacoes = await Acesso.CotacoesAsync(_id!, a.FornecedorId, _cts.Token);
+            _tokenPortal = await Acesso.SessaoPortalAsync(_id!, a.FornecedorId, _cts.Token);
+            _sessao = await Portal.AbrirAsync(_tokenPortal, null, _cts.Token);
+            _inicio = await Portal.InicioAsync(_tokenPortal, _cts.Token);
+        }
+        catch (Domain.Aprovacoes.RegraDeNegocioException e) { _erro = e.Message; _cotacoes ??= []; }
     }
 
-    private async Task AbrirCadastro()
+    private async Task Ir(string aba)
     {
-        _aba = "cad";
-        if (_tokenPortal is not null || _atual is null) return;
-        try { _tokenPortal = await Acesso.SessaoPortalAsync(_id!, _atual.FornecedorId, _cts.Token); }
+        _aba = aba == "empresa" ? "doc" : aba;
+        if (_tokenPortal is null) return;
+        try
+        {
+            if (aba == "ini") _inicio = await Portal.InicioAsync(_tokenPortal, _cts.Token);
+            else if (aba == "ped") _pedidos ??= await Portal.PedidosAsync(_tokenPortal, _cts.Token);
+        }
         catch (Domain.Aprovacoes.RegraDeNegocioException e) { _erro = e.Message; }
     }
 

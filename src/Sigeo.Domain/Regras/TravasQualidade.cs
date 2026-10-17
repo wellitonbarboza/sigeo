@@ -59,26 +59,29 @@ public static class TravasQualidade
     }
 
     /// <summary>Cotação → pedido: propostas mínimas, vencedor qualificado, especificação atendida nos itens controlados.</summary>
-    public static ResultadoTrava VerificarCotacao(Cotacao c, ParametrosVigentes p, DateOnly hoje)
+    public static ResultadoTrava VerificarCotacao(Cotacao c, ParametrosVigentes p, DateOnly hoje, IReadOnlyDictionary<Guid, Fornecedor>? vencedores = null)
     {
         var b = new List<string>();
         c.Recalcular(p);
         if (c.PropostasRecebidas < c.PropostasExigidas && string.IsNullOrWhiteSpace(c.JustificativaPropostas))
             b.Add($"Faixa {c.FaixaAlcada(p)}: {c.PropostasExigidas} proposta(s) exigida(s), {c.PropostasRecebidas} recebida(s). Justifique (fornecedor exclusivo, emergência…).");
-        if (c.FornecedorVencedor is null) b.Add("Escolha o fornecedor vencedor.");
+        var porItem = c.VencedorPorItem;
+        if (!porItem && c.FornecedorVencedor is null) b.Add("Escolha o fornecedor vencedor (geral ou item a item).");
         if (c.CriterioSelecao is null) b.Add("Informe o critério de seleção.");
-        var itensVencedor = c.Itens.Where(i => i.FornecedorId == c.FornecedorVencedorId).ToList();
+        var itensVencedor = c.ItensVencedores().ToList();
         foreach (var i in itensVencedor.Where(i => i.MaterialControlado && i.AtendeEspecificacao != true))
             b.Add($"{i.Descricao}: confirme que o ofertado atende à especificação técnica.");
         foreach (var i in itensVencedor)
             if (i.ErroMarca(c.Tipo == TipoRequisicao.Material, i.RequisicaoItem?.Marca, i.RequisicaoItem?.MesmaMarca == true) is { } em) b.Add(em);
-        if (c.FornecedorVencedor is { } v)
+        foreach (var fid in itensVencedor.Select(i => i.FornecedorId).Distinct())
         {
-            var materiais = itensVencedor.Select(i => i.RequisicaoItem?.MaterialControladoId);
-            var servicos = itensVencedor.Select(i => i.RequisicaoItem?.ServicoControladoId);
-            b.AddRange(VerificarFornecedor(v, hoje, materiais, servicos).Bloqueios);
+            var v = vencedores?.GetValueOrDefault(fid) ?? (c.FornecedorVencedor?.Id == fid ? c.FornecedorVencedor : null);
+            if (v is null) continue;
+            var dele = itensVencedor.Where(i => i.FornecedorId == fid).ToList();
+            var bl = VerificarFornecedor(v, hoje, dele.Select(i => i.RequisicaoItem?.MaterialControladoId), dele.Select(i => i.RequisicaoItem?.ServicoControladoId)).Bloqueios;
+            b.AddRange(porItem ? bl.Select(x => $"{v.NomeExibicao}: {x}") : bl);
         }
-        return new ResultadoTrava(b);
+        return new ResultadoTrava(b.Distinct().ToList());
     }
 
     /// <summary>Pedido: fornecedor apto para os materiais controlados do pedido, e-mail para envio, especificação nos itens controlados.</summary>
@@ -113,7 +116,8 @@ public static class TravasQualidade
     /// <param name="locaisExigidos">Para cada item medido, os locais do orçamento (células) abaixo do local medido que precisam de FVS.</param>
     /// <param name="tiposDocumento">Matriz de documentos (para cobrar os mensais).</param>
     public static ResultadoTrava VerificarMedicao(Medicao m, IEnumerable<Fvs> fvsDaObra, DateOnly hoje, IReadOnlyDictionary<Guid, Local>? locais = null,
-        Func<MedicaoItem, IReadOnlyCollection<Guid>>? locaisExigidos = null, IEnumerable<TipoDocumentoExigido>? tiposDocumento = null)
+        Func<MedicaoItem, IReadOnlyCollection<Guid>>? locaisExigidos = null, IEnumerable<TipoDocumentoExigido>? tiposDocumento = null,
+        IReadOnlyCollection<CompetenciaDocumental>? competencias = null)
     {
         var b = new List<string>();
         if (m.Contrato.Status != StatusContrato.Ativo) b.Add("Contrato não está ativo.");
@@ -171,7 +175,9 @@ public static class TravasQualidade
         if (m.NotaFinal is null) b.Add("Preencha a avaliação do prestador (notas obrigatórias).");
         if (m.Faixa == FaixaNota.ReuniaoPlanoCompleto && m.DataReuniao is null) b.Add("Nota abaixo do mínimo: registre a reunião com o fornecedor.");
         b.AddRange(DocumentosBloqueantes(m.Contrato.Fornecedor, hoje));
-        if (tiposDocumento is not null) b.AddRange(DocumentosMensaisPendentes(m.Contrato.Fornecedor, tiposDocumento, hoje));
+        // Documentação mensal: com competências (portal) vale a conferência do mês da medição; senão, a regra antiga dos mensais.
+        if (competencias is not null) b.AddRange(RegrasCompetencia.BloqueiosMedicao(m.PeriodoFim, competencias, hoje));
+        else if (tiposDocumento is not null) b.AddRange(DocumentosMensaisPendentes(m.Contrato.Fornecedor, tiposDocumento, hoje));
         return new ResultadoTrava(b.Distinct().ToList());
     }
 

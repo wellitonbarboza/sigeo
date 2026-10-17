@@ -40,6 +40,11 @@ public static class DependencyInjection
         // Suprimentos: um serviço por processo (antes um só com 7 processos).
         services.AddScoped<RequisicoesServico>();
         services.AddScoped<CotacoesServico>();
+        services.AddScoped<AtendimentoServico>();
+        services.AddScoped<EconomiaServico>();
+        services.AddScoped<PainelSuprimentosServico>();
+        services.AddScoped<CompetenciasServico>();
+        services.AddScoped<MetasServico>();
         services.AddScoped<PedidosServico>();
         services.AddScoped<ContratosServico>();
         services.AddScoped<RecebimentosServico>();
