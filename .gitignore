@@ -6,3 +6,4 @@ obj/
 *.swp
 appsettings.*.local.json
 src/Sigeo.Web/App_Data/arquivos/
+.claude/

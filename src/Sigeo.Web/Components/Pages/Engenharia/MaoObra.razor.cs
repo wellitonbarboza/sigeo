@@ -36,6 +36,7 @@ namespace Sigeo.Web.Components.Pages.Engenharia;
 // Código da tela MaoObra.razor (a marcação fica no .razor; o VS Code agrupa os dois).
 public partial class MaoObra
 {
+    [Inject] private MaoObraConsultas Consultas { get; set; } = default!;
     [SupplyParameterFromQuery(Name = "obra")] public Guid? ObraQuery { get; set; }
     private List<Opcao> _funcoes = [], _colabs = [], _comps = [];
     private Guid? _obraId, _aEquipe, _aColab, _aComp;
@@ -104,17 +105,16 @@ public partial class MaoObra
     {
         if (_obraId is not { } o) return;
         _removidos.Clear();
-        await using var db = Fabrica.CriarLeitura();
-        _equipes = await db.Equipes.AsNoTracking().Include(e => e.Membros).Where(e => e.ObraId == o).OrderBy(e => e.Codigo).ToListAsync(Cancelamento);
-        _colabs = await db.Colaboradores.AsNoTracking().Where(c => c.ObraId == o && c.Vinculo == VinculoColaborador.Proprio && c.DataSaida == null).OrderBy(c => c.Nome).Select(c => new Opcao(c.Id, c.Nome)).ToListAsync(Cancelamento);
-        _custos = await db.CustosMaoObra.AsNoTracking().Where(c => c.ObraId == o && c.Competencia == _mes).ToListAsync(Cancelamento);
-        var fim = _mes.AddMonths(1);
-        _aps = await db.Apropriacoes.AsNoTracking().Where(a => a.ObraId == o && a.Data >= _mes && a.Data < fim).ToListAsync(Cancelamento);
-        _locais = await db.Locais.AsNoTracking().Where(l => l.ObraId == o).ToListAsync(Cancelamento);
+        var d = await Consultas.CarregarAsync(o, _mes, Cancelamento);
+        _equipes = d.Equipes;
+        _colabs = d.Colaboradores;
+        _custos = d.Custos;
+        _aps = d.Apropriacoes;
+        _locais = d.Locais;
         _porId = _locais.ToDictionary(l => l.Id);
         _locaisSel = _locais.Select(LocalOrcamento.De).ToList();
-        var usados = await db.ServicosLocais.AsNoTracking().Where(s => s.ObraId == o).Select(s => s.ComposicaoId).Distinct().ToListAsync(Cancelamento);
-        _compsObj = await db.Composicoes.AsNoTracking().Include(c => c.Itens).ToDictionaryAsync(c => c.Id, Cancelamento);
+        var usados = d.ComposicoesUsadas;
+        _compsObj = d.Composicoes;
         _comps = _compsObj.Values.Where(c => c.Ativa && (usados.Contains(c.Id) || usados.Count == 0)).OrderBy(c => c.Codigo).Select(c => new Opcao(c.Id, $"{c.Codigo} – {c.Descricao}", c.Unidade)).ToList();
         _fech = _veCustos ? await Mo.FechamentoAsync(o, _mes, ct: Cancelamento) : null;
         _instantaneo = Instantaneo();

@@ -2,23 +2,22 @@
 @inherits PaginaBase
 @inject CotacoesServico CotacoesSrv
 @inject NavigationManager Nav
-@inject FornecedoresServico Forn
 @using Sigeo.Application.Comum
 
 <Pagina Titulo="Orçamentos (cotação)" Grade="_grade" AoAtualizar="Carregar">
     <ChildContent>
         <div class="pagina">
-            <Grade T="Linha" @ref="_grade" Itens="_itens" Limite="LimiteGrade" AoCarregarTudo="async () => { ListaCompleta = true; await Carregar(); }" AoClicar="l => Abrir(l.Id)" NomeExportacao="cotacoes" CriadoPor="l => l.CriadoPor">
+            <Grade T="CotacaoLinha" @ref="_grade" Itens="_itens" Limite="LimiteGrade" AoCarregarTudo="async () => { ListaCompleta = true; await Carregar(); }" AoClicar="l => Abrir(l.Id)" NomeExportacao="cotacoes" CriadoPor="l => l.CriadoPor">
                 <Colunas>
-                    <Coluna T="Linha" Titulo="Número" Valor="l => l.Numero" Largura="90px" />
-                    <Coluna T="Linha" Titulo="Nome" Valor="l => l.Nome" />
-                    <Coluna T="Linha" Titulo="Obra" Valor="l => l.Obra" />
-                    <Coluna T="Linha" Titulo="Tipo" Valor="l => l.Tipo" />
-                    <Coluna T="Linha" Titulo="Propostas" Valor='l => $"{l.Recebidas}/{l.Exigidas}"' Alinhar="num" />
-                    <Coluna T="Linha" Titulo="Valor estimado" Valor="l => l.Valor" Formato="C2" Alinhar="num" />
-                    <Coluna T="Linha" Titulo="Vencedor" Valor="l => l.Vencedor" />
-                    <Coluna T="Linha" Titulo="Status" Valor="l => l.Status"><Modelo><Selo Texto="@De(context.Status)" Tom="@Tom(context.Status)" /></Modelo></Coluna>
-                    <Coluna T="Linha" Titulo="Criado em" Valor="l => l.CriadoEm" />
+                    <Coluna T="CotacaoLinha" Titulo="Número" Valor="l => l.Numero" Largura="90px" />
+                    <Coluna T="CotacaoLinha" Titulo="Nome" Valor="l => l.Nome" />
+                    <Coluna T="CotacaoLinha" Titulo="Obra" Valor="l => l.Obra" />
+                    <Coluna T="CotacaoLinha" Titulo="Tipo" Valor="l => l.Tipo" />
+                    <Coluna T="CotacaoLinha" Titulo="Propostas" Valor='l => $"{l.Recebidas}/{l.Exigidas}"' Alinhar="num" />
+                    <Coluna T="CotacaoLinha" Titulo="Valor estimado" Valor="l => l.Valor" Formato="C2" Alinhar="num" />
+                    <Coluna T="CotacaoLinha" Titulo="Vencedor" Valor="l => l.Vencedor" />
+                    <Coluna T="CotacaoLinha" Titulo="Status" Valor="l => l.Status"><Modelo><Selo Texto="@De(context.Status)" Tom="@Tom(context.Status)" /></Modelo></Coluna>
+                    <Coluna T="CotacaoLinha" Titulo="Criado em" Valor="l => l.CriadoEm" />
                 </Colunas>
             </Grade>
         </div>

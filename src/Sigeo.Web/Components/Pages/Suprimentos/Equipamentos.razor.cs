@@ -36,6 +36,7 @@ namespace Sigeo.Web.Components.Pages.Suprimentos;
 // Código da tela Equipamentos.razor (a marcação fica no .razor; o VS Code agrupa os dois).
 public partial class Equipamentos
 {
+    [Inject] private EquipamentosObraConsultas Consultas { get; set; } = default!;
     private sealed record LinhaPlano(PlanoManutencao Plano, string Equipamento, string Situacao);
     private sealed record LinhaOs(OrdemServico Os, string Equipamento);
     private sealed record Hist(DateOnly Data, string Evento, string? Detalhe);
@@ -110,18 +111,18 @@ public partial class Equipamentos
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.CriarLeitura();
-        _familias = await db.FamiliasEquipamento.AsNoTracking().OrderBy(f => f.Nome).ToListAsync(Cancelamento);
-        _sits = (await EquipamentosServico.SituacoesAsync(db, Hoje, Cancelamento)).OrderBy(s => s.Equipamento.Patrimonio).ToList();
+        var r = await Consultas.ListaAsync(Hoje, LimiteAtual, Cancelamento);
+        _familias = r.Familias;
+        _sits = r.Situacoes;
         var eqs = _sits.ToDictionary(s => s.Equipamento.Id, s => s.Equipamento);
-        var planos = await db.PlanosManutencao.AsNoTracking().ToListAsync(Cancelamento);
+        var planos = r.Planos;
         _planos = planos.Where(p => eqs.ContainsKey(p.EquipamentoId)).Select(p =>
         {
             var e = eqs[p.EquipamentoId]; var leit = e.Horimetro + e.Hodometro;
             var sit = !p.Ativo ? "Inativo" : p.Vencido(Hoje, leit) ? Vencida : p.PertoDeVencer(Hoje, leit) ? PertoTexto : EmDia;
             return new LinhaPlano(p, $"{e.Patrimonio} – {e.Nome}", sit);
         }).OrderBy(l => l.Situacao == Vencida ? 0 : l.Situacao == PertoTexto ? 1 : 2).ThenBy(l => l.Equipamento).ToList();
-        var oss = await db.OrdensServico.AsNoTracking().OrderByDescending(o => o.Numero).Take(LimiteAtual).ToListAsync(Cancelamento);
+        var oss = r.Ordens;
         _ordens = oss.Select(o => new LinhaOs(o, eqs.TryGetValue(o.EquipamentoId, out var e) ? $"{e.Patrimonio} – {e.Nome}" : "")).ToList();
     }
 
@@ -135,14 +136,14 @@ public partial class Equipamentos
 
     private async Task Abrir(Guid id)
     {
-        await using var db = Fabrica.CriarLeitura();
-        _e = await db.Ativos.AsNoTracking().Include(e => e.Documentos).FirstAsync(e => e.Id == id, Cancelamento);
+        var a = await Consultas.AbrirAsync(id, Cancelamento);
+        _e = a.Equipamento;
         _novo = false;
         _extras = (_e.CamposExtras ?? "").Split(';', StringSplitOptions.RemoveEmptyEntries).Select(p => p.Split('=', 2)).Where(p => p.Length == 2)
             .GroupBy(p => p[0].Trim()).ToDictionary(g => g.Key, g => g.First()[1].Trim());
         await CarregarItensContrato();
-        var movs = await db.MovimentosEquipamento.AsNoTracking().Where(m => m.EquipamentoId == id).ToListAsync(Cancelamento);
-        var oss = await db.OrdensServico.AsNoTracking().Where(o => o.EquipamentoId == id).ToListAsync(Cancelamento);
+        var movs = a.Movimentos;
+        var oss = a.Ordens;
         _historico = movs.Select(m => new Hist(m.Data, De(m.Tipo), string.Join(" · ", new[] { m.ParaAlmoxarifadoId is { } p ? "para " + NomeAlmox(p) : null, m.Observacao }.Where(x => !string.IsNullOrEmpty(x)))))
             .Concat(oss.Select(o => new Hist(DateOnly.FromDateTime(o.AbertaEm.LocalDateTime), $"OS {o.Numero} {De(o.Tipo).ToLowerInvariant()}", $"{De(o.Status)} · {o.Descricao}")))
             .OrderByDescending(h => h.Data).ToList();
@@ -153,9 +154,7 @@ public partial class Equipamentos
     {
         _itensContrato = [];
         if (_e?.ContratoId is not { } cid) return;
-        await using var db = Fabrica.CriarLeitura();
-        _itensContrato = (await db.Contratos.AsNoTracking().Where(c => c.Id == cid).SelectMany(c => c.Itens).ToListAsync(Cancelamento))
-            .Select(i => new Opcao(i.Id, $"{i.Descricao} ({i.Unidade}) · {i.PrecoUnitario:N2}{(i.PrecoMensal is > 0 ? $" · mês {i.PrecoMensal:N2}" : "")}")).ToList();
+        _itensContrato = await Consultas.ItensContratoAsync(cid, Cancelamento);
     }
 
     private async Task TrocarContrato(string? v)
@@ -233,10 +232,10 @@ public partial class Equipamentos
     // ───── OS ─────
     private async Task AbrirOs(Guid id)
     {
-        await using var db = Fabrica.CriarLeitura();
-        _os = await db.OrdensServico.AsNoTracking().FirstAsync(o => o.Id == id, Cancelamento);
+        var r = await Consultas.OrdemServicoAsync(id, Cancelamento);
+        _os = r.Os;
         var feitos = (_os.ChecklistResultado ?? "").Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(l => l.Trim()).ToList();
-        var itens = _os.PlanoId is { } pid ? (await db.PlanosManutencao.AsNoTracking().FirstOrDefaultAsync(p => p.Id == pid, Cancelamento))?.ItensChecklist ?? [] : [];
+        var itens = r.ItensChecklist;
         _osChecklist = itens.Distinct().ToDictionary(i => i, i => feitos.Contains("[x] " + i));
         ErrosForm = null; _abertoOs = true;
     }

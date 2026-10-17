@@ -37,6 +37,7 @@ namespace Sigeo.Web.Components.Pages.Qualidade;
 public partial class Fvss
 {
     [Inject] private IJSRuntime JS { get; set; } = default!;
+    [Inject] private FvssConsultas Consultas { get; set; } = default!;
     private sealed record Linha(Guid Id, string Numero, string Servico, string Local, string Prestador, string Inspetor, DateTimeOffset Data, string Resumo, StatusFvs Status, bool Primeira);
     public static readonly string[] Disposicoes = ["Retrabalho", "Reparo", "Refazer (demolir)", "Aceite sob concessão", "Devolução ao fornecedor", "Reclassificação"];
     private static readonly (ResultadoItem, string, string)[] Opcoes = [(ResultadoItem.Conforme, "Conforme", "ok"), (ResultadoItem.NaoConforme, "Não conf.", "perigo-cheio"), (ResultadoItem.NaoAplica, "N/A", "prim")];
@@ -63,11 +64,8 @@ public partial class Fvss
     protected override async Task OnInitializedAsync()
     {
         _obras = await Cat.ObrasAsync(); _modelos = await Cat.ModelosAsync(TipoModelo.FVS); _fornecedores = await Cat.FornecedoresAsync(); _contratos = await Cat.ContratosAtivosAsync();
-        await using (var db = Fabrica.CriarLeitura())
-        {
-            _meta = (await ParametrosServico.CarregarAsync(db, Cancelamento))[Parametros.MetaFvs1aInspecaoPerc];
-            _equipamentos = (await db.Equipamentos.AsNoTracking().ToListAsync(Cancelamento)).Where(e => e.UsavelEm(Hoje)).Select(e => new Opcao(e.Id, $"{e.Codigo} – {e.Descricao} (até {e.Proxima:dd/MM/yy})")).ToList();
-        }
+        var ini = await Consultas.InicioAsync(Hoje, Cancelamento);
+        _meta = ini.Meta; _equipamentos = ini.Equipamentos;
         await Carregar();
         var q = System.Web.HttpUtility.ParseQueryString(new Uri(Nav.Uri).Query);
         if (Guid.TryParse(q["id"], out var id)) await Abrir(id);
@@ -76,10 +74,7 @@ public partial class Fvss
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.CriarLeitura();
-        var locais = await db.Locais.AsNoTracking().ToDictionaryAsync(l => l.Id, l => l.Nome, Cancelamento);
-        var forn = await db.Fornecedores.AsNoTracking().ToDictionaryAsync(f => f.Id, f => f.NomeExibicao, Cancelamento);
-        var lista = await db.Fvss.AsNoTracking().Include(f => f.Itens).Include(f => f.Modelo).OrderByDescending(f => f.DataInspecao).Take(LimiteAtual).ToListAsync(Cancelamento);
+        var (locais, forn, lista) = await Consultas.ListarAsync(LimiteAtual, Cancelamento);
         _itens = lista.Select(f => new Linha(f.Id, f.Numero, f.Modelo?.Titulo ?? "", locais.GetValueOrDefault(f.LocalId, ""), forn.GetValueOrDefault(f.FornecedorId, ""),
             f.InspetorNome, f.DataInspecao, f.Status == StatusFvs.EmInspecao ? "—" : f.Resumo, f.Status, f.Aprovada1aInspecao)).ToList();
     }
@@ -89,8 +84,7 @@ public partial class Fvss
         _obra = null; _local = null; _modelo = null; _prestador = null; _contrato = null; _locais = [];
         if (local is { } l)
         {
-            await using var db = Fabrica.CriarLeitura();
-            var loc = await db.Locais.AsNoTracking().FirstOrDefaultAsync(x => x.Id == l, Cancelamento);
+            var loc = await Consultas.LocalAsync(l, Cancelamento);
             if (loc is not null) { _obra = loc.ObraId; _locais = await Cat.LocaisAsync(loc.ObraId); _local = l; }
             if (servico is { } s) _modelo = _modelos.FirstOrDefault(m => m.Extra == s.ToString())?.Id;
         }
@@ -112,14 +106,10 @@ public partial class Fvss
 
     private async Task Abrir(Guid id)
     {
-        await using var db = Fabrica.CriarLeitura();
-        _f = await db.Fvss.AsNoTracking().Include(f => f.Itens).Include(f => f.Modelo).Include(f => f.Local).FirstAsync(f => f.Id == id, Cancelamento);
-        _rnc = _f.RncId is { } r ? await db.Rncs.AsNoTracking().FirstOrDefaultAsync(x => x.Id == r, Cancelamento) : null;
-        if (_f.EquipamentoId is { } eq && _equipamentos.All(x => x.Id != eq))
-        {
-            var e = await db.Equipamentos.AsNoTracking().FirstAsync(x => x.Id == eq, Cancelamento);
+        var r = await Consultas.AbrirAsync(id, _equipamentos.Select(x => x.Id).ToList(), Cancelamento);
+        _f = r.Fvs; _rnc = r.Rnc;
+        if (r.EquipamentoFora is { } e)
             _equipamentos.Add(new Opcao(e.Id, $"{e.Codigo} – {e.Descricao} (fora da validade)"));
-        }
         _reinsp.Clear(); _dataReinsp = Hoje; ErrosForm = null; _aberto = true;
     }
 

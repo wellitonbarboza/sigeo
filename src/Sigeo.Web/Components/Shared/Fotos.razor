@@ -1,5 +1,5 @@
 @* Fotos compactas de um item (FVS, FVM, inspeção). Câmera do celular via accept=image/* capture. Hash SHA-256 no anexo. *@
-@inject IFabricaDb Fabrica
+@inject AnexosConsultas Consultas
 @inject AnexosServico Servico
 @inject Notificacoes Notif
 @implements IDisposable
@@ -23,8 +23,7 @@
     [Parameter] public bool SomenteLeitura { get; set; }
     [Parameter] public bool Obrigatoria { get; set; }
 
-    private sealed record Linha(Guid Id, string NomeOriginal, string CriadoPor, DateTimeOffset CriadoEm);
-    private List<Linha> _itens = [];
+    private List<FotoLinha> _itens = [];
     private Guid _carregado;
     private bool _ocupado;
     private readonly string _idInput = $"foto-{Guid.NewGuid():N}";
@@ -42,9 +41,7 @@
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.CriarLeitura();
-        _itens = await db.Anexos.Where(a => a.Entidade == Entidade && a.EntidadeId == EntidadeId).OrderBy(a => a.CriadoEm)
-                                .Select(a => new Linha(a.Id, a.NomeOriginal, a.CriadoPor, a.CriadoEm)).ToListAsync(_cts.Token);
+        _itens = await Consultas.FotosAsync(Entidade, EntidadeId, _cts.Token);
     }
 
     private async Task Enviar(InputFileChangeEventArgs e)

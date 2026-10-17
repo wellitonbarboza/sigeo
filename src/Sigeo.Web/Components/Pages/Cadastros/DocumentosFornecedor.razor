@@ -1,6 +1,7 @@
 @page "/fornecedores/documentos"
 @inherits PaginaBase
 @inject PortalServico Portal
+@inject DocumentosFornecedorConsultas Consultas
 
 <Pagina Titulo="Documentos do fornecedor" Grade="_grade" AoNovo="Novo" AoAtualizar="Carregar">
     <ChildContent>
@@ -93,8 +94,7 @@
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.CriarLeitura();
-        var lista = await db.FornecedorDocumentos.AsNoTracking().Include(d => d.TipoDocumento).Include(d => d.Fornecedor).ToListAsync(Cancelamento);
+        var lista = await Consultas.ListarAsync(Cancelamento);
         _todos = lista.Select(d => new Linha(d.Id, d.Fornecedor.RazaoSocial, d.TipoDocumento.Nome, d.Numero, d.DataEmissao, d.DataValidade, d.EnviadoPeloPortal,
             StatusDocumentoCalculo.Calcular(d, Hoje), d.Bloqueia, d.CriadoPor)).OrderBy(l => l.Fornecedor).ThenBy(l => l.Tipo).ToList();
         Filtrar();
@@ -114,8 +114,7 @@
 
     private async Task Abrir(Guid id)
     {
-        await using var db = Fabrica.CriarLeitura();
-        _d = await db.FornecedorDocumentos.AsNoTracking().FirstAsync(d => d.Id == id, Cancelamento);
+        _d = await Consultas.ObterAsync(id, Cancelamento);
         _arquivo = null; _motivo = _d.MotivoRecusa; ErrosForm = null; _aberto = true;
     }
 

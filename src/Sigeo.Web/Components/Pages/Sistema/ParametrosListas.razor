@@ -1,6 +1,7 @@
 @page "/sistema/parametros"
 @inherits PaginaBase
 @inject SistemaServico Sistema
+@inject ParametrosListasConsultas Consultas
 
 <Pagina Titulo="Parâmetros e listas" Grade="GradeAtual" AoNovo="Novo" AoAtualizar="Carregar">
     <ChildContent>
@@ -197,12 +198,12 @@
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.CriarLeitura();
-        _params = await db.Parametros.OrderBy(p => p.Grupo).ThenBy(p => p.Chave).ToListAsync(Cancelamento);
-        _listas = await db.Listas.OrderBy(l => l.Tipo).ThenBy(l => l.Ordem).ThenBy(l => l.Nome).ToListAsync(Cancelamento);
-        _tipos = await db.TiposDocumento.OrderBy(t => t.AplicaA).ThenBy(t => t.Nome).ToListAsync(Cancelamento);
-        _notifs = await db.RegrasNotificacao.OrderBy(n => n.Evento).ToListAsync(Cancelamento);
-        _avisos = await db.AvisosEmail.OrderByDescending(a => a.CriadoEm).Take(100).ToListAsync(Cancelamento);
+        var d = await Consultas.CarregarAsync(Cancelamento);
+        _params = d.Parametros;
+        _listas = d.Listas;
+        _tipos = d.TiposDocumento;
+        _notifs = d.RegrasNotificacao;
+        _avisos = d.Avisos;
     }
     private List<AvisoEmail> _avisos = [];
 

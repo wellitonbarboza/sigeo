@@ -1,6 +1,7 @@
 @page "/pedidos"
 @inherits PaginaBase
 @inject PedidosServico PedidosSrv
+@inject PedidosConsultas Consultas
 @inject NavigationManager Nav
 @using Sigeo.Application.Comum
 
@@ -110,9 +111,7 @@
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.CriarLeitura();
-        var lista = await db.Pedidos.AsNoTracking().Include(p => p.Itens).Include(p => p.Fornecedor).OrderByDescending(p => p.Numero).Take(LimiteAtual).ToListAsync(Cancelamento);
-        var obras = await db.Obras.AsNoTracking().ToDictionaryAsync(o => o.Id, o => o.Nome, Cancelamento);
+        var (lista, obras) = await Consultas.ListaAsync(LimiteAtual, Cancelamento);
         _itens = lista.Select(p => new Linha(p.Id, p.Numero, obras.GetValueOrDefault(p.ObraId, ""), p.Fornecedor.NomeExibicao, p.Entrega, p.Valor, p.SemOrcamento, p.Status, p.Bloqueios, p.CriadoPor, p.CriadoEm)).ToList();
     }
 
@@ -121,10 +120,7 @@
 
     private async Task Abrir(Guid id)
     {
-        await using var db = Fabrica.CriarLeitura();
-        _p = await db.Pedidos.AsNoTracking().Include(p => p.Itens).FirstAsync(p => p.Id == id, Cancelamento);
-        _locaisItem = await QuadroLocais.CarregarAsync(db, _p.Itens.Where(i => i.RequisicaoItemId != null).Select(i => i.RequisicaoItemId!.Value).Distinct().ToList(), Cancelamento);
-        _fornecedor = await db.Fornecedores.AsNoTracking().Include(f => f.Qualificacoes).Include(f => f.Documentos).ThenInclude(d => d.TipoDocumento).FirstAsync(f => f.Id == _p.FornecedorId, Cancelamento);
+        (_p, _locaisItem, _fornecedor) = await Consultas.PedidoAsync(id, Cancelamento);
         _trava = _p.Status == StatusPedido.Emitido ? TravasQualidade.VerificarPedido(_p, _fornecedor, Hoje) : null;
         ErrosForm = null; _versao++; _aberto = true;
     }

@@ -1,6 +1,7 @@
 @page "/cadastros/marcas"
 @inherits PaginaBase
 @inject MarcasServico MarcasSrv
+@inject MarcasConsultas Consultas
 
 <Pagina Titulo="Marcas" Grade="_grade" AoNovo="Novo" AoAtualizar="Carregar">
     <ChildContent>
@@ -9,14 +10,14 @@
                 <Kpi Rotulo="Marcas ativas" Valor="@_itens?.Count(m => m.Ativa)" />
                 <Kpi Rotulo="Cadastradas na cotação" Valor="@_itens?.Count(m => m.Automatica)" Sub="revise a grafia" Tom="aviso" />
             </div>
-            <Grade T="Linha" @ref="_grade" Itens="_itens" AoClicar="Abrir" NomeExportacao="marcas" Vazio="Nenhuma marca. Elas também são cadastradas sozinhas quando o fornecedor informa na cotação.">
+            <Grade T="MarcaLinha" @ref="_grade" Itens="_itens" AoClicar="Abrir" NomeExportacao="marcas" Vazio="Nenhuma marca. Elas também são cadastradas sozinhas quando o fornecedor informa na cotação.">
                 <Colunas>
-                    <Coluna T="Linha" Titulo="Marca" Valor="l => l.Nome" />
-                    <Coluna T="Linha" Titulo="Fabricante" Valor="l => l.Fabricante" />
-                    <Coluna T="Linha" Titulo="Itens cotados" Valor="l => l.Cotados" Alinhar="num" />
-                    <Coluna T="Linha" Titulo="Itens comprados" Valor="l => l.Comprados" Alinhar="num" />
-                    <Coluna T="Linha" Titulo="Observação" Valor="l => l.Observacao" />
-                    <Coluna T="Linha" Titulo="Situação" Valor="l => l.Ativa"><Modelo><Selo Texto="@(context.Ativa ? "Ativa" : "Inativa")" Tom="@(context.Ativa ? "ok" : "neutro")" /></Modelo></Coluna>
+                    <Coluna T="MarcaLinha" Titulo="Marca" Valor="l => l.Nome" />
+                    <Coluna T="MarcaLinha" Titulo="Fabricante" Valor="l => l.Fabricante" />
+                    <Coluna T="MarcaLinha" Titulo="Itens cotados" Valor="l => l.Cotados" Alinhar="num" />
+                    <Coluna T="MarcaLinha" Titulo="Itens comprados" Valor="l => l.Comprados" Alinhar="num" />
+                    <Coluna T="MarcaLinha" Titulo="Observação" Valor="l => l.Observacao" />
+                    <Coluna T="MarcaLinha" Titulo="Situação" Valor="l => l.Ativa"><Modelo><Selo Texto="@(context.Ativa ? "Ativa" : "Inativa")" Tom="@(context.Ativa ? "ok" : "neutro")" /></Modelo></Coluna>
                 </Colunas>
             </Grade>
             <div class="alerta info"><Icone Nome="info" /> Na requisição a marca é opcional (com "somente esta marca" quando não aceita similar). Da cotação em diante é obrigatória em material: o fornecedor informa a marca de cada item cotado, o pedido leva a marca vencedora e o recebimento confere a marca entregue. No cadastro do produto, "Compras por marca" compara os preços.</div>
@@ -46,9 +47,8 @@
 </Modal>
 
 @code {
-    private sealed record Linha(Guid Id, string Nome, string? Fabricante, string? Observacao, bool Ativa, bool Automatica, int Cotados, int Comprados);
-    private Grade<Linha>? _grade;
-    private List<Linha>? _itens;
+    private Grade<MarcaLinha>? _grade;
+    private List<MarcaLinha>? _itens;
     private Marca? _m;
     private bool _aberto;
 
@@ -56,22 +56,14 @@
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.CriarLeitura();
-        var marcas = await db.Marcas.AsNoTracking().OrderBy(m => m.Nome).ToListAsync(Cancelamento);
-        var cot = (await db.Set<CotacaoItem>().AsNoTracking().Where(i => i.Marca != null && i.ValorOfertado > 0).Select(i => i.Marca!).ToListAsync(Cancelamento))
-            .GroupBy(Marca.Chave).ToDictionary(g => g.Key, g => g.Count());
-        var com = (await db.PedidoItens.AsNoTracking().Where(i => i.Marca != null).Select(i => i.Marca!).ToListAsync(Cancelamento))
-            .GroupBy(Marca.Chave).ToDictionary(g => g.Key, g => g.Count());
-        _itens = marcas.Select(m => new Linha(m.Id, m.Nome, m.Fabricante, m.Observacao, m.Ativa, m.Observacao?.StartsWith("Cadastrada automaticamente") == true,
-            cot.GetValueOrDefault(Marca.Chave(m.Nome)), com.GetValueOrDefault(Marca.Chave(m.Nome)))).ToList();
+        _itens = await Consultas.ListarAsync(Cancelamento);
     }
 
     private void Novo() { _m = new Marca(); ErrosForm = null; _aberto = true; }
 
-    private async Task Abrir(Linha l)
+    private async Task Abrir(MarcaLinha l)
     {
-        await using var db = Fabrica.CriarLeitura();
-        _m = await db.Marcas.AsNoTracking().FirstAsync(m => m.Id == l.Id, Cancelamento);
+        _m = await Consultas.ObterAsync(l.Id, Cancelamento);
         ErrosForm = null; _aberto = true;
     }
 

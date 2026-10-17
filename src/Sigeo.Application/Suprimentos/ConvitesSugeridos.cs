@@ -1,17 +1,19 @@
 using Microsoft.EntityFrameworkCore;
-using Sigeo.Application.Abstracoes;
 using Sigeo.Domain.Common;
 using Sigeo.Domain.Suprimentos;
 
-namespace Sigeo.Web.Servicos;
+namespace Sigeo.Application.Suprimentos;
+
+/// <summary>Fornecedores para convidar e os sugeridos (sugeridos primeiro na lista).</summary>
+public sealed record FornecedoresSugeridos(List<Opcao> Lista, HashSet<Guid> Sugeridos);
 
 /// <summary>
 /// Fornecedores para convidar numa cotação: ativos do tipo de fornecimento da requisição, com os "sugeridos"
 /// (atendem os grupos do catálogo dos itens ou as ITS dos serviços) primeiro. Usado ao gerar e ao completar a cotação.
 /// </summary>
-public static class SugestaoFornecedores
+internal static class ConvitesSugeridos
 {
-    public static async Task<(List<Opcao> Lista, HashSet<Guid> Sugeridos)> ParaAsync(ISigeoDb db, FornecedoresServico forn, TipoRequisicao tipoReq,
+    public static async Task<FornecedoresSugeridos> ParaAsync(ISigeoDb db, FornecedoresServico forn, TipoRequisicao tipoReq,
         IEnumerable<RequisicaoItem> itens, CancellationToken ct = default)
     {
         var tipo = tipoReq == TipoRequisicao.Material ? TipoFornecimento.Material
@@ -27,6 +29,6 @@ public static class SugestaoFornecedores
         var fs = (await db.Fornecedores.AsNoTracking().Where(f => f.Ativo).OrderBy(f => f.RazaoSocial).ToListAsync(ct))
             .Where(f => (f.TipoFornecimento & tipo) != 0 || sugeridos.Contains(f.Id)).OrderByDescending(f => sugeridos.Contains(f.Id)).ThenBy(f => f.RazaoSocial)
             .Select(f => new Opcao(f.Id, f.RazaoSocial, f.StatusQualificacao.ToString())).ToList();
-        return (fs, sugeridos);
+        return new(fs, sugeridos);
     }
 }

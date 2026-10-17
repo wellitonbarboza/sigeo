@@ -2,6 +2,7 @@
 @inherits PaginaBase
 @inject QualidadeObraServico Qob
 @inject KitModelosServico KitMod
+@inject ModelosConsultas Consultas
 
 <Pagina Titulo="@(Fvm ? "Modelos de FVM" : Sst ? "Checklists de segurança" : "Modelos de FVS")" Grade="_grade" AoNovo="Novo" AoAtualizar="Carregar">
     <ChildContent>
@@ -236,8 +237,7 @@
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.CriarLeitura();
-        _itens = await db.ModelosInspecao.AsNoTracking().Include(m => m.Itens).Include(m => m.Ensaios).Where(m => m.Tipo == Tipo).OrderBy(m => m.Codigo).ToListAsync(Cancelamento);
+        _itens = await Consultas.ListarAsync(Tipo, Cancelamento);
         var vigentes = _itens.Where(m => m.Situacao == SituacaoModelo.Vigente).ToList();
         _semModelo = Fvm ? _materiais.Where(x => vigentes.All(m => m.MaterialControladoId != x.Id)).Select(x => x.Texto).ToList()
                    : Sst ? [] : _servicos.Where(x => vigentes.All(m => m.ServicoControladoId != x.Id)).Select(x => x.Texto).ToList();
@@ -253,8 +253,7 @@
 
     private async Task Abrir(ModeloInspecao m)
     {
-        await using var db = Fabrica.CriarLeitura();
-        _m = await db.ModelosInspecao.AsNoTracking().Include(x => x.Itens).Include(x => x.Ensaios).FirstAsync(x => x.Id == m.Id, Cancelamento);
+        _m = await Consultas.AbrirAsync(m.Id, Cancelamento);
         ErrosForm = null; _aberto = true;
     }
 

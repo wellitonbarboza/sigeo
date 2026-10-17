@@ -8,7 +8,7 @@ using Sigeo.Web.Servicos;
 
 namespace Sigeo.Web.Components.Base;
 
-/// <summary>Base das telas: acesso ao banco, usuário, mensagens e execução com tratamento de regra de negócio.</summary>
+/// <summary>Base das telas: usuário, mensagens e execução com tratamento de regra de negócio. A tela não abre o banco: lê pelas classes *Consultas e grava pelos *Servico da Application.</summary>
 public abstract class PaginaBase : ComponentBase, IDisposable
 {
     // Cancelado quando o usuário sai da tela ou fecha a aba: consulta em andamento não fica ocupando conexão do pool.
@@ -23,7 +23,6 @@ public abstract class PaginaBase : ComponentBase, IDisposable
         GC.SuppressFinalize(this);
     }
 
-    [Inject] protected IFabricaDb Fabrica { get; set; } = default!;
     [Inject] protected UsuarioAtualWeb Usuario { get; set; } = default!;
     [Inject] protected Notificacoes Notif { get; set; } = default!;
     [Inject] protected Catalogos Cat { get; set; } = default!;

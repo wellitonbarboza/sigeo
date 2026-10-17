@@ -1,6 +1,7 @@
 @page "/tarefas"
 @inherits PaginaBase
 @inject ColaboracaoServico Colab
+@inject TarefasConsultas Consultas
 @inject NavigationManager Nav
 
 <Pagina Titulo="Tarefas" Grade="_grade" AoNovo="Nova" AoAtualizar="Carregar">
@@ -133,8 +134,7 @@
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.CriarLeitura();
-        _itens = await db.Tarefas.AsNoTracking().Include(t => t.Prorrogacoes).Include(t => t.Leituras).OrderByDescending(t => t.Numero).Take(Limite).ToListAsync(Cancelamento);
+        _itens = await Consultas.ListarAsync(Limite, Cancelamento);
         Filtrar(_filtro);
     }
 

@@ -36,6 +36,7 @@ namespace Sigeo.Web.Components.Pages.Engenharia;
 // Código da tela Tipologias.razor (a marcação fica no .razor; o VS Code agrupa os dois).
 public partial class Tipologias
 {
+    [Inject] private TipologiasConsultas Consultas { get; set; } = default!;
     private bool _abertoKit;
     private KitTipologia? _kit;
     private ResumoKit? _resumoKit;
@@ -110,12 +111,12 @@ public partial class Tipologias
     private async Task Carregar()
     {
         if (_obraId is not { } o) { _lista = []; return; }
-        await using var db = Fabrica.CriarLeitura();
-        _lista = await db.Tipologias.AsNoTracking().Include(t => t.Ambientes).Include(t => t.Mix).Where(t => t.ObraId == o).OrderBy(t => t.Codigo).ToListAsync(Cancelamento);
-        _aplic = await db.ServicoAplicacoes.AsNoTracking().Where(a => a.ObraId == o).ToListAsync(Cancelamento);
+        var d = await Consultas.CarregarAsync(o, Cancelamento);
+        _lista = d.Tipologias;
+        _aplic = d.Aplicacoes;
         Indexar();
-        _usos = await db.Locais.AsNoTracking().Where(l => l.ObraId == o && l.TipologiaId != null).GroupBy(l => l.TipologiaId!.Value).Select(g => new { g.Key, N = g.Count() }).ToDictionaryAsync(x => x.Key, x => x.N, Cancelamento);
-        _comps = await db.Composicoes.AsNoTracking().Where(c => c.Ativa).OrderBy(c => c.Grupo).ThenBy(c => c.Codigo).ToListAsync(Cancelamento);
+        _usos = d.Usos;
+        _comps = d.Composicoes;
     }
 
     private void Indexar()
@@ -135,8 +136,7 @@ public partial class Tipologias
 
     private async Task Editar(Tipologia t)
     {
-        await using var db = Fabrica.CriarLeitura();
-        _t = await db.Tipologias.AsNoTracking().Include(x => x.Ambientes).Include(x => x.Mix).FirstAsync(x => x.Id == t.Id, Cancelamento);
+        _t = await Consultas.TipologiaAsync(t.Id, Cancelamento);
         _ambSalvos = _t.Ambientes.Select(a => a.Id).ToHashSet();
         _abaEd = "dados"; ErrosForm = null; _aberto = true;
     }
@@ -195,8 +195,7 @@ public partial class Tipologias
     private async Task Marcar(Guid comp, AlvoServico alvo, Guid? amb, bool on)
     {
         var ok = await Executar(() => Orc.MarcarAplicacaoAsync(_t!.Id, comp, alvo, amb, on, ct: Cancelamento));
-        await using var db = Fabrica.CriarLeitura();
-        _aplic = await db.ServicoAplicacoes.AsNoTracking().Where(a => a.ObraId == _obraId).ToListAsync(Cancelamento);
+        _aplic = await Consultas.AplicacoesAsync(_obraId, Cancelamento);
         Indexar();
         if (!ok) _versaoMatriz++; // falhou: recria as linhas para o checkbox voltar ao estado gravado
     }

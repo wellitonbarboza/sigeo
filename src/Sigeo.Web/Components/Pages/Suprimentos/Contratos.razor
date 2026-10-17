@@ -13,16 +13,16 @@
                 <Kpi Rotulo="Aguard. aprovação/assinatura" Valor="@_itens?.Count(c => c.Status is StatusContrato.AguardandoAprovacaoDiretoria or StatusContrato.AguardandoAssinaturas)" Tom="aviso" />
                 <Kpi Rotulo="Vencendo em 30 dias" Valor="@_itens?.Count(c => c.Status == StatusContrato.Ativo && c.Fim <= Hoje.AddDays(30))" Tom="erro" />
             </div>
-            <Grade T="Linha" @ref="_grade" Itens="_itens" Limite="LimiteGrade" AoCarregarTudo="async () => { ListaCompleta = true; await Carregar(); }" AoClicar="l => Abrir(l.Id)" NomeExportacao="contratos" CriadoPor="l => l.CriadoPor">
+            <Grade T="ContratoLinha" @ref="_grade" Itens="_itens" Limite="LimiteGrade" AoCarregarTudo="async () => { ListaCompleta = true; await Carregar(); }" AoClicar="l => Abrir(l.Id)" NomeExportacao="contratos" CriadoPor="l => l.CriadoPor">
                 <Colunas>
-                    <Coluna T="Linha" Titulo="Número" Valor="l => l.Numero" Largura="120px" />
-                    <Coluna T="Linha" Titulo="Obra" Valor="l => l.Obra" />
-                    <Coluna T="Linha" Titulo="Fornecedor" Valor="l => l.Fornecedor" />
-                    <Coluna T="Linha" Titulo="Categoria" Valor="l => l.Categoria" />
-                    <Coluna T="Linha" Titulo="Objeto" Valor="l => l.Objeto" />
-                    <Coluna T="Linha" Titulo="Valor" Valor="l => l.Valor" Formato="C2" Alinhar="num" />
-                    <Coluna T="Linha" Titulo="Fim vigência" Valor="l => l.Fim" />
-                    <Coluna T="Linha" Titulo="Status" Valor="l => l.Status"><Modelo><Selo Texto="@De(context.Status)" Tom="@Tom(context.Status)" /></Modelo></Coluna>
+                    <Coluna T="ContratoLinha" Titulo="Número" Valor="l => l.Numero" Largura="120px" />
+                    <Coluna T="ContratoLinha" Titulo="Obra" Valor="l => l.Obra" />
+                    <Coluna T="ContratoLinha" Titulo="Fornecedor" Valor="l => l.Fornecedor" />
+                    <Coluna T="ContratoLinha" Titulo="Categoria" Valor="l => l.Categoria" />
+                    <Coluna T="ContratoLinha" Titulo="Objeto" Valor="l => l.Objeto" />
+                    <Coluna T="ContratoLinha" Titulo="Valor" Valor="l => l.Valor" Formato="C2" Alinhar="num" />
+                    <Coluna T="ContratoLinha" Titulo="Fim vigência" Valor="l => l.Fim" />
+                    <Coluna T="ContratoLinha" Titulo="Status" Valor="l => l.Status"><Modelo><Selo Texto="@De(context.Status)" Tom="@Tom(context.Status)" /></Modelo></Coluna>
                 </Colunas>
             </Grade>
         </div>

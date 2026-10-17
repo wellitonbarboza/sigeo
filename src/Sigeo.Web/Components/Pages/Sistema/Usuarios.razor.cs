@@ -76,10 +76,10 @@ public partial class Usuarios
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.CriarLeitura();
-        _usuarios = await db.Usuarios.Include(u => u.Obras).Include(u => u.LimitesAprovacao).OrderBy(u => u.Nome).ToListAsync(Cancelamento);
-        _alcadas = await db.Alcadas.OrderBy(a => a.Entidade).ThenBy(a => a.Ordem).ToListAsync(Cancelamento);
-        _delegacoes = await db.DelegacoesAprovacao.OrderByDescending(d => d.Inicio).ToListAsync(Cancelamento);
+        var dados = await Consultas.CarregarAsync(Cancelamento);
+        _usuarios = dados.Usuarios;
+        _alcadas = dados.Alcadas;
+        _delegacoes = dados.Delegacoes;
         _credenciais = await Conta.SituacaoAsync(Cancelamento);
         _usuariosOp = _usuarios.Where(u => u.Ativo).Select(u => new Opcao(u.Id, $"{u.Nome} ({De(u.Perfil)})")).ToList();
     }

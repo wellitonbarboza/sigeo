@@ -2,6 +2,7 @@
 @layout LayoutCampo
 @inherits PaginaBase
 @inject QualidadeObraServico Qob
+@inject LocalCampoConsultas Consultas
 @inject NavigationManager Nav
 
 <PageTitle>Local · FVS</PageTitle>
@@ -36,11 +37,10 @@ else
     protected override async Task OnInitializedAsync()
     {
         _fornecedores = await Cat.FornecedoresAsync();
-        await using var db = Fabrica.CriarLeitura();
-        _local = await db.Locais.AsNoTracking().FirstOrDefaultAsync(l => l.QrToken == Qr);
+        _local = await Consultas.LocalAsync(Qr, Cancelamento);
         if (_local is null) return;
         var modelos = await Cat.ModelosAsync(TipoModelo.FVS);
-        var fvs = await db.Fvss.AsNoTracking().Where(f => f.LocalId == _local.Id && f.Status != StatusFvs.Cancelada).OrderByDescending(f => f.DataInspecao).ToListAsync();
+        var fvs = await Consultas.FvssAsync(_local.Id, Cancelamento);
         _linhas = modelos.Select(m => (m, fvs.FirstOrDefault(f => f.ModeloInspecaoId == m.Id || f.ServicoControladoId.ToString() == m.Extra))).ToList();
     }
 

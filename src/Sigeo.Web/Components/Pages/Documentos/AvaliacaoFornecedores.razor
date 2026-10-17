@@ -1,6 +1,7 @@
 @page "/fornecedores/avaliacao"
 @inherits PaginaBase
 @inject AvaliacaoFornecedoresServico AvaliacaoSrv
+@inject AvaliacaoFornecedoresSgqConsultas Consultas
 
 <Pagina Titulo="Avaliação consolidada de fornecedores" Grade="_grade" AoAtualizar="Carregar">
     <ChildContent>
@@ -71,7 +72,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        await using (var db = Fabrica.CriarLeitura()) _p = await ParametrosServico.CarregarAsync(db, Cancelamento);
+        _p = await Consultas.ParametrosAsync(Cancelamento);
         // Periodicidade em parâmetro: 3 meses = trimestral (2026-T4), 6 = semestral (2026-S2).
         var meses = _p.Int(Parametros.PeriodicidadeAvaliacaoMeses) <= 3 ? 3 : 6;
         _periodos = Enumerable.Range(0, meses == 3 ? 5 : 3).Select(i => AvaliacaoSemestral.PeriodoDe(Hoje.AddMonths(-meses * i), meses)).Distinct().ToList();
@@ -84,8 +85,7 @@
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.CriarLeitura();
-        _itens = await db.AvaliacoesSemestrais.AsNoTracking().Include(a => a.Fornecedor).Where(a => a.Periodo == _periodo).OrderBy(a => a.NotaMedia).ToListAsync(Cancelamento);
+        _itens = await Consultas.ListarAsync(_periodo, Cancelamento);
     }
 
     private async Task Consolidar()

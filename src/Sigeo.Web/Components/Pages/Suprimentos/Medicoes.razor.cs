@@ -36,9 +36,9 @@ namespace Sigeo.Web.Components.Pages.Suprimentos;
 // Código da tela Medicoes.razor (a marcação fica no .razor; o VS Code agrupa os dois).
 public partial class Medicoes
 {
-    private sealed record Linha(Guid Id, string Contrato, int Numero, string Fornecedor, DateOnly Inicio, DateOnly Fim, decimal Valor, decimal? Nota, FaixaNota Faixa, StatusMedicao Status, string CriadoPor);
-    private Grade<Linha>? _grade;
-    private List<Linha>? _itens;
+    [Inject] private MedicoesConsultas Consultas { get; set; } = default!;
+    private Grade<MedicaoLinha>? _grade;
+    private List<MedicaoLinha>? _itens;
     private Medicao? _m;
     private CompetenciaDocumental? _comp;
     private ParametrosVigentes? _p;
@@ -87,7 +87,7 @@ public partial class Medicoes
 
     protected override async Task OnInitializedAsync()
     {
-        await using (var db = Fabrica.CriarLeitura()) _p = await ParametrosServico.CarregarAsync(db, Cancelamento);
+        _p = await Consultas.ParametrosAsync(Cancelamento);
         await Carregar();
         if (Nav.Uri.Contains("?id=") && Guid.TryParse(Nav.Uri.Split("?id=")[1], out var id)) await Abrir(id);
         else if (Nav.Uri.Contains("?contrato=") && Guid.TryParse(Nav.Uri.Split("?contrato=")[1], out var cid)) { await AbrirNova(); _novoContrato = cid; }
@@ -95,16 +95,12 @@ public partial class Medicoes
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.CriarLeitura();
-        _itens = await db.Medicoes.AsNoTracking().OrderByDescending(m => m.CriadoEm).Take(LimiteAtual)
-            .Select(m => new Linha(m.Id, m.Contrato.Numero, m.NumeroMedicao, m.Contrato.Fornecedor.RazaoSocial, m.PeriodoInicio, m.PeriodoFim, m.ValorPeriodo, m.NotaFinal, m.Faixa, m.Status, m.CriadoPor)).ToListAsync(Cancelamento);
+        _itens = await Consultas.ListaAsync(LimiteAtual, Cancelamento);
     }
 
     private async Task AbrirNova()
     {
-        await using var db = Fabrica.CriarLeitura();
-        _contratos = await db.Contratos.AsNoTracking().Where(k => k.Status == StatusContrato.Ativo).OrderBy(k => k.Numero)
-            .Select(k => new Opcao(k.Id, k.Numero + " – " + k.Fornecedor.RazaoSocial)).ToListAsync(Cancelamento);
+        _contratos = await Consultas.ContratosAtivosAsync(Cancelamento);
         _fim = Hoje; _ini = Hoje.AddDays(-Hoje.Day + 1); _novoContrato = null; ErrosForm = null; _nova = true;
     }
 
@@ -116,20 +112,19 @@ public partial class Medicoes
 
     private async Task Abrir(Guid id)
     {
-        await using var db = Fabrica.CriarLeitura();
-        _m = await MedicoesServico.CarregarMedicaoAsync(db, id, Cancelamento);
+        var a = await Consultas.AbrirAsync(id, Hoje, Cancelamento);
+        _m = a.Medicao;
         _qtd = _m.Itens.ToDictionary(i => i.Id, i => (i.QtdPeriodo, i.LocalId, i.FvsId));
-        var fornId = _m.Contrato.FornecedorId;
-        _fvsLib = await db.Fvss.AsNoTracking().Include(f => f.Itens).Where(f => f.ObraId == _m.ObraId && f.FornecedorId == fornId).ToListAsync(Cancelamento);
-        _locNomes = new Sigeo.Application.Comum.ArvoreLocais(await db.Locais.AsNoTracking().Where(l => l.ObraId == _m.ObraId).ToListAsync(Cancelamento)).Nomes();
+        _fvsLib = a.Fvs;
+        _locNomes = a.NomesLocais;
         var doPeriodo = _fvsLib.Where(f => f.Status != StatusFvs.EmInspecao && DateOnly.FromDateTime(f.DataInspecao.Date) <= _m.PeriodoFim && DateOnly.FromDateTime(f.DataInspecao.Date) >= _m.PeriodoInicio.AddDays(-30)).ToList();
-        var rncs = await db.Rncs.AsNoTracking().CountAsync(r => r.FornecedorId == fornId && r.Origem == OrigemRnc.Fvs, Cancelamento);
+        var rncs = a.RncsFvs;
         _sugestao = doPeriodo.Count == 0 ? null : $"Qualidade do serviço sugerida pelas FVS: {10m * doPeriodo.Count(f => f.Aprovada1aInspecao) / doPeriodo.Count:0.0} ({doPeriodo.Count(f => f.Aprovada1aInspecao)}/{doPeriodo.Count} aprovadas na 1ª inspeção; {rncs} RNC de FVS do prestador).";
         _fvsLib = _fvsLib.Where(f => f.Status == StatusFvs.Liberada).ToList();
-        var comps = await CompetenciasServico.DoContratoAsync(db, _m.ContratoId, Hoje, _m.PeriodoFim, Cancelamento);
+        var comps = a.Competencias;
         var mesMed = new DateOnly(_m.PeriodoFim.Year, _m.PeriodoFim.Month, 1);
         _comp = comps.FirstOrDefault(c => c.Mes == mesMed) ?? comps.OrderByDescending(c => c.Mes).FirstOrDefault();
-        _colabBloq = await db.Colaboradores.CountAsync(c => c.FornecedorId == fornId && c.ObraId == _m.ObraId && c.Situacao == SituacaoColaborador.Bloqueado && (c.DataSaida == null || c.DataSaida >= _m.PeriodoInicio), Cancelamento);
+        _colabBloq = a.ColaboradoresBloqueados;
         ErrosForm = null; _versao++; _aberto = true;
     }
 

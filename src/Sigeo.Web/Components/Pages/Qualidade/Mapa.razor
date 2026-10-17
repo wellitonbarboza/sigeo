@@ -1,5 +1,6 @@
 @page "/obra/mapa"
 @inherits PaginaBase
+@inject MapaConsultas Consultas
 @inject NavigationManager Nav
 
 <Pagina Titulo="Mapa de inspeções" AoAtualizar="Carregar">
@@ -58,7 +59,7 @@
     {
         // A obra (a única permitida, se for o caso) vem do SeletorObra, que chama TrocarObra.
         _fornecedores = await Cat.FornecedoresAsync(); _modelos = await Cat.ModelosAsync(TipoModelo.FVS);
-        await using (var db = Fabrica.CriarLeitura()) _meta = (await ParametrosServico.CarregarAsync(db, Cancelamento))[Parametros.MetaFvs1aInspecaoPerc];
+        _meta = await Consultas.MetaAsync(Cancelamento);
     }
 
     private async Task TrocarObra(Guid? obra) { _obra = obra; _torre = null; await Carregar(); }
@@ -66,15 +67,8 @@
     private async Task Carregar()
     {
         if (_obra is not { } o) { _linhas = []; _fvs = []; return; }
-        await using var db = Fabrica.CriarLeitura();
-        var locais = await db.Locais.AsNoTracking().Where(l => l.ObraId == o).ToListAsync(Cancelamento);
-        _torres = locais.Where(l => l.LocalPaiId == null).OrderBy(l => l.Ordem).ToList();
-        var raizes = _torre is { } t ? [t] : _torres.Select(x => x.Id).ToList();
-        _linhas = locais.Where(l => l.LocalPaiId is { } p && raizes.Contains(p)).OrderBy(l => l.LocalPaiId).ThenByDescending(l => l.Ordem).ToList();
-        if (_linhas.Count == 0) _linhas = locais.Where(l => raizes.Contains(l.Id)).ToList();
-        var q = db.Fvss.AsNoTracking().Include(f => f.Itens).Where(f => f.ObraId == o && f.Status != StatusFvs.Cancelada);
-        if (_prestador is { } pr) q = q.Where(f => f.FornecedorId == pr);
-        _fvs = await q.OrderByDescending(f => f.DataInspecao).ToListAsync(Cancelamento);
+        var m = await Consultas.CarregarAsync(o, _torre, _prestador, Cancelamento);
+        _torres = m.Torres; _linhas = m.Linhas; _fvs = m.Fvs;
     }
 
     private Fvs? Celula(Guid local, Opcao modelo) =>

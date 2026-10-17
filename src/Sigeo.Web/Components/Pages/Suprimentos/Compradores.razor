@@ -1,6 +1,7 @@
 @page "/suprimentos/compradores"
 @inherits PaginaBase
 @inject AtendimentoServico AtendimentoSrv
+@inject CompradoresConsultas Consultas
 @* Carteira de compras: categorias que cada comprador compra (grupo, subgrupo ou categoria de serviço, por obra ou todas),
    substituto e ausências. A requisição autorizada é dividida em lotes e cada lote vai sozinho para o comprador da categoria. *@
 
@@ -111,13 +112,7 @@
     {
         _usuarios = await Cat.UsuariosAsync(); _grupos = await Cat.GruposProdutoAsync(); _obras = await Cat.ObrasAsync();
         _catsServico = await Cat.ListaAsync(TipoLista.CategoriaServico);
-        await using (var db = Fabrica.CriarLeitura())
-        {
-            var cats = await db.CategoriasProduto.AsNoTracking().Where(c => c.Ativo).Select(c => new { c.Id, c.PaiId, c.Nome }).ToListAsync(Cancelamento);
-            var porId = cats.ToDictionary(c => c.Id);
-            _subgrupos = cats.Where(c => c.PaiId != null && porId.ContainsKey(c.PaiId.Value)).GroupBy(c => porId[c.PaiId!.Value].Nome)
-                .ToDictionary(g => g.Key, g => g.Select(x => x.Nome).OrderBy(x => x).ToList());
-        }
+        _subgrupos = await Consultas.SubgruposAsync(Cancelamento);
         await Carregar();
     }
 

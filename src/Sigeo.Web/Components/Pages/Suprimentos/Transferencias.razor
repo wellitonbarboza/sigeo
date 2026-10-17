@@ -1,6 +1,7 @@
 @page "/transferencias"
 @inherits PaginaBase
 @inject TransferenciasServico TransferenciasSrv
+@inject TransferenciasConsultas Consultas
 @inject NavigationManager Nav
 @inject EstoqueServico EstoqueSrv
 
@@ -156,10 +157,7 @@
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.CriarLeitura();
-        var lista = await db.Transferencias.AsNoTracking().Include(t => t.Itens).OrderByDescending(t => t.Numero).Take(LimiteAtual).ToListAsync(Cancelamento);
-        var idsRec = lista.Where(t => t.RecebimentoId != null).Select(t => t.RecebimentoId!.Value).Distinct().ToList();
-        var recs = await db.Recebimentos.AsNoTracking().Where(r => idsRec.Contains(r.Id)).Select(r => new { r.Id, r.Numero }).ToDictionaryAsync(r => r.Id, r => r.Numero, Cancelamento);
+        var (lista, recs) = await Consultas.ListaAsync(LimiteAtual, Cancelamento);
         var obras = _obras.ToDictionary(o => o.Id, o => o.Texto);
         var spes = _spes.ToDictionary(s => s.Id, s => s.Texto);
         _itens = lista.Select(t => new Linha(t.Id, t.Numero, t.Data, obras.GetValueOrDefault(t.ObraId, ""), NomeAlmox(t.OrigemAlmoxarifadoId, "Central"),
@@ -169,8 +167,7 @@
 
     private async Task Abrir(Guid id)
     {
-        await using var db = Fabrica.CriarLeitura();
-        _t = await db.Transferencias.AsNoTracking().Include(t => t.Itens).FirstAsync(t => t.Id == id, Cancelamento);
+        _t = await Consultas.TransferenciaAsync(id, Cancelamento);
         _conf.Clear(); ErrosForm = null; _aberto = true;
     }
 

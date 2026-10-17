@@ -2,6 +2,7 @@
 @using Sigeo.Domain.Planejamento
 @using Sigeo.Web.Components.Pages.Engenharia.Partes
 @inherits PaginaBase
+@inject LastPlannerConsultas Consultas
 @* Acompanhamento semanal do planejamento (Last Planner): plano de ação, programação semanal, médio prazo com restrições,
    curto prazo com PPC e medição semanal. O cronograma em si é editado em "Cronograma e Reprogramação". *@
 
@@ -74,10 +75,7 @@
         _obraId = nova;
         _versoes = [];
         if (nova is { } o)
-        {
-            await using var db = Fabrica.CriarLeitura();
-            _versoes = await db.VersoesCronograma.AsNoTracking().Where(v => v.ObraId == o).OrderByDescending(v => v.Numero).ToListAsync(Cancelamento);
-        }
+            _versoes = await Consultas.VersoesAsync(o, Cancelamento);
         _chave++;
     }
 

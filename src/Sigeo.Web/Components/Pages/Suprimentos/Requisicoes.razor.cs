@@ -37,9 +37,9 @@ namespace Sigeo.Web.Components.Pages.Suprimentos;
 // Código da tela Requisicoes.razor (a marcação fica no .razor; o VS Code agrupa os dois).
 public partial class Requisicoes
 {
-    private sealed record Linha(Guid Id, int Numero, string Obra, TipoRequisicao Tipo, string Atividade, string? CentroCusto, DateOnly Entrega, int Itens, StatusRequisicao Status, string CriadoPor, DateTimeOffset CriadoEm);
-    private Grade<Linha>? _grade;
-    private List<Linha>? _itens;
+    [Inject] private RequisicoesConsultas Consultas { get; set; } = default!;
+    private Grade<RequisicaoLinha>? _grade;
+    private List<RequisicaoLinha>? _itens;
     private Requisicao? _r;
     private bool _aberto, _cotar;
     private int _versao;
@@ -85,20 +85,13 @@ public partial class Requisicoes
         _obras = await Cat.ObrasAsync(); _spes = await Cat.SpesAsync(); _ccs = await Cat.CentrosCustoAsync(); _produtos = await Cat.ProdutosBuscaAsync(); _servicos = await Cat.ServicosAsync();
         _estabs = await Cat.EstabelecimentosAsync(); _grupos = await Cat.GruposProdutoAsync();
         _marcas = await Cat.MarcasAsync();
-        await using (var dbm = Fabrica.CriarLeitura())
-            _prodMarca = await dbm.Produtos.AsNoTracking().Where(p => p.Marca != null).ToDictionaryAsync(p => p.Id, p => p.Marca, Cancelamento);
+        _prodMarca = await Consultas.MarcasDosProdutosAsync(Cancelamento);
         _atividades = await Cat.ListaAsync(TipoLista.Atividade); _categorias = await Cat.ListaAsync(TipoLista.CategoriaServico);
         await Carregar();
         if (Nav.Uri.Contains("?id=") && Guid.TryParse(Nav.Uri.Split("?id=")[1], out var id)) await Abrir(id);
     }
 
-    private async Task Carregar()
-    {
-        await using var db = Fabrica.CriarLeitura();
-        _itens = await db.Requisicoes.AsNoTracking().OrderByDescending(r => r.Numero).Take(LimiteAtual)
-            .Select(r => new Linha(r.Id, r.Numero, db.Obras.Where(o => o.Id == r.ObraId).Select(o => o.Nome).FirstOrDefault() ?? "",
-                r.Tipo, r.Atividade, r.CentroCusto != null ? r.CentroCusto.Nome : null, r.DataEntrega, r.Itens.Count, r.Status, r.CriadoPor, r.CriadoEm)).ToListAsync(Cancelamento);
-    }
+    private async Task Carregar() => _itens = await Consultas.ListaAsync(LimiteAtual, Cancelamento);
 
     private async Task Novo()
     {
@@ -121,12 +114,9 @@ public partial class Requisicoes
     {
         _saldoObra = []; _saldoCentral = []; _almoxObra = null;
         if (_r is null || _r.ObraId == Guid.Empty) { _obraPropria = false; return; }
-        await using var db = Fabrica.CriarLeitura();
-        _obraPropria = await db.Obras.AsNoTracking().AnyAsync(o => o.Id == _r.ObraId && o.DonoCusto == DonoCustoObra.Construtora, Cancelamento);
-        _central = await db.Almoxarifados.AsNoTracking().FirstOrDefaultAsync(a => a.Tipo == TipoAlmoxarifado.Central && a.Ativo, Cancelamento);
-        _almoxObra = await db.Almoxarifados.AsNoTracking().FirstOrDefaultAsync(a => a.ObraId == _r.ObraId, Cancelamento);
-        if (_almoxObra is { } ao) _saldoObra = await db.SaldosEstoque.AsNoTracking().Where(x => x.AlmoxarifadoId == ao.Id && x.Disponivel > 0).ToDictionaryAsync(x => x.ProdutoId, x => x.Disponivel, Cancelamento);
-        if (_central is { } c) _saldoCentral = await db.SaldosEstoque.AsNoTracking().Where(x => x.AlmoxarifadoId == c.Id && x.Disponivel > 0).ToDictionaryAsync(x => x.ProdutoId, x => x.Disponivel, Cancelamento);
+        var e = await Consultas.EstoqueAsync(_r.ObraId, Cancelamento);
+        _obraPropria = e.ObraPropria; _central = e.Central; _almoxObra = e.AlmoxObra;
+        _saldoObra = e.SaldoObra; _saldoCentral = e.SaldoCentral;
     }
 
     private void AtenderDoCentral()
@@ -143,9 +133,8 @@ public partial class Requisicoes
 
     private async Task Abrir(Guid id)
     {
-        await using var db = Fabrica.CriarLeitura();
-        _r = await db.Requisicoes.AsNoTracking().Include(r => r.Itens).ThenInclude(i => i.Locais).FirstAsync(r => r.Id == id, Cancelamento);
-        _locaisObra = await db.Locais.AsNoTracking().Where(l => l.ObraId == _r.ObraId).ToListAsync(Cancelamento);
+        _r = await Consultas.RequisicaoAsync(id, Cancelamento);
+        _locaisObra = await Consultas.LocaisDaObraAsync(_r.ObraId, Cancelamento);
         await CarregarEstoque();
         ErrosForm = null; _versao++; _aberto = true;
     }
@@ -174,8 +163,7 @@ public partial class Requisicoes
         var spes = SpesDaObra.ToList();
         if (_r!.SpeId is { } sp && !spes.Any(s => s.Id == sp)) _r.SpeId = null;
         if (spes.Count == 1) _r.SpeId = spes[0].Id;
-        await using var db = Fabrica.CriarLeitura();
-        var obra = await db.Obras.AsNoTracking().Where(o => o.Id == _r!.ObraId).Select(o => new { o.EnderecoEntrega, o.DonoCusto, o.EstabelecimentoDonoId }).FirstOrDefaultAsync(Cancelamento);
+        var obra = await Consultas.ObraEntregaAsync(_r!.ObraId, Cancelamento);
         _obraPropria = obra?.DonoCusto == DonoCustoObra.Construtora;
         if (_obraPropria && _r!.EstabelecimentoFaturamentoId is null) _r.EstabelecimentoFaturamentoId = obra!.EstabelecimentoDonoId;
         if (string.IsNullOrWhiteSpace(_r!.EnderecoEntrega)) _r.EnderecoEntrega = obra?.EnderecoEntrega;
@@ -183,12 +171,10 @@ public partial class Requisicoes
 
     private async Task AbrirOrcamento()
     {
-        await using var db = Fabrica.CriarLeitura();
-        var usados = await db.ServicosLocais.AsNoTracking().Where(s => s.ObraId == _r!.ObraId).Select(s => s.ComposicaoId).Distinct().ToListAsync(Cancelamento);
-        _compsObra = usados.Count;
-        _compsOrc = await db.Composicoes.AsNoTracking().Where(c => c.Ativa && usados.Contains(c.Id)).OrderBy(c => c.Grupo).ThenBy(c => c.Codigo)
-            .Select(c => new ServicoOrcado(c.Id, c.Codigo, c.Descricao, c.Unidade, c.Grupo)).ToListAsync(Cancelamento);
-        _locaisObra = await db.Locais.AsNoTracking().Where(l => l.ObraId == _r!.ObraId).ToListAsync(Cancelamento);
+        var o = await Consultas.OrcamentoAsync(_r!.ObraId, Cancelamento);
+        _compsObra = o.ComposicoesObra;
+        _compsOrc = o.Servicos;
+        _locaisObra = o.Locais;
         _selComp.Clear(); _selLoc = []; _demanda = null; ErrosForm = null; _abertoOrc = true;
     }
 
@@ -237,8 +223,7 @@ public partial class Requisicoes
         _r!.ObraId = obra;
         foreach (var i in _r.Itens) i.Locais.Clear();
         _selComp.Clear(); _selLoc = []; _demanda = null;
-        await using (var db = Fabrica.CriarLeitura())
-            _locaisObra = obra == Guid.Empty ? [] : await db.Locais.AsNoTracking().Where(l => l.ObraId == obra).ToListAsync(Cancelamento);
+        _locaisObra = obra == Guid.Empty ? [] : await Consultas.LocaisDaObraAsync(obra, Cancelamento);
         await EnderecoDaObra();
         await CarregarEstoque();
     }
@@ -249,9 +234,8 @@ public partial class Requisicoes
         {
             var spe = await Orc.SpeDosLocaisAsync(_r!.ObraId, _selLoc, Cancelamento);
             if (TemLocais && spe is not null && _r.SpeId is { } atual && atual != spe) throw new RegraDeNegocioException("Os locais são de outra SPE: faça outra requisição.");
-            await using var db = Fabrica.CriarLeitura();
             var ids = _demanda!.Where(d => d.ProdutoId != null).Select(d => d.ProdutoId!.Value).ToList();
-            var prods = await db.Produtos.AsNoTracking().Include(p => p.MaterialControlado).Where(p => ids.Contains(p.Id)).ToDictionaryAsync(p => p.Id, Cancelamento);
+            var prods = await Consultas.ProdutosAsync(ids, Cancelamento);
             foreach (var i in OrcamentoServico.Itens(_r.Id, _demanda!, prods)) _r.Itens.Add(i);
             if (spe is not null) _r.SpeId = spe;
             _r.RecalcularPrazo();
@@ -265,8 +249,7 @@ public partial class Requisicoes
     private async Task EscolherProduto(RequisicaoItem i, string? valor)
     {
         if (!Guid.TryParse(valor, out var pid)) { i.ProdutoId = null; return; }
-        await using var db = Fabrica.CriarLeitura();
-        var p = await db.Produtos.AsNoTracking().Include(x => x.MaterialControlado).FirstAsync(x => x.Id == pid, Cancelamento);
+        var p = await Consultas.ProdutoAsync(pid, Cancelamento);
         i.EspecificacaoTecnica = null; i.DocumentosExigidos = null;
         i.HerdarDoProduto(p);
         _r!.RecalcularPrazo();
@@ -280,8 +263,7 @@ public partial class Requisicoes
 
     private async Task AbrirSilencioso(Guid id)
     {
-        await using var db = Fabrica.CriarLeitura();
-        _r = await db.Requisicoes.AsNoTracking().Include(r => r.Itens).ThenInclude(i => i.Locais).FirstAsync(r => r.Id == id, Cancelamento);
+        _r = await Consultas.RequisicaoAsync(id, Cancelamento);
         _versao++;
     }
 
@@ -305,11 +287,11 @@ public partial class Requisicoes
 
     private async Task AbrirCotacao()
     {
-        await using var db = Fabrica.CriarLeitura();
-        (_fornecedores, _sugeridos) = await SugestaoFornecedores.ParaAsync(db, Forn, _r!.Tipo, _r.Itens, Cancelamento);
+        var c = await Consultas.ConvitesAsync(_r!.Id, _r.Tipo, _r.Itens, Cancelamento);
+        (_fornecedores, _sugeridos) = (c.Fornecedores, c.Sugeridos);
         _convidados.Clear();
         foreach (var f in _sugeridos.Where(id => _fornecedores.Any(x => x.Id == id))) _convidados.Add(f);
-        _lotes = await db.LotesCompra.AsNoTracking().Where(l => l.RequisicaoId == _r.Id && l.Situacao == SituacaoLote.EmCompra).OrderBy(l => l.Letra).ToListAsync(Cancelamento);
+        _lotes = c.Lotes;
         // Comprador abre a cotação do próprio lote por padrão.
         _loteCotacao = _lotes.Count > 1 ? _lotes.FirstOrDefault(l => l.CompradorUsuarioId == Usuario.UsuarioId)?.Id : null;
         _prazoResposta = null; ErrosForm = null;

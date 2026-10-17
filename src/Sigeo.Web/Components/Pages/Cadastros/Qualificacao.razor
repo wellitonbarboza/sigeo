@@ -1,6 +1,7 @@
 @page "/fornecedores/qualificacao"
 @inherits PaginaBase
 @inject AvaliacaoFornecedoresServico AvaliacaoSrv
+@inject QualificacaoConsultas Consultas
 @inject NavigationManager Nav
 
 <Pagina Titulo="Qualificação de fornecedores" Grade="_grade" AoNovo="Novo" AoAtualizar="Carregar">
@@ -12,17 +13,17 @@
                 <Kpi Rotulo="Vencidas" Valor="@_itens?.Count(q => q.Resultado == ResultadoQualificacao.Qualificado && q.Validade < Hoje)" Tom="erro" />
                 <Kpi Rotulo="PSQ não conforme" Valor="@_itens?.Count(q => q.Psq == SituacaoPsq.NaoConforme)" Sub="compra vedada" Tom="erro" />
             </div>
-            <Grade T="Linha" @ref="_grade" Itens="_itens" AoClicar="l => Abrir(l.Id)" NomeExportacao="qualificacoes" CriadoPor="l => l.CriadoPor">
+            <Grade T="QualificacaoLinha" @ref="_grade" Itens="_itens" AoClicar="l => Abrir(l.Id)" NomeExportacao="qualificacoes" CriadoPor="l => l.CriadoPor">
                 <Colunas>
-                    <Coluna T="Linha" Titulo="Fornecedor" Valor="l => l.Fornecedor" />
-                    <Coluna T="Linha" Titulo="Tipo" Valor="l => l.Tipo" />
-                    <Coluna T="Linha" Titulo="Escopo" Valor="l => l.Escopo" />
-                    <Coluna T="Linha" Titulo="Critério" Valor="l => l.Criterio" />
-                    <Coluna T="Linha" Titulo="PSQ" Valor="l => l.Psq"><Modelo><Selo Texto="@De(context.Psq)" Tom="@Tom(context.Psq)" /></Modelo></Coluna>
-                    <Coluna T="Linha" Titulo="Qualificado em" Valor="l => l.Data" />
-                    <Coluna T="Linha" Titulo="Validade" Valor="l => l.Validade" />
-                    <Coluna T="Linha" Titulo="Resultado" Valor="l => l.Resultado"><Modelo><Selo Texto="@De(context.Resultado)" Tom="@Tom(context.Resultado)" /></Modelo></Coluna>
-                    <Coluna T="Linha" Titulo="Responsável" Valor="l => l.Responsavel" />
+                    <Coluna T="QualificacaoLinha" Titulo="Fornecedor" Valor="l => l.Fornecedor" />
+                    <Coluna T="QualificacaoLinha" Titulo="Tipo" Valor="l => l.Tipo" />
+                    <Coluna T="QualificacaoLinha" Titulo="Escopo" Valor="l => l.Escopo" />
+                    <Coluna T="QualificacaoLinha" Titulo="Critério" Valor="l => l.Criterio" />
+                    <Coluna T="QualificacaoLinha" Titulo="PSQ" Valor="l => l.Psq"><Modelo><Selo Texto="@De(context.Psq)" Tom="@Tom(context.Psq)" /></Modelo></Coluna>
+                    <Coluna T="QualificacaoLinha" Titulo="Qualificado em" Valor="l => l.Data" />
+                    <Coluna T="QualificacaoLinha" Titulo="Validade" Valor="l => l.Validade" />
+                    <Coluna T="QualificacaoLinha" Titulo="Resultado" Valor="l => l.Resultado"><Modelo><Selo Texto="@De(context.Resultado)" Tom="@Tom(context.Resultado)" /></Modelo></Coluna>
+                    <Coluna T="QualificacaoLinha" Titulo="Responsável" Valor="l => l.Responsavel" />
                 </Colunas>
             </Grade>
         </div>
@@ -79,9 +80,8 @@
 </Modal>
 
 @code {
-    private sealed record Linha(Guid Id, string Fornecedor, TipoFornecimento Tipo, string? Escopo, string Criterio, SituacaoPsq Psq, DateOnly Data, DateOnly? Validade, ResultadoQualificacao Resultado, string? Responsavel, string CriadoPor);
-    private Grade<Linha>? _grade;
-    private List<Linha>? _itens;
+    private Grade<QualificacaoLinha>? _grade;
+    private List<QualificacaoLinha>? _itens;
     private FornecedorQualificacao? _q;
     private ParametrosVigentes? _p;
     private bool _aberto;
@@ -91,7 +91,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        await using (var db = Fabrica.CriarLeitura()) _p = await ParametrosServico.CarregarAsync(db, ct: Cancelamento);
+        _p = await Consultas.ParametrosAsync(Cancelamento);
         _fornecedores = await Cat.FornecedoresAsync(); _materiais = await Cat.MateriaisAsync(); _servicos = await Cat.ServicosAsync();
         _criterios = await Cat.ListaAsync(TipoLista.CriterioQualificacao);
         if (Nav.Uri.Contains("?f=") && Guid.TryParse(Nav.Uri.Split("?f=")[1], out var f)) _filtro = f;
@@ -101,13 +101,7 @@
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.CriarLeitura();
-        var q = db.Qualificacoes.AsNoTracking();
-        if (_filtro is { } f) q = q.Where(x => x.FornecedorId == f);
-        _itens = await q.OrderByDescending(x => x.DataQualificacao)
-            .Select(x => new Linha(x.Id, x.Fornecedor.RazaoSocial, x.TipoFornecimento,
-                x.MaterialControlado != null ? x.MaterialControlado.Nome : x.ServicoControlado != null ? x.ServicoControlado.Nome : null,
-                x.CriterioQualificacao, x.Psq, x.DataQualificacao, x.DataValidade, x.Resultado, x.ResponsavelNome, x.CriadoPor)).ToListAsync(Cancelamento);
+        _itens = await Consultas.ListarAsync(_filtro, Cancelamento);
     }
 
     private void Novo()
@@ -118,8 +112,7 @@
 
     private async Task Abrir(Guid id)
     {
-        await using var db = Fabrica.CriarLeitura();
-        _q = await db.Qualificacoes.AsNoTracking().FirstAsync(x => x.Id == id, Cancelamento);
+        _q = await Consultas.ObterAsync(id, Cancelamento);
         ErrosForm = null; _aberto = true;
     }
 

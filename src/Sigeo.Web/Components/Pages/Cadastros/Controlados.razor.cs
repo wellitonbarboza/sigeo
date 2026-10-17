@@ -39,9 +39,8 @@ public partial class Controlados
     private IGrade? GradeAtual => _aba == "mat" ? _gMat : _aba == "srv" ? _gSrv : null;
     private Dictionary<Guid, string> _fvm = [], _fvs = [];
     private List<Opcao> _docs = [];
-    private sealed record LinhaSemVinculo(string Codigo, string Nome, string? Grupo, string? SubGrupo);
     private const int LimiteSemVinculo = 500;
-    private List<LinhaSemVinculo> _semVinculo = [];
+    private List<ProdutoSemVinculo> _semVinculo = [];
     private bool _semVinculoCortado;
     private string SitMat(MaterialControlado m) => m.CategoriaProdutoId is null && string.IsNullOrWhiteSpace(m.SubGrupos) ? "Sem vínculo" : string.IsNullOrWhiteSpace(m.EspecificacaoModelo) ? "Sem especificação" : !_fvm.ContainsKey(m.Id) ? "Sem modelo FVM" : "Completo";
     private Grade<MaterialControlado>? _gMat;
@@ -109,20 +108,17 @@ public partial class Controlados
     private async Task Carregar()
     {
         Cat.InvalidarProdutos(); // produto/controlado mudou: a busca de produtos de todos relê o catálogo
-        await using var db = Fabrica.CriarLeitura();
-        _mats = await db.MateriaisControlados.OrderBy(m => m.Codigo).ToListAsync(Cancelamento);
-        _srvs = await db.ServicosControlados.OrderBy(m => m.Codigo).ToListAsync(Cancelamento);
-        var modelos = await db.ModelosInspecao.Where(m => m.Situacao == SituacaoModelo.Vigente)
-            .Select(m => new { m.MaterialControladoId, m.ServicoControladoId, m.Tipo, m.Codigo, m.Revisao }).ToListAsync(Cancelamento);
-        _fvm = modelos.Where(m => m.MaterialControladoId != null).GroupBy(m => m.MaterialControladoId!.Value).ToDictionary(g => g.Key, g => $"{g.First().Codigo} R{g.First().Revisao:00}");
-        _fvs = modelos.Where(m => m.ServicoControladoId != null && m.Tipo == TipoModelo.FVS).GroupBy(m => m.ServicoControladoId!.Value).ToDictionary(g => g.Key, g => $"{g.First().Codigo} R{g.First().Revisao:00}");
-        // Um a mais que o limite: só para saber se a lista foi cortada.
-        _semVinculo = await db.Produtos.Where(p => p.Ativo && p.MaterialControladoId == null).OrderBy(p => p.Nome)
-            .Select(p => new LinhaSemVinculo(p.Codigo, p.Nome, p.Grupo, p.SubGrupo)).Take(LimiteSemVinculo + 1).ToListAsync(Cancelamento);
+        var d = await Consultas.CarregarAsync(LimiteSemVinculo, Cancelamento);
+        _mats = d.Materiais;
+        _srvs = d.Servicos;
+        _fvm = d.Fvm;
+        _fvs = d.Fvs;
+        // Veio um a mais que o limite: só para saber se a lista foi cortada.
+        _semVinculo = d.SemVinculo;
         _semVinculoCortado = _semVinculo.Count > LimiteSemVinculo;
         if (_semVinculoCortado) _semVinculo.RemoveAt(LimiteSemVinculo);
         _docs = await Cat.DocumentosSgqAsync();
-        _qtdProd = await db.Produtos.Where(p => p.MaterialControladoId != null).GroupBy(p => p.MaterialControladoId!.Value).Select(g => new { g.Key, N = g.Count() }).ToDictionaryAsync(x => x.Key, x => x.N, Cancelamento);
+        _qtdProd = d.ProdutosPorMaterial;
     }
 
     private void Novo()

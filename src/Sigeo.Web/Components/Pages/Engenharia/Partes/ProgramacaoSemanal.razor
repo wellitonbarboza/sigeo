@@ -1,6 +1,7 @@
 @* Programação semanal para imprimir: escolhe as datas (gera uma folha por semana), a SPE e o agrupamento; pré-visualiza e abre a impressão. *@
 @inherits PaginaBase
 @inject AcompanhamentoServico Acomp
+@inject ProgramacaoSemanalConsultas Consultas
 
 <div class="barra-filtro">
     <label>De <input type="date" id="pg-de" value="@_de.ToString("yyyy-MM-dd")" @onchange="e => Mudar(e, true)" /></label>
@@ -30,9 +31,7 @@ else { <div class="tabela-rolavel"><FolhasProgramacao Dados="_p" Agrupar="@_agru
         if (_carregada == ObraId) return;
         _carregada = ObraId;
         _de = Hoje.AddDays(7 - (((int)Hoje.DayOfWeek + 6) % 7)); _ate = _de.AddDays(5); // próxima semana
-        await using (var db = Fabrica.CriarLeitura())
-            _spes = (await db.Spes.AsNoTracking().Where(s => s.ObraId == ObraId).OrderBy(s => s.Codigo).Select(s => new { s.Id, Nome = s.NomeFantasia ?? s.RazaoSocial }).ToListAsync(Cancelamento))
-                .Select(s => (s.Id, s.Nome)).ToList();
+        _spes = (await Consultas.SpesAsync(ObraId, Cancelamento)).Select(s => (s.Id, s.Nome)).ToList();
         await Gerar();
     }
 

@@ -1,6 +1,7 @@
 @page "/engenharia/composicoes"
 @inherits PaginaBase
 @inject OrcamentoServico Orc
+@inject ComposicoesConsultas Consultas
 
 <Pagina Titulo="Serviços e composições" Grade="_grade" AoNovo="Novo" AoAtualizar="Carregar">
     <ChildContent>
@@ -104,16 +105,14 @@
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.CriarLeitura();
-        _lista = await db.Composicoes.AsNoTracking().Include(c => c.Itens).OrderBy(c => c.Grupo).ThenBy(c => c.Codigo).ToListAsync(Cancelamento);
+        _lista = await Consultas.ListaAsync(Cancelamento);
     }
 
     private void Novo() { _c = new Composicao(); ErrosForm = null; _aberto = true; }
 
     private async Task Editar(Composicao c)
     {
-        await using var db = Fabrica.CriarLeitura();
-        _c = await db.Composicoes.AsNoTracking().Include(x => x.Itens).FirstAsync(x => x.Id == c.Id, Cancelamento);
+        _c = await Consultas.ComposicaoAsync(c.Id, Cancelamento);
         ErrosForm = null; _aberto = true;
     }
 

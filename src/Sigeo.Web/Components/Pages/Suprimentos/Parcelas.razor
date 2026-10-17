@@ -22,18 +22,18 @@
         <button class="btn sec" id="pc-vincular" disabled="@Ocupado" @onclick="Vincular" title="Liga notas importadas (SIEG/XML) do fornecedor à parcela do período"><Icone Nome="corrente" Tam="16" /> Vincular notas SIEG</button>
         @if (ContratoAtual?.FormaCobranca == FormaCobranca.Uso) { <button class="btn prim" id="pc-uso" disabled="@Ocupado" @onclick="AbrirUso"><Icone Nome="mais" Tam="16" /> Lançar uso</button> }
             </div>
-            <Grade T="Linha" @ref="_grade" Itens="_linhas" AoClicar="l => Abrir(l.P.Id)" NomeExportacao="parcelas-contratos" Vazio="Nenhuma parcela. Marque o contrato como recorrente e use “Gerar / atualizar parcelas”.">
+            <Grade T="ParcelaLinha" @ref="_grade" Itens="_linhas" AoClicar="l => Abrir(l.P.Id)" NomeExportacao="parcelas-contratos" Vazio="Nenhuma parcela. Marque o contrato como recorrente e use “Gerar / atualizar parcelas”.">
                 <Colunas>
-                    <Coluna T="Linha" Titulo="Contrato" Valor="l => l.Contrato" />
-                    <Coluna T="Linha" Titulo="Fornecedor" Valor="l => l.Fornecedor" />
-                    <Coluna T="Linha" Titulo="Nº" Valor="l => l.P.Numero" Largura="50px" />
-                    <Coluna T="Linha" Titulo="Período" Valor="l => Periodo(l.P)" />
-                    <Coluna T="Linha" Titulo="Vencimento" Valor="l => l.P.Vencimento" />
-                    <Coluna T="Linha" Titulo="Previsto" Valor="l => l.P.ValorPrevisto" Formato="N2" Alinhar="num" />
-                    <Coluna T="Linha" Titulo="Nota" Valor="l => l.P.NotaNumero" />
-                    <Coluna T="Linha" Titulo="Valor da nota" Valor="l => l.P.NotaValor" Formato="N2" Alinhar="num" />
-                    <Coluna T="Linha" Titulo="Diferença" Valor="l => l.P.Diferenca"><Modelo>@if (context.P.Diferenca is { } d) { <Selo Texto="@d.ToString("N2", Br)" Tom="@(context.Fora ? "erro" : "ok")" /> }</Modelo></Coluna>
-                    <Coluna T="Linha" Titulo="Status" Valor="l => l.P.Status"><Modelo><Selo Texto="@De(context.P.Status)" Tom="@(context.P.Vencida(Hoje) ? "erro" : Tom(context.P.Status))" /></Modelo></Coluna>
+                    <Coluna T="ParcelaLinha" Titulo="Contrato" Valor="l => l.Contrato" />
+                    <Coluna T="ParcelaLinha" Titulo="Fornecedor" Valor="l => l.Fornecedor" />
+                    <Coluna T="ParcelaLinha" Titulo="Nº" Valor="l => l.P.Numero" Largura="50px" />
+                    <Coluna T="ParcelaLinha" Titulo="Período" Valor="l => Periodo(l.P)" />
+                    <Coluna T="ParcelaLinha" Titulo="Vencimento" Valor="l => l.P.Vencimento" />
+                    <Coluna T="ParcelaLinha" Titulo="Previsto" Valor="l => l.P.ValorPrevisto" Formato="N2" Alinhar="num" />
+                    <Coluna T="ParcelaLinha" Titulo="Nota" Valor="l => l.P.NotaNumero" />
+                    <Coluna T="ParcelaLinha" Titulo="Valor da nota" Valor="l => l.P.NotaValor" Formato="N2" Alinhar="num" />
+                    <Coluna T="ParcelaLinha" Titulo="Diferença" Valor="l => l.P.Diferenca"><Modelo>@if (context.P.Diferenca is { } d) { <Selo Texto="@d.ToString("N2", Br)" Tom="@(context.Fora ? "erro" : "ok")" /> }</Modelo></Coluna>
+                    <Coluna T="ParcelaLinha" Titulo="Status" Valor="l => l.P.Status"><Modelo><Selo Texto="@De(context.P.Status)" Tom="@(context.P.Vencida(Hoje) ? "erro" : Tom(context.P.Status))" /></Modelo></Coluna>
                 </Colunas>
             </Grade>
             <div class="alerta info"><Icone Nome="info" /> Fluxo: prevista → nota lançada (almoxarife ou SIEG) → aprovada pela engenharia (fora da tolerância exige justificativa) → liberada pelo financeiro → paga.</div>

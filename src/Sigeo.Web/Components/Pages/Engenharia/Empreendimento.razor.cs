@@ -37,6 +37,7 @@ namespace Sigeo.Web.Components.Pages.Engenharia;
 // Código da tela Empreendimento.razor (a marcação fica no .razor; o VS Code agrupa os dois).
 public partial class Empreendimento
 {
+    [Inject] private EmpreendimentoConsultas Consultas { get; set; } = default!;
     private sealed class TorreForm { public string Nome { get; set; } = ""; public Guid TipologiaId { get; set; } }
 
     private List<Spe> _spes = [];
@@ -148,8 +149,7 @@ public partial class Empreendimento
         _tiposAgrup = await Cat.ListaAsync(TipoLista.TipoAgrupamento);
         if (_tiposAgrup.Count == 0) _tiposAgrup = [.. CargaPadrao.TiposAgrupamento];
         // A obra inicial (?obra= ou a única permitida) vem do SeletorObra, que chama TrocarObra; aqui só a lista do seletor.
-        await using var db = Fabrica.CriarLeitura();
-        DefinirObras(await db.Obras.OrderBy(x => x.Codigo).ToListAsync(Cancelamento));
+        DefinirObras(await Consultas.ObrasAsync(Cancelamento));
     }
 
     private void DefinirObras(List<Obra> obras)
@@ -161,15 +161,15 @@ public partial class Empreendimento
     private async Task Carregar()
     {
         _editadas.Clear(); _arvore = null; _unidFiltradas = null;
-        await using var db = Fabrica.CriarLeitura();
-        DefinirObras(await db.Obras.OrderBy(x => x.Codigo).ToListAsync(Cancelamento));
-        if (_obraId is not { } o) return;
+        var dados = await Consultas.CarregarAsync(_obraId, Cancelamento);
+        DefinirObras(dados.Obras);
+        if (_obraId is not { } o || dados.DaObra is not { } d) return;
         _o = _todasObras.FirstOrDefault(x => x.Id == o);
-        _locais = await db.Locais.Where(l => l.ObraId == o).ToListAsync(Cancelamento);
-        _quadras = await db.Quadras.Where(q => q.ObraId == o).OrderBy(q => q.Ordem).ThenBy(q => q.Codigo).ToListAsync(Cancelamento);
+        _locais = d.Locais;
+        _quadras = d.Quadras;
         if (_gQuadraId is null && _quadras.Count(q => q.Ativa) == 1) _gQuadraId = _quadras.First(q => q.Ativa).Id;
-        _spes = await db.Spes.Where(s => s.ObraId == o).OrderBy(s => s.Codigo).ToListAsync(Cancelamento);
-        _tips = await db.Tipologias.Include(t => t.Mix).Where(t => t.ObraId == o).OrderBy(t => t.Tipo).ThenBy(t => t.Codigo).ToListAsync(Cancelamento);
+        _spes = d.Spes;
+        _tips = d.Tipologias;
         _nomeTip = _tips.ToDictionary(t => t.Id, t => t.Codigo);
         _unid = _locais.Where(l => l.Tipo == GeradorEmpreendimento.TipoApartamento).OrderBy(l => l.Codigo).ToList();
         _pagLoc = Math.Min(_pagLoc, Math.Max(0, (ArvoreLista.Count - 1) / TamPag));

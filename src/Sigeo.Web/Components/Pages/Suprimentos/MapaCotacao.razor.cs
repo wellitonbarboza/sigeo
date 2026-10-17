@@ -89,12 +89,13 @@ public partial class MapaCotacao
         ? _c.Itens.Where(i => i.FornecedorId == v)
         : _grupos.Select(g => g.Where(i => i.ValorUnitarioFinal > 0).OrderBy(i => i.ValorTotal).FirstOrDefault()).OfType<CotacaoItem>());
 
+    [Inject] private MapaCotacaoConsultas Consultas { get; set; } = default!;
     private Dictionary<Guid, (string? Marca, bool Mesma)> _pedidas = [];
     private List<string> _marcas = [];
 
     protected override async Task OnInitializedAsync()
     {
-        await using (var db = Fabrica.CriarLeitura()) _p = await ParametrosServico.CarregarAsync(db, Cancelamento);
+        _p = await Consultas.ParametrosAsync(Cancelamento);
         await Carregar();
     }
 
@@ -102,18 +103,10 @@ public partial class MapaCotacao
     {
         if (Id is not { } id) { _naoEncontrada = true; return; }
         await CotacoesSrv.AtualizarQualificacoesAsync(id, Cancelamento);
-        await using var db = Fabrica.CriarLeitura();
-        _c = await db.Cotacoes.AsNoTracking().Include(c => c.Fornecedores).Include(c => c.Itens).FirstOrDefaultAsync(c => c.Id == id, Cancelamento);
-        if (_c is null) { _naoEncontrada = true; return; }
-        _obra = await db.Obras.Where(o => o.Id == _c.ObraId).Select(o => o.Nome).FirstOrDefaultAsync(Cancelamento) ?? "";
-        var ids = _c.Fornecedores.Select(f => f.FornecedorId).ToList();
-        _nomes = await db.Fornecedores.AsNoTracking().Where(f => ids.Contains(f.Id)).ToDictionaryAsync(f => f.Id, f => f.NomeFantasia ?? f.RazaoSocial, Cancelamento);
-        var rids = _c.Itens.Where(i => i.RequisicaoItemId != null).Select(i => i.RequisicaoItemId!.Value).Distinct().ToList();
-        _locaisItem = await QuadroLocais.CarregarAsync(db, rids, Cancelamento);
-        _pedidas = await db.Set<RequisicaoItem>().AsNoTracking().Where(r => rids.Contains(r.Id)).ToDictionaryAsync(r => r.Id, r => (r.Marca, r.MesmaMarca), Cancelamento);
+        var m = await Consultas.MapaAsync(id, _p!, Cancelamento);
+        if (m is null) { _c = null; _naoEncontrada = true; return; }
+        (_c, _obra, _nomes, _locaisItem, _pedidas) = m;
         _marcas = await Cat.MarcasAsync();
-        _c.Recalcular(_p!);
-        await CotacoesServico.PrecosReferenciaAsync(db, _c, Cancelamento);
         _grupos = _c.Itens.GroupBy(i => i.RequisicaoItemId).ToList();
     }
 

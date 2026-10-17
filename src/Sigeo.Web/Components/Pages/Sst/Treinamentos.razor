@@ -1,6 +1,7 @@
 @page "/sst/treinamentos"
 @inherits PaginaBase
 @inject SstServico Sst
+@inject TreinamentosConsultas Consultas
 
 <Pagina Titulo="Treinamentos" Grade="GradeAtual" AoNovo="Novo" AoAtualizar="Carregar">
     <ChildContent>
@@ -144,11 +145,8 @@
 
     private async Task Carregar()
     {
-        await using (var db = Fabrica.CriarLeitura())
-        {
-            _turmas = await db.Turmas.AsNoTracking().Include(t => t.Participantes).OrderByDescending(t => t.Data).ToListAsync(Cancelamento);
-            _cat = await db.Treinamentos.AsNoTracking().Where(t => t.Ativo).OrderBy(t => t.Descricao).ToListAsync(Cancelamento);
-        }
+        var dados = await Consultas.CarregarAsync(Cancelamento);
+        _turmas = dados.Turmas; _cat = dados.Catalogo;
         var calc = await Sst.RecalcularAsync(null, Cancelamento);
         var treinExig = _cat.Select(t => t.Descricao).ToHashSet();
         _necessidades = calc.SelectMany(kv => kv.Value.Detalhe.Where(d => d.Situacao is "Não realizado" or "Vencido" || (d.Ok && d.Validade is not null && d.Validade <= Hoje.AddDays(30)))
@@ -164,8 +162,7 @@
 
     private async Task AbrirTurma(Guid id)
     {
-        await using var db = Fabrica.CriarLeitura();
-        _turma = await db.Turmas.AsNoTracking().Include(t => t.Participantes).FirstAsync(t => t.Id == id, Cancelamento);
+        _turma = await Consultas.TurmaAsync(id, Cancelamento);
         ErrosForm = null; _abertoT = true;
     }
 

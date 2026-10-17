@@ -2,7 +2,7 @@
 @attribute [ExcludeFromInteractiveRouting]
 @layout Sigeo.Web.Components.Layout.LayoutImpressao
 @using Sigeo.Domain.Planejamento
-@inject IFabricaDb Fabrica
+@inject DiarioImprimirConsultas Consultas
 
 <PageTitle>RDO @_d?.Numero.ToString("0000") · @_obra</PageTitle>
 <style>
@@ -70,16 +70,11 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        await using var db = Fabrica.CriarLeitura();
-        _d = await db.DiariosObra.AsNoTracking().Include(x => x.Efetivo).Include(x => x.Atividades).Include(x => x.EquipamentosDia).AsSplitQuery().FirstOrDefaultAsync(x => x.Id == Id);
-        if (_d is null) return;
-        _obra = await db.Obras.AsNoTracking().Where(o => o.Id == _d.ObraId).Select(o => o.Codigo + " – " + o.Nome).FirstOrDefaultAsync() ?? "";
-        var eqIds = _d.EquipamentosDia.Select(x => x.EquipamentoId).ToList();
-        _equip = await db.Ativos.AsNoTracking().Where(e => eqIds.Contains(e.Id)).ToDictionaryAsync(e => e.Id, e => e.Patrimonio + " – " + e.Nome);
-        var locais = _d.Atividades.Where(a => a.LocalId != null).Select(a => a.LocalId!.Value).ToList();
-        _locais = await db.Locais.AsNoTracking().Where(l => locais.Contains(l.Id)).ToDictionaryAsync(l => l.Id, l => l.Nome);
-        var ids = _d.Atividades.Select(a => a.Id).ToList();
-        _fotos = (await db.Anexos.AsNoTracking().Where(a => a.Entidade == DiarioObraServico.EntidadeAtividade && ids.Contains(a.EntidadeId) && a.Categoria == "Foto")
-            .Select(a => new { a.EntidadeId, a.Id, a.CriadoEm }).ToListAsync()).GroupBy(a => a.EntidadeId).ToDictionary(g => g.Key, g => g.OrderBy(x => x.CriadoEm).Select(x => x.Id).ToList());
+        if (await Consultas.CarregarAsync(Id) is not { } dados) return;
+        _d = dados.Diario;
+        _obra = dados.Obra;
+        _equip = dados.Equipamentos;
+        _locais = dados.Locais;
+        _fotos = dados.Fotos;
     }
 }

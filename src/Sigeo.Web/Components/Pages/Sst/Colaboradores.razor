@@ -1,6 +1,7 @@
 @page "/sst/colaboradores"
 @inherits PaginaBase
 @inject SstServico Sst
+@inject ColaboradoresConsultas Consultas
 @inject NavigationManager Nav
 
 <Pagina Titulo="Colaboradores" Grade="_grade" AoNovo="Novo" AoAtualizar="Recalcular">
@@ -127,7 +128,7 @@
     protected override async Task OnInitializedAsync()
     {
         _obras = await Cat.ObrasAsync(); _fornecedores = await Cat.FornecedoresAsync(); _contratos = await Cat.ContratosAtivosAsync(); _funcoes = await Cat.FuncoesAsync();
-        await using (var db = Fabrica.CriarLeitura()) _exig = await db.Exigencias.AsNoTracking().Select(e => new Opcao(e.Id, e.Descricao)).ToListAsync(Cancelamento);
+        _exig = await Consultas.ExigenciasAsync(Cancelamento);
         await Carregar();
         if (Nav.Uri.Contains("?id=") && Guid.TryParse(Nav.Uri.Split("?id=")[1], out var id)) await Abrir(id);
     }
@@ -136,10 +137,9 @@
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.CriarLeitura();
-        _ativos = await db.Colaboradores.AsNoTracking().Where(c => c.DataSaida == null || c.DataSaida > Hoje).OrderBy(c => c.Nome).ToListAsync(Cancelamento);
-        var todos = await db.Colaboradores.AsNoTracking().OrderBy(c => c.Nome).ToListAsync(Cancelamento);
-        _itens = todos.Select(c => new Linha(c.Id, c.Nome, c.FornecedorId is { } f ? Nome(_fornecedores, f) : "Própria", Nome(_funcoes, c.FuncaoObraId), c.CpfMascarado, c.DataInicio, c.Pendencias, c.Situacao)).ToList();
+        var lista = await Consultas.ListarAsync(Hoje, Cancelamento);
+        _ativos = lista.Ativos;
+        _itens = lista.Todos.Select(c => new Linha(c.Id, c.Nome, c.FornecedorId is { } f ? Nome(_fornecedores, f) : "Própria", Nome(_funcoes, c.FuncaoObraId), c.CpfMascarado, c.DataInicio, c.Pendencias, c.Situacao)).ToList();
     }
 
     private void Novo()
@@ -151,16 +151,12 @@
     private async Task Abrir(Guid id)
     {
         var calc = await Sst.RecalcularAsync([id], Cancelamento);
-        await using var db = Fabrica.CriarLeitura();
-        _c = await db.Colaboradores.AsNoTracking().FirstAsync(c => c.Id == id, Cancelamento);
+        var ficha = await Consultas.AbrirAsync(id, Cancelamento);
+        _c = ficha.Colaborador;
         _calc = calc.GetValueOrDefault(id);
-        _docs = await db.DocumentosColaborador.AsNoTracking().Where(d => d.ColaboradorId == id).OrderByDescending(d => d.DataEmissao).ToListAsync(Cancelamento);
-        _treins = (await db.Participantes.AsNoTracking().Where(p => p.ColaboradorId == id)
-            .Join(db.Turmas, p => p.TurmaId, t => t.Id, (p, t) => new { p, t })
-            .Join(db.Treinamentos, x => x.t.TreinamentoId, tr => tr.Id, (x, tr) => new { tr.Descricao, x.t.Codigo, x.t.Data, x.p.Resultado, x.p.ValidoAte }).ToListAsync(Cancelamento))
-            .Select(x => (x.Descricao, x.Codigo, x.Data, x.Resultado, x.ValidoAte)).ToList();
-        _epis = (await db.EntregasEpi.AsNoTracking().Where(e => e.ColaboradorId == id).Join(db.Epis, e => e.EpiId, p => p.Id, (e, p) => new { p.Descricao, p.Ca, e.Quantidade, e.DataEntrega, e.TrocaPrevista, e.Assinatura }).ToListAsync(Cancelamento))
-            .Select(x => ($"{x.Descricao} (CA {x.Ca})", x.Quantidade, x.DataEntrega, x.TrocaPrevista, x.Assinatura)).ToList();
+        _docs = ficha.Documentos;
+        _treins = ficha.Treinamentos;
+        _epis = ficha.Epis;
         _cpf = null; ErrosForm = null; _aberto = true;
     }
 

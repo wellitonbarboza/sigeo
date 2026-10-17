@@ -37,6 +37,7 @@ namespace Sigeo.Web.Components.Pages.Engenharia;
 // Código da tela DiarioDeObra.razor (a marcação fica no .razor; o VS Code agrupa os dois).
 public partial class DiarioDeObra
 {
+    [Inject] private DiarioObraConsultas Consultas { get; set; } = default!;
     [SupplyParameterFromQuery(Name = "obra")] public Guid? ObraQuery { get; set; }
     [SupplyParameterFromQuery(Name = "data")] public string? DataQuery { get; set; }
     private static readonly string[] Meses = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
@@ -71,10 +72,7 @@ public partial class DiarioDeObra
         {
             _locais = await Cat.LocaisAsync(o);
             _podeAssinar = await Diario.PodeAssinarAsync(o, Cancelamento);
-            await using var db = Fabrica.CriarLeitura();
-            var almox = await db.Almoxarifados.AsNoTracking().Where(a => a.ObraId == o).Select(a => (Guid?)a.Id).FirstOrDefaultAsync(Cancelamento);
-            var eqs = await db.Ativos.AsNoTracking().Where(e => e.Situacao != SituacaoEquipamento.Baixado && e.Situacao != SituacaoEquipamento.Devolvido).OrderBy(e => e.Patrimonio)
-                .Select(e => new { e.Id, e.Patrimonio, e.Nome, e.AlmoxarifadoId }).ToListAsync(Cancelamento);
+            var (almox, eqs) = await Consultas.EquipamentosAsync(o, Cancelamento);
             _equipTodos = eqs.Select(e => new Opcao(e.Id, $"{e.Patrimonio} – {e.Nome}")).ToList();
             _equipObra = almox is null ? [] : eqs.Where(e => e.AlmoxarifadoId == almox).Select(e => new Opcao(e.Id, $"{e.Patrimonio} – {e.Nome}")).ToList();
         }

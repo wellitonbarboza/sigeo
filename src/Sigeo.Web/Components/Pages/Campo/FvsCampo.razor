@@ -2,6 +2,7 @@
 @layout LayoutCampo
 @inherits PaginaBase
 @inject QualidadeObraServico Qob
+@inject FvsCampoConsultas Consultas
 
 <PageTitle>@_f?.Numero · FVS no celular</PageTitle>
 @if (_f is null) { <p class="mudo" style="padding:20px">Carregando…</p> }
@@ -61,16 +62,14 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        await using var db = Fabrica.CriarLeitura();
-        _equipamentos = (await db.Equipamentos.AsNoTracking().ToListAsync()).Where(e => e.UsavelEm(Hoje)).Select(e => new Opcao(e.Id, $"{e.Codigo} – {e.Descricao}")).ToList();
+        _equipamentos = await Consultas.EquipamentosAsync(Hoje, Cancelamento);
         await Carregar();
     }
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.CriarLeitura();
-        _f = await db.Fvss.AsNoTracking().Include(f => f.Itens).Include(f => f.Modelo).Include(f => f.Local).FirstAsync(f => f.Id == Id);
-        _prestador = await db.Fornecedores.Where(x => x.Id == _f.FornecedorId).Select(x => x.RazaoSocial).FirstOrDefaultAsync();
+        var r = await Consultas.FvsAsync(Id, Cancelamento);
+        _f = r.Fvs; _prestador = r.Prestador;
     }
 
     private async Task Salvar() { if (await Executar(async () => { _f!.Origem = OrigemRegistro.CelularOnline; await Qob.SalvarFvsAsync(_f); }, "Salvo.")) await Carregar(); }

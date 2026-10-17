@@ -1,6 +1,7 @@
 @page "/obra/acoes"
 @inherits PaginaBase
 @inject QualidadeObraServico Qob
+@inject AcoesCorretivasConsultas Consultas
 @inject NavigationManager Nav
 
 <Pagina Titulo="Ações corretivas" Grade="_grade" AoAtualizar="Carregar">
@@ -97,15 +98,13 @@
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.CriarLeitura();
-        _itens = await db.AcoesCorretivas.AsNoTracking().OrderByDescending(a => a.Numero).Take(LimiteAtual).ToListAsync(Cancelamento);
+        _itens = await Consultas.ListarAsync(LimiteAtual, Cancelamento);
     }
 
     private async Task Abrir(Guid id)
     {
-        await using var db = Fabrica.CriarLeitura();
-        _a = await db.AcoesCorretivas.AsNoTracking().Include(a => a.Itens).FirstAsync(a => a.Id == id, Cancelamento);
-        _rncs = await db.Rncs.AsNoTracking().Where(r => r.AcaoCorretivaId == id).ToListAsync(Cancelamento);
+        var r = await Consultas.AbrirAsync(id, Cancelamento);
+        _a = r.Acao; _rncs = r.Rncs;
         ErrosForm = null; _aberto = true;
     }
 

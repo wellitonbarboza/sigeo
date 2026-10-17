@@ -37,6 +37,7 @@ namespace Sigeo.Web.Components.Pages.Engenharia.Partes;
 // Código da tela EditorRedes.razor (a marcação fica no .razor; o VS Code agrupa os dois).
 public partial class EditorRedes
 {
+    [Inject] private EditorRedesConsultas Consultas { get; set; } = default!;
     [Parameter, EditorRequired] public Guid ObraId { get; set; }
     [Parameter] public bool Editavel { get; set; }
     [Parameter] public EventCallback AoMudar { get; set; }
@@ -77,16 +78,14 @@ public partial class EditorRedes
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.CriarLeitura();
-        _redes = await db.RedesPlanejamento.AsNoTracking().Include(r => r.Locais).Include(r => r.Pacotes).ThenInclude(p => p.Ajustes).AsSplitQuery()
-            .Where(r => r.ObraId == ObraId).OrderBy(r => r.Ordem).ToListAsync(Cancelamento);
-        _vinculos = await db.VinculosRede.AsNoTracking().Where(v => v.ObraId == ObraId).ToListAsync(Cancelamento);
-        var defs = await PlanejamentoServico.DefinicoesAsync(db, ObraId, Cancelamento);
-        _custo = defs.Custo; _locais = defs.Locais;
+        var d = await Consultas.CarregarAsync(ObraId, Cancelamento);
+        _redes = d.Redes;
+        _vinculos = d.Vinculos;
+        _custo = d.Custo; _locais = d.Locais;
         _porId = _locais.ToDictionary(l => l.Id);
         _filhos = _locais.ToLookup(l => l.LocalPaiId);
-        var usados = await db.ServicosLocais.AsNoTracking().Where(s => s.ObraId == ObraId).Select(s => s.ComposicaoId).Distinct().ToListAsync(Cancelamento);
-        var comps = await db.Composicoes.AsNoTracking().Where(c => c.Ativa).OrderBy(c => c.Codigo).Select(c => new { c.Id, c.Codigo, c.Descricao }).ToListAsync(Cancelamento);
+        var usados = d.ComposicoesUsadas;
+        var comps = d.Composicoes;
         _nomeComp = comps.ToDictionary(c => c.Id, c => c.Descricao);
         _comps = comps.OrderBy(c => usados.Contains(c.Id) ? 0 : 1).ThenBy(c => c.Codigo).Select(c => new Opcao(c.Id, $"{c.Codigo} – {c.Descricao}{(usados.Contains(c.Id) ? "" : " (fora do orçamento)")}")).ToList();
         _pacotes = _redes.SelectMany(r => r.Pacotes.OrderBy(p => p.Ordem).Select(p => new Opcao(p.Id, $"{r.Nome} › {p.Nome}"))).ToList();

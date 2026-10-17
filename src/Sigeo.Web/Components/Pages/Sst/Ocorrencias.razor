@@ -1,6 +1,7 @@
 @page "/sst/ocorrencias"
 @inherits PaginaBase
 @inject SstServico Sst
+@inject OcorrenciasConsultas Consultas
 @inject QualidadeObraServico Qob
 @inject NavigationManager Nav
 
@@ -85,11 +86,8 @@
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.CriarLeitura();
-        _itens = await db.Ocorrencias.AsNoTracking().OrderByDescending(o => o.DataHora).Take(LimiteAtual).ToListAsync(Cancelamento);
-        _locNomes = await db.Locais.AsNoTracking().ToDictionaryAsync(l => l.Id, l => l.Nome, Cancelamento);
-        _acs = await db.AcoesCorretivas.AsNoTracking().ToDictionaryAsync(a => a.Id, a => a.Numero, Cancelamento);
-        _pts = await db.PermissoesTrabalho.AsNoTracking().OrderByDescending(p => p.Inicio).Take(LimitePts).Select(p => new Opcao(p.Id, p.Numero + " · " + p.Atividade)).ToListAsync(Cancelamento);
+        var d = await Consultas.ListarAsync(LimiteAtual, LimitePts, Cancelamento);
+        _itens = d.Itens; _locNomes = d.NomesLocais; _acs = d.NumerosAcoes; _pts = d.Pts;
     }
 
     private async Task Nova()
@@ -101,8 +99,7 @@
 
     private async Task Abrir(Guid id)
     {
-        await using var db = Fabrica.CriarLeitura();
-        _o = await db.Ocorrencias.AsNoTracking().FirstAsync(o => o.Id == id, Cancelamento);
+        _o = await Consultas.ObterAsync(id, Cancelamento);
         _locais = await Cat.LocaisAsync(_o.ObraId);
         ErrosForm = null; _aberto = true;
     }

@@ -1,6 +1,7 @@
 @page "/suprimentos/economia"
 @inherits PaginaBase
 @inject EconomiaServico EconomiaSrv
+@inject EconomiaConsultas Consultas
 @* Economia real: quanto se pagou a menos que o último preço pago do próprio item (mesma unidade, frete incluso, sem índice).
    Emergenciais e desvios acima do limite ficam fora. Meta x realizado por comprador e por setor (metas configuradas em Gestão › Metas). *@
 
@@ -111,7 +112,7 @@
     protected override async Task OnInitializedAsync()
     {
         _obras = await Cat.ObrasAsync();
-        await using (var db = Fabrica.CriarLeitura()) Desvio = (await ParametrosServico.CarregarAsync(db, Cancelamento))[Parametros.DesvioEconomiaPerc];
+        Desvio = (await Consultas.ParametrosAsync(Cancelamento))[Parametros.DesvioEconomiaPerc];
         await Carregar();
     }
 

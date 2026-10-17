@@ -1,6 +1,7 @@
 @page "/sgq/grd"
 @inherits PaginaBase
 @inject DocumentosServico Docs
+@inject GrdsConsultas Consultas
 @inject NavigationManager Nav
 
 <Pagina Titulo="GRD — guia de remessa de documentos" Grade="_grade" AoNovo="Novo" AoAtualizar="Carregar">
@@ -64,20 +65,15 @@
     protected override async Task OnInitializedAsync()
     {
         _fornecedores = await Cat.FornecedoresAsync();
-        await using (var db = Fabrica.CriarLeitura())
-        {
-            _vigentes = await db.Revisoes.AsNoTracking().Where(r => r.Status == StatusRevisao.Vigente || r.Status == StatusRevisao.VigenteComRessalvas)
-                .OrderBy(r => r.Documento.Codigo).Select(r => new Opcao(r.Id, r.Documento.Codigo + " R" + r.Revisao.ToString("00") + " – " + r.Documento.Titulo)).ToListAsync(Cancelamento);
-            _contratos = await db.Contratos.AsNoTracking().Where(k => k.Status == StatusContrato.Ativo).Select(k => new Opcao(k.Id, k.Numero)).ToListAsync(Cancelamento);
-        }
+        var op = await Consultas.OpcoesAsync(Cancelamento);
+        _vigentes = op.Vigentes; _contratos = op.Contratos;
         await Carregar();
     }
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.CriarLeitura();
-        var forn = await db.Fornecedores.AsNoTracking().ToDictionaryAsync(f => f.Id, f => f.RazaoSocial, Cancelamento);
-        _itens = (await db.Grds.AsNoTracking().Include(g => g.Itens).OrderByDescending(g => g.EnviadoEm).ToListAsync(Cancelamento))
+        var (forn, grds) = await Consultas.ListarAsync(Cancelamento);
+        _itens = grds
             .Select(g => new Linha(g.Id, g.Numero, forn.GetValueOrDefault(g.FornecedorId, ""), g.Contato, g.Itens.Count, g.EnviadoEm, g.ConfirmadoEm)).ToList();
     }
 
@@ -85,8 +81,7 @@
 
     private async Task Abrir(Guid id)
     {
-        await using var db = Fabrica.CriarLeitura();
-        _g = await db.Grds.AsNoTracking().Include(g => g.Itens).FirstAsync(g => g.Id == id, Cancelamento);
+        _g = await Consultas.AbrirAsync(id, Cancelamento);
         ErrosForm = null; _aberto = true;
     }
 

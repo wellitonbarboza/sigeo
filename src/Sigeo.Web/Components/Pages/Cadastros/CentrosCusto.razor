@@ -1,6 +1,7 @@
 @page "/cadastros/centros-custo"
 @inherits PaginaBase
 @inject EstabelecimentosServico Est
+@inject CentrosCustoConsultas Consultas
 
 <Pagina Titulo="Centros de custo" Grade="_g" AoNovo="Novo" AoAtualizar="Carregar">
     <ChildContent>
@@ -78,13 +79,8 @@
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.CriarLeitura();
-        _ccs = await db.CentrosCusto.AsNoTracking().OrderBy(o => o.Codigo).ToListAsync(Cancelamento);
-        var peds = await db.Pedidos.AsNoTracking().Where(p => p.Status >= StatusPedido.Aprovado && p.Status != StatusPedido.Cancelado).Include(p => p.Itens).ToListAsync(Cancelamento);
-        var reqs = await db.Requisicoes.AsNoTracking().Where(r => r.CentroCustoId != null).ToDictionaryAsync(r => r.Id, r => r.CentroCustoId!.Value, Cancelamento);
-        var ctrs = await db.Contratos.AsNoTracking().Include(k => k.Itens).Where(k => k.CentroCustoId != null && k.Status == StatusContrato.Ativo).ToListAsync(Cancelamento);
-        _comprometido = peds.Where(p => p.RequisicaoId is { } r && reqs.ContainsKey(r)).GroupBy(p => reqs[p.RequisicaoId!.Value]).ToDictionary(g => g.Key, g => g.Sum(p => p.Valor));
-        foreach (var k in ctrs) _comprometido[k.CentroCustoId!.Value] = _comprometido.GetValueOrDefault(k.CentroCustoId!.Value) + k.ValorTotal;
+        var d = await Consultas.CarregarAsync(Cancelamento);
+        _ccs = d.CentrosCusto; _comprometido = d.Comprometido;
     }
 
     private void Novo() { _c = new CentroCusto(); ErrosForm = null; _aberto = true; }

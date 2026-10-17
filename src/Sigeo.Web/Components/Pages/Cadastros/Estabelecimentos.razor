@@ -1,6 +1,7 @@
 @page "/cadastros/estabelecimentos"
 @inherits PaginaBase
 @inject EstabelecimentosServico Est
+@inject EstabelecimentosConsultas Consultas
 
 <Pagina Titulo="Estabelecimentos (CNPJs)" AoNovo="Novo" AoAtualizar="Carregar">
     <ChildContent>
@@ -120,9 +121,8 @@
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.CriarLeitura();
-        _lista = await db.Estabelecimentos.AsNoTracking().ToListAsync(Cancelamento);
-        _fluxos = await db.FluxosEstabelecimento.AsNoTracking().ToListAsync(Cancelamento);
+        var d = await Consultas.CarregarAsync(Cancelamento);
+        _lista = d.Estabelecimentos; _fluxos = d.Fluxos;
         _nomes = _lista.ToDictionary(e => e.Id, e => e.NomeExibicao);
     }
 

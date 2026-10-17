@@ -1,6 +1,7 @@
 @page "/sistema/permissoes"
 @inherits PaginaBase
 @inject SistemaServico Sistema
+@inject PermissoesDocumentoConsultas Consultas
 
 <Pagina Titulo="Permissões de documentos do SGQ" Grade="_grade" AoNovo="Novo" AoAtualizar="Carregar">
     <ChildContent>
@@ -77,10 +78,10 @@
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.CriarLeitura();
-        _pastas = await db.Pastas.OrderBy(p => p.Ordem).Select(p => new Opcao(p.Id, p.Nome)).ToListAsync(Cancelamento);
-        _docs = await db.Documentos.OrderBy(d => d.Codigo).Select(d => new Opcao(d.Id, d.Codigo + " – " + d.Titulo)).ToListAsync(Cancelamento);
-        var regras = await db.Permissoes.ToListAsync(Cancelamento);
+        var dados = await Consultas.CarregarAsync(Cancelamento);
+        _pastas = dados.Pastas;
+        _docs = dados.Documentos;
+        var regras = dados.Regras;
         string Alvo(PermissaoDocumento p) => (p.Escopo == EscopoPermissao.Pasta ? _pastas : _docs).FirstOrDefault(o => o.Id == p.AlvoId)?.Texto ?? "?";
         string Para(PermissaoDocumento p) => p.UsuarioId is { } u ? _usuarios.FirstOrDefault(x => x.Id == u)?.Texto ?? "?" : p.Perfil is { } pf ? $"Perfil {De(pf)}" : "—";
         _itens = regras.Select(r => new Linha(r.Id, r.Escopo, Alvo(r), Para(r), r)).OrderBy(l => l.Alvo).ToList();

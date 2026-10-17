@@ -1,5 +1,5 @@
 @* Trilha de aprovação (autorizações) de um registro + decisão da etapa pendente pelo usuário logado. *@
-@inject IFabricaDb Fabrica
+@inject AutorizacoesConsultas Consultas
 @inject AprovacaoServico Aprov
 @inject Notificacoes Notif
 @implements IDisposable
@@ -70,10 +70,8 @@ else
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.CriarLeitura();
-        _s = await AprovacaoServico.UltimaAsync(db, Entidade, EntidadeId, _cts.Token);
-        _alcadas = await db.Alcadas.Where(a => a.Entidade == Entidade).ToListAsync(_cts.Token);
-        _pode = _s is not null && await Aprov.PodeDecidirAsync(db, _s, _cts.Token);
+        var d = await Consultas.CarregarAsync(Entidade, EntidadeId, _cts.Token);
+        _s = d.Solicitacao; _alcadas = d.Alcadas; _pode = d.PodeDecidir;
     }
 
     private string NomeNivel(EtapaAprovacao e) =>

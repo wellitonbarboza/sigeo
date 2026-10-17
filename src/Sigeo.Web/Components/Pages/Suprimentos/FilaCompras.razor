@@ -1,6 +1,7 @@
 @page "/suprimentos/fila"
 @inherits PaginaBase
 @inject AtendimentoServico AtendimentoSrv
+@inject FilaComprasConsultas Consultas
 @inject NavigationManager Nav
 @* Fila do comprador: lotes da carteira dele (e os que está cobrindo como substituto) por data limite de compra.
    O gestor vê a fila sem comprador e reatribui. *@
@@ -95,9 +96,8 @@
         _l = await AtendimentoSrv.FilaAsync(Usuario.UsuarioId, _visao == "todos", Cancelamento);
         if (_visao == "todos")
         {
-            await using var db = Fabrica.CriarLeitura();
             var ids = _l.Select(x => x.LoteId).ToList();
-            _compradorDe = await db.LotesCompra.AsNoTracking().Where(x => ids.Contains(x.Id)).ToDictionaryAsync(x => x.Id, x => x.CompradorUsuarioId, Cancelamento);
+            _compradorDe = await Consultas.CompradoresDosLotesAsync(ids, Cancelamento);
         }
     }
 

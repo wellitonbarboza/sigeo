@@ -3,7 +3,6 @@
 @inject RequisicoesServico RequisicoesSrv
 @inject CotacoesServico CotacoesSrv
 @inject OrcamentoServico Orc
-@inject FornecedoresServico Forn
 @inject NavigationManager Nav
 @inject EstoqueServico EstoqueSrv
 @using Sigeo.Application.Comum
@@ -11,19 +10,19 @@
 <Pagina Titulo="Requisição de compras" Grade="_grade" AoNovo="Novo" AoAtualizar="Carregar">
     <ChildContent>
         <div class="pagina">
-            <Grade T="Linha" @ref="_grade" Itens="_itens" Limite="LimiteGrade" AoCarregarTudo="async () => { ListaCompleta = true; await Carregar(); }" AoClicar="l => Abrir(l.Id)" NomeExportacao="requisicoes" CriadoPor="l => l.CriadoPor">
+            <Grade T="RequisicaoLinha" @ref="_grade" Itens="_itens" Limite="LimiteGrade" AoCarregarTudo="async () => { ListaCompleta = true; await Carregar(); }" AoClicar="l => Abrir(l.Id)" NomeExportacao="requisicoes" CriadoPor="l => l.CriadoPor">
                 <Acoes><button title="Abrir" @onclick="() => Abrir(context.Id)"><Icone Nome="prancheta" Tam="16" /></button></Acoes>
                 <Colunas>
-                    <Coluna T="Linha" Titulo="Número" Valor="l => l.Numero" Largura="90px" />
-                    <Coluna T="Linha" Titulo="Obra" Valor="l => l.Obra" />
-                    <Coluna T="Linha" Titulo="Tipo" Valor="l => l.Tipo" />
-                    <Coluna T="Linha" Titulo="Atividade" Valor="l => l.Atividade" />
-                    <Coluna T="Linha" Titulo="Centro de custo" Valor="l => l.CentroCusto" />
-                    <Coluna T="Linha" Titulo="Entrega" Valor="l => l.Entrega" />
-                    <Coluna T="Linha" Titulo="Itens" Valor="l => l.Itens" Alinhar="num" />
-                    <Coluna T="Linha" Titulo="Status" Valor="l => l.Status"><Modelo><Selo Texto="@De(context.Status)" Tom="@Tom(context.Status)" /></Modelo></Coluna>
-                    <Coluna T="Linha" Titulo="Criado por" Valor="l => l.CriadoPor" />
-                    <Coluna T="Linha" Titulo="Criado em" Valor="l => l.CriadoEm" />
+                    <Coluna T="RequisicaoLinha" Titulo="Número" Valor="l => l.Numero" Largura="90px" />
+                    <Coluna T="RequisicaoLinha" Titulo="Obra" Valor="l => l.Obra" />
+                    <Coluna T="RequisicaoLinha" Titulo="Tipo" Valor="l => l.Tipo" />
+                    <Coluna T="RequisicaoLinha" Titulo="Atividade" Valor="l => l.Atividade" />
+                    <Coluna T="RequisicaoLinha" Titulo="Centro de custo" Valor="l => l.CentroCusto" />
+                    <Coluna T="RequisicaoLinha" Titulo="Entrega" Valor="l => l.Entrega" />
+                    <Coluna T="RequisicaoLinha" Titulo="Itens" Valor="l => l.Itens" Alinhar="num" />
+                    <Coluna T="RequisicaoLinha" Titulo="Status" Valor="l => l.Status"><Modelo><Selo Texto="@De(context.Status)" Tom="@Tom(context.Status)" /></Modelo></Coluna>
+                    <Coluna T="RequisicaoLinha" Titulo="Criado por" Valor="l => l.CriadoPor" />
+                    <Coluna T="RequisicaoLinha" Titulo="Criado em" Valor="l => l.CriadoEm" />
                 </Colunas>
             </Grade>
         </div>

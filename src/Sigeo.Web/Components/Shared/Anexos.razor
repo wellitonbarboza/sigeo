@@ -1,5 +1,5 @@
 @* Anexos de qualquer registro (proposta, contrato assinado, evidência, fotos, ata…). Arquivo com hash SHA-256. *@
-@inject IFabricaDb Fabrica
+@inject AnexosConsultas Consultas
 @inject AnexosServico Servico
 @inject Notificacoes Notif
 @implements IDisposable
@@ -44,9 +44,8 @@ else
     [Parameter] public bool SomenteLeitura { get; set; }
     [Parameter] public EventCallback AoMudar { get; set; }
 
-    private sealed record Linha(Guid Id, string NomeOriginal, string Categoria, long TamanhoBytes, string Hash, string CriadoPor, DateTimeOffset CriadoEm);
-    private List<Linha> _itens = [];
-    private Linha? _excluir;
+    private List<AnexoLinha> _itens = [];
+    private AnexoLinha? _excluir;
     private bool _ocupado;
     private readonly string _idInput = $"anexo-{Guid.NewGuid():N}";
     // Cancelado quando o componente sai da tela (registro fechado): upload/consulta não seguem ocupando recursos.
@@ -58,11 +57,7 @@ else
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.CriarLeitura();
-        _itens = await db.Anexos.Where(a => a.Entidade == Entidade && a.EntidadeId == EntidadeId && a.Categoria == Categoria)
-                                .OrderByDescending(a => a.CriadoEm)
-                                .Select(a => new Linha(a.Id, a.NomeOriginal, a.Categoria, a.TamanhoBytes, a.ArquivoHashSha256, a.CriadoPor, a.CriadoEm))
-                                .ToListAsync(_cts.Token);
+        _itens = await Consultas.AnexosAsync(Entidade, EntidadeId, Categoria, _cts.Token);
     }
 
     private async Task Enviar(InputFileChangeEventArgs e)

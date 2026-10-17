@@ -80,8 +80,7 @@ public partial class Fornecedores
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.CriarLeitura();
-        _itens = await db.Fornecedores.AsNoTracking().OrderBy(f => f.RazaoSocial).ToListAsync(Cancelamento);
+        _itens = await Consultas.ListarAsync(Cancelamento);
     }
 
     private bool _abertoPre;
@@ -94,10 +93,10 @@ public partial class Fornecedores
 
     private async Task CarregarApoio()
     {
-        await using var db = Fabrica.CriarLeitura();
-        _cats = await db.CategoriasProduto.AsNoTracking().Where(c => c.Ativo).OrderBy(c => c.Nome).ToListAsync(Cancelamento);
+        var apoio = await Consultas.ApoioAsync(Cancelamento);
+        _cats = apoio.Categorias;
         _servicosIts = await Cat.ServicosAsync();
-        _tiposDoc = await db.TiposDocumento.AsNoTracking().Where(t => t.Ativo && t.AplicaA == AplicaA.Fornecedor).OrderBy(t => t.Categoria).ThenBy(t => t.Ordem).ThenBy(t => t.Nome).ToListAsync(Cancelamento);
+        _tiposDoc = apoio.TiposDocumento;
     }
 
     private async Task Novo() { await CarregarApoio(); _f = new Fornecedor(); _novo = true; _painel = null; _abaF = "dados"; ErrosForm = null; _aberto = true; }
@@ -113,8 +112,7 @@ public partial class Fornecedores
     private async Task Editar(Fornecedor f)
     {
         await CarregarApoio();
-        await using var db = Fabrica.CriarLeitura();
-        _f = await db.Fornecedores.AsNoTracking().Include(x => x.Contatos).Include(x => x.Grupos).Include(x => x.Servicos).Include(x => x.Exigencias).AsSplitQuery().FirstAsync(x => x.Id == f.Id, Cancelamento);
+        _f = await Consultas.ObterAsync(f.Id, Cancelamento);
         _painel = await Forn.PainelAsync(f.Id, ct: Cancelamento);
         _novo = false; ErrosForm = null; _aberto = true;
     }

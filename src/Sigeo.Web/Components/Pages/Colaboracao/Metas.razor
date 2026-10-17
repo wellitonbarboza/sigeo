@@ -2,6 +2,7 @@
 @inherits PaginaBase
 @inject MetasServico MetasSrv
 @inject ColaboracaoServico ColabSrv
+@inject MetasConsultas Consultas
 @* Metas e entregas: metas do setor, individuais ou de equipe (valor automático pelos indicadores ou manual com evidência),
    tarefas ligadas à meta com aceite do gestor e placar por pessoa, equipe/setor e serviço.
    A nota do placar serve para acompanhar e avaliar o desempenho: não altera nenhuma meta (a de economia continua sozinha). *@
@@ -162,8 +163,7 @@
     protected override async Task OnInitializedAsync()
     {
         _usuarios = await Cat.UsuariosAsync(); _obras = await Cat.ObrasAsync();
-        await using (var db = Fabrica.CriarLeitura())
-            _equipes = await db.Equipes.AsNoTracking().Where(e => e.Ativa).OrderBy(e => e.Nome).Select(e => new Opcao(e.Id, e.Nome, null)).ToListAsync(Cancelamento);
+        _equipes = await Consultas.EquipesAsync(Cancelamento);
         await Carregar();
     }
 

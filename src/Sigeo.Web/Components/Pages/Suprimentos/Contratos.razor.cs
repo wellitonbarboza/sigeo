@@ -41,9 +41,9 @@ public partial class Contratos
     private ArvoreLocais _arvore = ArvoreLocais.Vazia;
     private readonly HashSet<Guid> _abertos = [];
     private void AlternarLocais(Guid id) { if (!_abertos.Remove(id)) _abertos.Add(id); }
-    private sealed record Linha(Guid Id, string Numero, string Obra, string Fornecedor, string Categoria, string Objeto, decimal Valor, DateOnly Fim, StatusContrato Status, string CriadoPor);
-    private Grade<Linha>? _grade;
-    private List<Linha>? _itens;
+    [Inject] private ContratosConsultas Consultas { get; set; } = default!;
+    private Grade<ContratoLinha>? _grade;
+    private List<ContratoLinha>? _itens;
     private Contrato? _k;
     private List<Medicao> _medicoes = [];
     private bool _aberto;
@@ -80,9 +80,8 @@ public partial class Contratos
 
     private async Task AbrirAditivo(Guid id)
     {
-        await using var db = Fabrica.CriarLeitura();
-        _ad = await db.Aditivos.AsNoTracking().Include(a => a.Itens).FirstAsync(a => a.Id == id, Cancelamento);
-        _aditivos = await db.Aditivos.AsNoTracking().Where(a => a.ContratoId == _ad.ContratoId).OrderBy(a => a.Numero).ToListAsync(Cancelamento);
+        var r = await Consultas.AditivoAsync(id, Cancelamento);
+        _ad = r.Aditivo; _aditivos = r.Aditivos;
         _adAssEmp = _adAssForn = Hoje; _versao++;
     }
 
@@ -112,18 +111,14 @@ public partial class Contratos
         if (Nav.Uri.Contains("?id=") && Guid.TryParse(Nav.Uri.Split("?id=")[1], out var id)) await Abrir(id);
         else if (Nav.Uri.Contains("?aditivo=") && Guid.TryParse(Nav.Uri.Split("?aditivo=")[1], out var aid))
         {
-            await using var db = Fabrica.CriarLeitura();
-            var cid = await db.Aditivos.Where(a => a.Id == aid).Select(a => a.ContratoId).FirstOrDefaultAsync(Cancelamento);
+            var cid = await Consultas.ContratoDoAditivoAsync(aid, Cancelamento);
             if (cid != Guid.Empty) { await Abrir(cid); _aba = "aditivos"; await AbrirAditivo(aid); }
         }
     }
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.CriarLeitura();
-        var lista = await db.Contratos.AsNoTracking().Include(k => k.Itens).Include(k => k.Fornecedor).OrderByDescending(k => k.CriadoEm).Take(LimiteAtual).ToListAsync(Cancelamento);
-        var obras = await db.Obras.AsNoTracking().ToDictionaryAsync(o => o.Id, o => o.Nome, Cancelamento);
-        _itens = lista.Select(k => new Linha(k.Id, k.Numero, obras.GetValueOrDefault(k.ObraId, ""), k.Fornecedor.NomeExibicao, k.Categoria, k.Objeto, k.ValorTotal, k.VigenciaFim, k.Status, k.CriadoPor)).ToList();
+        _itens = await Consultas.ListaAsync(LimiteAtual, Cancelamento);
     }
 
     private void Novo()
@@ -134,14 +129,14 @@ public partial class Contratos
 
     private async Task Abrir(Guid id)
     {
-        await using var db = Fabrica.CriarLeitura();
-        _k = await db.Contratos.AsNoTracking().Include(k => k.Itens).ThenInclude(i => i.Locais).Include(k => k.ServicosVinculados).FirstAsync(k => k.Id == id, Cancelamento);
-        var locs = await db.Locais.AsNoTracking().Where(l => l.ObraId == _k.ObraId).ToListAsync(Cancelamento);
+        var r = await Consultas.AbrirAsync(id, Cancelamento);
+        _k = r.Contrato;
+        var locs = r.Locais;
         _locCod = locs.ToDictionary(l => l.Id, l => l.Codigo);
         _arvore = new ArvoreLocais(locs);
-        _medicoes = await db.Medicoes.AsNoTracking().Where(m => m.ContratoId == id).OrderBy(m => m.NumeroMedicao).ToListAsync(Cancelamento);
-        _aditivos = await db.Aditivos.AsNoTracking().Where(a => a.ContratoId == id).OrderBy(a => a.Numero).ToListAsync(Cancelamento);
-        _limiteAditivo = (await ParametrosServico.CarregarAsync(db, Cancelamento))[Parametros.LimiteAditivoPerc];
+        _medicoes = r.Medicoes;
+        _aditivos = r.Aditivos;
+        _limiteAditivo = r.LimiteAditivoPerc;
         _ad = null;
         _assEmpresa = _k.AssinaturaEmpresa ?? Hoje; _assFornecedor = _k.AssinaturaFornecedor ?? Hoje;
         ErrosForm = null; _versao++; _aberto = true;

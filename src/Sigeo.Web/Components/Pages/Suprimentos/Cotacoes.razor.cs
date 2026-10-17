@@ -37,9 +37,9 @@ namespace Sigeo.Web.Components.Pages.Suprimentos;
 // Código da tela Cotacoes.razor (a marcação fica no .razor; o VS Code agrupa os dois).
 public partial class Cotacoes
 {
-    private sealed record Linha(Guid Id, int Numero, string Nome, string Obra, TipoRequisicao Tipo, int Recebidas, int Exigidas, decimal Valor, string? Vencedor, StatusCotacao Status, string CriadoPor, DateTimeOffset CriadoEm);
-    private Grade<Linha>? _grade;
-    private List<Linha>? _itens;
+    [Inject] private CotacoesConsultas Consultas { get; set; } = default!;
+    private Grade<CotacaoLinha>? _grade;
+    private List<CotacaoLinha>? _itens;
     private Cotacao? _c;
     private bool _aberto;
     private int _versao;
@@ -71,19 +71,13 @@ public partial class Cotacoes
 
     protected override async Task OnInitializedAsync()
     {
-        await using (var db = Fabrica.CriarLeitura()) _p = await ParametrosServico.CarregarAsync(db, Cancelamento);
+        _p = await Consultas.ParametrosAsync(Cancelamento);
         _condicoes = await Cat.ListaAsync(TipoLista.CondicaoPagamento);
         await Carregar();
         if (Nav.Uri.Contains("?id=") && Guid.TryParse(Nav.Uri.Split("?id=")[1], out var id)) await Abrir(id);
     }
 
-    private async Task Carregar()
-    {
-        await using var db = Fabrica.CriarLeitura();
-        _itens = await db.Cotacoes.AsNoTracking().OrderByDescending(c => c.Numero).Take(LimiteAtual)
-            .Select(c => new Linha(c.Id, c.Numero, c.Nome, db.Obras.Where(o => o.Id == c.ObraId).Select(o => o.Nome).FirstOrDefault() ?? "", c.Tipo,
-                c.PropostasRecebidas, c.PropostasExigidas, c.ValorEstimado, c.FornecedorVencedor != null ? c.FornecedorVencedor.RazaoSocial : null, c.Status, c.CriadoPor, c.CriadoEm)).ToListAsync(Cancelamento);
-    }
+    private async Task Carregar() => _itens = await Consultas.ListaAsync(LimiteAtual, Cancelamento);
 
     private Dictionary<Guid, List<LocalQuantidade>> _locaisItem = [];
     private readonly HashSet<Guid> _abertos = [];
@@ -98,9 +92,7 @@ public partial class Cotacoes
 
     private async Task AbrirAdicionar()
     {
-        await using var db = Fabrica.CriarLeitura();
-        var itens = _c!.RequisicaoId is { } rq ? await db.RequisicaoItens.AsNoTracking().Where(i => i.RequisicaoId == rq).ToListAsync(Cancelamento) : [];
-        var (lista, sug) = await SugestaoFornecedores.ParaAsync(db, Forn, _c.Tipo, itens, Cancelamento);
+        var (lista, sug) = await Consultas.FornecedoresParaAdicionarAsync(_c!.RequisicaoId, _c.Tipo, Cancelamento);
         var ja = _c.Fornecedores.Select(f => f.FornecedorId).ToHashSet();
         _paraAdicionar = lista.Where(f => !ja.Contains(f.Id)).ToList();
         _sugeridosAdd = sug; _selAdd.Clear(); _filtroAdd = null; _abertoAdd = true;
@@ -124,14 +116,7 @@ public partial class Cotacoes
     {
         // Qualificação de hoje (o cadastro do fornecedor pode ter mudado desde o convite) — grava antes de ler.
         await CotacoesSrv.AtualizarQualificacoesAsync(id, Cancelamento);
-        await using var db = Fabrica.CriarLeitura();
-        _c = await db.Cotacoes.AsNoTracking().Include(c => c.Fornecedores).Include(c => c.Itens).FirstAsync(c => c.Id == id, Cancelamento);
-        var ids = _c.Fornecedores.Select(f => f.FornecedorId).ToList();
-        _nomes = await db.Fornecedores.AsNoTracking().Where(f => ids.Contains(f.Id)).ToDictionaryAsync(f => f.Id, f => f.NomeFantasia ?? f.RazaoSocial, Cancelamento);
-        var rids = _c.Itens.Where(i => i.RequisicaoItemId != null).Select(i => i.RequisicaoItemId!.Value).Distinct().ToList();
-        _locaisItem = await QuadroLocais.CarregarAsync(db, rids, Cancelamento);
-        _c.Recalcular(_p!);
-        await CotacoesServico.PrecosReferenciaAsync(db, _c, Cancelamento);
+        (_c, _nomes, _locaisItem) = await Consultas.CotacaoAsync(id, _p!, Cancelamento);
         ErrosForm = null; _versao++; _aberto = true;
     }
 

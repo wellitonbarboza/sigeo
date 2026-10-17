@@ -1,5 +1,5 @@
 @* Fotos de um registro (ex.: atividade do diário de obra): miniaturas clicáveis e envio pelo celular ou computador. Usa os anexos (hash SHA-256). *@
-@inject IFabricaDb Fabrica
+@inject AnexosConsultas Consultas
 @inject AnexosServico Servico
 @inject Notificacoes Notif
 @implements IDisposable
@@ -21,8 +21,7 @@
     [Parameter] public string Entidade { get; set; } = "";
     [Parameter] public Guid EntidadeId { get; set; }
     [Parameter] public bool SomenteLeitura { get; set; }
-    private sealed record Foto(Guid Id, string Nome);
-    private List<Foto> _itens = [];
+    private List<FotoRegistro> _itens = [];
     private bool _ocupado;
     private Guid _carregado;
     private readonly string _id = $"foto-{Guid.NewGuid():N}";
@@ -33,9 +32,7 @@
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.CriarLeitura();
-        _itens = await db.Anexos.Where(a => a.Entidade == Entidade && a.EntidadeId == EntidadeId && a.Categoria == "Foto")
-            .OrderBy(a => a.CriadoEm).Select(a => new Foto(a.Id, a.NomeOriginal)).ToListAsync(_cts.Token);
+        _itens = await Consultas.FotosRegistroAsync(Entidade, EntidadeId, _cts.Token);
     }
 
     private async Task Enviar(InputFileChangeEventArgs e)

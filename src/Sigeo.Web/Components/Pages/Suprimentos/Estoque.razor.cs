@@ -36,6 +36,7 @@ namespace Sigeo.Web.Components.Pages.Suprimentos;
 // Código da tela Estoque.razor (a marcação fica no .razor; o VS Code agrupa os dois).
 public partial class Estoque
 {
+    [Inject] private EstoqueConsultas Consultas { get; set; } = default!;
     private sealed record LinhaSaldo(Guid ProdutoId, string Codigo, string Produto, string Unidade, decimal Disponivel, decimal Bloqueado, decimal CustoMedio, decimal Valor,
         decimal Minimo, decimal PontoPedido, decimal Maximo, decimal NoCentral, string Situacao, decimal Reposicao);
     private sealed record LinhaMov(Guid Id, bool Estornavel, DateTimeOffset Data, TipoMovimentoEstoque Tipo, string Produto, decimal Quantidade, decimal Custo, decimal Valor, decimal SaldoApos,
@@ -119,12 +120,9 @@ public partial class Estoque
     private async Task CarregarSaldos()
     {
         if (_almoxId is not { } id) { _saldos = []; return; }
-        await using var db = Fabrica.CriarLeitura();
-        var lista = await db.SaldosEstoque.AsNoTracking().Where(s => s.AlmoxarifadoId == id).ToListAsync(Cancelamento);
-        var central = _central is { } c && c.Id != id
-            ? await db.SaldosEstoque.AsNoTracking().Where(s => s.AlmoxarifadoId == c.Id).ToDictionaryAsync(s => s.ProdutoId, s => s.Disponivel, Cancelamento)
-            : [];
-        _saldos = lista.Select(s =>
+        var r = await Consultas.SaldosAsync(id, _central is { } c && c.Id != id ? c.Id : null, Cancelamento);
+        var central = r.Central;
+        _saldos = r.Saldos.Select(s =>
         {
             var p = _prodPorId.GetValueOrDefault(s.ProdutoId);
             var sit = s.AbaixoDoMinimo ? "Abaixo do mínimo" : s.NoPontoDePedido ? "Ponto de pedido" : s.Minimo + s.PontoPedido + s.Maximo > 0 ? "OK" : "Sem parâmetro";
@@ -137,10 +135,10 @@ public partial class Estoque
     private async Task CarregarMovimentos()
     {
         if (_almoxId is not { } id) { _movs = []; return; }
-        await using var db = Fabrica.CriarLeitura();
-        var lista = await db.MovimentosEstoque.AsNoTracking().Where(m => m.AlmoxarifadoId == id).OrderByDescending(m => m.Data).ThenByDescending(m => m.CriadoEm).Take(LimiteAtual).ToListAsync(Cancelamento);
+        var r = await Consultas.MovimentosAsync(id, LimiteAtual, _locais.Count == 0, Cancelamento);
+        var lista = r.Movimentos;
         var locIds = lista.Where(m => m.LocalId != null).Select(m => m.LocalId!.Value).Distinct().ToList();
-        var locs = _locais.Count > 0 ? _locais.Where(l => locIds.Contains(l.Id)).ToDictionary(l => l.Id, l => l.Texto) : await db.Locais.AsNoTracking().Where(l => locIds.Contains(l.Id)).ToDictionaryAsync(l => l.Id, l => l.Nome, Cancelamento);
+        var locs = _locais.Count > 0 ? _locais.Where(l => locIds.Contains(l.Id)).ToDictionary(l => l.Id, l => l.Texto) : r.NomesLocais!;
         var comps = _composicoes.ToDictionary(c => c.Id, c => c.Texto);
         var colabs = _colabs.ToDictionary(c => c.Id, c => c.Texto);
         var forns = _fornecedores.ToDictionary(c => c.Id, c => c.Texto);
@@ -155,8 +153,7 @@ public partial class Estoque
     private async Task CarregarInventarios()
     {
         if (_almoxId is not { } id) { _invs = []; return; }
-        await using var db = Fabrica.CriarLeitura();
-        var lista = await db.Inventarios.AsNoTracking().Include(i => i.Itens).Where(i => i.AlmoxarifadoId == id).OrderByDescending(i => i.Numero).ToListAsync(Cancelamento);
+        var lista = await Consultas.InventariosAsync(id, Cancelamento);
         _invs = lista.Select(i => new LinhaInv(i.Id, i.Numero, i.Data, i.Tipo, i.Itens.Count, i.Itens.Count(x => x.Diferenca != 0), i.AprovadoPor, i.Status)).ToList();
     }
 
@@ -235,8 +232,7 @@ public partial class Estoque
 
     private async Task AbrirInv(Guid id)
     {
-        await using var db = Fabrica.CriarLeitura();
-        _inv = await db.Inventarios.AsNoTracking().Include(i => i.Itens).FirstAsync(i => i.Id == id, Cancelamento);
+        _inv = await Consultas.InventarioAsync(id, Cancelamento);
         ErrosForm = null; _abertoInv = true;
     }
 

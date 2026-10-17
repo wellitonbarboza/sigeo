@@ -37,6 +37,7 @@ namespace Sigeo.Web.Components.Pages.Suprimentos;
 public partial class Recebimentos
 {
     private sealed record Linha(Guid Id, int Numero, DateTimeOffset Data, int? Pedido, string Fornecedor, string? Nf, bool? Aprovada, decimal? Nota, DestinoRecebimento Destino, string CriadoPor);
+    [Inject] private RecebimentosConsultas Consultas { get; set; } = default!;
     private Grade<Linha>? _grade;
     private List<Linha>? _itens;
     private Recebimento? _r;
@@ -72,7 +73,7 @@ public partial class Recebimentos
     protected override async Task OnInitializedAsync()
     {
         _almoxs = await EstoqueSrv.AlmoxarifadosAsync(Cancelamento);
-        await using (var dbp = Fabrica.CriarLeitura()) _par = await ParametrosServico.CarregarAsync(dbp, Cancelamento);
+        _par = await Consultas.ParametrosAsync(Cancelamento);
         _marcas = await Cat.MarcasAsync();
         await Carregar();
         if (Nav.Uri.Contains("?pedido=") && Guid.TryParse(Nav.Uri.Split("?pedido=")[1], out var pid)) { await Novo(); await EscolherPedido(pid.ToString()); }
@@ -85,8 +86,7 @@ public partial class Recebimentos
     /// </summary>
     private async Task NovoDaNota(Guid notaId)
     {
-        await using var db = Fabrica.CriarLeitura();
-        var n = await db.NotasFiscais.AsNoTracking().Include(x => x.Itens).FirstOrDefaultAsync(x => x.Id == notaId, Cancelamento);
+        var n = await Consultas.NotaAsync(notaId, Cancelamento);
         if (n?.PedidoId is not { } pedidoId || n.Situacao != Sigeo.Domain.Fiscal.SituacaoNota.Vinculada) { Notif.Erro("Nota sem pedido vinculado (ou já recebida)."); return; }
         await Novo();
         await EscolherPedido(pedidoId.ToString());
@@ -113,18 +113,14 @@ public partial class Recebimentos
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.CriarLeitura();
-        var lista = await db.Recebimentos.AsNoTracking().Include(r => r.Pedido).Include(r => r.Itens).OrderByDescending(r => r.Numero).Take(LimiteAtual).ToListAsync(Cancelamento);
-        var forn = await db.Fornecedores.AsNoTracking().ToDictionaryAsync(f => f.Id, f => f.NomeExibicao, Cancelamento);
+        var (lista, forn) = await Consultas.ListaAsync(LimiteAtual, Cancelamento);
         _itens = lista.Select(r => new Linha(r.Id, r.Numero, r.DataRecebimento, r.Pedido?.Numero, forn.GetValueOrDefault(r.FornecedorId, ""), r.NumeroNotaFiscal ?? r.ChaveNFe,
             r.FvmAprovada, r.NotaEntrega, r.Destino, r.RecebidoPorNome)).ToList();
     }
 
     private async Task Novo()
     {
-        await using var db = Fabrica.CriarLeitura();
-        _pedidos = await db.Pedidos.AsNoTracking().Where(p => p.Status == StatusPedido.EnviadoFornecedor || p.Status == StatusPedido.EntregueParcial)
-            .OrderBy(p => p.Numero).Select(p => new Opcao(p.Id, "Pedido " + p.Numero + " – " + p.Fornecedor.RazaoSocial)).ToListAsync(Cancelamento);
+        _pedidos = await Consultas.PedidosAguardandoAsync(Cancelamento);
         _r = new Recebimento { DataRecebimento = DateTimeOffset.Now };
         _fotoNota = null; _itensLidos = null;
         ErrosForm = null; _aberto = true;
@@ -134,8 +130,7 @@ public partial class Recebimentos
     {
         _r!.Itens.Clear(); _r.PedidoId = null;
         if (!Guid.TryParse(valor, out var id)) return;
-        await using var db = Fabrica.CriarLeitura();
-        var p = await db.Pedidos.AsNoTracking().Include(x => x.Itens).FirstAsync(x => x.Id == id, Cancelamento);
+        var p = await Consultas.PedidoAsync(id, Cancelamento);
         if (_pedidos.All(o => o.Id != id)) _pedidos.Add(new Opcao(p.Id, $"Pedido {p.Numero}"));
         _r.PedidoId = p.Id; _r.FornecedorId = p.FornecedorId; _r.ObraId = p.ObraId;
         _r.AlmoxarifadoId = p.EntregaAlmoxarifadoCentral ? _almoxs.FirstOrDefault(a => a.Tipo == TipoAlmoxarifado.Central && a.Ativo)?.Id : _almoxs.FirstOrDefault(a => a.ObraId == p.ObraId)?.Id;
@@ -195,18 +190,16 @@ public partial class Recebimentos
 
     private async Task Abrir(Guid id)
     {
-        await using var db = Fabrica.CriarLeitura();
-        _r = await db.Recebimentos.AsNoTracking().Include(r => r.Itens).Include(r => r.FvmItens).Include(r => r.Ensaios).Include(r => r.Aplicacoes).AsSplitQuery().FirstAsync(r => r.Id == id, Cancelamento);
+        var c = await Consultas.RecebimentoAsync(id, Cancelamento);
+        _r = c.Recebimento;
         _locais = await Cat.LocaisAsync(_r.ObraId);
         _locNomes = _locais.ToDictionary(l => l.Id, l => l.Texto);
-        var pis = _r.Itens.Where(i => i.PedidoItemId != null).Select(i => i.PedidoItemId!.Value).ToList();
         _marcaPedido.Clear();
-        foreach (var pm in await db.PedidoItens.AsNoTracking().Where(i => pis.Contains(i.Id)).Select(i => new { i.Id, i.Marca }).ToListAsync(Cancelamento)) _marcaPedido[pm.Id] = pm.Marca;
+        foreach (var (pi, m) in c.MarcaPedido) _marcaPedido[pi] = m;
         _resEnsaio.Clear(); foreach (var en in _r.Ensaios) _resEnsaio[en.Id] = en.Resultado ?? "";
         _apLocal = null; _apQtd = 0; _apData = Hoje;
-        var ped = _r.PedidoId is { } pid ? await db.Pedidos.AsNoTracking().Where(p => p.Id == pid).Select(p => p.Numero).FirstOrDefaultAsync(Cancelamento) : 0;
-        _pedidos = _r.PedidoId is { } x ? [new Opcao(x, $"Pedido {ped}")] : [];
-        _transf = await db.Transferencias.AsNoTracking().Where(t => t.RecebimentoId == id && t.Status != StatusTransferencia.Cancelada).Select(t => (Guid?)t.Id).FirstOrDefaultAsync(Cancelamento);
+        _pedidos = _r.PedidoId is { } x ? [new Opcao(x, $"Pedido {c.NumeroPedido}")] : [];
+        _transf = c.Transferencia;
         ErrosForm = null; _aberto = true;
     }
 

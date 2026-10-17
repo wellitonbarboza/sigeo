@@ -1,6 +1,7 @@
 @page "/fornecedores/planos"
 @inherits PaginaBase
 @inject PlanosAcaoServico Planos
+@inject PlanosAcaoSgqConsultas Consultas
 
 <Pagina Titulo="Planos de ação de fornecedores" Grade="_grade" AoNovo="Novo" AoAtualizar="Carregar">
     <ChildContent>
@@ -83,8 +84,7 @@
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.CriarLeitura();
-        _itens = await db.PlanosAcao.Include(p => p.Fornecedor).OrderByDescending(p => p.Numero).ToListAsync(Cancelamento);
+        _itens = await Consultas.ListarAsync(Cancelamento);
     }
 
     private void Novo() { _p = new PlanoAcaoFornecedor { Prazo = Hoje.AddDays(30), Origem = OrigemPlanoAcao.Reclamacao, TipoPlano = TipoPlanoAcao.Pontual }; ErrosForm = null; _aberto = true; }

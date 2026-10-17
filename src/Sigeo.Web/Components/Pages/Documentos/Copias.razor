@@ -1,6 +1,8 @@
 @page "/sgq/copias"
 @inherits PaginaBase
 @inject DocumentosServico Docs
+@inject CopiasConsultas Consultas
+@using Linha = Sigeo.Application.Documentos.CopiaLinha
 
 <Pagina Titulo="Cópias controladas" Grade="GradeAtual" AoNovo="NovaSolicitacao" AoAtualizar="Carregar">
     <ChildContent>
@@ -104,7 +106,6 @@
 </Modal>
 
 @code {
-    private sealed record Linha(Guid Id, string Numero, string Documento, string Rev, TipoCopia Tipo, string Destinatario, DateTimeOffset? Entregue, DateOnly? Prazo, StatusCopia Status, string Qr);
     private IGrade? GradeAtual => _aba == "solic" ? _gSol : _gCop;
     private Grade<Linha>? _gCop;
     private Grade<SolicitacaoCopia>? _gSol;
@@ -124,13 +125,8 @@
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.CriarLeitura();
-        _copias = await db.Copias.AsNoTracking().OrderByDescending(c => c.CriadoEm)
-            .Select(c => new Linha(c.Id, c.NumeroCopia, c.Revisao.Documento.Codigo + " – " + c.Revisao.Documento.Titulo, "R" + c.Revisao.Revisao.ToString("00"),
-                c.TipoCopia, c.Destinatario, c.EntregueEm, c.PrazoRecolhimento, c.Status, c.QrToken)).ToListAsync(Cancelamento);
-        _solic = await db.SolicitacoesCopia.AsNoTracking().Include(s => s.Itens).OrderByDescending(s => s.Numero).ToListAsync(Cancelamento);
-        _vigentes = await db.Revisoes.AsNoTracking().Where(r => r.Status == StatusRevisao.Vigente || r.Status == StatusRevisao.VigenteComRessalvas)
-            .OrderBy(r => r.Documento.Codigo).Select(r => new Opcao(r.Id, r.Documento.Codigo + " R" + r.Revisao.ToString("00") + " – " + r.Documento.Titulo)).ToListAsync(Cancelamento);
+        var d = await Consultas.CarregarAsync(Cancelamento);
+        _copias = d.Copias; _solic = d.Solicitacoes; _vigentes = d.Vigentes;
         MudarAba(_aba);
     }
 

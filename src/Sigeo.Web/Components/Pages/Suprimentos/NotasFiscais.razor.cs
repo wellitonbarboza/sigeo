@@ -40,6 +40,7 @@ public partial class NotasFiscais
 {
     private static readonly System.Globalization.CultureInfo Br = new("pt-BR");
     [SupplyParameterFromQuery(Name = "id")] public Guid? IdQuery { get; set; }
+    [Inject] private NotasFiscaisConsultas Consultas { get; set; } = default!;
 
     private string? _fSit = "fila", _busca, _motivo;
     private List<NotaFiscalEntrada> _lista = [];
@@ -68,21 +69,7 @@ public partial class NotasFiscais
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.CriarLeitura();
-        var q = db.NotasFiscais.AsNoTracking();
-        if (_fSit == "fila") q = q.Where(n => n.Situacao == SituacaoNota.Recebida || n.Situacao == SituacaoNota.Vinculada);
-        else if (Enum.TryParse<SituacaoNota>(_fSit, out var s)) q = q.Where(n => n.Situacao == s);
-        _lista = await q.OrderByDescending(n => n.Emissao).Take(LimiteAtual).ToListAsync(Cancelamento);
-        var pids = _lista.Where(n => n.PedidoId != null).Select(n => n.PedidoId!.Value).Distinct().ToList();
-        _numPedido = await db.Pedidos.IgnoreQueryFilters([Sigeo.Application.Abstracoes.FiltrosNomes.Obra]).AsNoTracking().Where(p => pids.Contains(p.Id)).ToDictionaryAsync(p => p.Id, p => p.Numero, Cancelamento);
-        var fila = await db.NotasFiscais.AsNoTracking().Where(n => n.Situacao == SituacaoNota.Recebida || n.Situacao == SituacaoNota.Vinculada)
-            .GroupBy(n => n.Situacao).Select(g => new { g.Key, Qtd = g.Count(), Valor = g.Sum(x => x.ValorTotal) }).ToListAsync(Cancelamento);
-        _kSemPedido = fila.FirstOrDefault(x => x.Key == SituacaoNota.Recebida)?.Qtd ?? 0;
-        _kVinculadas = fila.FirstOrDefault(x => x.Key == SituacaoNota.Vinculada)?.Qtd ?? 0;
-        _kValorFila = fila.Sum(x => x.Valor);
-        var ha30 = DateTimeOffset.UtcNow.AddDays(-30);
-        _kCanceladas = await db.NotasFiscais.AsNoTracking().CountAsync(n => n.Situacao == SituacaoNota.Cancelada && n.Emissao >= ha30, Cancelamento);
-        _importacoes = await db.ImportacoesNota.AsNoTracking().OrderByDescending(i => i.CriadoEm).Take(10).ToListAsync(Cancelamento);
+        (_lista, _numPedido, _kSemPedido, _kVinculadas, _kValorFila, _kCanceladas, _importacoes) = await Consultas.ListaAsync(_fSit, LimiteAtual, Cancelamento);
     }
 
     private IEnumerable<NotaFiscalEntrada> Filtradas()
@@ -115,19 +102,12 @@ public partial class NotasFiscais
 
     private async Task Abrir(Guid id)
     {
-        await using var db = Fabrica.CriarLeitura();
-        _n = await db.NotasFiscais.AsNoTracking().Include(n => n.Itens).FirstOrDefaultAsync(n => n.Id == id, Cancelamento);
-        if (_n is null) { Notif.Erro("Nota não encontrada."); return; }
-        _pedidoEscolhido = _n.PedidoId;
-        _pedidosForn = _n.FornecedorId is { } f
-            ? (await db.Pedidos.AsNoTracking().Where(p => p.FornecedorId == f && (NotasFiscaisServico.PedidosAbertos.Contains(p.Status) || p.Id == _n.PedidoId))
-                .OrderByDescending(p => p.Numero).Select(p => new { p.Id, p.Numero, Obra = db.Obras.Where(o => o.Id == p.ObraId).Select(o => o.Nome).FirstOrDefault(), p.Entrega })
-                .ToListAsync(Cancelamento)).Select(p => new Opcao(p.Id, $"Pedido {p.Numero} · {p.Obra} · entrega {p.Entrega:dd/MM/yyyy}")).ToList()
-            : [];
-        _itensPedido = _n.PedidoId is { } pid
-            ? await db.PedidoItens.AsNoTracking().Where(i => i.PedidoId == pid).OrderBy(i => i.Descricao)
-                .Select(i => new ItemPedidoParaConferencia(i.Id, i.Descricao, i.Unidade, i.Quantidade - i.QuantidadeRecebidaAceita, i.CodigoInsumo)).ToListAsync(Cancelamento)
-            : [];
+        var c = await Consultas.NotaAsync(id, Cancelamento);
+        _n = c?.Nota;
+        if (c is null) { Notif.Erro("Nota não encontrada."); return; }
+        _pedidoEscolhido = c.Nota.PedidoId;
+        _pedidosForn = c.PedidosFornecedor;
+        _itensPedido = c.ItensPedido;
         ErrosForm = null; _aberto = true;
     }
 

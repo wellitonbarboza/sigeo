@@ -36,6 +36,7 @@ namespace Sigeo.Web.Components.Pages.Documentos;
 // Código da tela DocumentosSgq.razor (a marcação fica no .razor; o VS Code agrupa os dois).
 public partial class DocumentosSgq
 {
+    [Inject] private DocumentosSgqConsultas Consultas { get; set; } = default!;
     private sealed record Linha(Guid Id, string Codigo, string Titulo, string Tipo, Guid PastaId, string Pasta, string? Revisao, DateOnly? Vigencia, DateOnly? ProximaAnalise, string? Responsavel, StatusDocumentoSgq Status, string CriadoPor);
     private Grade<Linha>? _grade;
     private List<Linha> _todos = [];
@@ -64,7 +65,7 @@ public partial class DocumentosSgq
     protected override async Task OnInitializedAsync()
     {
         _tipos = await Cat.ListaAsync(TipoLista.TipoDocumentoSgq); _obras = await Cat.ObrasAsync(); _usuarios = await Cat.UsuariosAsync();
-        await using (var db = Fabrica.CriarLeitura()) _retencoes = await db.RegrasRetencao.OrderBy(r => r.Identificacao).Select(r => new Opcao(r.Id, r.Identificacao + " – " + r.TempoRetencao)).ToListAsync(Cancelamento);
+        _retencoes = await Consultas.RetencoesAsync(Cancelamento);
         await Carregar();
         if (Nav.Uri.Contains("?id=") && Guid.TryParse(Nav.Uri.Split("?id=")[1], out var id)) await Abrir(id);
     }
@@ -80,12 +81,11 @@ public partial class DocumentosSgq
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.CriarLeitura();
-        _pastas = await db.Pastas.ToListAsync(Cancelamento);
+        var l = await Consultas.ListarAsync(Cancelamento);
+        _pastas = l.Pastas;
         var nomes = _pastas.ToDictionary(p => p.Id, p => p.Nome);
-        var docs = await db.Documentos.Include(d => d.Revisoes).OrderBy(d => d.Codigo).ToListAsync(Cancelamento);
-        _todos = docs.Select(d => new Linha(d.Id, d.Codigo, d.Titulo, d.Tipo, d.PastaId, nomes.GetValueOrDefault(d.PastaId, ""), d.RevisaoVigente?.Rotulo, d.DataVigencia, d.ProximaAnalise, d.ResponsavelNome, d.Status, d.CriadoPor)).ToList();
-        _aRecolher = await db.Copias.CountAsync(c => c.Status == StatusCopia.RecolhimentoPendente, Cancelamento);
+        _todos = l.Documentos.Select(d => new Linha(d.Id, d.Codigo, d.Titulo, d.Tipo, d.PastaId, nomes.GetValueOrDefault(d.PastaId, ""), d.RevisaoVigente?.Rotulo, d.DataVigencia, d.ProximaAnalise, d.ResponsavelNome, d.Status, d.CriadoPor)).ToList();
+        _aRecolher = l.ARecolher;
         Filtrar(_pasta);
     }
 
@@ -161,14 +161,9 @@ public partial class DocumentosSgq
 
     private async Task Abrir(Guid id)
     {
-        await using var db = Fabrica.CriarLeitura();
-        _d = await db.Documentos.Include(d => d.Revisoes).ThenInclude(r => r.Etapas).Include(d => d.Revisoes).ThenInclude(r => r.Copias).AsSplitQuery().FirstAsync(d => d.Id == id, Cancelamento);
-        _emAndamento = _d.Revisoes.FirstOrDefault(r => r.Status is < StatusRevisao.Vigente and not StatusRevisao.Recusada);
-        _perm = await Docs.PermissaoAsync(db, _d, Cancelamento);
-        var revIds = _d.Revisoes.Select(r => r.Id).ToList();
-        _checkout = _emAndamento is null ? null : await db.Checkouts.FirstOrDefaultAsync(c => c.DocumentoRevisaoId == _emAndamento.Id && c.CheckinEm == null && c.LiberadoForcadoPor == null, Cancelamento);
-        _ciencias = await db.Ciencias.Where(c => revIds.Contains(c.DocumentoRevisaoId)).OrderBy(c => c.UsuarioNome).ToListAsync(Cancelamento);
-        _eventos = await db.EventosDocumento.Where(e => e.DocumentoId == id).OrderByDescending(e => e.DataHora).Take(LimiteEventos).ToListAsync(Cancelamento);
+        var a = await Consultas.AbrirAsync(id, LimiteEventos, Cancelamento);
+        _d = a.Documento; _emAndamento = a.EmAndamento; _perm = a.Permissao;
+        _checkout = a.Checkout; _ciencias = a.Ciencias; _eventos = a.Eventos;
         // Só a primeira abertura conta como acesso; recarregar após uma ação na mesma ficha não é nova visualização.
         if (!_aberto) await Docs.RegistrarVisualizacaoAsync(_d.Id, _d.RevisaoVigenteId, Cancelamento);
         _vigencia = Hoje; _comentario = null; ErrosForm = null; _aberto = true;

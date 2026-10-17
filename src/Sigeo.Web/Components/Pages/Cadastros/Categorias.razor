@@ -3,6 +3,7 @@
 @inject CodigosProdutoServico Codigos
 @inject CadastrosServico Cad
 @inject PadraoCatalogoServico Padrao
+@inject CategoriasConsultas Consultas
 
 <PageTitle>Categorias de produto · SIGEO</PageTitle>
 <div class="tela">
@@ -126,11 +127,8 @@
     private async Task Carregar()
     {
         _versao++;
-        await using var db = Fabrica.CriarLeitura();
-        _cats = await db.CategoriasProduto.Where(c => c.Ativo).ToListAsync(Cancelamento);
-        _mats = await db.MateriaisControlados.AsNoTracking().Where(m => m.Ativo && m.CategoriaProdutoId != null).ToListAsync(Cancelamento);
-        _qtd = (await db.Produtos.GroupBy(p => new { p.Grupo, p.SubGrupo }).Select(g => new { g.Key.Grupo, g.Key.SubGrupo, N = g.Count() }).ToListAsync(Cancelamento))
-               .ToDictionary(x => (x.Grupo, x.SubGrupo), x => x.N);
+        var d = await Consultas.CarregarAsync(Cancelamento);
+        _cats = d.Categorias; _mats = d.Materiais; _qtd = d.ProdutosPorGrupo;
     }
 
     private async Task Sigla(CategoriaProduto c, string? nova)

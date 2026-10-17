@@ -1,6 +1,7 @@
 @page "/sst/inspecoes"
 @inherits PaginaBase
 @inject SstServico Sst
+@inject InspecoesConsultas Consultas
 
 <Pagina Titulo="Inspeções de segurança" Grade="_grade" AoNovo="Nova" AoAtualizar="Carregar">
     <ChildContent>
@@ -103,9 +104,8 @@
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.CriarLeitura();
-        _itens = await db.InspecoesSeguranca.AsNoTracking().Include(i => i.Itens).OrderByDescending(i => i.Data).Take(LimiteAtual).ToListAsync(Cancelamento);
-        _locNomes = await db.Locais.AsNoTracking().ToDictionaryAsync(l => l.Id, l => l.Nome, Cancelamento);
+        var d = await Consultas.ListarAsync(LimiteAtual, Cancelamento);
+        _itens = d.Itens; _locNomes = d.NomesLocais;
     }
 
     private async Task Nova()
@@ -123,8 +123,7 @@
 
     private async Task Abrir(Guid id)
     {
-        await using var db = Fabrica.CriarLeitura();
-        _i = await db.InspecoesSeguranca.AsNoTracking().Include(i => i.Itens).FirstAsync(i => i.Id == id, Cancelamento);
+        _i = await Consultas.ObterAsync(id, Cancelamento);
         ErrosForm = null; _aberto = true;
     }
 

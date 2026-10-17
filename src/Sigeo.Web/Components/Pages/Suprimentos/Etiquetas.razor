@@ -2,7 +2,7 @@
 @page "/equipamentos/etiquetas"
 @attribute [ExcludeFromInteractiveRouting]
 @layout Sigeo.Web.Components.Layout.LayoutImpressao
-@inject IFabricaDb Fabrica
+@inject EtiquetasConsultas Consultas
 @inject NavigationManager Nav
 @inject TimeProvider Relogio
 
@@ -90,18 +90,17 @@ else
     {
         Pular = Math.Clamp(Pular, 0, 200);
         var ids = (Ids ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries).Select(s => Guid.TryParse(s, out var g) ? g : Guid.Empty).Where(g => g != Guid.Empty).Distinct().Take(500).ToList();
-        await using var db = Fabrica.CriarLeitura();
-        var p = await ParametrosServico.CarregarAsync(db);
+        var afericao = new Uri(Nav.Uri).AbsolutePath.StartsWith("/obra/", StringComparison.OrdinalIgnoreCase);
+        var dados = await Consultas.DadosAsync(ids, afericao);
+        var p = dados.Parametros;
         _col = Math.Max(1, p.Int(Parametros.EtiquetaColunas)); _lin = Math.Max(1, p.Int(Parametros.EtiquetaLinhas));
         _larg = p[Parametros.EtiquetaLarguraMm]; _alt = p[Parametros.EtiquetaAlturaMm]; _margSup = p[Parametros.EtiquetaMargemSuperiorMm];
         _margEsq = p[Parametros.EtiquetaMargemEsquerdaMm]; _espH = p[Parametros.EtiquetaEspacoHorizontalMm]; _espV = p[Parametros.EtiquetaEspacoVerticalMm];
         var hoje = DateOnly.FromDateTime(Relogio.GetLocalNow().Date);
-        var afericao = new Uri(Nav.Uri).AbsolutePath.StartsWith("/obra/", StringComparison.OrdinalIgnoreCase);
         if (afericao)
         {
-            var itens = await db.Equipamentos.AsNoTracking().Where(e => ids.Contains(e.Id)).OrderBy(e => e.Codigo).ToListAsync();
-            var forn = itens.Where(e => e.FornecedorId != null).Select(e => e.FornecedorId!.Value).Distinct().ToList();
-            var nomes = await db.Fornecedores.AsNoTracking().Where(f => forn.Contains(f.Id)).ToDictionaryAsync(f => f.Id, f => f.NomeFantasia ?? f.RazaoSocial);
+            var itens = dados.Instrumentos;
+            var nomes = dados.NomesFornecedores;
             foreach (var e in itens)
             {
                 var tri = e.UltimaData is { } u ? (u.Month - 1) / 3 : -1;
@@ -113,8 +112,8 @@ else
         }
         else
         {
-            var itens = await db.Ativos.AsNoTracking().Include(e => e.Documentos).Where(e => ids.Contains(e.Id)).OrderBy(e => e.Patrimonio).ToListAsync();
-            var fams = await db.FamiliasEquipamento.AsNoTracking().ToDictionaryAsync(f => f.Id, f => f.Nome);
+            var itens = dados.Equipamentos;
+            var fams = dados.Familias;
             foreach (var e in itens)
             {
                 var bloq = e.Situacao is SituacaoEquipamento.Parado or SituacaoEquipamento.Baixado or SituacaoEquipamento.Devolvido || e.Documentos.Any(d => d.Bloqueia && d.Vencimento < hoje);

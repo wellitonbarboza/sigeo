@@ -1,6 +1,7 @@
 @page "/sst/documentos"
 @inherits PaginaBase
 @inject SstServico Sst
+@inject DocumentosColaboradorConsultas Consultas
 @inject NavigationManager Nav
 
 <Pagina Titulo="Documentos do colaborador" Grade="_grade" AoNovo="Novo" AoAtualizar="Carregar">
@@ -86,7 +87,7 @@
     protected override async Task OnInitializedAsync()
     {
         _colabs = await Cat.ColaboradoresAsync();
-        await using (var db = Fabrica.CriarLeitura()) { _exigs = await db.Exigencias.AsNoTracking().OrderBy(e => e.Ordem).ToListAsync(Cancelamento); }
+        _exigs = await Consultas.ExigenciasAsync(Cancelamento);
         _exig = _exigs.Select(e => new Opcao(e.Id, e.Descricao)).ToList();
         if (Nav.Uri.Contains("?colaborador=") && Guid.TryParse(Nav.Uri.Split("?colaborador=")[1], out var c)) { _filtroColab = c; _aba = "todos"; }
         await Carregar();
@@ -94,12 +95,10 @@
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.CriarLeitura();
-        var forn = await db.Fornecedores.AsNoTracking().ToDictionaryAsync(f => f.Id, f => f.NomeExibicao, Cancelamento);
-        var cols = await db.Colaboradores.AsNoTracking().Select(c => new { c.Id, c.Nome, c.FornecedorId }).ToDictionaryAsync(c => c.Id, Cancelamento);
-        var q = db.DocumentosColaborador.AsNoTracking();
-        if (_filtroColab is { } fc) q = q.Where(d => d.ColaboradorId == fc);
-        _todos = (await q.OrderByDescending(d => d.CriadoEm).ToListAsync(Cancelamento)).Select(d =>
+        var dados = await Consultas.ListarAsync(_filtroColab, Cancelamento);
+        var forn = dados.Fornecedores;
+        var cols = dados.Colaboradores;
+        _todos = dados.Documentos.Select(d =>
         {
             var c = cols.GetValueOrDefault(d.ColaboradorId);
             return new Linha(d.Id, c?.Nome ?? "?", c?.FornecedorId is { } f ? forn.GetValueOrDefault(f) : "Própria", Nome(_exig, d.ExigenciaId), d.Origem, d.CriadoEm, d.Validade, d.Validacao);
@@ -119,8 +118,7 @@
 
     private async Task Abrir(Guid id)
     {
-        await using var db = Fabrica.CriarLeitura();
-        _d = await db.DocumentosColaborador.AsNoTracking().FirstAsync(x => x.Id == id, Cancelamento);
+        _d = await Consultas.ObterAsync(id, Cancelamento);
         _motivo = _d.MotivoRecusa; ErrosForm = null; _aberto = true;
     }
 

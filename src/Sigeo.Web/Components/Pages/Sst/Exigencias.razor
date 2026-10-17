@@ -1,6 +1,7 @@
 @page "/sst/exigencias"
 @inherits PaginaBase
 @inject SstServico Sst
+@inject ExigenciasConsultas Consultas
 
 <Pagina Titulo="Exigências por função" AoAtualizar="Carregar">
     <ChildContent>
@@ -90,10 +91,8 @@
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.CriarLeitura();
-        _funcoes = await db.Funcoes.AsNoTracking().Include(f => f.Exigencias).Where(f => f.Ativa).OrderBy(f => f.Descricao).ToListAsync(Cancelamento);
-        _exig = await db.Exigencias.AsNoTracking().OrderBy(e => e.Ordem).ToListAsync(Cancelamento);
-        _treinamentos = await db.Treinamentos.AsNoTracking().Select(t => new Opcao(t.Id, t.Descricao)).ToListAsync(Cancelamento);
+        var d = await Consultas.CarregarAsync(Cancelamento);
+        _funcoes = d.Funcoes; _exig = d.Exigencias; _treinamentos = d.Treinamentos;
         _alterado = false;
     }
 

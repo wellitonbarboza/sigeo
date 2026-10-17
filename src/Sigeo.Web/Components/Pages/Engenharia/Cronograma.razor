@@ -4,6 +4,7 @@
 @using Syncfusion.Blazor.Gantt
 @inherits PaginaBase
 @inject PlanejamentoServico Plan
+@inject CronogramaConsultas Consultas
 @inject IJSRuntime JS
 
 
@@ -350,8 +351,7 @@
         _obraInicial = ObraQuery;
         if (VersaoQuery is { } vq)
         {
-            await using var db = Fabrica.CriarLeitura();
-            if (await db.VersoesCronograma.AsNoTracking().Where(v => v.Id == vq).Select(v => (Guid?)v.ObraId).FirstOrDefaultAsync(Cancelamento) is { } o)
+            if (await Consultas.ObraDaVersaoAsync(vq, Cancelamento) is { } o)
             { _obraInicial = o; _versaoPedida = vq; }
         }
         _pronto = true;
@@ -372,25 +372,26 @@
     private async Task Recarregar()
     {
         if (_obraId is not { } o) return;
-        await using var db = Fabrica.CriarLeitura();
-        _versoes = await db.VersoesCronograma.AsNoTracking().Where(v => v.ObraId == o).OrderByDescending(v => v.Numero).ToListAsync(Cancelamento);
+        var dados = await Consultas.ObraAsync(o, Cancelamento);
+        _versoes = dados.Versoes;
         _versaoId = _versaoId is { } atual && _versoes.Any(v => v.Id == atual) ? atual
             : (_versoes.FirstOrDefault(v => v.Status == StatusVersao.EmElaboracao) ?? _versoes.FirstOrDefault(v => v.Status == StatusVersao.EmAprovacao)
                ?? _versoes.FirstOrDefault(v => v.Status == StatusVersao.Vigente) ?? _versoes.FirstOrDefault())?.Id;
-        _cal = await PlanejamentoServico.CalendarioAsync(db, o, Cancelamento);
-        _feriados = await db.Feriados.AsNoTracking().Where(f => f.ObraId == null || f.ObraId == o).OrderBy(f => f.Data).ToListAsync(Cancelamento);
-        await CarregarVersao(db);
+        _cal = dados.Calendario;
+        _feriados = dados.Feriados;
+        await CarregarVersao();
     }
 
-    private async Task CarregarVersao(ISigeoDb db)
+    private async Task CarregarVersao()
     {
         _versao = null; _linhas = []; _porLinha = [];
         if (_versaoId is not { } id) return;
-        _versao = await db.VersoesCronograma.AsNoTracking().Include(v => v.Atividades).Include(v => v.Vinculos).AsSplitQuery().FirstAsync(v => v.Id == id, Cancelamento);
+        var dv = await Consultas.VersaoAsync(id, Cancelamento);
+        _versao = dv.Versao;
         var v = _versao;
         if (_versoes.FindIndex(x => x.Id == v.Id) is var iv and >= 0) _versoes[iv] = v; // resumo da lista acompanha a versão aberta
         _editavel = _podeEditar && v.Editavel;
-        _redesVersao = await db.RedesPlanejamento.AsNoTracking().Include(r => r.Locais).Include(r => r.Pacotes).AsSplitQuery().Where(r => r.ObraId == v.ObraId).OrderBy(r => r.Ordem).ToListAsync(Cancelamento);
+        _redesVersao = dv.Redes;
         var cores = _redesVersao.Select((r, i) => (r.Id, i % 5 + 1)).ToDictionary(x => x.Id, x => x.Item2);
         var (linhas, ids) = CronogramaVisao.Linhas(v, _cal, cores);
         _linhas = linhas;
@@ -417,8 +418,7 @@
     private async Task AbrirVersao(Guid id)
     {
         _versaoId = id; _sel = null;
-        await using var db = Fabrica.CriarLeitura();
-        await CarregarVersao(db);
+        await CarregarVersao();
     }
 
     private void TrocarAba(string a) => _aba = a;
@@ -490,9 +490,8 @@
         Guid id = default;
         if (await Executar(async () => id = await Plan.SalvarAtividadeAsync(v.Id, e, Cancelamento), "Atividade salva e cronograma recalculado."))
         {
-            await using var db = Fabrica.CriarLeitura();
             _sel = new AtividadeCronograma { Id = id };
-            await CarregarVersao(db);
+            await CarregarVersao();
         }
     }
 
@@ -500,7 +499,7 @@
     {
         if (_versao is not { } v || _sel is not { } a) return;
         if (await Executar(() => Plan.ExcluirAtividadeAsync(v.Id, a.Id, Cancelamento), "Excluída e cronograma recalculado."))
-        { _sel = null; await using var db = Fabrica.CriarLeitura(); await CarregarVersao(db); }
+        { _sel = null; await CarregarVersao(); }
     }
 
     /// <summary>
@@ -522,8 +521,7 @@
             ok = await Executar(() => Plan.MoverAsync(v.Id, a.Id, ini, mudouIni && mudouFim && mesmaDuracao ? null : fim, Cancelamento));
         }
         _sel = a;
-        await using var db = Fabrica.CriarLeitura();
-        await CarregarVersao(db); // em caso de erro volta a barra para a posição calculada
+        await CarregarVersao(); // em caso de erro volta a barra para a posição calculada
         if (ok) Notif.Sucesso("Cronograma recalculado.");
     }
 

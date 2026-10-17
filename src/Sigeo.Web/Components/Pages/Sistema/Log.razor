@@ -1,5 +1,6 @@
 @page "/sistema/log"
 @inherits PaginaBase
+@inject LogConsultas Consultas
 
 <Pagina Titulo="Log de auditoria" Grade="GradeAtual" AoAtualizar="Carregar">
     <ChildContent>
@@ -92,26 +93,19 @@
 
     private async Task CarregarAuditoria()
     {
-        await using var db = Fabrica.CriarLeitura();
         var (ini, fim) = Periodo();
-        var qa = db.Auditoria.Where(a => a.Quando >= ini && a.Quando <= fim);
-        if (!string.IsNullOrWhiteSpace(_texto))
-            qa = qa.Where(a => a.Usuario.Contains(_texto) || a.Entidade.Contains(_texto) || (a.CamposAlterados != null && a.CamposAlterados.Contains(_texto)));
-        _totalA = await qa.CountAsync(Cancelamento);
-        _auditoria = await qa.OrderByDescending(a => a.Quando).ThenByDescending(a => a.Id).Skip(_pagA * TamanhoPagina).Take(TamanhoPagina).ToListAsync(Cancelamento);
+        var r = await Consultas.AuditoriaAsync(ini, fim, _texto, _pagA, TamanhoPagina, Cancelamento);
+        _totalA = r.Total;
+        _auditoria = r.Itens;
     }
 
     private async Task CarregarEventos()
     {
-        await using var db = Fabrica.CriarLeitura();
         var (ini, fim) = Periodo();
-        var qe = db.EventosDocumento.Where(e => e.DataHora >= ini && e.DataHora <= fim);
-        if (!string.IsNullOrWhiteSpace(_texto))
-            qe = qe.Where(e => e.UsuarioNome.Contains(_texto) || (e.Detalhe != null && e.Detalhe.Contains(_texto)));
-        _totalE = await qe.CountAsync(Cancelamento);
-        _eventos = await qe.OrderByDescending(e => e.DataHora).ThenByDescending(e => e.Id).Skip(_pagE * TamanhoPagina).Take(TamanhoPagina).ToListAsync(Cancelamento);
-        var ids = _eventos.Where(e => e.DocumentoId != null).Select(e => e.DocumentoId!.Value).Distinct().ToList();
-        _docs = await db.Documentos.Where(d => ids.Contains(d.Id)).ToDictionaryAsync(d => d.Id, d => d.Codigo, Cancelamento);
+        var r = await Consultas.EventosAsync(ini, fim, _texto, _pagE, TamanhoPagina, Cancelamento);
+        _totalE = r.Total;
+        _eventos = r.Eventos;
+        _docs = r.CodigosDocumentos;
     }
 
     private static string Formatar(string? json)

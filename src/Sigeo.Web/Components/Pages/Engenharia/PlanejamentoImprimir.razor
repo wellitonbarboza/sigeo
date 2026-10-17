@@ -3,7 +3,7 @@
 @layout Sigeo.Web.Components.Layout.LayoutImpressao
 @using Sigeo.Domain.Planejamento
 @using Sigeo.Web.Components.Pages.Engenharia.Partes
-@inject IFabricaDb Fabrica
+@inject PlanejamentoImprimirConsultas Consultas
 
 <PageTitle>Cronograma @_versao?.Codigo · @_obra</PageTitle>
 <style>
@@ -50,11 +50,10 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        await using var db = Fabrica.CriarLeitura();
-        _versao = await db.VersoesCronograma.AsNoTracking().Include(v => v.Atividades).Include(v => v.Vinculos).AsSplitQuery().FirstOrDefaultAsync(v => v.Id == Versao);
-        if (_versao is null) return;
-        _obra = await db.Obras.AsNoTracking().Where(o => o.Id == _versao.ObraId).Select(o => o.Codigo + " – " + o.Nome).FirstAsync();
-        var cal = await PlanejamentoServico.CalendarioAsync(db, _versao.ObraId);
+        if (await Consultas.CarregarAsync(Versao) is not { } dados) return;
+        _versao = dados.Versao;
+        _obra = dados.Obra;
+        var cal = dados.Calendario;
         var (l, a) = Folhas[Folha];
         var larguraMm = (Paisagem ? Math.Max(l, a) : Math.Min(l, a)) - 16 - 1;
         _svg = CronogramaVisao.GanttSvg(_versao, cal, larguraMm * 96 / 25.4, Nivel ?? 9, Base ?? true, _obra);

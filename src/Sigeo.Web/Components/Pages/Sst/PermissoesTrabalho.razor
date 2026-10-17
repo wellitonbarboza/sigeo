@@ -1,6 +1,7 @@
 @page "/sst/pt"
 @inherits PaginaBase
 @inject SstServico Sst
+@inject PermissoesTrabalhoConsultas Consultas
 
 <Pagina Titulo="Permissão de trabalho" Grade="_grade" AoNovo="Nova" AoAtualizar="Carregar">
     <ChildContent>
@@ -100,9 +101,8 @@
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.CriarLeitura();
-        _itens = await db.PermissoesTrabalho.AsNoTracking().Include(p => p.Executantes).OrderByDescending(p => p.Inicio).Take(LimiteAtual).ToListAsync(Cancelamento);
-        _locNomes = await db.Locais.AsNoTracking().ToDictionaryAsync(l => l.Id, l => l.Nome, Cancelamento);
+        var d = await Consultas.ListarAsync(LimiteAtual, Cancelamento);
+        _itens = d.Itens; _locNomes = d.NomesLocais;
     }
 
     private async Task Nova()
@@ -115,8 +115,7 @@
 
     private async Task Abrir(Guid id)
     {
-        await using var db = Fabrica.CriarLeitura();
-        _p = await db.PermissoesTrabalho.AsNoTracking().Include(p => p.Executantes).FirstAsync(p => p.Id == id, Cancelamento);
+        _p = await Consultas.ObterAsync(id, Cancelamento);
         _locais = await Cat.LocaisAsync(_p.ObraId);
         ErrosForm = null; _aberto = true;
     }

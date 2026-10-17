@@ -36,13 +36,12 @@ namespace Sigeo.Web.Components.Pages.Suprimentos;
 // Código da tela Parcelas.razor (a marcação fica no .razor; o VS Code agrupa os dois).
 public partial class Parcelas
 {
-    private sealed record Linha(ParcelaContrato P, string Contrato, string Fornecedor, bool Fora);
-    private sealed record ContratoRec(Guid Id, string Numero, string Fornecedor, FormaCobranca FormaCobranca, decimal Tolerancia);
-    private Grade<Linha>? _grade;
-    private List<Linha>? _linhas;
-    private List<ContratoRec> _contratos = [];
+    [Inject] private ParcelasConsultas Consultas { get; set; } = default!;
+    private Grade<ParcelaLinha>? _grade;
+    private List<ParcelaLinha>? _linhas;
+    private List<ContratoRecorrenteResumo> _contratos = [];
     private Guid? _contratoId;
-    private ContratoRec? ContratoAtual => _contratos.FirstOrDefault(c => c.Id == _contratoId);
+    private ContratoRecorrenteResumo? ContratoAtual => _contratos.FirstOrDefault(c => c.Id == _contratoId);
 
     private ParcelaContrato? _p;
     private Contrato? _ct;
@@ -66,28 +65,15 @@ public partial class Parcelas
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.CriarLeitura();
-        _contratos = await db.Contratos.AsNoTracking().Where(c => c.Recorrente && c.FormaCobranca != FormaCobranca.Medicao).OrderBy(c => c.Numero)
-            .Select(c => new ContratoRec(c.Id, c.Numero, c.Fornecedor.RazaoSocial, c.FormaCobranca, c.ToleranciaPerc)).ToListAsync(Cancelamento);
-        var porId = _contratos.ToDictionary(c => c.Id);
-        var q = db.ParcelasContrato.AsNoTracking().Where(p => p.Status != StatusParcela.Cancelada);
-        if (_contratoId is { } id) q = q.Where(p => p.ContratoId == id);
-        var lista = await q.OrderBy(p => p.Vencimento).ThenBy(p => p.Numero).Take(LimiteAtual).ToListAsync(Cancelamento);
-        _linhas = lista.Where(p => porId.ContainsKey(p.ContratoId)).Select(p =>
-        {
-            var c = porId[p.ContratoId];
-            return new Linha(p, c.Numero, c.Fornecedor, p.ForaDaTolerancia(c.Tolerancia));
-        }).ToList();
+        var r = await Consultas.ListaAsync(_contratoId, LimiteAtual, Cancelamento);
+        _contratos = r.Contratos;
+        _linhas = r.Linhas;
     }
 
     private async Task Abrir(Guid id)
     {
-        await using var db = Fabrica.CriarLeitura();
-        _p = await db.ParcelasContrato.AsNoTracking().FirstAsync(p => p.Id == id, Cancelamento);
-        _ct = await db.Contratos.AsNoTracking().Include(c => c.Fornecedor).Include(c => c.Itens).FirstAsync(c => c.Id == _p.ContratoId, Cancelamento);
-        _usos = _ct.FormaCobranca == FormaCobranca.Uso
-            ? await db.UsosContrato.AsNoTracking().Where(u => u.ContratoId == _ct.Id && u.Data >= _p.Inicio && u.Data <= _p.Fim).OrderBy(u => u.Data).ToListAsync(Cancelamento)
-            : [];
+        var r = await Consultas.AbrirAsync(id, Cancelamento);
+        _p = r.Parcela; _ct = r.Contrato; _usos = r.Usos;
         _notaNumero = _p.NotaNumero; _notaValor = _p.NotaValor ?? _p.ValorPrevisto; _justificativa = _p.Justificativa; _motivo = null; _pagoEm = Hoje;
         ErrosForm = null; _aberto = true;
     }
@@ -137,9 +123,7 @@ public partial class Parcelas
 
     private async Task AbrirUso()
     {
-        await using var db = Fabrica.CriarLeitura();
-        _itensContrato = (await db.ContratoItens.AsNoTracking().Where(i => i.ContratoId == _contratoId).OrderBy(i => i.Item).ToListAsync(Cancelamento))
-            .Select(i => new Opcao(i.Id, $"{i.Descricao} ({i.Unidade}) · {i.PrecoUnitario:N2}")).ToList();
+        _itensContrato = await Consultas.ItensContratoAsync(_contratoId, Cancelamento);
         _uso = new UsoContrato { ContratoId = _contratoId!.Value, Data = Hoje, Quantidade = 1, ContratoItemId = _itensContrato.FirstOrDefault()?.Id ?? Guid.Empty };
         ErrosForm = null; _abertoUso = true;
     }

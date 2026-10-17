@@ -102,3 +102,20 @@ public class CatalogoTemPaginaTests
         Assert.Empty(faltam);
     }
 }
+
+/// <summary>Camadas: tela não abre o banco (lê por *Consultas e grava por *Servico da Application).</summary>
+public class TelasSemBancoTests
+{
+    [Fact]
+    public void Nenhuma_tela_usa_o_DbContext_direto()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "Sigeo.slnx"))) dir = dir.Parent;
+        var comp = Path.Combine(dir!.FullName, "src", "Sigeo.Web", "Components");
+        var violacoes = Directory.EnumerateFiles(comp, "*.*", SearchOption.AllDirectories)
+            .Where(f => f.EndsWith(".razor") || f.EndsWith(".razor.cs") || f.EndsWith(".cs"))
+            .Where(f => File.ReadAllText(f) is var t && (t.Contains("IFabricaDb") || t.Contains("CriarLeitura(") || t.Contains("ISigeoDb")))
+            .Select(f => Path.GetRelativePath(comp, f)).ToList();
+        Assert.Empty(violacoes);
+    }
+}

@@ -51,6 +51,7 @@ public partial class Equipamentos
     private Guid? _paraColab, _paraForn;
     private TipoEquipamentoMedicao? _t;
     private bool _abertoTipo;
+    [Inject] private EquipamentosMedicaoConsultas Consultas { get; set; } = default!;
 
     private string NomeTipo(Guid? id) => id is { } g ? _tipos.FirstOrDefault(t => t.Id == g)?.Nome ?? "" : "";
     private string Dono(EquipamentoMedicao e) => e.Dono == DonoFerramenta.Propria ? "Própria" : _fornecedores.FirstOrDefault(f => f.Id == e.FornecedorId)?.Texto ?? "Terceiro";
@@ -102,15 +103,14 @@ public partial class Equipamentos
     {
         _obras = await Cat.ObrasAsync();
         _fornecedores = await Cat.FornecedoresAsync(); _colabs = await Cat.ColaboradoresAsync();
-        await using (var db = Fabrica.CriarLeitura()) { _p = await ParametrosServico.CarregarAsync(db, Cancelamento); _alerta = _p.Int(Parametros.AlertaCalibracaoDias); }
+        _p = await Consultas.ParametrosAsync(Cancelamento); _alerta = _p.Int(Parametros.AlertaCalibracaoDias);
         await Carregar();
     }
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.CriarLeitura();
-        _itens = await db.Equipamentos.AsNoTracking().OrderBy(e => e.Codigo).ToListAsync(Cancelamento);
-        _tipos = await db.TiposEquipamentoMedicao.AsNoTracking().OrderBy(t => t.Nome).ToListAsync(Cancelamento);
+        var r = await Consultas.ListarAsync(Cancelamento);
+        _itens = r.Itens; _tipos = r.Tipos;
     }
 
     private void Novo() { if (_aba == "tipos") { NovoTipo(); return; } NovoFerr(); }
@@ -118,11 +118,10 @@ public partial class Equipamentos
 
     private async Task Abrir(EquipamentoMedicao e)
     {
-        await using var db = Fabrica.CriarLeitura();
-        _e = await db.Equipamentos.AsNoTracking().FirstAsync(x => x.Id == e.Id, Cancelamento);
-        _cals = await db.Calibracoes.AsNoTracking().Where(c => c.EquipamentoMedicaoId == e.Id).OrderByDescending(c => c.Data).ToListAsync(Cancelamento);
+        var r = await Consultas.AbrirAsync(e.Id, Cancelamento);
+        _e = r.Equipamento; _cals = r.Calibracoes;
         _nova = new Calibracao { Data = Hoje, Tipo = _e.TipoControle == TipoControleEquipamento.VerificacaoInterna ? TipoControleEquipamento.VerificacaoInterna : TipoControleEquipamento.CalibracaoExterna };
-        _cautelas = await db.CautelasFerramenta.AsNoTracking().Where(c => c.EquipamentoMedicaoId == e.Id).OrderByDescending(c => c.Data).ThenByDescending(c => c.CriadoEm).Take(20).ToListAsync(Cancelamento);
+        _cautelas = r.Cautelas;
         _para = null; _paraColab = null; _paraForn = null;
         _afetadas = []; ErrosForm = null; _aberto = true;
     }

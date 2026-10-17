@@ -2,7 +2,7 @@
    total da proposta e incluir/retirar enquanto a cotação está aberta. A edição de preços continua na tela da cotação. *@
 @inherits PaginaBase
 @inject CotacoesServico CotacoesSrv
-@inject FornecedoresServico Forn
+@inject FornecedoresCotacaoConsultas Consultas
 @inject NavigationManager Nav
 
 @if (_c is not null)
@@ -82,22 +82,15 @@
 
     private async Task Carregar()
     {
-        Guid? id;
-        await using (var db0 = Fabrica.CriarLeitura())
-            id = await db0.Cotacoes.Where(c => c.RequisicaoId == RequisicaoId && c.Status != StatusCotacao.Cancelado).OrderByDescending(c => c.Numero).Select(c => (Guid?)c.Id).FirstOrDefaultAsync(Cancelamento);
+        var id = await Consultas.CotacaoDaRequisicaoAsync(RequisicaoId, Cancelamento);
         if (id is null) { _c = null; return; }
         await CotacoesSrv.AtualizarQualificacoesAsync(id.Value, Cancelamento);
-        await using var db = Fabrica.CriarLeitura();
-        _c = await db.Cotacoes.AsNoTracking().Include(c => c.Fornecedores).Include(c => c.Itens).FirstAsync(c => c.Id == id, Cancelamento);
-        var ids = _c.Fornecedores.Select(f => f.FornecedorId).ToList();
-        _nomes = await db.Fornecedores.AsNoTracking().Where(f => ids.Contains(f.Id)).ToDictionaryAsync(f => f.Id, f => f.NomeFantasia ?? f.RazaoSocial, Cancelamento);
+        (_c, _nomes) = await Consultas.CotacaoAsync(id.Value, Cancelamento);
     }
 
     private async Task AbrirAdicionar()
     {
-        await using var db = Fabrica.CriarLeitura();
-        var itens = await db.RequisicaoItens.AsNoTracking().Where(i => i.RequisicaoId == RequisicaoId).ToListAsync(Cancelamento);
-        var (lista, sug) = await SugestaoFornecedores.ParaAsync(db, Forn, _c!.Tipo, itens, Cancelamento);
+        var (lista, sug) = await Consultas.ParaAdicionarAsync(RequisicaoId, _c!.Tipo, Cancelamento);
         var ja = _c.Fornecedores.Select(f => f.FornecedorId).ToHashSet();
         _lista = lista.Where(f => !ja.Contains(f.Id)).ToList();
         _sugeridos = sug; _sel.Clear(); _filtro = null; _abertoAdd = true;

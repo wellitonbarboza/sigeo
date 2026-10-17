@@ -1,6 +1,7 @@
 @page "/pagamentos"
 @inherits PaginaBase
 @inject PagamentosServico PagamentosSrv
+@inject PagamentosConsultas Consultas
 @inject NavigationManager Nav
 
 <Pagina Titulo="Liberação de pagamento" Grade="_grade" AoNovo="Novo" AoAtualizar="Carregar">
@@ -12,16 +13,16 @@
                 <Kpi Rotulo="Pagos" Valor="@_itens?.Count(p => p.Status == StatusPagamento.Pago)" Tom="ok" />
                 <Kpi Rotulo="Bloqueados" Valor="@_itens?.Count(p => p.Status == StatusPagamento.Bloqueado)" Tom="erro" />
             </div>
-            <Grade T="Linha" @ref="_grade" Itens="_itens" Limite="LimiteGrade" AoCarregarTudo="async () => { ListaCompleta = true; await Carregar(); }" AoClicar="l => Abrir(l.Id)" NomeExportacao="pagamentos" CriadoPor="l => l.CriadoPor">
+            <Grade T="PagamentoLinha" @ref="_grade" Itens="_itens" Limite="LimiteGrade" AoCarregarTudo="async () => { ListaCompleta = true; await Carregar(); }" AoClicar="l => Abrir(l.Id)" NomeExportacao="pagamentos" CriadoPor="l => l.CriadoPor">
                 <Colunas>
-                    <Coluna T="Linha" Titulo="Número" Valor="l => l.Numero" Largura="80px" />
-                    <Coluna T="Linha" Titulo="Origem" Valor="l => l.Origem" />
-                    <Coluna T="Linha" Titulo="Fornecedor" Valor="l => l.Fornecedor" />
-                    <Coluna T="Linha" Titulo="NF-e" Valor="l => l.Nf" />
-                    <Coluna T="Linha" Titulo="Valor NF" Valor="l => l.ValorNf" Formato="C2" Alinhar="num" />
-                    <Coluna T="Linha" Titulo="Liberado" Valor="l => l.Valor" Formato="C2" Alinhar="num" />
-                    <Coluna T="Linha" Titulo="Vencimento" Valor="l => l.Vencimento" />
-                    <Coluna T="Linha" Titulo="Status" Valor="l => l.Status"><Modelo><Selo Texto="@De(context.Status)" Tom="@Tom(context.Status)" /></Modelo></Coluna>
+                    <Coluna T="PagamentoLinha" Titulo="Número" Valor="l => l.Numero" Largura="80px" />
+                    <Coluna T="PagamentoLinha" Titulo="Origem" Valor="l => l.Origem" />
+                    <Coluna T="PagamentoLinha" Titulo="Fornecedor" Valor="l => l.Fornecedor" />
+                    <Coluna T="PagamentoLinha" Titulo="NF-e" Valor="l => l.Nf" />
+                    <Coluna T="PagamentoLinha" Titulo="Valor NF" Valor="l => l.ValorNf" Formato="C2" Alinhar="num" />
+                    <Coluna T="PagamentoLinha" Titulo="Liberado" Valor="l => l.Valor" Formato="C2" Alinhar="num" />
+                    <Coluna T="PagamentoLinha" Titulo="Vencimento" Valor="l => l.Vencimento" />
+                    <Coluna T="PagamentoLinha" Titulo="Status" Valor="l => l.Status"><Modelo><Selo Texto="@De(context.Status)" Tom="@Tom(context.Status)" /></Modelo></Coluna>
                 </Colunas>
             </Grade>
         </div>
@@ -94,9 +95,8 @@
 </Modal>
 
 @code {
-    private sealed record Linha(Guid Id, int Numero, OrigemPagamento Origem, string Fornecedor, string Nf, decimal ValorNf, decimal Valor, DateOnly Vencimento, StatusPagamento Status, string CriadoPor);
-    private Grade<Linha>? _grade;
-    private List<Linha>? _itens;
+    private Grade<PagamentoLinha>? _grade;
+    private List<PagamentoLinha>? _itens;
     private LiberacaoPagamento? _l;
     private Pedido? _pedido;
     private Medicao? _medicao;
@@ -116,20 +116,13 @@
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.CriarLeitura();
-        var forn = await db.Fornecedores.AsNoTracking().ToDictionaryAsync(f => f.Id, f => f.NomeExibicao, Cancelamento);
-        _itens = (await db.Pagamentos.AsNoTracking().OrderByDescending(p => p.Numero).Take(LimiteAtual).ToListAsync(Cancelamento))
-            .Select(p => new Linha(p.Id, p.Numero, p.Origem, forn.GetValueOrDefault(p.FornecedorId, ""), p.ChaveNFe.Length >= 9 ? "…" + p.ChaveNFe[^9..] : p.ChaveNFe,
-                p.ValorNF, p.ValorLiberado, p.Vencimento, p.Status, p.CriadoPor)).ToList();
+        _itens = await Consultas.ListaAsync(LimiteAtual, Cancelamento);
     }
 
     private async Task Novo()
     {
-        await using var db = Fabrica.CriarLeitura();
-        _pedidos = await db.Pedidos.AsNoTracking().Where(p => p.Status == StatusPedido.Entregue || p.Status == StatusPedido.EntregueParcial || p.Status == StatusPedido.EnviadoFornecedor)
-            .OrderByDescending(p => p.Numero).Select(p => new Opcao(p.Id, "Pedido " + p.Numero + " – " + p.Fornecedor.RazaoSocial)).ToListAsync(Cancelamento);
-        _medicoesOp = await db.Medicoes.AsNoTracking().Where(m => m.Status == StatusMedicao.Aprovada)
-            .Select(m => new Opcao(m.Id, m.Contrato.Numero + " · med. " + m.NumeroMedicao + " – " + m.Contrato.Fornecedor.RazaoSocial)).ToListAsync(Cancelamento);
+        var op = await Consultas.OpcoesNovoAsync(Cancelamento);
+        _pedidos = op.Pedidos; _medicoesOp = op.Medicoes;
         _l = new LiberacaoPagamento { Origem = OrigemPagamento.NotaMaterial, Vencimento = Hoje.AddDays(10) };
         _pedido = null; _medicao = null; _recs = []; ErrosForm = null; _aberto = true;
     }
@@ -138,9 +131,8 @@
     {
         _l!.PedidoId = Guid.TryParse(v, out var id) ? id : null; _pedido = null; _recs = [];
         if (_l.PedidoId is null) return;
-        await using var db = Fabrica.CriarLeitura();
-        _pedido = await db.Pedidos.AsNoTracking().Include(p => p.Itens).FirstAsync(p => p.Id == id, Cancelamento);
-        _recs = await db.Recebimentos.AsNoTracking().Include(r => r.Itens).Where(r => r.PedidoId == id).ToListAsync(Cancelamento);
+        var pe = await Consultas.PedidoAsync(id, Cancelamento);
+        _pedido = pe.Pedido; _recs = pe.Recebimentos;
         _l.FornecedorId = _pedido.FornecedorId;
         if (_l.ValorNF == 0) { _l.ValorNF = _pedido.Valor; _l.ValorLiberado = _pedido.Valor; }
         _l.ChaveNFe = string.IsNullOrEmpty(_l.ChaveNFe) ? _recs.Select(r => r.ChaveNFe).FirstOrDefault(c => c is { Length: 44 }) ?? "" : _l.ChaveNFe;
@@ -150,8 +142,7 @@
     {
         _l!.MedicaoId = Guid.TryParse(v, out var id) ? id : null; _medicao = null;
         if (_l.MedicaoId is null) return;
-        await using var db = Fabrica.CriarLeitura();
-        _medicao = await db.Medicoes.AsNoTracking().Include(m => m.Contrato).ThenInclude(k => k.Fornecedor).FirstAsync(m => m.Id == id, Cancelamento);
+        _medicao = await Consultas.MedicaoAsync(id, Cancelamento);
         if (_medicoesOp.All(o => o.Id != id)) _medicoesOp.Add(new Opcao(id, $"{_medicao.Contrato.Numero} · med. {_medicao.NumeroMedicao}"));
         _l.FornecedorId = _medicao.Contrato.FornecedorId;
         if (_l.ValorNF == 0) { _l.ValorNF = _medicao.ValorPeriodo; _l.ValorLiberado = _medicao.ValorPeriodo - _medicao.ValorRetencao; _l.JustificativaDiferenca = _medicao.ValorRetencao > 0 ? $"Retenção contratual {_medicao.Contrato.RetencaoPerc:0.##}%" : null; }
@@ -159,11 +150,8 @@
 
     private async Task Abrir(Guid id)
     {
-        await using var db = Fabrica.CriarLeitura();
-        _l = await db.Pagamentos.AsNoTracking().FirstAsync(p => p.Id == id, Cancelamento);
-        _pedido = _l.PedidoId is { } pid ? await db.Pedidos.AsNoTracking().Include(p => p.Itens).FirstAsync(p => p.Id == pid, Cancelamento) : null;
-        _recs = _l.PedidoId is { } p2 ? await db.Recebimentos.AsNoTracking().Include(r => r.Itens).Where(r => r.PedidoId == p2).ToListAsync(Cancelamento) : [];
-        _medicao = _l.MedicaoId is { } mid ? await db.Medicoes.AsNoTracking().Include(m => m.Contrato).ThenInclude(k => k.Fornecedor).FirstAsync(m => m.Id == mid, Cancelamento) : null;
+        var a = await Consultas.AbrirAsync(id, Cancelamento);
+        _l = a.Liberacao; _pedido = a.Pedido; _recs = a.Recebimentos; _medicao = a.Medicao;
         _pedidos = _pedido is null ? [] : [new Opcao(_pedido.Id, $"Pedido {_pedido.Numero}")];
         _medicoesOp = _medicao is null ? [] : [new Opcao(_medicao.Id, $"{_medicao.Contrato.Numero} · med. {_medicao.NumeroMedicao}")];
         ErrosForm = null; _versao++; _aberto = true;

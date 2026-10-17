@@ -1,6 +1,7 @@
 @page "/sgq/registros"
 @inherits PaginaBase
 @inject DocumentosServico Docs
+@inject RegistrosConsultas Consultas
 
 <Pagina Titulo="Controle de registros (retenção)" Grade="_grade" AoNovo="Novo" AoAtualizar="Carregar">
     <ChildContent>
@@ -51,8 +52,7 @@
 
     private async Task Carregar()
     {
-        await using var db = Fabrica.CriarLeitura();
-        _itens = await db.RegrasRetencao.OrderBy(r => r.Identificacao).ToListAsync(Cancelamento);
+        _itens = await Consultas.ListarAsync(Cancelamento);
     }
 
     private void Novo() { _r = new RegraRetencao(); ErrosForm = null; _aberto = true; }

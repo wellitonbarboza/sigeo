@@ -3,6 +3,7 @@
 @using Sigeo.Web.Components.Pages.Engenharia.Partes
 @inherits PaginaBase
 @inject NavigationManager Nav
+@inject PlanejamentoTelaConsultas Consultas
 @* Indicadores do planejamento: só leitura. A edição do cronograma e a reprogramação ficam em "Cronograma e Reprogramação";
    o acompanhamento semanal (plano de ação, programação, médio e curto prazo, medição) fica em "Last Planner". *@
 
@@ -117,29 +118,27 @@
     private async Task Recarregar()
     {
         if (_obraId is not { } o) return;
-        await using var db = Fabrica.CriarLeitura();
-        _versoes = await db.VersoesCronograma.AsNoTracking().Where(v => v.ObraId == o)
-            .OrderByDescending(v => v.Numero).ToListAsync(Cancelamento);
+        var dados = await Consultas.ObraAsync(o, Cancelamento);
+        _versoes = dados.Versoes;
         // Indicadores olham a versão vigente; sem ela, a mais recente em aprovação ou elaboração.
         _versaoId = _versaoId is { } atual && _versoes.Any(v => v.Id == atual) ? atual
             : (_versoes.FirstOrDefault(v => v.Status == StatusVersao.Vigente) ?? _versoes.FirstOrDefault(v => v.Status == StatusVersao.EmAprovacao)
                ?? _versoes.FirstOrDefault())?.Id;
-        _cal = await PlanejamentoServico.CalendarioAsync(db, o, Cancelamento);
-        await CarregarVersao(db);
+        _cal = dados.Calendario;
+        await CarregarVersao();
     }
 
     private async Task AbrirVersao(Guid id)
     {
         _versaoId = id;
-        await using var db = Fabrica.CriarLeitura();
-        await CarregarVersao(db);
+        await CarregarVersao();
     }
 
-    private async Task CarregarVersao(ISigeoDb db)
+    private async Task CarregarVersao()
     {
         _versao = null;
         if (_versaoId is not { } id) return;
-        _versao = await db.VersoesCronograma.AsNoTracking().Include(v => v.Atividades).FirstAsync(v => v.Id == id, Cancelamento);
+        _versao = await Consultas.VersaoAsync(id, Cancelamento);
         var v = _versao;
         var folhas = v.Atividades.Where(a => !a.Resumo).ToList();
         _folhas = folhas.Count;
