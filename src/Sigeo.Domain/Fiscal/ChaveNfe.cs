@@ -2,9 +2,6 @@ using System.Text.RegularExpressions;
 
 namespace Sigeo.Domain.Fiscal;
 
-/// <summary>Partes da chave de acesso da NF-e (44 dígitos), na ordem do leiaute da SEFAZ.</summary>
-public sealed record PartesChaveNfe(string Uf, int Ano, int Mes, string CnpjEmitente, string Modelo, string Serie, int Numero);
-
 /// <summary>
 /// Chave de acesso da NF-e/NFC-e: cUF(2) AAMM(4) CNPJ/CPF do emitente(14) modelo(2) série(3) nNF(9) tpEmis(1) cNF(8) DV(1).
 /// O DV é módulo 11 com pesos 2..9 da direita para a esquerda (resto 0 ou 1 → DV 0).

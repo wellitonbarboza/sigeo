@@ -6,29 +6,6 @@ using Sigeo.Domain.Suprimentos;
 
 namespace Sigeo.Domain.Regras;
 
-/// <summary>Resultado de uma verificação de trava: lista de bloqueios legíveis (vazia = liberado).</summary>
-public sealed record ResultadoTrava(IReadOnlyList<string> Bloqueios)
-{
-    public static ResultadoTrava Ok { get; } = new([]);
-    public bool Liberado => Bloqueios.Count == 0;
-    public string? Resumo => Liberado ? null : string.Join(" | ", Bloqueios);
-}
-
-public static class StatusDocumentoCalculo
-{
-    public static StatusDocumento Calcular(DateOnly? validade, bool temArquivo, int diasAlerta, DateOnly hoje)
-    {
-        if (!temArquivo) return StatusDocumento.PendenteEnvio;
-        if (validade is null) return StatusDocumento.Valido;
-        if (validade.Value < hoje) return StatusDocumento.Vencido;
-        return validade.Value <= hoje.AddDays(diasAlerta) ? StatusDocumento.AVencer : StatusDocumento.Valido;
-    }
-
-    public static StatusDocumento Calcular(FornecedorDocumento d, DateOnly hoje) =>
-        d.Status is StatusDocumento.Reprovado or StatusDocumento.EmValidacao ? d.Status
-        : Calcular(d.DataValidade, d.ArquivoBlob is not null, d.TipoDocumento?.DiasAlertaAntesVencimento ?? 30, hoje);
-}
-
 /// <summary>
 /// Travas de qualidade: amarram o SGQ ao fluxo de compras e contratos.
 /// Regra nova entra aqui e ganha teste.
@@ -235,36 +212,4 @@ public static class TravasQualidade
          .Select(g => g.OrderByDescending(d => d.DataValidade ?? DateOnly.MaxValue).First())
          .Where(d => StatusDocumentoCalculo.Calcular(d, hoje) is StatusDocumento.Vencido or StatusDocumento.PendenteEnvio or StatusDocumento.Reprovado)
          .Select(d => $"Documento do fornecedor '{d.TipoDocumento.Nome}' vencido, pendente ou recusado.");
-}
-
-/// <summary>Planos de ação automáticos (P.SUP 3.3): nota de medição &lt; 9 e FVM reprovada.</summary>
-public static class RegrasAvaliacao
-{
-    public static PlanoAcaoFornecedor? PlanoPorMedicao(Medicao m, Guid fornecedorId, DateOnly hoje, string numero)
-    {
-        if (m.NotaFinal is null || m.Faixa == FaixaNota.Nenhuma) return null;
-        var piores = new (string Nome, decimal? Nota)[]
-        {
-            ("cumprimento do escopo", m.NotaEscopo), ("qualidade do material", m.NotaMaterial), ("qualidade do serviço", m.NotaServico),
-            ("limpeza e organização", m.NotaLimpeza), ("documentação e segurança do trabalho", m.NotaDocSeg)
-        }.Where(c => c.Nota is not null).OrderBy(c => c.Nota).Take(2).Select(c => $"{c.Nome} (nota {c.Nota:0.0})");
-        return new PlanoAcaoFornecedor
-        {
-            EmpresaId = m.EmpresaId, Numero = numero, FornecedorId = fornecedorId, ObraId = m.ObraId,
-            Origem = OrigemPlanoAcao.Medicao, OrigemId = m.Id,
-            TipoPlano = m.Faixa == FaixaNota.ReuniaoPlanoCompleto ? TipoPlanoAcao.Completo : TipoPlanoAcao.Pontual,
-            Problema = $"Medição {m.NumeroMedicao:00} com nota {m.NotaFinal:0.00}: {string.Join("; ", piores)}.",
-            Acao = "A definir com o fornecedor.", Responsavel = m.AvaliadorNome ?? "Engenheiro da obra",
-            Prazo = hoje.AddDays(m.Faixa == FaixaNota.ReuniaoPlanoCompleto ? 15 : 30)
-        };
-    }
-
-    public static PlanoAcaoFornecedor? PlanoPorFvm(Recebimento r, DateOnly hoje, string numero) =>
-        r.FvmAprovada != false ? null : new PlanoAcaoFornecedor
-        {
-            EmpresaId = r.EmpresaId, Numero = numero, FornecedorId = r.FornecedorId, ObraId = r.ObraId,
-            Origem = OrigemPlanoAcao.Fvm, OrigemId = r.Id, TipoPlano = TipoPlanoAcao.Pontual,
-            Problema = $"FVM reprovada no recebimento {r.Numero}: {r.Ocorrencia}", Acao = "A definir com o fornecedor.",
-            Responsavel = "Suprimentos", Prazo = hoje.AddDays(30)
-        };
 }

@@ -5,9 +5,6 @@ using Sigeo.Domain.Estrutura;
 
 namespace Sigeo.Domain.Regras;
 
-/// <summary>Resultado da publicação: o que o sistema gerou/alterou (para log e avisos).</summary>
-public sealed record ResultadoPublicacao(DocumentoRevisao? Anterior, IReadOnlyList<CopiaControlada> CopiasParaRecolher, IReadOnlyList<Ciencia> Ciencias);
-
 /// <summary>Regras do controle de documentos que envolvem mais de um registro (publicação, cópias, check-out).</summary>
 public static class RegrasDocumentos
 {

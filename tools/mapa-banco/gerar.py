@@ -88,7 +88,7 @@ def arquivos(modelo):
     for f in glob.glob(os.path.join(R,'Sigeo.Domain','**','*.cs'),recursive=True):
         t=open(f,encoding='utf-8-sig').read()
         for x in re.finditer(r'\b(?:class|record)\s+(\w+)',t): dom.setdefault(x.group(1),os.path.relpath(f,RAIZ).replace(os.sep,'/'))
-    for f in glob.glob(os.path.join(R,'Sigeo.Infrastructure','Dados','*.cs')):
+    for f in glob.glob(os.path.join(R,"Sigeo.Infrastructure","Dados","**","*.cs"),recursive=True):
         t=open(f,encoding='utf-8-sig').read()
         for x in re.finditer(r'IEntityTypeConfiguration<(\w+)>',t): cfg.setdefault(x.group(1),os.path.relpath(f,RAIZ).replace(os.sep,'/'))
     for e in modelo: e['arquivo']=dom.get(e['entity']); e['config']=cfg.get(e['entity'])

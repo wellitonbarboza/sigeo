@@ -58,3 +58,7 @@ dotnet_diagnostic.IDE0130.severity = none
 # Gerado pelo EF Core: não reformatar.
 generated_code = true
 dotnet_diagnostic.IDE0130.severity = none
+
+[src/Sigeo.Domain/Common/Enums/*.cs]
+# Enums compartilhados ficam no namespace Sigeo.Domain.Common, divididos por módulo em arquivos.
+dotnet_style_namespace_match_folder = false
