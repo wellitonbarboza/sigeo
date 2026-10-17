@@ -75,7 +75,9 @@ def ler_telas():
         t=open(f,encoding='utf-8-sig').read()
         pg=re.findall(r'@page "([^"]+)"',t)
         if not pg: continue
-        servs=[i.split('.')[-1] for i in re.findall(r'@inject\s+([\w\.]+)\s+\w+',t) if i.split('.')[-1] in svc]
+        if os.path.exists(f+'.cs'): t+=open(f+'.cs',encoding='utf-8-sig').read()  # código da tela (.razor.cs)
+        inj=re.findall(r'@inject\s+([\w\.]+)\s+\w+',t)+re.findall(r'\[Inject\]\s*(?:private|protected|public)?\s*([\w\.]+)\s+\w+\s*\{',t)
+        servs=[i.split('.')[-1] for i in inj if i.split('.')[-1] in svc]
         s=usados(t)
         for n in servs: s|=do_servico(n,set())
         for m in re.finditer(r'\b([A-Z]\w+Servico)\.\w+Async\(',t):
@@ -121,6 +123,7 @@ def main():
     md=['# Mapa do banco (gerado)','',
         '> Gerado por `tools/mapa-banco/gerar.py` a partir do snapshot das migrações e das telas. Não edite à mão: rode o script depois de cada migração.','',
         f'- **{len(modelo)} tabelas** no schema `qh`, em **{len(por)} módulos**; **{sum(len(e["fks"]) for e in modelo)} ligações** (chaves estrangeiras); **{sum(e["temporal"] for e in modelo)} com histórico** (tabela temporal).',
+        '- ⏱ = tabela com histórico de alterações (tabela temporal do SQL Server: guarda cada versão da linha).',
         f'- **{len(telas)} telas** (`@page`). Uma tabela = uma entidade de negócio (classe em `src/Sigeo.Domain`), não uma tela. Cada tela lê/grava várias tabelas por meio dos serviços.','',
         '## Módulos','','| Módulo | Tabelas |','|---|---|']
     for mod,ents in sorted(por.items()): md.append(f'| [{mod}](#{mod.lower()}) | {len(ents)} |')

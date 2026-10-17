@@ -13,14 +13,15 @@ Sigeo.Web (Blazor Server + API)  ──►  Sigeo.Application (casos de uso)  �
 | Projeto | O que mora aqui | O que NÃO mora aqui |
 |---|---|---|
 | **Domain** | entidades, value objects, regras puras (travas, rateio, motor do orçamento, gerador de locais) | EF, SQL, Azure |
-| **Application** | serviços de caso de uso (`Servicos/`), abstrações (`Abstracoes/`: `ISigeoDb`, `IFabricaDb`, `IFabricaSistema`, `IUsuarioAtual`, `IArmazenamento`), utilitários (`Comum/`), carga padrão (`Carga/`) | provedor de banco, migrations, Blob, planilhas |
-| **Infrastructure** | `SigeoDbContext` (implementa `ISigeoDb`), configurações EF, migrations, interceptor de auditoria, `FabricaDb`/`FabricaSistema`, armazenamento (Blob/local), importadores de planilha | regra de negócio |
-| **Web** | telas `.razor` do servidor, autenticação, endpoints de arquivo, API das telas do navegador (`Servicos/ApiTelas.cs`) | gravação no banco (toda gravação passa por serviço) |
+| **Application** | uma pasta por módulo (`Suprimentos/`, `Cadastros/`, `Engenharia/`, `Planejamento/`, `Sistema/`…) com `*Servico` (gravação e regra do processo), `*Consultas` (leituras de cada tela) e `*.Dtos.cs`; abstrações (`Abstracoes/`: `ISigeoDb`, `IFabricaDb`, `IFabricaSistema`, `IUsuarioAtual`, `IArmazenamento`, `IAssistenteIa`), utilitários (`Comum/`), carga padrão (`Carga/`) | provedor de banco, migrations, Blob, planilhas |
+| **Infrastructure** | `SigeoDbContext` (implementa `ISigeoDb`), configurações EF por módulo (`Dados/Configuracoes/<Módulo>.cs`), migrations, interceptor de auditoria, `FabricaDb`/`FabricaSistema`, armazenamento (Blob/local), importadores de planilha | regra de negócio |
+| **Web** | telas `.razor` (+ `.razor.cs`) em `Components/Pages/<Módulo>/`, autenticação, endpoints de arquivo, API das telas do navegador (`Servicos/ApiTelas.cs`) | acesso ao banco: a tela lê por `*Consultas` e grava por `*Servico` (teste `TelasSemBancoTests`) |
 | **Web.Client** | telas que rodam no navegador (WebAssembly), layout (`MainLayout`) e componentes de apresentação usados pelos dois lados (`Icone`, `Selo`, `Kpi`, `Pagina`, `Modal`, `Abas`, `SeletorLocais`, `SeletorDemanda`), `Rotulos` | acesso a banco (só pela API) |
 | **Contratos** | DTOs trocados entre API e navegador (`Paineis.cs`, `Orcamento.cs`, `Opcao`) | regra, EF |
 
 ## Regras de convivência
-- **Tela não grava no banco.** Lê com `Fabrica.CriarLeitura()` (sem rastreamento) e grava chamando um serviço da Application dentro de `Executar(...)`.
+- **Tela não abre o banco.** Lê por uma classe `<Tela>Consultas` do módulo (contexto de leitura, sem rastreamento) e grava chamando um `*Servico` dentro de `Executar(...)`. Classes `*Consultas` entram no DI por convenção.
+- **Um tipo por arquivo**, namespace = pasta; enums do módulo em `<Módulo>/Enums.cs`, os compartilhados em `Domain/Common/Enums/<Módulo>.cs`.
 - **Serviço confere perfil** com `Permissoes.ExigirAsync` quando a ação é restrita (a tela só esconde o botão).
 - **Transação** com `IFabricaDb.EmTransacaoAsync(...)` — compatível com a nova tentativa do Azure SQL (cada tentativa usa um contexto novo).
 - **Sem MediatR e sem repositório genérico**: `DbSet` já é repositório e `SaveChanges` a unidade de trabalho.
@@ -33,6 +34,7 @@ Sigeo.Web (Blazor Server + API)  ──►  Sigeo.Application (casos de uso)  �
 
 ## Frontend
 - Blazor Server interativo **sem pré-renderização** (cada tela consulta o banco uma vez).
+- Como trabalhar no código pelo VS Code: [VSCODE.md](VSCODE.md).
 - **Telas no navegador (WebAssembly)**: painel de indicadores (`/painel`), painel SST (`/sst/painel`), mapa da torre (`/obra/mapa-torre`) e orçamento por local (`/engenharia/orcamento`). O `App.razor` escolhe o modo pela rota (`RotasNavegador.Atende`); ir de uma tela do servidor para uma do navegador recarrega a página (cada roteador só conhece as suas rotas; `RecarregarNoServidor` e `NotFound` tratam a navegação por código).
 - **API das telas do navegador** (`/api/telas/...`): mesmo cookie do login, exige usuário interno, confere a obra, responde Problem Details; sessão vencida = 401 (a tela volta ao login). Painéis com cache de 5 min por empresa (`CacheCompartilhado`). A tela manda só escolhas; quantidades e valores são recalculados no servidor (ex.: requisição pelo orçamento).
 - Primeiro acesso a uma tela do navegador baixa ~3 MB (comprimido) uma vez; depois fica no cache do navegador.
@@ -40,8 +42,8 @@ Sigeo.Web (Blazor Server + API)  ──►  Sigeo.Application (casos de uso)  �
 - CSS: `app.css` (tema, componentes, utilitárias, celular) + `css/telas-*.css` por área.
 
 ## Testes
-- `tests/Sigeo.Tests`: unitários (domínio e validações dos serviços).
-- `tests/Sigeo.Tests.Integracao`: cenários com SQL Server real; rodam quando a variável `QH_TEST_SQL` existe (veja o LEIAME da pasta).
+- `tests/Sigeo.Tests/<Módulo>/`: unitários (domínio e validações dos serviços) e testes de arquitetura (rota do menu tem tela; tela não usa o banco).
+- `tests/Sigeo.Tests.Integracao/<Módulo>/`: cenários com SQL Server real, inclusive `ConsultasTelasTests` (roda toda consulta de tela); rodam quando a variável `QH_TEST_SQL` existe (veja o LEIAME da pasta).
 
 ## Área do Fornecedor (`/fornecedor`)
 - Entrada pública por **CNPJ/CPF + código de 6 dígitos** enviado a um **contato cadastrado** escolhido pela pessoa (e-mail ou WhatsApp). Código: 10 min, uso único, 5 tentativas, guardado só como hash (`CodigosAcessoFornecedor`); limites por CNPJ (3/h), por IP (10/h) e por requisição (60 por 5 min).

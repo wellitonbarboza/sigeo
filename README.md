@@ -10,18 +10,24 @@ Modelo e telas seguem o mesmo padrão do sistema de referência (Azure + Blazor)
 
 ## Módulos e telas
 
-| Menu | Tela | Tabelas |
+Tabelas de cada módulo, colunas e telas que usam: [docs/BANCO.md](docs/BANCO.md).
+
+| Menu | Tela | Pasta do módulo |
 |---|---|---|
-| Início | Pendências de aprovação, leituras, alertas do SGQ, primeiros passos | — |
-| Cadastro | Fornecedores · Qualificação · Documentos do fornecedor (validação do portal) · Obras e centros de custo · Produtos · Materiais e serviços controlados | T08, T09, T10 |
-| Suprimentos | Requisição → Orçamento (mapa comparativo) → Pedido / Contrato → Recebimento (FVM) → Medição (notas do prestador) → Liberação de pagamento (3 vias) | T01–T07, T11–T15, T18 |
-| Qualidade | Documentos do SGQ (árvore, revisões, check-out, etapas com assinatura) · Cópias controladas e solicitações · Lista mestra · Externos · Avaliação semestral · Planos de ação · GRD · Leituras · Registros (retenção) | D01–D13, T16, T17 |
-| Qualidade da Obra | Mapa de inspeções · FVS (inspeção, reinspeção, liberação) · Modelos de FVS/FVM · Não conformidades (RNC) · Ações corretivas · Equipamentos de medição (calibração) · Auditorias internas · Tela de campo `/campo/fvs/{id}` e QR do local `/campo/local/{qr}` | Q01–Q15 |
-| Segurança e Pessoas | Colaboradores (próprios e terceiros, CPF mascarado) · Exigências por função · Documentos do colaborador · Treinamentos · Entrega de EPI (CA) · Inspeções de segurança · Permissão de trabalho · Ocorrências e acidentes · Painel SST | S01–S13 |
-| Painéis | Minhas pendências (com delegação e tarefas) · Painel de indicadores | T19–T28 |
-| Colaboração | Tarefas internas (prazo, prorrogação justificada, confirmação de leitura, origem RNC/AC) · Notas por registro (histórico imutável) | padrão ExpertData |
-| Sistema | Usuários, limites, alçadas e delegações · Parâmetros e listas · Permissões do SGQ · Log de auditoria | — |
-| Público (sem login) | Portal do fornecedor `/portal/{token}` · Verificação de cópia `/qr/{token}` · Confirmação de GRD `/grd/confirmar/{token}` | — |
+| Início | Pendências de aprovação, leituras, alertas do SGQ, primeiros passos | `Inicio` |
+| Cadastro | Fornecedores · Qualificação · Documentos do fornecedor (validação do portal) · Obras e centros de custo · Produtos · Materiais e serviços controlados | `Cadastros` |
+| Suprimentos | Requisição → Orçamento (mapa comparativo) → Pedido / Contrato → Recebimento (FVM) → Medição (notas do prestador) → Liberação de pagamento (3 vias) | `Suprimentos` |
+| Qualidade | Documentos do SGQ (árvore, revisões, check-out, etapas com assinatura) · Cópias controladas e solicitações · Lista mestra · Externos · Avaliação semestral · Planos de ação · GRD · Leituras · Registros (retenção) | `Documentos` |
+| Qualidade da Obra | Mapa de inspeções · FVS (inspeção, reinspeção, liberação) · Modelos de FVS/FVM · Não conformidades (RNC) · Ações corretivas · Equipamentos de medição (calibração) · Auditorias internas · Tela de campo `/campo/fvs/{id}` e QR do local `/campo/local/{qr}` | `Qualidade` |
+| Segurança e Pessoas | Colaboradores (próprios e terceiros, CPF mascarado) · Exigências por função · Documentos do colaborador · Treinamentos · Entrega de EPI (CA) · Inspeções de segurança · Permissão de trabalho · Ocorrências e acidentes · Painel SST | `Sst` |
+| Painéis | Minhas pendências (com delegação e tarefas) · Painel de indicadores | `Inicio · Sistema` |
+| Engenharia | Empreendimento (condomínio, torres, SPE) · Tipologias e kits · Composições e orçamento · Mão de obra (apropriação) · Custo realizado | `Engenharia` |
+| Planejamento | Redes e cronograma (Gantt) · Médio e curto prazo (Last Planner) · Acompanhamento · Diário de obra | `Planejamento` (telas em `Engenharia`) |
+| Financeiro e Incorporação | Títulos, bancos e fluxo de caixa · Espelho de vendas, contratos, recebíveis e RET | `Financeiro` · `Incorporacao` |
+| Gestão | Metas do setor, da pessoa e da equipe (placar) | `Colaboracao` |
+| Colaboração | Tarefas internas (prazo, prorrogação justificada, confirmação de leitura, origem RNC/AC) · Notas por registro (histórico imutável) | `Colaboracao` |
+| Sistema | Usuários, limites, alçadas e delegações · Parâmetros e listas · Permissões do SGQ · Log de auditoria | `Sistema` |
+| Público (sem login) | Portal do fornecedor `/portal/{token}` · Verificação de cópia `/qr/{token}` · Confirmação de GRD `/grd/confirmar/{token}` | `Publico · PortalFornecedor` |
 
 ## Regras que a auditoria vai olhar
 
@@ -37,25 +43,35 @@ Modelo e telas seguem o mesmo padrão do sistema de referência (Azure + Blazor)
 
 ## Estrutura
 
+Mesmo nome de módulo em todas as camadas (Suprimentos, Cadastros, Engenharia, Planejamento, Qualidade, Documentos, Sst, Financeiro, Incorporacao, Fiscal, Colaboracao, Sistema…).
+
 ```
-src/Sigeo.Domain          entidades e regras (sem dependência de infraestrutura)
-src/Sigeo.Infrastructure  EF Core 10 (SQL Server), serviços de caso de uso, carga padrão, migrations
-src/Sigeo.Web             Blazor Web App (Interactive Server), login Entra ID ou local de desenvolvimento
-tests/Sigeo.Tests         testes das regras (travas, aprovações, suprimentos, documentos)
-db/Sigeo_Inicial.sql      script idempotente da migration inicial (revisão/DBA)
-infra/                       Bicep + deploy (Azure)
+src/Sigeo.Domain/<Módulo>/          entidades (= tabelas) e regras; um arquivo por tipo; enums do módulo em Enums.cs
+src/Sigeo.Application/<Módulo>/     *Servico (grava, regras do processo) e *Consultas (leituras de cada tela)
+src/Sigeo.Infrastructure/Dados/     DbContext, Configuracoes/<Módulo>.cs (tamanhos, índices) e Migracoes/
+src/Sigeo.Contratos/                catálogo de telas e perfis de acesso (menu e permissões)
+src/Sigeo.Web/Components/Pages/<Módulo>/   telas (.razor + .razor.cs); a tela não abre o banco
+src/Sigeo.Web.Client/               parte que roda no navegador (WebAssembly)
+tests/Sigeo.Tests/<Módulo>/         testes das regras
+tests/Sigeo.Tests.Integracao/<Módulo>/  testes no SQL Server real (inclui todas as consultas de tela)
+docs/                               ARQUITETURA.md · BANCO.md (mapa do banco) · VSCODE.md (como trabalhar no código)
+db/Sigeo_Migracoes.sql              script idempotente de todas as migrações (revisão/DBA)
+infra/                              Bicep e scripts do Azure (Cloud Shell)
+tools/mapa-banco/gerar.py           gera docs/BANCO.md a partir do código
 ```
 
-## Rodar localmente
+## Rodar localmente (VS Code)
+
+Passo a passo em [docs/VSCODE.md](docs/VSCODE.md). Resumo:
 
 ```bash
-docker run -e ACCEPT_EULA=Y -e MSSQL_SA_PASSWORD='<senha-forte>' -p 1433:1433 -d mcr.microsoft.com/mssql/server:2022-latest
+SIGEO_SQL_SENHA='<senha-forte>' docker compose up -d sql      # SQL Server local
+# crie src/Sigeo.Web/appsettings.Development.local.json com ConnectionStrings:Sigeo (fica fora do Git)
 dotnet build && dotnet test
-# ajuste ConnectionStrings:Sigeo em src/Sigeo.Web/appsettings.Development.json (ou variável de ambiente)
-dotnet run --project src/Sigeo.Web
+dotnet run --project src/Sigeo.Web                              # ou F5 no VS Code
 ```
 
-Em desenvolvimento a migration é aplicada ao iniciar. Sem `AzureAd:ClientId` configurado, o login é local (escolha do usuário cadastrado) — **use só para testes**. Com `AzureAd` preenchido, o login é pelo Microsoft Entra ID.
+Em desenvolvimento a migração é aplicada ao iniciar e o banco vazio abre a configuração inicial (empresa + administrador com senha). O login é por usuário e senha do SIGEO.
 
 ## Publicar no Azure
 
@@ -64,12 +80,12 @@ az login --use-device-code            # feito pela própria pessoa responsável 
 cd infra && ./deploy.sh "<assinatura>" "<email-alerta-custo>"
 ```
 
-O `deploy.sh` é idempotente e roda em 8 etapas (pode isolar com `ETAPAS="4 7"`): grupo DBA do SQL → registro do app no Entra ID → Bicep (App Service B1, SQL serverless com auto-pause, Storage, Key Vault, App Insights, orçamento) → segredos no Key Vault → script `db/Sigeo_Inicial.sql` + usuário da Managed Identity → `dotnet publish` + `az webapp deploy`.
+O `deploy.sh` é idempotente e roda em 8 etapas (pode isolar com `ETAPAS="4 7"`): grupo DBA do SQL → registro do app → Bicep (App Service B1, Azure SQL DTU Standard S1, Storage, Key Vault, App Insights, orçamento) → segredos no Key Vault → script `db/Sigeo_Migracoes.sql` + usuário da Managed Identity → `dotnet publish` + `az webapp deploy`. Para só atualizar a versão use `infra/atualizar-app.sh` (ver `infra/LEIA-ME-SUBIR.txt`).
 
 Proteções de produção (o app **recusa iniciar** sem elas):
-- **Login só pelo Entra ID** (`AzureAd:TenantId/ClientId`); o login local fica bloqueado.
+- **Login por usuário e senha do SIGEO** (senha com política mínima, troca no primeiro acesso, bloqueio por tentativas).
 - **`CpfHmacChave`** no Key Vault (hash estável do CPF — LGPD).
-- **Configuração inicial protegida** pelo segredo `CodigoConfiguracaoInicial` do Key Vault e pelo ObjectId do administrador.
+- **Configuração inicial protegida** pelo segredo `CodigoConfiguracaoInicial` do Key Vault.
 - Arquivos no **Azure Blob** com Managed Identity (contêineres `documentos`, `sgq`, `evidencias`, `sensivel` para ASO, `importacoes`); nada é sobrescrito (versionamento + lixeira de 30 dias).
 - Health check em `/saude`.
 

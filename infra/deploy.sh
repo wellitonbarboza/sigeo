@@ -75,7 +75,7 @@ echo "==> 6/8 Banco: script idempotente de migrations + usuário da Managed Iden
 MEU_IP=$(curl -s https://api.ipify.org)
 az sql server firewall-rule create -g "$RG" -s "${SQLSRV%%.*}" -n deploy-temp --start-ip-address "$MEU_IP" --end-ip-address "$MEU_IP" -o none
 trap 'az sql server firewall-rule delete -g "$RG" -s "${SQLSRV%%.*}" -n deploy-temp -o none || true' EXIT
-sqlcmd -S "$SQLSRV" -d "$DB" --authentication-method ActiveDirectoryDefault -l 120 -b -I -i "$RAIZ/db/Sigeo_Inicial.sql"
+sqlcmd -S "$SQLSRV" -d "$DB" --authentication-method ActiveDirectoryDefault -l 120 -b -I -i "$RAIZ/db/Sigeo_Migracoes.sql"
 sed -e "s/{{WEB}}/$WEB/g" "$DIR/sql/usuarios-identidades.sql" > /tmp/qh-usuarios.sql
 sqlcmd -S "$SQLSRV" -d "$DB" --authentication-method ActiveDirectoryDefault -b -I -i /tmp/qh-usuarios.sql
 fi

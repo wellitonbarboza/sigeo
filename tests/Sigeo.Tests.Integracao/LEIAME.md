@@ -23,7 +23,7 @@ Sem a variável, todos os testes são **pulados** (`[FatoComBanco]`) e o `dotnet
 
 ## Cenários
 
-| Arquivo | Cenário |
+| Arquivo (em `<Módulo>/`) | Cenário |
 |---|---|
 | `EngenhariaOrcamentoTests` | 1. Geração de torre (contagem, SPE, fração ideal = 1) · 2. Orçamento e demanda de material |
 | `SuprimentosTests` | 3. Requisição: excluir item com quebra por local · 4. Contrato: reescalonar locais · 5. Medição: acumulado por local |

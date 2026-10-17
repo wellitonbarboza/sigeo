@@ -3,6 +3,7 @@
 > Gerado por `tools/mapa-banco/gerar.py` a partir do snapshot das migrações e das telas. Não edite à mão: rode o script depois de cada migração.
 
 - **196 tabelas** no schema `qh`, em **15 módulos**; **315 ligações** (chaves estrangeiras); **52 com histórico** (tabela temporal).
+- ⏱ = tabela com histórico de alterações (tabela temporal do SQL Server: guarda cada versão da linha).
 - **107 telas** (`@page`). Uma tabela = uma entidade de negócio (classe em `src/Sigeo.Domain`), não uma tela. Cada tela lê/grava várias tabelas por meio dos serviços.
 
 ## Módulos
@@ -149,9 +150,9 @@ erDiagram
 |---|---|---|---|
 | `CategoriasProduto` | 17 | `src/Sigeo.Domain/Cadastros/CategoriaProduto.cs` | `cadastros/categorias`, `cadastros/controlados`, `cadastros/produtos`, `engenharia/custo-realizado`, `engenharia/importar-erp`, `engenharia/tipologias`, `fornecedores`, `requisicoes` +1 |
 | `CodigosAcessoFornecedor` | 13 | `src/Sigeo.Domain/Cadastros/CodigoAcessoFornecedor.cs` | `fornecedor`, `fornecedor/area`, `fornecedor/cotacao/{CotacaoId:guid}` |
-| `Fornecedores` ⏱ | 49 | `src/Sigeo.Domain/Cadastros/Fornecedor.cs` | `(início)`, `campo/fvs/{Id:guid}`, `cotacoes`, `cotacoes/mapa`, `engenharia/custo-realizado`, `engenharia/importar-erp`, `engenharia/obras`, `engenharia/tipologias` +34 |
+| `Fornecedores` ⏱ | 49 | `src/Sigeo.Domain/Cadastros/Fornecedor.cs` | `(início)`, `campo/fvs/{Id:guid}`, `cotacoes`, `cotacoes/mapa`, `engenharia/custo-realizado`, `engenharia/importar-erp`, `engenharia/obras`, `engenharia/tipologias` +35 |
 | `FornecedorContatos` | 9 | `src/Sigeo.Domain/Cadastros/FornecedorContato.cs` | `fornecedor`, `fornecedor/area`, `fornecedor/cotacao/{CotacaoId:guid}` |
-| `FornecedorDocumentos` ⏱ | 31 | `src/Sigeo.Domain/Cadastros/FornecedorDocumento.cs` | `fornecedores/documentos`, `medicoes`, `suprimentos/documentacao-mensal` |
+| `FornecedorDocumentos` ⏱ | 31 | `src/Sigeo.Domain/Cadastros/FornecedorDocumento.cs` | `(início)`, `fornecedores/documentos`, `medicoes`, `suprimentos/documentacao-mensal` |
 | `FornecedorExigencias` | 4 | `src/Sigeo.Domain/Cadastros/FornecedorExigencia.cs` | _rotinas internas_ |
 | `FornecedorGrupos` | 4 | `src/Sigeo.Domain/Cadastros/FornecedorGrupo.cs` | `fornecedores`, `fornecedores/exigencias` |
 | `Qualificacoes` ⏱ | 29 | `src/Sigeo.Domain/Cadastros/FornecedorQualificacao.cs` | `fornecedores/avaliacao`, `fornecedores/qualificacao`, `medicoes` |
@@ -348,20 +349,20 @@ erDiagram
 
 | Tabela | Colunas | Arquivo da classe | Telas que usam |
 |---|---|---|---|
-| `Checkouts` | 17 | `src/Sigeo.Domain/Documentos/CheckoutDocumento.cs` | _rotinas internas_ |
-| `Ciencias` | 17 | `src/Sigeo.Domain/Documentos/Ciencia.cs` | `(início)`, `mensagens`, `sgq/leituras` |
-| `Copias` ⏱ | 27 | `src/Sigeo.Domain/Documentos/CopiaControlada.cs` | `qr/{Token}`, `sgq/copias` |
-| `Documentos` ⏱ | 34 | `src/Sigeo.Domain/Documentos/Documento.cs` | `campo/fvs/{Id:guid}`, `campo/local/{Qr}`, `engenharia/obras`, `obra/acoes`, `obra/auditorias`, `obra/equipamentos`, `obra/fvs`, `obra/modelos/{TipoRota}` +6 |
+| `Checkouts` | 17 | `src/Sigeo.Domain/Documentos/CheckoutDocumento.cs` | `sgq/documentos` |
+| `Ciencias` | 17 | `src/Sigeo.Domain/Documentos/Ciencia.cs` | `(início)`, `mensagens`, `sgq/documentos`, `sgq/leituras` |
+| `Copias` ⏱ | 27 | `src/Sigeo.Domain/Documentos/CopiaControlada.cs` | `(início)`, `qr/{Token}`, `sgq/copias`, `sgq/documentos` |
+| `Documentos` ⏱ | 34 | `src/Sigeo.Domain/Documentos/Documento.cs` | `(início)`, `campo/fvs/{Id:guid}`, `campo/local/{Qr}`, `engenharia/obras`, `obra/acoes`, `obra/auditorias`, `obra/equipamentos`, `obra/fvs` +8 |
 | `DocumentosExternos` ⏱ | 21 | `src/Sigeo.Domain/Documentos/DocumentoExterno.cs` | `sgq/externos` |
 | `DocumentosRelacionados` | 3 | `src/Sigeo.Domain/Documentos/DocumentoRelacionado.cs` | _rotinas internas_ |
 | `Revisoes` ⏱ | 34 | `src/Sigeo.Domain/Documentos/DocumentoRevisao.cs` | `qr/{Token}`, `sgq/copias`, `sgq/grd` |
 | `EtapasRevisao` | 11 | `src/Sigeo.Domain/Documentos/EtapaRevisao.cs` | _rotinas internas_ |
-| `EventosDocumento` | 12 | `src/Sigeo.Domain/Documentos/EventoDocumento.cs` | `(início)`, `sistema/log`, `sistema/parametros`, `sistema/permissoes`, `sistema/usuarios` |
-| `Grds` | 19 | `src/Sigeo.Domain/Documentos/Grd.cs` | `sgq/grd` |
+| `EventosDocumento` | 12 | `src/Sigeo.Domain/Documentos/EventoDocumento.cs` | `(início)`, `sgq/documentos`, `sistema/log`, `sistema/parametros`, `sistema/permissoes`, `sistema/usuarios` |
+| `Grds` | 19 | `src/Sigeo.Domain/Documentos/Grd.cs` | `(início)`, `sgq/grd` |
 | `GrdItens` | 3 | `src/Sigeo.Domain/Documentos/GrdItem.cs` | _rotinas internas_ |
-| `Pastas` | 13 | `src/Sigeo.Domain/Documentos/Pasta.cs` | `plataforma/auditoria`, `plataforma/construtoras`, `plataforma/usuarios`, `sgq/lista-mestra`, `sistema/permissoes` |
+| `Pastas` | 13 | `src/Sigeo.Domain/Documentos/Pasta.cs` | `plataforma/auditoria`, `plataforma/construtoras`, `plataforma/usuarios`, `sgq/documentos`, `sgq/lista-mestra`, `sistema/permissoes` |
 | `Permissoes` ⏱ | 23 | `src/Sigeo.Domain/Documentos/PermissaoDocumento.cs` | `(início)`, `sistema/parametros`, `sistema/permissoes`, `sistema/usuarios` |
-| `RegrasRetencao` | 18 | `src/Sigeo.Domain/Documentos/RegraRetencao.cs` | `plataforma/auditoria`, `plataforma/construtoras`, `plataforma/usuarios`, `sgq/registros` |
+| `RegrasRetencao` | 18 | `src/Sigeo.Domain/Documentos/RegraRetencao.cs` | `plataforma/auditoria`, `plataforma/construtoras`, `plataforma/usuarios`, `sgq/documentos`, `sgq/registros` |
 | `SolicitacoesCopia` | 21 | `src/Sigeo.Domain/Documentos/SolicitacaoCopia.cs` | `sgq/copias` |
 | `SolicitacaoCopiaItens` | 5 | `src/Sigeo.Domain/Documentos/SolicitacaoCopiaItem.cs` | _rotinas internas_ |
 
@@ -559,9 +560,9 @@ erDiagram
 | `Estabelecimentos` | 26 | `src/Sigeo.Domain/Estrutura/Estabelecimento.cs` | `cadastros/centros-custo`, `cadastros/estabelecimentos`, `campo/fvs/{Id:guid}`, `campo/local/{Qr}`, `cotacoes`, `cotacoes/mapa`, `engenharia/obras`, `equipamentos` +20 |
 | `FluxosEstabelecimento` | 16 | `src/Sigeo.Domain/Estrutura/FluxoEstabelecimento.cs` | `cadastros/centros-custo`, `cadastros/estabelecimentos`, `requisicoes` |
 | `Listas` | 15 | `src/Sigeo.Domain/Estrutura/ItemLista.cs` | `plataforma/auditoria`, `plataforma/construtoras`, `plataforma/usuarios`, `sistema/parametros` |
-| `Locais` | 29 | `src/Sigeo.Domain/Estrutura/Local.cs` | `campo/fvs/{Id:guid}`, `campo/local/{Qr}`, `contratos`, `engenharia/composicoes`, `engenharia/cronograma`, `engenharia/custo-realizado`, `engenharia/diario/imprimir`, `engenharia/importar-erp` +38 |
-| `Obras` | 30 | `src/Sigeo.Domain/Estrutura/Obra.cs` | `(início)`, `cadastros/produtos`, `campo/fvs/{Id:guid}`, `campo/local/{Qr}`, `contratos`, `cotacoes`, `cotacoes/mapa`, `engenharia/cronograma` +54 |
-| `Parametros` ⏱ | 17 | `src/Sigeo.Domain/Estrutura/Parametro.cs` | `(início)`, `campo/fvs/{Id:guid}`, `campo/local/{Qr}`, `cotacoes`, `cotacoes/mapa`, `engenharia/obras`, `fornecedores`, `fornecedores/avaliacao` +29 |
+| `Locais` | 29 | `src/Sigeo.Domain/Estrutura/Local.cs` | `campo/fvs/{Id:guid}`, `campo/local/{Qr}`, `contratos`, `cotacoes`, `cotacoes/mapa`, `engenharia/composicoes`, `engenharia/cronograma`, `engenharia/custo-realizado` +40 |
+| `Obras` | 30 | `src/Sigeo.Domain/Estrutura/Obra.cs` | `(início)`, `cadastros/produtos`, `campo/fvs/{Id:guid}`, `campo/local/{Qr}`, `contratos`, `cotacoes`, `cotacoes/mapa`, `engenharia/cronograma` +55 |
+| `Parametros` ⏱ | 17 | `src/Sigeo.Domain/Estrutura/Parametro.cs` | `(início)`, `campo/fvs/{Id:guid}`, `campo/local/{Qr}`, `contratos`, `cotacoes`, `cotacoes/mapa`, `engenharia/obras`, `fornecedores` +30 |
 | `PerfisAcesso` | 14 | `src/Sigeo.Domain/Estrutura/PerfilAcesso.cs` | `(início)`, `engenharia/cronograma`, `engenharia/diario`, `engenharia/obras`, `engenharia/planejamento`, `engenharia/planejamento/imprimir`, `engenharia/planejamento/imprimir-programacao`, `engenharia/tipologias` +7 |
 | `RegistrosPlataforma` | 7 | `src/Sigeo.Domain/Estrutura/RegistroPlataforma.cs` | `plataforma/auditoria`, `plataforma/construtoras`, `plataforma/usuarios` |
 | `RegrasNotificacao` | 17 | `src/Sigeo.Domain/Estrutura/RegraNotificacao.cs` | `(início)`, `mensagens`, `plataforma/auditoria`, `plataforma/construtoras`, `plataforma/usuarios`, `sistema/parametros` |
@@ -854,7 +855,7 @@ erDiagram
 | `DiariosObra` ⏱ | 29 | `src/Sigeo.Domain/Planejamento/DiarioObra.cs` | `engenharia/diario`, `engenharia/diario/imprimir`, `engenharia/planejamento/imprimir-programacao` |
 | `Feriados` | 13 | `src/Sigeo.Domain/Planejamento/Feriado.cs` | `engenharia/cronograma`, `engenharia/planejamento`, `engenharia/planejamento/imprimir`, `engenharia/planejamento/imprimir-programacao` |
 | `MedicoesSemanais` ⏱ | 25 | `src/Sigeo.Domain/Planejamento/MedicaoSemanal.cs` | `engenharia/planejamento/imprimir-programacao` |
-| `PlanosSemanais` ⏱ | 19 | `src/Sigeo.Domain/Planejamento/PlanoSemanal.cs` | `engenharia/diario`, `engenharia/planejamento/imprimir-programacao`, `gestao/metas` |
+| `PlanosSemanais` ⏱ | 19 | `src/Sigeo.Domain/Planejamento/PlanoSemanal.cs` | `engenharia/diario`, `engenharia/planejamento/imprimir-programacao`, `estoque/kits`, `gestao/metas` |
 | `RedeLocais` | 4 | `src/Sigeo.Domain/Planejamento/RedeLocal.cs` | `engenharia/cronograma`, `engenharia/obras`, `engenharia/planejamento`, `engenharia/planejamento/imprimir`, `engenharia/planejamento/imprimir-programacao`, `engenharia/tipologias` |
 | `RedePacotes` | 7 | `src/Sigeo.Domain/Planejamento/RedePacote.cs` | `engenharia/cronograma`, `engenharia/planejamento`, `engenharia/planejamento/imprimir`, `engenharia/planejamento/imprimir-programacao` |
 | `RedePacoteLocais` | 4 | `src/Sigeo.Domain/Planejamento/RedePacoteLocal.cs` | `engenharia/cronograma`, `engenharia/obras`, `engenharia/planejamento`, `engenharia/planejamento/imprimir`, `engenharia/planejamento/imprimir-programacao`, `engenharia/tipologias` |
@@ -958,8 +959,8 @@ erDiagram
 | `CautelasFerramenta` | 18 | `src/Sigeo.Domain/Qualidade/CautelaFerramenta.cs` | `campo/fvs/{Id:guid}`, `campo/local/{Qr}`, `engenharia/obras`, `obra/acoes`, `obra/auditorias`, `obra/equipamentos`, `obra/fvs`, `obra/modelos/{TipoRota}` +3 |
 | `Constatacoes` | 8 | `src/Sigeo.Domain/Qualidade/Constatacao.cs` | _rotinas internas_ |
 | `EnsaiosModelo` | 10 | `src/Sigeo.Domain/Qualidade/EnsaioModelo.cs` | _rotinas internas_ |
-| `EnsaiosRecebimento` ⏱ | 24 | `src/Sigeo.Domain/Qualidade/EnsaioRecebimento.cs` | `campo/fvs/{Id:guid}`, `campo/local/{Qr}`, `engenharia/obras`, `obra/acoes`, `obra/auditorias`, `obra/equipamentos`, `obra/fvs`, `obra/modelos/{TipoRota}` +3 |
-| `Equipamentos` ⏱ | 34 | `src/Sigeo.Domain/Qualidade/EquipamentoMedicao.cs` | `campo/fvs/{Id:guid}`, `campo/local/{Qr}`, `engenharia/obras`, `obra/acoes`, `obra/auditorias`, `obra/equipamentos`, `obra/equipamentos/etiquetas`, `obra/fvs` +5 |
+| `EnsaiosRecebimento` ⏱ | 24 | `src/Sigeo.Domain/Qualidade/EnsaioRecebimento.cs` | `(início)`, `campo/fvs/{Id:guid}`, `campo/local/{Qr}`, `engenharia/obras`, `obra/acoes`, `obra/auditorias`, `obra/equipamentos`, `obra/fvs` +4 |
+| `Equipamentos` ⏱ | 34 | `src/Sigeo.Domain/Qualidade/EquipamentoMedicao.cs` | `(início)`, `campo/fvs/{Id:guid}`, `campo/local/{Qr}`, `engenharia/obras`, `obra/acoes`, `obra/auditorias`, `obra/equipamentos`, `obra/equipamentos/etiquetas` +6 |
 | `FvmItens` | 13 | `src/Sigeo.Domain/Qualidade/FvmItem.cs` | `obra/modelos/{TipoRota}` |
 | `Fvs` ⏱ | 34 | `src/Sigeo.Domain/Qualidade/Fvs.cs` | `(início)`, `campo/fvs/{Id:guid}`, `campo/local/{Qr}`, `engenharia/obras`, `engenharia/planejamento/imprimir-programacao`, `engenharia/tipologias`, `medicoes`, `mensagens` +9 |
 | `FvsItens` | 16 | `src/Sigeo.Domain/Qualidade/FvsItem.cs` | `obra/modelos/{TipoRota}` |
@@ -1031,10 +1032,10 @@ erDiagram
 
 | Tabela | Colunas | Arquivo da classe | Telas que usam |
 |---|---|---|---|
-| `Colaboradores` ⏱ | 32 | `src/Sigeo.Domain/Sst/Colaborador.cs` | `engenharia/mao-de-obra`, `medicoes`, `sst/colaboradores`, `sst/documentos`, `sst/epi`, `sst/exigencias`, `sst/inspecoes`, `sst/ocorrencias` +3 |
-| `DocumentosColaborador` ⏱ | 26 | `src/Sigeo.Domain/Sst/DocumentoColaborador.cs` | `sst/colaboradores`, `sst/documentos`, `sst/epi`, `sst/exigencias`, `sst/inspecoes`, `sst/ocorrencias`, `sst/pt`, `sst/treinamentos` |
+| `Colaboradores` ⏱ | 32 | `src/Sigeo.Domain/Sst/Colaborador.cs` | `(início)`, `engenharia/mao-de-obra`, `medicoes`, `sst/colaboradores`, `sst/documentos`, `sst/epi`, `sst/exigencias`, `sst/inspecoes` +4 |
+| `DocumentosColaborador` ⏱ | 26 | `src/Sigeo.Domain/Sst/DocumentoColaborador.cs` | `(início)`, `sst/colaboradores`, `sst/documentos`, `sst/epi`, `sst/exigencias`, `sst/inspecoes`, `sst/ocorrencias`, `sst/pt` +1 |
 | `EntregasEpi` ⏱ | 20 | `src/Sigeo.Domain/Sst/EntregaEpi.cs` | `sst/colaboradores`, `sst/documentos`, `sst/epi`, `sst/exigencias`, `sst/inspecoes`, `sst/ocorrencias`, `sst/pt`, `sst/treinamentos` |
-| `Epis` | 16 | `src/Sigeo.Domain/Sst/Epi.cs` | `cadastros/produtos`, `sst/colaboradores`, `sst/documentos`, `sst/epi`, `sst/exigencias`, `sst/inspecoes`, `sst/ocorrencias`, `sst/pt` +1 |
+| `Epis` | 16 | `src/Sigeo.Domain/Sst/Epi.cs` | `(início)`, `cadastros/produtos`, `sst/colaboradores`, `sst/documentos`, `sst/epi`, `sst/exigencias`, `sst/inspecoes`, `sst/ocorrencias` +2 |
 | `ExecutantesPt` | 7 | `src/Sigeo.Domain/Sst/ExecutantePt.cs` | _rotinas internas_ |
 | `Exigencias` | 20 | `src/Sigeo.Domain/Sst/Exigencia.cs` | `plataforma/auditoria`, `plataforma/construtoras`, `plataforma/usuarios`, `sst/colaboradores`, `sst/documentos`, `sst/epi`, `sst/exigencias`, `sst/inspecoes` +3 |
 | `FuncaoExigencias` | 4 | `src/Sigeo.Domain/Sst/FuncaoExigencia.cs` | `sst/colaboradores`, `sst/documentos`, `sst/epi`, `sst/exigencias`, `sst/inspecoes`, `sst/ocorrencias`, `sst/pt`, `sst/treinamentos` |
@@ -1043,7 +1044,7 @@ erDiagram
 | `InspecaoSegurancaItens` | 13 | `src/Sigeo.Domain/Sst/InspecaoSegurancaItem.cs` | _rotinas internas_ |
 | `Ocorrencias` ⏱ | 27 | `src/Sigeo.Domain/Sst/Ocorrencia.cs` | `campo/fvs/{Id:guid}`, `campo/local/{Qr}`, `engenharia/obras`, `engenharia/tipologias`, `obra/acoes`, `obra/auditorias`, `obra/equipamentos`, `obra/fvs` +4 |
 | `Participantes` | 7 | `src/Sigeo.Domain/Sst/Participante.cs` | `sst/colaboradores`, `sst/documentos`, `sst/epi`, `sst/exigencias`, `sst/inspecoes`, `sst/ocorrencias`, `sst/pt`, `sst/treinamentos` |
-| `PermissoesTrabalho` ⏱ | 27 | `src/Sigeo.Domain/Sst/PermissaoTrabalho.cs` | `engenharia/obras`, `engenharia/tipologias`, `sst/colaboradores`, `sst/documentos`, `sst/epi`, `sst/exigencias`, `sst/inspecoes`, `sst/ocorrencias` +2 |
+| `PermissoesTrabalho` ⏱ | 27 | `src/Sigeo.Domain/Sst/PermissaoTrabalho.cs` | `(início)`, `engenharia/obras`, `engenharia/tipologias`, `sst/colaboradores`, `sst/documentos`, `sst/epi`, `sst/exigencias`, `sst/inspecoes` +3 |
 | `Treinamentos` | 18 | `src/Sigeo.Domain/Sst/Treinamento.cs` | `plataforma/auditoria`, `plataforma/construtoras`, `plataforma/usuarios`, `sst/colaboradores`, `sst/documentos`, `sst/epi`, `sst/exigencias`, `sst/inspecoes` +3 |
 | `Turmas` ⏱ | 20 | `src/Sigeo.Domain/Sst/Turma.cs` | `sst/colaboradores`, `sst/documentos`, `sst/epi`, `sst/exigencias`, `sst/inspecoes`, `sst/ocorrencias`, `sst/pt`, `sst/treinamentos` |
 
@@ -1391,8 +1392,8 @@ erDiagram
 | `CarteirasCategoria` | 6 | `src/Sigeo.Domain/Suprimentos/CarteiraCategoria.cs` | _rotinas internas_ |
 | `CarteirasComprador` | 16 | `src/Sigeo.Domain/Suprimentos/CarteiraComprador.cs` | `cotacoes`, `cotacoes/mapa`, `engenharia/obras`, `engenharia/tipologias`, `gestao/metas`, `requisicoes`, `suprimentos/compradores`, `suprimentos/fila` +1 |
 | `CompetenciasDocumentais` | 20 | `src/Sigeo.Domain/Suprimentos/CompetenciaDocumental.cs` | `(início)`, `medicoes`, `mensagens`, `suprimentos/documentacao-mensal` |
-| `Contratos` ⏱ | 45 | `src/Sigeo.Domain/Suprimentos/Contrato.cs` | `(início)`, `cadastros/centros-custo`, `contratos`, `contratos/parcelas`, `cotacoes`, `cotacoes/mapa`, `engenharia/obras`, `engenharia/tipologias` +12 |
-| `ContratoItens` | 10 | `src/Sigeo.Domain/Suprimentos/ContratoItem.cs` | `contratos`, `fornecedores`, `fornecedores/exigencias` |
+| `Contratos` ⏱ | 45 | `src/Sigeo.Domain/Suprimentos/Contrato.cs` | `(início)`, `cadastros/centros-custo`, `contratos`, `contratos/parcelas`, `cotacoes`, `cotacoes/mapa`, `engenharia/obras`, `engenharia/tipologias` +13 |
+| `ContratoItens` | 10 | `src/Sigeo.Domain/Suprimentos/ContratoItem.cs` | `contratos`, `contratos/parcelas`, `fornecedores`, `fornecedores/exigencias` |
 | `ContratoItemLocais` | 4 | `src/Sigeo.Domain/Suprimentos/ContratoItemLocal.cs` | `contratos`, `engenharia/obras`, `engenharia/tipologias` |
 | `ContratoServicos` | 3 | `src/Sigeo.Domain/Suprimentos/ContratoServico.cs` | _rotinas internas_ |
 | `Cotacoes` ⏱ | 36 | `src/Sigeo.Domain/Suprimentos/Cotacao.cs` | `(início)`, `cadastros/produtos`, `cotacoes`, `cotacoes/mapa`, `engenharia/obras`, `engenharia/tipologias`, `fornecedor`, `fornecedor/area` +16 |
@@ -1408,7 +1409,7 @@ erDiagram
 | `KitMaterialItens` | 4 | `src/Sigeo.Domain/Suprimentos/KitMaterialItem.cs` | `cadastros/produtos` |
 | `Pagamentos` ⏱ | 32 | `src/Sigeo.Domain/Suprimentos/LiberacaoPagamento.cs` | `(início)`, `engenharia/importar-erp`, `engenharia/obras`, `engenharia/tipologias`, `financeiro/bancos`, `financeiro/cadastros`, `financeiro/fluxo`, `financeiro/pagar` +4 |
 | `LotesCompra` | 22 | `src/Sigeo.Domain/Suprimentos/LoteCompra.cs` | `cotacoes`, `cotacoes/mapa`, `engenharia/obras`, `engenharia/tipologias`, `gestao/metas`, `requisicoes`, `suprimentos/compradores`, `suprimentos/economia` +3 |
-| `Medicoes` ⏱ | 40 | `src/Sigeo.Domain/Suprimentos/Medicao.cs` | `(início)`, `engenharia/custo-realizado`, `engenharia/importar-erp`, `engenharia/obras`, `engenharia/tipologias`, `financeiro/bancos`, `financeiro/cadastros`, `financeiro/fluxo` +11 |
+| `Medicoes` ⏱ | 40 | `src/Sigeo.Domain/Suprimentos/Medicao.cs` | `(início)`, `contratos`, `engenharia/custo-realizado`, `engenharia/importar-erp`, `engenharia/obras`, `engenharia/tipologias`, `financeiro/bancos`, `financeiro/cadastros` +12 |
 | `MedicaoItens` | 11 | `src/Sigeo.Domain/Suprimentos/MedicaoItem.cs` | `engenharia/obras`, `engenharia/tipologias` |
 | `MovimentosEquipamento` | 17 | `src/Sigeo.Domain/Suprimentos/MovimentoEquipamento.cs` | `contratos/parcelas`, `engenharia/diario`, `equipamentos` |
 | `MovimentosEstoque` | 30 | `src/Sigeo.Domain/Suprimentos/MovimentoEstoque.cs` | `cadastros/produtos`, `campo/fvs/{Id:guid}`, `campo/local/{Qr}`, `engenharia/obras`, `equipamentos`, `estoque`, `estoque/kits`, `obra/acoes` +16 |
@@ -1423,7 +1424,7 @@ erDiagram
 | `RecebimentoItens` | 13 | `src/Sigeo.Domain/Suprimentos/RecebimentoItem.cs` | `cadastros/produtos` |
 | `Requisicoes` ⏱ | 38 | `src/Sigeo.Domain/Suprimentos/Requisicao.cs` | `(início)`, `cadastros/centros-custo`, `cotacoes`, `cotacoes/mapa`, `engenharia/composicoes`, `engenharia/obras`, `engenharia/tipologias`, `gestao/metas` +7 |
 | `RequisicaoItens` | 22 | `src/Sigeo.Domain/Suprimentos/RequisicaoItem.cs` | `(início)`, `cadastros/categorias`, `cadastros/controlados`, `cadastros/produtos`, `cotacoes`, `cotacoes/mapa`, `engenharia/composicoes`, `engenharia/obras` +16 |
-| `RequisicaoItemLocais` | 5 | `src/Sigeo.Domain/Suprimentos/RequisicaoItemLocal.cs` | `engenharia/composicoes`, `engenharia/obras`, `engenharia/tipologias`, `pedidos`, `requisicoes` |
+| `RequisicaoItemLocais` | 5 | `src/Sigeo.Domain/Suprimentos/RequisicaoItemLocal.cs` | `cotacoes`, `cotacoes/mapa`, `engenharia/composicoes`, `engenharia/obras`, `engenharia/tipologias`, `pedidos`, `requisicoes` |
 | `SaldosEstoque` | 19 | `src/Sigeo.Domain/Suprimentos/SaldoEstoque.cs` | `cadastros/produtos`, `campo/fvs/{Id:guid}`, `campo/local/{Qr}`, `engenharia/obras`, `equipamentos`, `estoque`, `estoque/kits`, `obra/acoes` +16 |
 | `TransferenciaItens` | 11 | `src/Sigeo.Domain/Suprimentos/TransferenciaItem.cs` | `engenharia/obras`, `engenharia/tipologias`, `recebimentos`, `transferencias` |
 | `Transferencias` ⏱ | 25 | `src/Sigeo.Domain/Suprimentos/TransferenciaMaterial.cs` | `engenharia/obras`, `engenharia/tipologias`, `equipamentos`, `estoque`, `estoque/kits`, `recebimentos`, `requisicoes`, `transferencias` |
@@ -1433,7 +1434,7 @@ erDiagram
 
 | Tela (rota) | Arquivo | Serviços | Tabelas |
 |---|---|---|---|
-| `(início)` | `src/Sigeo.Web/Components/Pages/Inicio/Home.razor` | MensagensServico, SistemaServico | 42 |
+| `(início)` | `src/Sigeo.Web/Components/Pages/Inicio/Home.razor` | HomeConsultas, MensagensServico, SistemaServico | 52 |
 | `Error` | `src/Sigeo.Web/Components/Pages/Error.razor` | — | 0 |
 | `cadastros/categorias` | `src/Sigeo.Web/Components/Pages/Cadastros/Categorias.razor` | CadastrosServico, CategoriasConsultas, CodigosProdutoServico, PadraoCatalogoServico | 8 |
 | `cadastros/centros-custo` | `src/Sigeo.Web/Components/Pages/Cadastros/CentrosCusto.razor` | CentrosCustoConsultas, EstabelecimentosServico | 6 |
@@ -1448,27 +1449,27 @@ erDiagram
 | `conta/construtora` | `src/Sigeo.Web/Components/Pages/Publico/EscolherConstrutora.razor` | ContaServico | 3 |
 | `conta/primeiro-acesso` | `src/Sigeo.Web/Components/Pages/Publico/PrimeiroAcesso.razor` | — | 0 |
 | `conta/trocar-senha` | `src/Sigeo.Web/Components/Pages/Publico/TrocarSenha.razor` | — | 0 |
-| `contratos` | `src/Sigeo.Web/Components/Pages/Suprimentos/Contratos.razor` | ContratosServico | 7 |
-| `contratos/parcelas` | `src/Sigeo.Web/Components/Pages/Suprimentos/Parcelas.razor` | ContratosRecorrentesServico | 6 |
+| `contratos` | `src/Sigeo.Web/Components/Pages/Suprimentos/Contratos.razor` | ContratosConsultas, ContratosServico | 9 |
+| `contratos/parcelas` | `src/Sigeo.Web/Components/Pages/Suprimentos/Parcelas.razor` | ContratosRecorrentesServico, ParcelasConsultas | 7 |
 | `cotacao/{Token:guid}` | `src/Sigeo.Web/Components/Pages/Publico/PortalCotacao.razor` | — | 0 |
-| `cotacoes` | `src/Sigeo.Web/Components/Pages/Suprimentos/Cotacoes.razor` | CotacoesServico | 19 |
-| `cotacoes/mapa` | `src/Sigeo.Web/Components/Pages/Suprimentos/MapaCotacao.razor` | CotacoesServico | 19 |
+| `cotacoes` | `src/Sigeo.Web/Components/Pages/Suprimentos/Cotacoes.razor` | CotacoesConsultas, CotacoesServico | 21 |
+| `cotacoes/mapa` | `src/Sigeo.Web/Components/Pages/Suprimentos/MapaCotacao.razor` | CotacoesServico, MapaCotacaoConsultas | 21 |
 | `engenharia/composicoes` | `src/Sigeo.Web/Components/Pages/Engenharia/Composicoes.razor` | ComposicoesConsultas, OrcamentoServico | 9 |
 | `engenharia/cronograma` | `src/Sigeo.Web/Components/Pages/Engenharia/Cronograma.razor` | CronogramaConsultas, PlanejamentoServico | 17 |
 | `engenharia/custo-realizado` | `src/Sigeo.Web/Components/Pages/Engenharia/CustoRealizado.razor` | CustoRealizadoServico | 10 |
-| `engenharia/diario` | `src/Sigeo.Web/Components/Pages/Engenharia/DiarioDeObra.razor` | DiarioObraServico | 17 |
+| `engenharia/diario` | `src/Sigeo.Web/Components/Pages/Engenharia/DiarioDeObra.razor` | DiarioObraConsultas, DiarioObraServico | 17 |
 | `engenharia/diario/imprimir` | `src/Sigeo.Web/Components/Pages/Engenharia/DiarioImprimir.razor` | DiarioImprimirConsultas | 5 |
 | `engenharia/importar-erp` | `src/Sigeo.Web/Components/Pages/Engenharia/ImportarHistoricoErp.razor` | CustoRealizadoServico, FinanceiroServico | 27 |
 | `engenharia/last-planner` | `src/Sigeo.Web/Components/Pages/Engenharia/LastPlanner.razor` | LastPlannerConsultas | 1 |
-| `engenharia/mao-de-obra` | `src/Sigeo.Web/Components/Pages/Engenharia/MaoObra.razor` | MaoObraServico | 7 |
-| `engenharia/obras` | `src/Sigeo.Web/Components/Pages/Engenharia/Empreendimento.razor` | EngenhariaServico, QualidadeObraServico | 62 |
+| `engenharia/mao-de-obra` | `src/Sigeo.Web/Components/Pages/Engenharia/MaoObra.razor` | MaoObraConsultas, MaoObraServico | 7 |
+| `engenharia/obras` | `src/Sigeo.Web/Components/Pages/Engenharia/Empreendimento.razor` | EmpreendimentoConsultas, EngenhariaServico, QualidadeObraServico | 62 |
 | `engenharia/planejamento` | `src/Sigeo.Web/Components/Pages/Engenharia/Planejamento.razor` | PlanejamentoTelaConsultas | 17 |
 | `engenharia/planejamento/imprimir` | `src/Sigeo.Web/Components/Pages/Engenharia/PlanejamentoImprimir.razor` | PlanejamentoImprimirConsultas | 17 |
 | `engenharia/planejamento/imprimir-programacao` | `src/Sigeo.Web/Components/Pages/Engenharia/ProgramacaoImprimir.razor` | AcompanhamentoServico | 24 |
-| `engenharia/tipologias` | `src/Sigeo.Web/Components/Pages/Engenharia/Tipologias.razor` | EngenhariaServico, KitTipologiaServico, OrcamentoServico | 50 |
-| `equipamentos` | `src/Sigeo.Web/Components/Pages/Suprimentos/Equipamentos.razor` | EquipamentosServico, EstoqueServico | 22 |
-| `estoque` | `src/Sigeo.Web/Components/Pages/Suprimentos/Estoque.razor` | EstoqueServico | 16 |
-| `estoque/kits` | `src/Sigeo.Web/Components/Pages/Suprimentos/Kits.razor` | EstoqueServico | 16 |
+| `engenharia/tipologias` | `src/Sigeo.Web/Components/Pages/Engenharia/Tipologias.razor` | EngenhariaServico, KitTipologiaServico, OrcamentoServico, TipologiasConsultas | 50 |
+| `equipamentos` | `src/Sigeo.Web/Components/Pages/Suprimentos/Equipamentos.razor` | EquipamentosObraConsultas, EquipamentosServico, EstoqueServico | 23 |
+| `estoque` | `src/Sigeo.Web/Components/Pages/Suprimentos/Estoque.razor` | EstoqueConsultas, EstoqueServico | 16 |
+| `estoque/kits` | `src/Sigeo.Web/Components/Pages/Suprimentos/Kits.razor` | EstoqueServico, KitsConsultas | 17 |
 | `financeiro/bancos` | `src/Sigeo.Web/Components/Pages/Financeiro/Bancos.razor` | FinanceiroServico | 21 |
 | `financeiro/cadastros` | `src/Sigeo.Web/Components/Pages/Financeiro/CadastrosFinanceiros.razor` | FinanceiroServico | 21 |
 | `financeiro/fluxo` | `src/Sigeo.Web/Components/Pages/Financeiro/Fluxo.razor` | FinanceiroServico | 21 |
@@ -1489,15 +1490,15 @@ erDiagram
 | `incorporacao/ret` | `src/Sigeo.Web/Components/Pages/Incorporacao/ApuracaoRetTela.razor` | IncorporacaoServico | 14 |
 | `incorporacao/vendas` | `src/Sigeo.Web/Components/Pages/Incorporacao/VendasContratos.razor` | FinanceiroServico, IncorporacaoServico | 21 |
 | `login` | `src/Sigeo.Web/Components/Pages/Publico/Login.razor` | — | 0 |
-| `medicoes` | `src/Sigeo.Web/Components/Pages/Suprimentos/Medicoes.razor` | MedicoesServico | 28 |
+| `medicoes` | `src/Sigeo.Web/Components/Pages/Suprimentos/Medicoes.razor` | MedicoesConsultas, MedicoesServico | 28 |
 | `mensagens` | `src/Sigeo.Web/Components/Pages/Colaboracao/Mensagens.razor` | CanalAvisos, MensagensServico | 32 |
 | `not-found` | `src/Sigeo.Web/Components/Pages/NotFound.razor` | — | 0 |
-| `notas-fiscais` | `src/Sigeo.Web/Components/Pages/Suprimentos/NotasFiscais.razor` | NotasFiscaisServico | 7 |
+| `notas-fiscais` | `src/Sigeo.Web/Components/Pages/Suprimentos/NotasFiscais.razor` | NotasFiscaisConsultas, NotasFiscaisServico | 8 |
 | `obra/acoes` | `src/Sigeo.Web/Components/Pages/Qualidade/AcoesCorretivas.razor` | AcoesCorretivasConsultas, QualidadeObraServico | 25 |
 | `obra/auditorias` | `src/Sigeo.Web/Components/Pages/Qualidade/Auditorias.razor` | AuditoriasConsultas, QualidadeObraServico | 25 |
-| `obra/equipamentos` | `src/Sigeo.Web/Components/Pages/Qualidade/Equipamentos.razor` | QualidadeObraServico | 25 |
+| `obra/equipamentos` | `src/Sigeo.Web/Components/Pages/Qualidade/Equipamentos.razor` | EquipamentosMedicaoConsultas, QualidadeObraServico | 25 |
 | `obra/equipamentos/etiquetas` | `src/Sigeo.Web/Components/Pages/Suprimentos/Etiquetas.razor` | EtiquetasConsultas | 5 |
-| `obra/fvs` | `src/Sigeo.Web/Components/Pages/Qualidade/Fvss.razor` | QualidadeObraServico | 25 |
+| `obra/fvs` | `src/Sigeo.Web/Components/Pages/Qualidade/Fvss.razor` | FvssConsultas, QualidadeObraServico | 26 |
 | `obra/mapa` | `src/Sigeo.Web/Components/Pages/Qualidade/Mapa.razor` | MapaConsultas | 3 |
 | `obra/modelos/{TipoRota}` | `src/Sigeo.Web/Components/Pages/Qualidade/Modelos.razor` | KitModelosServico, ModelosConsultas, QualidadeObraServico | 29 |
 | `obra/rnc` | `src/Sigeo.Web/Components/Pages/Qualidade/Rncs.razor` | AnalisesIaServico, QualidadeObraServico, RncsConsultas | 30 |
@@ -1510,10 +1511,10 @@ erDiagram
 | `portal/{Token}` | `src/Sigeo.Web/Components/Pages/Publico/PortalFornecedor.razor` | — | 0 |
 | `qr/f/{Token}` | `src/Sigeo.Web/Components/Pages/Publico/QrEquipamento.razor` | — | 4 |
 | `qr/{Token}` | `src/Sigeo.Web/Components/Pages/Publico/Qr.razor` | — | 2 |
-| `recebimentos` | `src/Sigeo.Web/Components/Pages/Suprimentos/Recebimentos.razor` | AnexosServico, EstoqueServico, LeituraNotaServico, QualidadeObraServico, RecebimentosServico, TransferenciasServico | 43 |
-| `requisicoes` | `src/Sigeo.Web/Components/Pages/Suprimentos/Requisicoes.razor` | CotacoesServico, EstoqueServico, OrcamentoServico, RequisicoesServico | 39 |
+| `recebimentos` | `src/Sigeo.Web/Components/Pages/Suprimentos/Recebimentos.razor` | AnexosServico, EstoqueServico, LeituraNotaServico, QualidadeObraServico, RecebimentosConsultas, RecebimentosServico, TransferenciasServico | 43 |
+| `requisicoes` | `src/Sigeo.Web/Components/Pages/Suprimentos/Requisicoes.razor` | CotacoesServico, EstoqueServico, OrcamentoServico, RequisicoesConsultas, RequisicoesServico | 39 |
 | `sgq/copias` | `src/Sigeo.Web/Components/Pages/Documentos/Copias.razor` | CopiasConsultas | 3 |
-| `sgq/documentos` | `src/Sigeo.Web/Components/Pages/Documentos/DocumentosSgq.razor` | — | 0 |
+| `sgq/documentos` | `src/Sigeo.Web/Components/Pages/Documentos/DocumentosSgq.razor` | DocumentosSgqConsultas | 7 |
 | `sgq/externos` | `src/Sigeo.Web/Components/Pages/Documentos/Externos.razor` | ExternosConsultas | 2 |
 | `sgq/grd` | `src/Sigeo.Web/Components/Pages/Documentos/Grds.razor` | GrdsConsultas | 4 |
 | `sgq/leituras` | `src/Sigeo.Web/Components/Pages/Documentos/Leituras.razor` | LeiturasConsultas | 1 |
