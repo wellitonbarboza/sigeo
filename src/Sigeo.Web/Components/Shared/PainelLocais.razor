@@ -44,7 +44,10 @@
                                 </tr>
                             }
                         </tbody>
-                        <tfoot><tr><th>Total</th>@foreach (var f in finais) { <td>@Qtd(t.Where(l => l.Apartamento is not null && l.ApartamentoOrdem == f).Sum(l => l.Quantidade))</td> }@if (temComum) { <td>@Qtd(t.Where(l => l.Apartamento is null).Sum(l => l.Quantidade))</td> }<td class="t">@Qtd(t.Sum(l => l.Quantidade))</td></tr></tfoot>
+                        <tfoot><tr><th>Total</th>@foreach (var f in finais) {
+                                    <td>@Qtd(t.Where(l => l.Apartamento is not null && l.ApartamentoOrdem == f).Sum(l => l.Quantidade))</td>
+                                }@if (temComum) { <td>@Qtd(t.Where(l => l.Apartamento is null).Sum(l => l.Quantidade))</td>
+                                }<td class="t">@Qtd(t.Sum(l => l.Quantidade))</td></tr></tfoot>
                     </table>
                 </div>
                 <div class="pl-dir">

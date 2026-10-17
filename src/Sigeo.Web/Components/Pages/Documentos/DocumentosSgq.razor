@@ -24,7 +24,12 @@
                     @if (Gestor) { <div class="mudo marg-topo-8" @onclick="() => { _novaPasta = new Pasta(); _abertoPasta = true; }"><Icone Nome="mais" Tam="14" /> Nova pasta</div> }
                 </aside>
                 <div class="flex-1">
-                    @if (Gestor) { <div class="acoes-pagina"><button class="btn sec" id="sgq-lote" @onclick="AbrirLote" title="Traz vários documentos já elaborados (.docx/.xlsx e o PDF) — cada um entra com a revisão do arquivo, em elaboração"><Icone Nome="upload" Tam="16" /> Importar em lote</button></div> }
+                    @if (Gestor) {
+                        <div class="acoes-pagina"><button class="btn sec" id="sgq-lote" @onclick="AbrirLote"
+                                title="Traz vários documentos já elaborados (.docx/.xlsx e o PDF) — cada um entra com a revisão do arquivo, em elaboração"><Icone
+                                    Nome="upload" Tam="16" />
+                                Importar em lote</button></div>
+                    }
                     <Grade T="Linha" @ref="_grade" Itens="_itens" AoClicar="l => Abrir(l.Id)" NomeExportacao="documentos-sgq" CriadoPor="l => l.CriadoPor">
                         <Colunas>
                             <Coluna T="Linha" Titulo="Código" Valor="l => l.Codigo" Largura="110px" />
@@ -158,7 +163,10 @@
                         @if (_emAndamento is not null && _perm?.Editar == true)
                         {
                             <div><b>Check-out</b>
-                                @if (_checkout is not null) { <span>com <b>@_checkout.UsuarioNome</b> até @Data(_checkout.Prazo)</span> <button class="btn sec pq" @onclick="() => Checkin(false)">Check-in</button> @if (Gestor) { <button class="btn sec pq" @onclick="() => Checkin(true)">Liberar (forçado)</button> } }
+                                @if (_checkout is not null) { <span>com <b>@_checkout.UsuarioNome</b> até @Data(_checkout.Prazo)</span>
+                                    <button class="btn sec pq" @onclick="() => Checkin(false)">Check-in</button>
+                                    @if (Gestor) { <button class="btn sec pq" @onclick="() => Checkin(true)">Liberar (forçado)</button> }
+                                }
                                 else { <button class="btn sec pq" @onclick="Checkout">Fazer check-out</button> }
                             </div>
                         }

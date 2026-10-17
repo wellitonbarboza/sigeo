@@ -95,13 +95,25 @@
         @if (_c is not null)
         {
             <Erros Lista="ErrosForm" />
-            @if (_c.ValorTravado) { <div class="alerta info"><Icone Nome="info" /> Veio @(_c.Origem switch { OrigemCusto.Recebimento => "do recebimento", OrigemCusto.Medicao => "da medição", _ => "da importação do ERP" }): valor e quantidade são do documento de origem. Aqui muda só fase, local, tipo e observação.</div> }
+            @if (_c.ValorTravado) {
+                <div class="alerta info"><Icone Nome="info" />
+                    Veio @(_c.Origem switch { OrigemCusto.Recebimento => "do recebimento", OrigemCusto.Medicao => "da medição", _ =>
+                            "da importação do ERP" }): valor e quantidade são do documento de origem. Aqui muda só fase, local, tipo e observação.</div>
+            }
             <div class="form">
                 <Campo Rotulo="Data" Obrigatorio Classe="s3"><input id="cr-data" type="date" @bind="_c.Data" disabled="@_c.ValorTravado" /></Campo>
                 <Campo Rotulo="Tipo de custo" Classe="s3"><select id="cr-tipo" @bind="_c.TipoCusto">@foreach (var t in TiposCusto.Todos) { <option value="@t">@TiposCusto.Nome(t)</option> }</select></Campo>
                 <Campo Rotulo="Fase (grupo de serviço)" Obrigatorio Classe="s6"><select id="cr-fase" @bind="_c.Fase">@foreach (var f in _fases.Union(new[] { _c.Fase }).Distinct()) { <option value="@f">@f</option> }</select></Campo>
-                <Campo Rotulo="Local" Classe="s6"><select id="cr-local" value="@(_c.LocalId?.ToString() ?? "")" @onchange="e => _c.LocalId = Guid.TryParse(e.Value?.ToString(), out var g) ? g : null"><option value="">Obra toda (sem local)</option>@foreach (var l in _locais) { <option value="@l.Id">@l.Texto</option> }</select></Campo>
-                <Campo Rotulo="Fornecedor" Classe="s6"><select id="cr-forn" value="@(_c.FornecedorId?.ToString() ?? "")" disabled="@_c.ValorTravado" @onchange="e => _c.FornecedorId = Guid.TryParse(e.Value?.ToString(), out var g) ? g : null"><option value="">(sem fornecedor)</option>@foreach (var f in _fornecedores) { <option value="@f.Id">@f.Texto</option> }</select></Campo>
+                <Campo Rotulo="Local" Classe="s6"><select id="cr-local" value="@(_c.LocalId?.ToString() ?? "")"
+                        @onchange="e => _c.LocalId = Guid.TryParse(e.Value?.ToString(), out var g) ? g : null"><option
+                            value="">Obra toda (sem local)</option>@foreach (var l in _locais) {
+                            <option value="@l.Id">@l.Texto</option>
+                        }</select></Campo>
+                <Campo Rotulo="Fornecedor" Classe="s6"><select id="cr-forn" value="@(_c.FornecedorId?.ToString() ?? "")" disabled="@_c.ValorTravado"
+                        @onchange="e => _c.FornecedorId = Guid.TryParse(e.Value?.ToString(), out var g) ? g : null"><option
+                            value="">(sem fornecedor)</option>@foreach (var f in _fornecedores) {
+                            <option value="@f.Id">@f.Texto</option>
+                        }</select></Campo>
                 <Campo Rotulo="Descrição" Obrigatorio Classe="s12"><input id="cr-desc" @bind="_c.Descricao" disabled="@_c.ValorTravado" maxlength="300" /></Campo>
                 <Campo Rotulo="Unidade" Classe="s2"><input @bind="_c.Unidade" list="cr-unidades" disabled="@_c.ValorTravado" maxlength="10" /><datalist id="cr-unidades">@foreach (var u in UnidadesPadrao.Lista) { <option>@u</option> }</datalist></Campo>
                 <Campo Rotulo="Quantidade" Classe="s3"><input id="cr-qtd" type="number" step="0.0001" @bind="_c.Quantidade" disabled="@_c.ValorTravado" /></Campo>

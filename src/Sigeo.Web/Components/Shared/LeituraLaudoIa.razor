@@ -13,7 +13,10 @@
             @if (_r is { } r)
             {
                 <div class="caixa-sec mt-6">
-                    <div class="fonte-13"><b>@(r.Tipo ?? "Documento")</b> @(r.Numero is null ? "" : $"nº {r.Numero}") · @r.Emitente @(r.DataEmissao is null ? "" : $"· emitido {r.DataEmissao:dd/MM/yyyy}") @(r.Validade is null ? "" : $"· válido até {r.Validade:dd/MM/yyyy}") @(r.Lote is null ? "" : $"· lote {r.Lote}")</div>
+                    <div
+                        class="fonte-13"><b>@(r.Tipo ?? "Documento")</b> @(r.Numero is null ? "" : $"nº {r.Numero}") · @r.Emitente @(r.DataEmissao is null ? ""
+                            : $"· emitido {r.DataEmissao:dd/MM/yyyy}") @(r.Validade is null ? "" : $"· válido até {r.Validade:dd/MM/yyyy}") @(r.Lote is null
+                            ? "" : $"· lote {r.Lote}")</div>
                     @if (r.Resultados.Count > 0)
                     {
                         <table class="itens mt-6"><thead><tr><th>Ensaio</th><th>Resultado</th><th>Especificação</th><th>Conforme</th></tr></thead>

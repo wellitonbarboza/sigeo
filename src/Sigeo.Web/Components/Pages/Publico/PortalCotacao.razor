@@ -51,7 +51,9 @@
                             <td><b>@l.Descricao</b>
                                 @if (ls is not null)
                                 {
-                                    <br /><button type="button" class="pl-toggle" aria-expanded="@(aberto ? "true" : "false")" @onclick="() => { if (!_abertos.Remove(l.Id)) _abertos.Add(l.Id); }">@(aberto ? "▾" : "▸") <span class="pl-ico">▦</span> Locais: @QuadroLocais.Resumo(ls, l.Unidade)</button>
+                                    <br /><button type="button" class="pl-toggle" aria-expanded="@(aberto ? "true" : "false")"
+                                        @onclick="() => { if (!_abertos.Remove(l.Id)) _abertos.Add(l.Id); }">@(aberto ? "▾" : "▸") <span
+                                            class="pl-ico">▦</span> Locais: @QuadroLocais.Resumo(ls, l.Unidade)</button>
                                 }
                                 @if (_s.MarcasPedidas.TryGetValue(l.Id, out var mp)) { <br /><small class="mudo">Marca pedida: @mp.Marca@(mp.Somente ? " (somente esta)" : " ou similar")</small> }</td><td>@l.Unidade</td><td class="num">@Rotulos.Num(l.Quantidade, 3)</td>
                             <td class="larg-150"><input type="number" step="0.01" min="0" @bind="l.Valor" disabled="@(!_s.Aberta)" /></td>
@@ -94,7 +96,12 @@
             <h3 class="mt-18">Versões enviadas</h3>
             <table class="itens" id="prop-versoes">
                 <thead><tr><th>Versão</th><th>Enviada</th><th>Por</th><th class="num">Itens</th><th class="num">Frete</th><th>Prazo</th><th>Pagamento</th></tr></thead>
-                <tbody>@foreach (var v in _s.Versoes.OrderByDescending(v => v.Versao)) { <tr @key="v.Id"><td>@v.Versao</td><td>@v.EnviadaEm.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td><td>@v.EnviadaPor</td><td class="num">@Rotulos.Moeda(v.ValorItens)</td><td class="num">@(v.ValorFrete is { } vf ? Rotulos.Moeda(vf) : "—")</td><td>@v.PrazoEntrega?.ToString("dd/MM/yyyy")</td><td>@v.CondicaoPagamento</td></tr> }</tbody>
+                <tbody>@foreach (var v in _s.Versoes.OrderByDescending(v => v.Versao)) {
+                        <tr @key="v.Id"><td>@v.Versao</td><td>@v.EnviadaEm.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td><td>@v.EnviadaPor</td><td
+                                class="num">@Rotulos.Moeda(v.ValorItens)</td><td
+                                class="num">@(v.ValorFrete is { } vf ? Rotulos.Moeda(vf)
+                                    : "—")</td><td>@v.PrazoEntrega?.ToString("dd/MM/yyyy")</td><td>@v.CondicaoPagamento</td></tr>
+                    }</tbody>
             </table>
         }
     }

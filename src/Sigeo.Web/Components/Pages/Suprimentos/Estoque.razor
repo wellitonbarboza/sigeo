@@ -27,10 +27,16 @@
             @if (_aba == "saldos")
             {
                 <div class="barra-acoes">
-                    <button class="btn sec" id="est-sugerir" disabled="@(Ocupado || _almox is null)" @onclick="SugerirMinimos" title="Calcula mínimo, ponto de pedido e máximo pelo consumo de 60 dias × prazo de entrega (só dos itens ainda sem parâmetro)"><Icone Nome="raio" Tam="16" /> Sugerir mínimos</button>
+                    <button class="btn sec" id="est-sugerir" disabled="@(Ocupado || _almox is null)" @onclick="SugerirMinimos"
+                        title="Calcula mínimo, ponto de pedido e máximo pelo consumo de 60 dias × prazo de entrega (só dos itens ainda sem parâmetro)"><Icone
+                            Nome="raio" Tam="16" />
+                        Sugerir mínimos</button>
                     @if (_almox?.Tipo == TipoAlmoxarifado.Obra && _central is not null)
                     {
-                        <button class="btn sec" id="est-repor" disabled="@(Ocupado || _saldos?.Any(s => s.Reposicao > 0) != true)" @onclick="ReporDoCentral" title="Cria uma transferência (rascunho) do central para esta obra com todos os itens no ponto de pedido"><Icone Nome="enviar" Tam="16" /> Pedir reposição ao central</button>
+                        <button class="btn sec" id="est-repor" disabled="@(Ocupado || _saldos?.Any(s => s.Reposicao > 0) != true)" @onclick="ReporDoCentral"
+                            title="Cria uma transferência (rascunho) do central para esta obra com todos os itens no ponto de pedido"><Icone Nome="enviar"
+                                Tam="16" />
+                            Pedir reposição ao central</button>
                     }
                     <label class="check"><input type="checkbox" @bind="_soAlerta" /> Só ponto de pedido / abaixo do mínimo</label>
                 </div>
@@ -117,7 +123,12 @@
         @if (_saldo is not null)
         {
             <Erros Lista="ErrosForm" />
-            <p class="mudo">Disponível <b>@_saldo.Disponivel.ToString("N3", Br) @_saldo.Unidade</b> · quarentena @_saldo.Bloqueado.ToString("N3", Br) · custo médio @_saldo.CustoMedio.ToString("N2", Br)@if (_central is not null && _almox?.Tipo == TipoAlmoxarifado.Obra) { <span> · no central @_saldo.NoCentral.ToString("N3", Br)</span> }</p>
+            <p class="mudo">Disponível <b>@_saldo.Disponivel.ToString("N3", Br) @_saldo.Unidade</b> · quarentena @_saldo.Bloqueado.ToString("N3", Br) · custo
+                médio @_saldo.CustoMedio.ToString("N2", Br)@if (_central
+                    is not null
+                    && _almox?.Tipo == TipoAlmoxarifado.Obra) {
+                    <span> · no central @_saldo.NoCentral.ToString("N3", Br)</span>
+                }</p>
             <div class="form">
                 <Campo Rotulo="Mínimo" Classe="s4"><input id="min-min" type="number" step="0.01" @bind="_min" /></Campo>
                 <Campo Rotulo="Ponto de pedido" Classe="s4"><input id="min-pp" type="number" step="0.01" @bind="_pp" /></Campo>

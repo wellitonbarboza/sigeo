@@ -33,7 +33,11 @@
         {
             <Erros Lista="ErrosForm" />
             <div class="form">
-                <Campo Rotulo="Escopo" Classe="s4"><select value="@_p.Escopo" @onchange="e => { _p.Escopo = Enum.Parse<EscopoPermissao>(e.Value!.ToString()!); _p.AlvoId = Guid.Empty; }" disabled="@(!Gestor)">@foreach (var s in Enum.GetValues<EscopoPermissao>()) { <option value="@s">@De(s)</option> }</select></Campo>
+                <Campo Rotulo="Escopo" Classe="s4"><select value="@_p.Escopo"
+                        @onchange="e => { _p.Escopo = Enum.Parse<EscopoPermissao>(e.Value!.ToString()!); _p.AlvoId = Guid.Empty; }"
+                        disabled="@(!Gestor)">@foreach (var s in Enum.GetValues<EscopoPermissao>()) {
+                            <option value="@s">@De(s)</option>
+                        }</select></Campo>
                 <Campo Rotulo="@(_p.Escopo == EscopoPermissao.Pasta ? "Pasta" : "Documento")" Obrigatorio Classe="s8">
                     <select @bind="_p.AlvoId" disabled="@(!Gestor)"><option value="@Guid.Empty">Selecione…</option>
                         @foreach (var a in _p.Escopo == EscopoPermissao.Pasta ? _pastas : _docs) { <option value="@a.Id">@a.Texto</option> }

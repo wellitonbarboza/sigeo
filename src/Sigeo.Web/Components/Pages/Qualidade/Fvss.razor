@@ -36,7 +36,12 @@
     <ChildContent>
         <Erros Lista="ErrosForm" />
         <div class="form">
-            <Campo Rotulo="Obra" Obrigatorio Classe="s6"><select value="@_obra" @onchange="async e => { _obra = Guid.TryParse(e.Value?.ToString(), out var g) ? g : null; _locais = _obra is { } o ? await Cat.LocaisAsync(o) : []; }"><option value="">Selecione…</option>@foreach (var o in _obras) { <option value="@o.Id">@o.Texto</option> }</select></Campo>
+            <Campo Rotulo="Obra" Obrigatorio Classe="s6"><select value="@_obra"
+                    @onchange="async e => { _obra = Guid.TryParse(e.Value?.ToString(), out var g) ? g : null; _locais = _obra is { } o
+                            ? await Cat.LocaisAsync(o) : []; }"><option
+                        value="">Selecione…</option>@foreach (var o in _obras) {
+                        <option value="@o.Id">@o.Texto</option>
+                    }</select></Campo>
             <Campo Rotulo="Local" Obrigatorio Classe="s6"><select @bind="_local"><option value="">Selecione…</option>@foreach (var l in _locais) { <option value="@l.Id">@l.Texto (@l.Extra)</option> }</select></Campo>
             <Campo Rotulo="Modelo de FVS (vigente)" Obrigatorio Classe="s12"><select @bind="_modelo"><option value="">Selecione…</option>@foreach (var m in _modelos) { <option value="@m.Id">@m.Texto</option> }</select></Campo>
             <Campo Rotulo="Prestador" Obrigatorio Classe="s6"><select @bind="_prestador"><option value="">Selecione…</option>@foreach (var f in _fornecedores) { <option value="@f.Id">@f.Texto</option> }</select></Campo>
@@ -51,7 +56,9 @@
         @if (_f is not null)
         {
             <Erros Lista="ErrosForm" />
-            <div class="cabecalho-doc"><Selo Texto="@De(_f.Status)" Tom="@Tom(_f.Status)" /><span>Modelo <b>@_f.Modelo?.Codigo R@(_f.RevisaoModelo.ToString("00"))</b></span><span>Prestador <b>@Nome(_fornecedores, _f.FornecedorId)</b></span><span>Inspetor <b>@_f.InspetorNome</b> · @DataHora(_f.DataInspecao)</span>
+            <div class="cabecalho-doc"><Selo Texto="@De(_f.Status)"
+                    Tom="@Tom(_f.Status)" /><span>Modelo <b>@_f.Modelo?.Codigo R@(_f.RevisaoModelo.ToString("00"))</b></span><span>Prestador
+                    <b>@Nome(_fornecedores, _f.FornecedorId)</b></span><span>Inspetor <b>@_f.InspetorNome</b> · @DataHora(_f.DataInspecao)</span>
                 @if (_f.LiberadoPorNome is not null) { <span>Liberada por <b>@_f.LiberadoPorNome</b> · @DataHora(_f.DataLiberacao)</span> }</div>
             @if (!string.IsNullOrWhiteSpace(_f.Modelo?.Orientacoes))
             {
@@ -64,7 +71,12 @@
             </div>
             <div class="tabela-rolavel">
             <table class="itens">
-                <thead><tr><th>#</th><th>Item de verificação</th><th>Método</th><th>Tolerância / critério</th><th>Medido</th><th class="larg-min-230">Resultado</th><th>Foto</th><th>Observação</th>@if (_f.Status is StatusFvs.Reprovada or StatusFvs.Aprovada or StatusFvs.Liberada && _f.Itens.Any(i => i.Resultado == ResultadoItem.NaoConforme)) { <th>Reinspeção</th> }</tr></thead>
+                <thead><tr><th>#</th><th>Item de verificação</th><th>Método</th><th>Tolerância / critério</th><th>Medido</th><th
+                            class="larg-min-230">Resultado</th><th>Foto</th><th>Observação</th>@if (_f.Status is StatusFvs.Reprovada or StatusFvs.Aprovada or
+                            StatusFvs.Liberada
+                            && _f.Itens.Any(i => i.Resultado == ResultadoItem.NaoConforme)) {
+                            <th>Reinspeção</th>
+                        }</tr></thead>
                 <tbody>
                     @foreach (var i in _f.Itens.OrderBy(i => i.Ordem))
                     {
@@ -87,7 +99,11 @@
                                     {
                                         @if (_f.Status == StatusFvs.Reprovada)
                                         {
-                                            <select value="@(_reinsp.GetValueOrDefault(i.Id))" @onchange="e => _reinsp[i.Id] = Enum.Parse<ResultadoItem>(e.Value!.ToString()!)"><option value="@ResultadoItem.NaoAvaliado">—</option><option value="@ResultadoItem.Conforme">Conforme</option><option value="@ResultadoItem.NaoConforme">Não conforme</option></select>
+                                            <select value="@(_reinsp.GetValueOrDefault(i.Id))"
+                                                @onchange="e => _reinsp[i.Id] = Enum.Parse<ResultadoItem>(e.Value!.ToString()!)"><option
+                                                    value="@ResultadoItem.NaoAvaliado">—</option><option
+                                                    value="@ResultadoItem.Conforme">Conforme</option><option
+                                                    value="@ResultadoItem.NaoConforme">Não conforme</option></select>
                                         }
                                         else if (i.ResultadoReinspecao is { } rr) { <Selo Texto="@De(rr)" Tom="@Tom(rr)" /> }
                                     }</td>

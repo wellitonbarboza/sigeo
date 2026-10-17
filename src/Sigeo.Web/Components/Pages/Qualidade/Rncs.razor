@@ -43,14 +43,23 @@
             <div class="form">
                 <Campo Rotulo="Origem" Obrigatorio Classe="s3"><select @bind="_r.Origem" disabled="@(!Novo_)">@foreach (var o in Enum.GetValues<OrigemRnc>()) { <option value="@o">@De(o)</option> }</select></Campo>
                 <Campo Rotulo="Referência" Classe="s3"><input @bind="_r.Referencia" disabled="@(!Novo_)" /></Campo>
-                <Campo Rotulo="Obra" Classe="s3"><select value="@_r.ObraId" @onchange="async e => { _r.ObraId = Guid.TryParse(e.Value?.ToString(), out var g) ? g : null; _locais = _r.ObraId is { } o ? await Cat.LocaisAsync(o) : []; }" disabled="@Encerrada"><option value="">—</option>@foreach (var o in _obras) { <option value="@o.Id">@o.Texto</option> }</select></Campo>
+                <Campo Rotulo="Obra" Classe="s3"><select value="@_r.ObraId"
+                        @onchange="async e => { _r.ObraId = Guid.TryParse(e.Value?.ToString(), out var g) ? g : null; _locais = _r.ObraId is { } o
+                                ? await Cat.LocaisAsync(o) : []; }"
+                        disabled="@Encerrada"><option value="">—</option>@foreach (var o in _obras) {
+                            <option value="@o.Id">@o.Texto</option>
+                        }</select></Campo>
                 <Campo Rotulo="Local" Classe="s3"><select @bind="_r.LocalId" disabled="@Encerrada"><option value="">—</option>@foreach (var l in _locais) { <option value="@l.Id">@l.Texto</option> }</select></Campo>
                 <Campo Rotulo="Descrição" Obrigatorio Classe="s12"><textarea @bind="_r.Descricao" disabled="@Encerrada"></textarea></Campo>
                 <Campo Rotulo="Fornecedor / prestador" Classe="s4"><select @bind="_r.FornecedorId" disabled="@Encerrada"><option value="">—</option>@foreach (var f in _fornecedores) { <option value="@f.Id">@f.Texto</option> }</select></Campo>
                 <Campo Rotulo="Classificação" Classe="s3"><select @bind="_r.Classificacao" disabled="@Encerrada">@foreach (var c in Enum.GetValues<ClassificacaoRnc>()) { <option value="@c">@De(c)</option> }</select></Campo>
                 <Campo Rotulo="Gravidade" Classe="s2"><select @bind="_r.Gravidade" disabled="@Encerrada">@foreach (var g in Enum.GetValues<Gravidade>()) { <option value="@g">@De(g)</option> }</select></Campo>
                 <Campo Rotulo="Prazo" Obrigatorio Classe="s3"><input type="date" @bind="_r.Prazo" disabled="@Encerrada" /></Campo>
-                <Campo Rotulo="Disposição (tratamento imediato)" Obrigatorio Classe="s6"><select @bind="_r.Disposicao" disabled="@Encerrada"><option value="">Selecione…</option>@foreach (var d in Sigeo.Web.Components.Pages.Qualidade.Fvss.Disposicoes.Append("Tratar conforme ação corretiva").Append("Paralisação da frente até correção")) { <option>@d</option> }</select></Campo>
+                <Campo Rotulo="Disposição (tratamento imediato)" Obrigatorio Classe="s6"><select @bind="_r.Disposicao" disabled="@Encerrada"><option
+                            value="">Selecione…</option>@foreach (var d in
+                            Sigeo.Web.Components.Pages.Qualidade.Fvss.Disposicoes.Append("Tratar conforme ação corretiva").Append("Paralisação da frente até correção")) {
+                            <option>@d</option>
+                        }</select></Campo>
                 <Campo Rotulo="Responsável" Obrigatorio Classe="s6"><select @bind="_r.ResponsavelId" disabled="@Encerrada"><option value="">—</option>@foreach (var u in _usuarios) { <option value="@u.Id">@u.Texto</option> }</select></Campo>
                 <Campo Rotulo="Concessão / aceite (aprovação do projetista / Diretoria)" Classe="s8"><input @bind="_r.Concessao" disabled="@Encerrada" /></Campo>
                 <Campo Rotulo="Exige ação corretiva?" Classe="s4"><select @bind="_r.ExigeAcao" disabled="@Encerrada"><option value="False">Não — caso isolado</option><option value="True">Sim (gravidade alta / reincidência)</option></select></Campo>
@@ -81,7 +90,11 @@
                     </div>
                 </div>
             }
-            @if (_r.Origem == OrigemRnc.Fvs && _r.ReferenciaId is { } fid) { <div class="alerta aviso"><Icone Nome="alerta" /> Etapa seguinte do local bloqueada até a reinspeção da <a href="obra/fvs?id=@fid">&nbsp;FVS&nbsp;</a> ser aprovada. Prestador avisado (conta na nota de qualidade do serviço da medição).</div> }
+            @if (_r.Origem == OrigemRnc.Fvs && _r.ReferenciaId is { } fid) {
+                <div class="alerta aviso"><Icone Nome="alerta" />
+                    Etapa seguinte do local bloqueada até a reinspeção da <a href="obra/fvs?id=@fid">&nbsp;FVS&nbsp;</a>
+                    ser aprovada. Prestador avisado (conta na nota de qualidade do serviço da medição).</div>
+            }
             @if (_r.AcaoCorretivaId is { } ac) { <div class="alerta info"><Icone Nome="ferramenta" /> Ação corretiva <a href="obra/acoes?id=@ac">&nbsp;@_acs.GetValueOrDefault(ac)</a></div> }
             @if (!Novo_) { <Anexos Entidade="Rnc" EntidadeId="_r.Id" Categoria="Evidencia" Titulo="Evidências e fotos" SomenteLeitura="Encerrada" /> }
             @if (_r.CriadoEm != default) { <Notas Entidade="Rnc" EntidadeId="_r.Id" /> }

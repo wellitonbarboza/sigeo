@@ -23,7 +23,9 @@
                         <tbody>
                             @foreach (var eq in _equipes)
                             {
-                                <tr><td><b>@eq.Codigo</b></td><td>@eq.Nome</td><td>@eq.Encarregado</td><td class="num">@eq.Membros.Count(m => m.Ate == null)</td><td>@(eq.Ativa ? "Sim" : "Não")</td><td><button class="btn sec pq" @onclick="() => { _e = eq; ErrosForm = null; _abertoEq = true; }">Editar</button></td></tr>
+                                <tr><td><b>@eq.Codigo</b></td><td>@eq.Nome</td><td>@eq.Encarregado</td><td
+                                        class="num">@eq.Membros.Count(m => m.Ate == null)</td><td>@(eq.Ativa ? "Sim" : "Não")</td><td><button class="btn sec pq"
+                                            @onclick="() => { _e = eq; ErrosForm = null; _abertoEq = true; }">Editar</button></td></tr>
                             }
                             @if (_equipes.Count == 0) { <tr><td colspan="6" class="mudo">Cadastre as equipes próprias (ex.: Alvenaria 1, Acabamento 2). Os membros são os colaboradores próprios (Segurança e Pessoas › Colaboradores).</td></tr> }
                         </tbody>
@@ -37,7 +39,10 @@
                         <button class="btn prim" id="custo-salvar" disabled="@Ocupado" @onclick="SalvarCustos"><Icone Nome="check" Tam="14" /> Salvar custos do mês</button>
                     </div>
                     <div class="tabela-rolavel"><table class="itens" id="custos">
-                        <thead><tr><th>Equipe</th><th>Colaborador / função / descrição</th><th class="num">Pessoas</th><th class="num">Salário (R$/pessoa)</th><th class="num">Encargos %</th><th class="num">Benefícios (R$/pessoa)</th><th class="num">Outros (R$)</th><th class="num">Horas/mês</th><th class="num">Total</th><th class="num">R$/h</th><th></th></tr></thead>
+                        <thead><tr><th>Equipe</th><th>Colaborador / função / descrição</th><th class="num">Pessoas</th><th
+                                    class="num">Salário (R$/pessoa)</th><th class="num">Encargos %</th><th class="num">Benefícios (R$/pessoa)</th><th
+                                    class="num">Outros (R$)</th><th class="num">Horas/mês</th><th class="num">Total</th><th
+                                    class="num">R$/h</th><th></th></tr></thead>
                         <tbody>
                             @foreach (var c in _custos)
                             {
@@ -106,7 +111,11 @@
                     </div>
                     <div class="tabela-rolavel"><table class="itens" id="fech-equipes">
                         <thead><tr><th>Equipe</th><th class="num">Custo do mês</th><th class="num">Horas apropriadas</th><th class="num">Custo-hora real</th></tr></thead>
-                        <tbody>@foreach (var eq in _fech.Equipes) { <tr><td>@(eq.EquipeId is null ? "(sem equipe)" : _equipes.FirstOrDefault(x => x.Id == eq.EquipeId)?.Nome)</td><td class="num">@eq.CustoMes.ToString("N2", Br)</td><td class="num">@eq.HorasApropriadas.ToString("N1", Br)</td><td class="num">@eq.CustoHoraReal.ToString("N2", Br)</td></tr> }</tbody>
+                        <tbody>@foreach (var eq in _fech.Equipes) {
+                                <tr><td>@(eq.EquipeId is null ? "(sem equipe)" : _equipes.FirstOrDefault(x => x.Id == eq.EquipeId)?.Nome)</td><td
+                                        class="num">@eq.CustoMes.ToString("N2", Br)</td><td class="num">@eq.HorasApropriadas.ToString("N1", Br)</td><td
+                                        class="num">@eq.CustoHoraReal.ToString("N2", Br)</td></tr>
+                            }</tbody>
                     </table></div>
                     <div class="secao"><Icone Nome="tabela" /> Realizado × orçado (mão de obra própria) por serviço</div>
                     <div class="tabela-rolavel"><table class="itens" id="fech-servicos">

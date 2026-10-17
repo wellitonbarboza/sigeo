@@ -35,7 +35,10 @@
             <Erros Lista="ErrosForm" />
             <div class="form">
                 <Campo Rotulo="Comprador (usuário)" Obrigatorio Classe="s4"><select id="comp-usuario" @bind="_c.UsuarioId"><option value="@Guid.Empty">Selecione…</option>@foreach (var u in _usuarios) { <option value="@u.Id">@u.Texto</option> }</select></Campo>
-                <Campo Rotulo="Substituto na ausência" Classe="s4"><select id="comp-subs" @bind="_c.SubstitutoUsuarioId"><option value="">— (vai para a fila do gestor)</option>@foreach (var u in _usuarios.Where(u => u.Id != _c.UsuarioId)) { <option value="@u.Id">@u.Texto</option> }</select></Campo>
+                <Campo Rotulo="Substituto na ausência" Classe="s4"><select id="comp-subs" @bind="_c.SubstitutoUsuarioId"><option
+                            value="">— (vai para a fila do gestor)</option>@foreach (var u in _usuarios.Where(u => u.Id != _c.UsuarioId)) {
+                            <option value="@u.Id">@u.Texto</option>
+                        }</select></Campo>
                 <Campo Rotulo="Limite de lotes abertos" Classe="s2" Ajuda="Avisa o gestor acima disto"><input type="number" min="1" @bind="_c.LimiteCarga" /></Campo>
                 <Campo Rotulo="" Classe="s2"><label class="check"><input type="checkbox" @bind="_c.Ativa" /> Ativa</label></Campo>
             </div>

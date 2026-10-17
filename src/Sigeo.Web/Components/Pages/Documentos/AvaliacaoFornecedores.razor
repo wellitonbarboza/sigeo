@@ -22,7 +22,10 @@
                     <Coluna T="AvaliacaoSemestral" Titulo="Fornecedor" Valor="a => a.Fornecedor.RazaoSocial" />
                     <Coluna T="AvaliacaoSemestral" Titulo="FVM" Valor="a => a.QtdFvm" Alinhar="num" />
                     <Coluna T="AvaliacaoSemestral" Titulo="% FVM aprovadas" Valor="a => a.PercFvmAprovadas" Alinhar="num" />
-                    <Coluna T="AvaliacaoSemestral" Titulo="IDF (entregas)" Valor="a => a.IdfMedio" Alinhar="num"><Modelo>@if (context.IdfMedio is { } idf) { <b class="@(idf < _p?[Parametros.IdfMinimo] ? "texto-erro" : "")">@Num(idf)</b> <small class="mudo">(@context.QtdEntregasIdf)</small> } else { <span class="mudo">—</span> }</Modelo></Coluna>
+                    <Coluna T="AvaliacaoSemestral" Titulo="IDF (entregas)" Valor="a => a.IdfMedio" Alinhar="num"><Modelo>@if (context.IdfMedio is { } idf) {
+                                <b class="@(idf < _p?[Parametros.IdfMinimo] ? "texto-erro" : "")">@Num(idf)</b>
+                                <small class="mudo">(@context.QtdEntregasIdf)</small>
+                            } else { <span class="mudo">—</span> }</Modelo></Coluna>
                     <Coluna T="AvaliacaoSemestral" Titulo="Classificação IDF" Valor="a => Classe(a)"><Modelo>@if (Classe(context) is { } c) { <Selo Texto="@c" Tom="@(c == "Preferencial" ? "ok" : c == "Desqualificado" ? "erro" : "aviso")" /> }</Modelo></Coluna>
                     <Coluna T="AvaliacaoSemestral" Titulo="Medições" Valor="a => a.QtdMedicoes" Alinhar="num" />
                     <Coluna T="AvaliacaoSemestral" Titulo="Nota média" Valor="a => a.NotaMedia" Alinhar="num"><Modelo><b class="@(context.NotaMedia < _p?[Parametros.NotaPlanoCompleto] ? "texto-erro" : "")">@Num(context.NotaMedia)</b></Modelo></Coluna>

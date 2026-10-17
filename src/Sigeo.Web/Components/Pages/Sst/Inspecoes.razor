@@ -28,7 +28,12 @@
         <Erros Lista="ErrosForm" />
         <div class="form">
             <Campo Rotulo="Checklist" Obrigatorio Classe="s12"><select @bind="_modelo"><option value="">Selecione…</option>@foreach (var m in _modelos) { <option value="@m.Id">@m.Texto</option> }</select></Campo>
-            <Campo Rotulo="Obra" Obrigatorio Classe="s6"><select value="@_obra" @onchange="async e => { _obra = Guid.TryParse(e.Value?.ToString(), out var g) ? g : null; _locais = _obra is { } o ? await Cat.LocaisAsync(o) : []; }"><option value="">Selecione…</option>@foreach (var o in _obras) { <option value="@o.Id">@o.Texto</option> }</select></Campo>
+            <Campo Rotulo="Obra" Obrigatorio Classe="s6"><select value="@_obra"
+                    @onchange="async e => { _obra = Guid.TryParse(e.Value?.ToString(), out var g) ? g : null; _locais = _obra is { } o
+                            ? await Cat.LocaisAsync(o) : []; }"><option
+                        value="">Selecione…</option>@foreach (var o in _obras) {
+                        <option value="@o.Id">@o.Texto</option>
+                    }</select></Campo>
             <Campo Rotulo="Local" Obrigatorio Classe="s6"><select @bind="_local"><option value="">Selecione…</option>@foreach (var l in _locais) { <option value="@l.Id">@l.Texto</option> }</select></Campo>
         </div>
         <p class="mudo">Os checklists são modelos do tipo SST (Qualidade da obra › modelos). Carga inicial: canteiro geral semanal.</p>

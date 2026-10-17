@@ -25,7 +25,10 @@
                             <Coluna T="LinhaContratoVenda" Titulo="Recebido" Valor="l => l.Recebido" Formato="N2" Alinhar="num" />
                             <Coluna T="LinhaContratoVenda" Titulo="A receber (base)" Valor="l => l.AReceber" Formato="N2" Alinhar="num" />
                             <Coluna T="LinhaContratoVenda" Titulo="Atrasadas" Valor="l => l.Atrasadas" Alinhar="num" Largura="90px" />
-                            <Coluna T="LinhaContratoVenda" Titulo="Situação" Valor="l => l.Status.ToString()" Largura="110px"><Modelo><Selo Texto="@context.Status.ToString()" Tom="@(context.Status == StatusContratoVenda.Ativo ? "info" : context.Status == StatusContratoVenda.Quitado ? "ok" : "neutro")" /></Modelo></Coluna>
+                            <Coluna T="LinhaContratoVenda" Titulo="Situação" Valor="l => l.Status.ToString()" Largura="110px"><Modelo><Selo
+                                        Texto="@context.Status.ToString()"
+                                        Tom="@(context.Status == StatusContratoVenda.Ativo ? "info" : context.Status == StatusContratoVenda.Quitado ? "ok"
+                                            : "neutro")" /></Modelo></Coluna>
                         </Colunas>
                     </Grade>
                 }
@@ -86,7 +89,13 @@
                             <td class="num"><input class="larg-110" type="number" step="0.01" @bind="bl.ValorParcela" disabled="@Bloqueado" /></td>
                             <td><input type="date" @bind="bl.PrimeiroVencimento" disabled="@Bloqueado" /></td>
                             <td><input class="larg-70" type="number" min="1" @bind="bl.IntervaloMeses" disabled="@Bloqueado" /></td>
-                            <td>@if (bl.Tipo == TipoParcelaVenda.Permuta) { <select value="@(bl.FornecedorPermutaId?.ToString() ?? "")" disabled="@Bloqueado" @onchange="e => bl.FornecedorPermutaId = Guid.TryParse(e.Value?.ToString(), out var g) ? g : null"><option value="">(escolha)</option>@foreach (var f in _fornecedores) { <option value="@f.Id">@f.Texto</option> }</select> }</td>
+                            <td>@if (bl.Tipo == TipoParcelaVenda.Permuta) {
+                                    <select value="@(bl.FornecedorPermutaId?.ToString() ?? "")" disabled="@Bloqueado"
+                                        @onchange="e => bl.FornecedorPermutaId = Guid.TryParse(e.Value?.ToString(), out var g) ? g : null"><option
+                                            value="">(escolha)</option>@foreach (var f in _fornecedores) {
+                                            <option value="@f.Id">@f.Texto</option>
+                                        }</select>
+                                }</td>
                             <td class="num">@bl.Total.ToString("N2", Br)</td>
                             <td>@if (!Bloqueado) { <button class="icone-btn" title="Remover" @onclick="() => _c.Blocos.Remove(bl)"><Icone Nome="lixeira" Tam="16" /></button> }</td>
                         </tr>
@@ -113,9 +122,16 @@
                     {
                         var com = k;
                         <tr @key="com.Id">
-                            <td><select class="larg-200" value="@com.FornecedorId" disabled="@Bloqueado" @onchange="e => com.FornecedorId = Guid.TryParse(e.Value?.ToString(), out var g) ? g : Guid.Empty"><option value="@Guid.Empty">(escolha)</option>@foreach (var f in _fornecedores) { <option value="@f.Id">@f.Texto</option> }</select></td>
+                            <td><select class="larg-200" value="@com.FornecedorId" disabled="@Bloqueado"
+                                    @onchange="e => com.FornecedorId = Guid.TryParse(e.Value?.ToString(), out var g) ? g : Guid.Empty"><option
+                                        value="@Guid.Empty">(escolha)</option>@foreach (var f in _fornecedores) {
+                                        <option value="@f.Id">@f.Texto</option>
+                                    }</select></td>
                             <td><input class="larg-110" @bind="com.Papel" disabled="@Bloqueado" maxlength="60" /></td>
-                            <td class="num"><input class="larg-70" type="number" step="0.01" value="@com.Percentual" disabled="@Bloqueado" @onchange="e => { if (decimal.TryParse(e.Value?.ToString(), System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out var p)) { com.Percentual = p; com.Valor = Math.Round(_c.ValorVenda * p / 100m, 2); } }" /></td>
+                            <td class="num"><input class="larg-70" type="number" step="0.01" value="@com.Percentual" disabled="@Bloqueado"
+                                    @onchange="e => { if (decimal.TryParse(e.Value?.ToString(), System.Globalization.NumberStyles.Number,
+                                                    System.Globalization.CultureInfo.InvariantCulture,
+                                                    out var p)) { com.Percentual = p; com.Valor = Math.Round(_c.ValorVenda * p / 100m, 2); } }" /></td>
                             <td class="num"><input class="larg-110" type="number" step="0.01" @bind="com.Valor" disabled="@Bloqueado" /></td>
                             <td><select class="larg-110" @bind="com.Forma" disabled="@Bloqueado"><option value="@FormaComissao.AVista">À vista</option><option value="@FormaComissao.Parcelada">Parcelada</option><option value="@FormaComissao.AposPercentualPago">Após % pago</option></select></td>
                             <td class="num">@if (com.Forma == FormaComissao.Parcelada) { <input class="larg-70" type="number" min="2" @bind="com.Parcelas" disabled="@Bloqueado" /> }</td>
@@ -132,7 +148,11 @@
             {
                 <h3>Parcelas geradas (Contas a Receber)</h3>
                 <table class="itens" id="vd-parcelas"><thead><tr><th>#</th><th>Tipo</th><th>Vencimento</th><th class="num">Valor base</th><th>Situação</th></tr></thead><tbody>
-                    @foreach (var p in _parcelas) { <tr><td>@p.Parcela</td><td>@NomesVenda.Bloco(p.TipoVenda)</td><td>@p.Vencimento.ToString("dd/MM/yyyy")</td><td class="num">@p.Valor.ToString("N2", Br)</td><td>@(p.Status == StatusParcelaTitulo.Paga ? $"Recebida {p.DataPagamento:dd/MM/yyyy}" : p.DiasAtraso > 0 ? $"Vencida {p.DiasAtraso}d" : "A vencer")</td></tr> }
+                    @foreach (var p in _parcelas) {
+                        <tr><td>@p.Parcela</td><td>@NomesVenda.Bloco(p.TipoVenda)</td><td>@p.Vencimento.ToString("dd/MM/yyyy")</td><td
+                                class="num">@p.Valor.ToString("N2", Br)</td><td>@(p.Status == StatusParcelaTitulo.Paga
+                                    ? $"Recebida {p.DataPagamento:dd/MM/yyyy}" : p.DiasAtraso > 0 ? $"Vencida {p.DiasAtraso}d" : "A vencer")</td></tr>
+                    }
                 </tbody></table>
             }
         }

@@ -59,7 +59,11 @@
                     <tbody>
                         @foreach (var c in _s.Fornecedor.Contatos)
                         {
-                            <tr @key="c.Id"><td><input type="checkbox" checked="@_avisos.Contains(c.Id)" disabled="@string.IsNullOrWhiteSpace(c.Email)" aria-label="@($"Avisos para {c.Nome}")" @onchange="e => { if (e.Value is true) _avisos.Add(c.Id); else _avisos.Remove(c.Id); }" /></td><td>@c.Nome</td><td>@(c.Email ?? "sem e-mail")</td></tr>
+                            <tr @key="c.Id"><td><input type="checkbox" checked="@_avisos.Contains(c.Id)" disabled="@string.IsNullOrWhiteSpace(c.Email)"
+                                        aria-label="@($"Avisos para {c.Nome}")"
+                                        @onchange="e =>
+                                            { if (e.Value is true) _avisos.Add(c.Id); else _avisos.Remove(c.Id); }" /></td><td>@c.Nome</td><td>@(c.Email
+                                        ?? "sem e-mail")</td></tr>
                         }
                     </tbody>
                 </table>
@@ -149,7 +153,14 @@
                 <table class="itens">
                     <thead><tr><th>Enviado</th><th>Responsável</th><th>Validade</th><th>Situação</th><th>Arquivo</th></tr></thead>
                     <tbody>
-                        @foreach (var v in _versoes) { <tr @key="v.Id"><td>@v.Enviado.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td><td>@v.Responsavel</td><td>@v.Validade?.ToString("dd/MM/yyyy")</td><td><Selo Texto="@(v.Vigente ? $"{Rotulos.De(v.Status)} · vigente" : Rotulos.De(v.Status))" Tom="@Rotulos.Tom(v.Status)" />@if (v.Motivo is { } mo) { <br /><small class="texto-erro">@mo</small> }</td><td>@v.Arquivo</td></tr> }
+                        @foreach (var v in _versoes) {
+                            <tr
+                                @key="v.Id"><td>@v.Enviado.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td><td>@v.Responsavel</td><td>@v.Validade?.ToString("dd/MM/yyyy")</td><td><Selo
+                                        Texto="@(v.Vigente ? $"{Rotulos.De(v.Status)} · vigente" : Rotulos.De(v.Status))"
+                                        Tom="@Rotulos.Tom(v.Status)" />@if (v.Motivo is { } mo) {
+                                        <br /><small class="texto-erro">@mo</small>
+                                    }</td><td>@v.Arquivo</td></tr>
+                        }
                         @if (_versoes.Count == 0) { <tr><td colspan="5" class="mudo">Nenhum envio ainda.</td></tr> }
                     </tbody>
                 </table>

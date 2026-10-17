@@ -22,7 +22,10 @@
         <nav>
             <ul class="menu">
                 <li class="grupo"><NavLink href="" Match="NavLinkMatch.All" title="Minhas pendências"><Icone Nome="casa" /><span class="rotulo">Minhas pendências</span></NavLink></li>
-                <li class="grupo"><NavLink href="mensagens" title="Mensagens"><Icone Nome="mensagem" /><span class="rotulo">Mensagens</span> @if (_naoLidas > 0) { <span class="cont-menu" title="@($"{_naoLidas} conversa(s) com mensagem não lida")">@(_naoLidas > 99 ? "99+" : _naoLidas)</span> }</NavLink></li>
+                <li class="grupo"><NavLink href="mensagens" title="Mensagens"><Icone Nome="mensagem" /><span class="rotulo">Mensagens</span>
+                        @if (_naoLidas > 0) {
+                            <span class="cont-menu" title="@($"{_naoLidas} conversa(s) com mensagem não lida")">@(_naoLidas > 99 ? "99+" : _naoLidas)</span>
+                        }</NavLink></li>
                 <li class="grupo"><NavLink href="tarefas" title="Tarefas"><Icone Nome="lista" /><span class="rotulo">Tarefas</span></NavLink></li>
                 <li class="grupo"><NavLink href="painel" title="Painel de indicadores"><Icone Nome="grafico" /><span class="rotulo">Painel de indicadores</span></NavLink></li>
                 @foreach (var g in GruposVisiveis)
@@ -45,7 +48,11 @@
         <div class="usuario-box" title="@_nome · @_empresa">
             <b>@_nome</b>
             @Rotulos.De(Enum.TryParse<PerfilUsuario>(_perfil, out var p) ? p : PerfilUsuario.Campo) · @_empresa
-            <div class="conta-links">@if (_variasConstrutoras) { <a href="conta/construtora" data-enhance-nav="false" id="trocar-construtora" title="Trocar construtora"><Icone Nome="predio" Tam="14" /> Trocar construtora</a> }<a href="conta/trocar-senha" data-enhance-nav="false" title="Alterar senha"><Icone Nome="cadeado" Tam="14" /> Alterar senha</a><a href="conta/sair" data-enhance-nav="false" title="Sair"><Icone Nome="sair" Tam="14" /> Sair</a></div>
+            <div class="conta-links">@if (_variasConstrutoras) {
+                    <a href="conta/construtora" data-enhance-nav="false" id="trocar-construtora" title="Trocar construtora"><Icone Nome="predio"
+                            Tam="14" /> Trocar construtora</a>
+                }<a href="conta/trocar-senha" data-enhance-nav="false" title="Alterar senha"><Icone Nome="cadeado" Tam="14" /> Alterar senha</a><a
+                    href="conta/sair" data-enhance-nav="false" title="Sair"><Icone Nome="sair" Tam="14" /> Sair</a></div>
         </div>
     </aside>
     <main class="principal">

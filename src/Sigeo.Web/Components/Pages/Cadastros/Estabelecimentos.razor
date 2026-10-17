@@ -46,7 +46,13 @@
                     @foreach (var raiz in _lista.Where(e => e.Tipo != TipoEstabelecimento.Spe).GroupBy(e => e.Raiz))
                     {
                         <div class="eco-grupo"><div class="eco-titulo">Raiz @raiz.Key</div>
-                            @foreach (var e in raiz.OrderBy(e => e.Tipo)) { <div class="eco-no @(e.Tipo == TipoEstabelecimento.Matriz ? "matriz" : "")"><b>@e.NomeExibicao</b><span>@De(e.Tipo) · @e.Cnpj</span>@if (e.FaturaMateriais) { <small>fatura materiais</small> }@if (e.AlmoxarifadoCentral) { <small>almoxarifado central</small> }</div> }
+                            @foreach (var e in raiz.OrderBy(e => e.Tipo)) {
+                                <div
+                                    class="eco-no @(e.Tipo == TipoEstabelecimento.Matriz ? "matriz"
+                                        : "")"><b>@e.NomeExibicao</b><span>@De(e.Tipo) · @e.Cnpj</span>@if (e.FaturaMateriais) {
+                                        <small>fatura materiais</small>
+                                    }@if (e.AlmoxarifadoCentral) { <small>almoxarifado central</small> }</div>
+                            }
                         </div>
                     }
                     <div class="eco-grupo"><div class="eco-titulo">SPEs (condomínios)</div>
@@ -69,7 +75,11 @@
             @if (_e.Tipo == TipoEstabelecimento.Spe) { <div class="alerta info"><Icone Nome="info" /> SPE: dados mantidos pelo cadastro do condomínio (Engenharia › Obras). Aqui só os papéis.</div> }
             <div class="form">
                 <Campo Rotulo="Código" Obrigatorio Classe="s3"><input id="est-cod" @bind="_e.Codigo" placeholder="FAB-PM" /></Campo>
-                <Campo Rotulo="Tipo" Obrigatorio Classe="s3"><select id="est-tipo" @bind="_e.Tipo" disabled="@(_e.Tipo == TipoEstabelecimento.Spe)">@foreach (var t in Enum.GetValues<TipoEstabelecimento>().Where(t => t != TipoEstabelecimento.Spe || _e.Tipo == TipoEstabelecimento.Spe)) { <option value="@t">@De(t)</option> }</select></Campo>
+                <Campo Rotulo="Tipo" Obrigatorio Classe="s3"><select id="est-tipo" @bind="_e.Tipo"
+                        disabled="@(_e.Tipo == TipoEstabelecimento.Spe)">@foreach (var t in Enum.GetValues<TipoEstabelecimento>().Where(t =>
+                                t != TipoEstabelecimento.Spe || _e.Tipo == TipoEstabelecimento.Spe)) {
+                            <option value="@t">@De(t)</option>
+                        }</select></Campo>
                 <Campo Rotulo="CNPJ" Obrigatorio Classe="s6"><input id="est-cnpj" @bind="_e.Cnpj" disabled="@(_e.Tipo == TipoEstabelecimento.Spe)" /></Campo>
                 <Campo Rotulo="Razão social" Obrigatorio Classe="s8"><input id="est-razao" @bind="_e.RazaoSocial" disabled="@(_e.Tipo == TipoEstabelecimento.Spe)" /></Campo>
                 <Campo Rotulo="Nome curto" Classe="s4"><input id="est-nome" @bind="_e.NomeFantasia" /></Campo>
@@ -78,7 +88,10 @@
                 <Campo Rotulo="Endereço" Classe="s12"><input @bind="_e.Endereco" /></Campo>
                 <Campo Rotulo="Endereço de entrega (almoxarifado)" Classe="s12"><input @bind="_e.EnderecoEntrega" /></Campo>
                 <Campo Rotulo="Código no ERP" Classe="s4"><input @bind="_e.CodigoErp" /></Campo>
-                <Campo Rotulo="" Classe="s8"><div class="checks"><label><input type="checkbox" id="est-fatura" @bind="_e.FaturaMateriais" /> Fatura os materiais (padrão)</label><label><input type="checkbox" @bind="_e.AlmoxarifadoCentral" /> Almoxarifado central</label><label><input type="checkbox" @bind="_e.Ativo" /> Ativo</label></div></Campo>
+                <Campo Rotulo="" Classe="s8"><div class="checks"><label><input type="checkbox" id="est-fatura"
+                                @bind="_e.FaturaMateriais" /> Fatura os materiais (padrão)</label><label><input type="checkbox"
+                                @bind="_e.AlmoxarifadoCentral" /> Almoxarifado central</label><label><input type="checkbox"
+                                @bind="_e.Ativo" /> Ativo</label></div></Campo>
             </div>
         }
     </ChildContent>

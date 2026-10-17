@@ -61,7 +61,11 @@
             <div class="form">
                 @if (Pagar)
                 {
-                    <Campo Rotulo="Fornecedor" Classe="s6"><select id="tit-forn" value="@(_t.FornecedorId?.ToString() ?? "")" disabled="@TemPaga" @onchange="e => _t.FornecedorId = Guid.TryParse(e.Value?.ToString(), out var g) ? g : null"><option value="">(outro — informe ao lado)</option>@foreach (var f in _fornecedores) { <option value="@f.Id">@f.Texto</option> }</select></Campo>
+                    <Campo Rotulo="Fornecedor" Classe="s6"><select id="tit-forn" value="@(_t.FornecedorId?.ToString() ?? "")" disabled="@TemPaga"
+                            @onchange="e => _t.FornecedorId = Guid.TryParse(e.Value?.ToString(), out var g) ? g : null"><option
+                                value="">(outro — informe ao lado)</option>@foreach (var f in _fornecedores) {
+                                <option value="@f.Id">@f.Texto</option>
+                            }</select></Campo>
                     <Campo Rotulo="Ou pagar a" Classe="s6" Ajuda="Órgão público, pessoa física…"><input @bind="_t.Pessoa" disabled="@TemPaga" maxlength="200" /></Campo>
                 }
                 else
@@ -71,8 +75,17 @@
                 <Campo Rotulo="Descrição" Obrigatorio Classe="s8"><input id="tit-desc" @bind="_t.Descricao" maxlength="300" /></Campo>
                 <Campo Rotulo="Documento" Classe="s2"><input @bind="_t.DocumentoTipo" placeholder="NF, boleto…" disabled="@TemPaga" maxlength="40" /></Campo>
                 <Campo Rotulo="Nº" Classe="s2"><input @bind="_t.DocumentoNumero" disabled="@TemPaga" maxlength="60" /></Campo>
-                <Campo Rotulo="Obra" Classe="s4"><select value="@(_t.ObraId?.ToString() ?? "")" @onchange="e => _t.ObraId = Guid.TryParse(e.Value?.ToString(), out var g) ? g : null"><option value="">(administração / sem obra)</option>@foreach (var o in _obras) { <option value="@o.Id">@o.Texto</option> }</select></Campo>
-                <Campo Rotulo="Conta gerencial" Classe="s5"><select id="tit-conta" value="@(_t.ContaGerencialId?.ToString() ?? "")" @onchange="e => _t.ContaGerencialId = Guid.TryParse(e.Value?.ToString(), out var g) ? g : null"><option value="">(escolha)</option>@foreach (var c in _contas.Where(c => c.Natureza == (Pagar ? NaturezaConta.Despesa : NaturezaConta.Receita) && !_contas.Any(f => ContaGerencial.CodigoPai(f.Codigo) == c.Codigo))) { <option value="@c.Id">@c.Rotulo</option> }</select></Campo>
+                <Campo Rotulo="Obra" Classe="s4"><select value="@(_t.ObraId?.ToString() ?? "")"
+                        @onchange="e => _t.ObraId = Guid.TryParse(e.Value?.ToString(), out var g) ? g : null"><option
+                            value="">(administração / sem obra)</option>@foreach (var o in _obras) {
+                            <option value="@o.Id">@o.Texto</option>
+                        }</select></Campo>
+                <Campo Rotulo="Conta gerencial" Classe="s5"><select id="tit-conta" value="@(_t.ContaGerencialId?.ToString() ?? "")"
+                        @onchange="e => _t.ContaGerencialId = Guid.TryParse(e.Value?.ToString(), out var g) ? g : null"><option
+                            value="">(escolha)</option>@foreach (var c in _contas.Where(c => c.Natureza == (Pagar ? NaturezaConta.Despesa
+                                    : NaturezaConta.Receita) && !_contas.Any(f => ContaGerencial.CodigoPai(f.Codigo) == c.Codigo))) {
+                            <option value="@c.Id">@c.Rotulo</option>
+                        }</select></Campo>
                 <Campo Rotulo="Emissão" Obrigatorio Classe="s3"><input type="date" @bind="_t.Emissao" disabled="@TemPaga" /></Campo>
                 <Campo Rotulo="Valor bruto" Obrigatorio Classe="s3"><input id="tit-valor" type="number" step="0.01" @bind="_t.ValorBruto" disabled="@TemPaga" /></Campo>
                 @if (Pagar)
@@ -147,7 +160,10 @@
     <Rodape><button class="btn prim" id="bx-confirmar" disabled="@Ocupado" @onclick="Baixar"><Icone Nome="check" Tam="16" /> Confirmar</button></Rodape>
 </Modal>
 
-<Confirmacao Pergunta="@(_estornar is null ? null : $"Estornar a baixa da parcela {_estornar.Numero}/{_estornar.Parcela} ({Moeda(_estornar.ValorPago)})? O movimento da conta é apagado e a parcela volta a ficar em aberto.")" Titulo="Estornar baixa" TextoSim="Estornar" AoSim="Estornar" AoNao="() => _estornar = null" />
+<Confirmacao
+    Pergunta="@(_estornar is null ? null
+        : $"Estornar a baixa da parcela {_estornar.Numero}/{_estornar.Parcela} ({Moeda(_estornar.ValorPago)})? O movimento da conta é apagado e a parcela volta a ficar em aberto.")"
+    Titulo="Estornar baixa" TextoSim="Estornar" AoSim="Estornar" AoNao="() => _estornar = null" />
 <Modal @bind-Aberto="_cancelar" Titulo="Cancelar título" Tamanho="pequena">
     <ChildContent><Erros Lista="ErrosForm" /><Campo Rotulo="Motivo" Obrigatorio><input id="tit-motivo" @bind="_motivo" /></Campo></ChildContent>
     <Rodape><button class="btn perigo" id="tit-cancelar-ok" disabled="@Ocupado" @onclick="Cancelar">Cancelar título</button></Rodape>

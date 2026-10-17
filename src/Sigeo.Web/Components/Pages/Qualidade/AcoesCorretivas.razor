@@ -39,7 +39,13 @@
                         <Campo Rotulo="Análise de causa" Obrigatorio Classe="s12"><textarea rows="5" @bind="_a.AnaliseCausa" placeholder="1. Por que…?&#10;2. Por que…?" disabled="@Encerrada"></textarea></Campo>
                         <Campo Rotulo="Causa raiz" Obrigatorio Classe="s12"><input @bind="_a.CausaRaiz" disabled="@Encerrada" /></Campo>
                     </div>
-                    <div class="secao"><Icone Nome="lista" /> Plano de ação @if (!Encerrada) { <span class="acao"><button class="btn sec pq" @onclick="() => _a.Itens.Add(new AcaoCorretivaItem { AcaoCorretivaId = _a.Id, Prazo = Hoje.AddDays(7) })"><Icone Nome="mais" Tam="14" /> Ação</button></span> }</div>
+                    <div class="secao"><Icone Nome="lista" /> Plano de ação
+                        @if (!Encerrada) {
+                            <span class="acao"><button class="btn sec pq"
+                                    @onclick="() => _a.Itens.Add(new AcaoCorretivaItem { AcaoCorretivaId = _a.Id, Prazo = Hoje.AddDays(7) })"><Icone Nome="mais"
+                                        Tam="14" />
+                                    Ação</button></span>
+                        }</div>
                     <div class="tabela-rolavel">
                     <table class="itens">
                         <thead><tr><th>Ação</th><th>Responsável</th><th>Prazo</th><th>Revisar documento</th><th>Status</th><th></th></tr></thead>
@@ -76,7 +82,12 @@
             @if (_a.CriadoEm != default) { <Notas Entidade="AcaoCorretiva" EntidadeId="_a.Id" /> }
         }
     </ChildContent>
-    <Rodape>@if (_a is not null && !Encerrada && _a.CriadoEm != default) { <a class="btn sec" href="@($"tarefas?origem=AcaoCorretiva&origemId={_a.Id}&desc={Uri.EscapeDataString($"Ação corretiva {_a.Numero}")}&titulo={Uri.EscapeDataString($"Executar ação da {_a.Numero}")}&tipo=Qualidade")"><Icone Nome="lista" Tam="16" /> Criar tarefa</a> }
+    <Rodape>@if (_a is not null && !Encerrada && _a.CriadoEm != default) {
+            <a class="btn sec"
+                href="@($"tarefas?origem=AcaoCorretiva&origemId={_a.Id}&desc={Uri.EscapeDataString($"Ação corretiva {_a.Numero}")}&titulo={Uri.EscapeDataString($"Executar ação da {_a.Numero}")}&tipo=Qualidade")"><Icone
+                    Nome="lista" Tam="16" />
+                Criar tarefa</a>
+        }
         @if (_a is not null && !Encerrada) { <button class="btn prim" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="16" /> Salvar</button> }</Rodape>
 </Modal>
 

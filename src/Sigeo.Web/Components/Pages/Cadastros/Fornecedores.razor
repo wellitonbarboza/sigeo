@@ -17,7 +17,10 @@
             <div class="barra-acoes">
                 <button class="btn prim pq" id="pre-cadastro" @onclick="NovoPre"><Icone Nome="enviar" Tam="14" /> Pré-cadastro + link para o fornecedor</button>
                 <a class="btn sec pq" href="fornecedores/exigencias"><Icone Nome="tabela" Tam="14" /> Matriz de documentos</a>
-                <label class="btn sec pq arquivo cursor-mao" title="Planilha de fornecedores (.xlsx, 1ª linha com CPF / CNPJ, NOME, FANTASIA, CIDADE, UF, BAIRRO, TELEFONES, E-MAILS…). Sem CPF/CNPJ entra bloqueado para compra."><Icone Nome="upload" Tam="14" /> Importar planilha<InputFile OnChange="Prever" accept=".xlsx" class="so-leitor" /></label>
+                <label class="btn sec pq arquivo cursor-mao"
+                    title="Planilha de fornecedores (.xlsx, 1ª linha com CPF / CNPJ, NOME, FANTASIA, CIDADE, UF, BAIRRO, TELEFONES, E-MAILS…). Sem CPF/CNPJ entra bloqueado para compra."><Icone
+                        Nome="upload" Tam="14" />
+                    Importar planilha<InputFile OnChange="Prever" accept=".xlsx" class="so-leitor" /></label>
             </div>
             <Grade T="Fornecedor" @ref="_grade" Itens="_itens" AoClicar="Editar" NomeExportacao="fornecedores" CriadoPor="f => f.CriadoPor">
                 <Acoes><button title="Editar" @onclick="() => Editar(context)"><Icone Nome="editar" Tam="16" /></button><button title="Qualificação" @onclick='() => Nav.NavigateTo($"fornecedores/qualificacao?f={context.Id}")'><Icone Nome="selo" Tam="16" /></button></Acoes>
@@ -157,7 +160,9 @@
             }
             @if (_f.OrigemSistema is not null)
             {
-                <p class="mudo mt-8">Origem: <b>@_f.OrigemSistema</b>@(_f.OrigemCriadoPor is null ? "" : $" · criado por {_f.OrigemCriadoPor}")@(_f.OrigemCriadoEm is { } oc ? $" em {oc:dd/MM/yyyy HH:mm}" : "")@(_f.OrigemAlteradoPor is null ? "" : $" · alterado por {_f.OrigemAlteradoPor}")@(_f.OrigemAlteradoEm is { } oa ? $" em {oa:dd/MM/yyyy HH:mm}" : "")</p>
+                <p class="mudo mt-8">Origem: <b>@_f.OrigemSistema</b>@(_f.OrigemCriadoPor is null ? ""
+                        : $" · criado por {_f.OrigemCriadoPor}")@(_f.OrigemCriadoEm is { } oc ? $" em {oc:dd/MM/yyyy HH:mm}" : "")@(_f.OrigemAlteradoPor is null
+                        ? "" : $" · alterado por {_f.OrigemAlteradoPor}")@(_f.OrigemAlteradoEm is { } oa ? $" em {oa:dd/MM/yyyy HH:mm}" : "")</p>
             }
             }
         }

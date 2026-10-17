@@ -9,7 +9,11 @@
             <div class="barra-filtro">
                 <SeletorObra Valor="_obra" ValorChanged="TrocarObra" />
                 <label>Bloco / torre <select value="@_torre" @onchange="async e => { _torre = Guid.TryParse(e.Value?.ToString(), out var g) ? g : null; await Carregar(); }"><option value="">Todos</option>@foreach (var t in _torres) { <option value="@t.Id">@t.Nome</option> }</select></label>
-                <label>Prestador <select value="@_prestador" @onchange="async e => { _prestador = Guid.TryParse(e.Value?.ToString(), out var g) ? g : null; await Carregar(); }"><option value="">Todos</option>@foreach (var f in _fornecedores) { <option value="@f.Id">@f.Texto</option> }</select></label>
+                <label>Prestador <select value="@_prestador"
+                        @onchange="async e => { _prestador = Guid.TryParse(e.Value?.ToString(), out var g) ? g : null; await Carregar(); }"><option
+                            value="">Todos</option>@foreach (var f in _fornecedores) {
+                            <option value="@f.Id">@f.Texto</option>
+                        }</select></label>
             </div>
             <div class="kpis">
                 <Kpi Rotulo="FVS no mês" Valor="@_fvs.Count(f => f.DataInspecao >= new DateTimeOffset(Hoje.Year, Hoje.Month, 1, 0, 0, 0, TimeSpan.Zero))" />
@@ -39,7 +43,9 @@
                             }
                         </tbody>
                     </table>
-                    <div class="legenda"><span><i class="cor-liberada"></i>Liberado p/ medição</span><span><i class="cor-aprovada"></i>Aprovada</span><span><i class="cor-reprovada"></i>Reprovada</span><span><i class="cor-reinspecao"></i>Reinspeção</span><span><i class="cor-em-inspecao"></i>Em inspeção</span><span><i class="cor-nao-iniciada"></i>Não iniciada</span></div>
+                    <div class="legenda"><span><i class="cor-liberada"></i>Liberado p/ medição</span><span><i class="cor-aprovada"></i>Aprovada</span><span><i
+                                class="cor-reprovada"></i>Reprovada</span><span><i class="cor-reinspecao"></i>Reinspeção</span><span><i
+                                class="cor-em-inspecao"></i>Em inspeção</span><span><i class="cor-nao-iniciada"></i>Não iniciada</span></div>
                 </div>
                 <div class="alerta info"><Icone Nome="info" /> Clique numa célula para abrir a FVS daquele local e serviço (ou iniciar uma nova). Só local com FVS <b>&nbsp;liberada&nbsp;</b> entra na medição do prestador.</div>
             }

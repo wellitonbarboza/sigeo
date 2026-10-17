@@ -44,7 +44,10 @@
                         <Coluna T="RegraNotificacao" Titulo="Ativa" Valor="n => n.Ativa" />
                     </Colunas>
                 </Grade>
-                <div class="alerta info"><Icone Nome="info" /> Com o canal E-mail ligado, a regra manda aviso a cada 15 min no expediente (seg–sáb, 6h–21h); mensagem interna sai na hora. Campos no texto: {documento}, {tarefa}, {rnc}, {restricao}, {data}, {remetente}, {mensagem}, {link}. Sem a comunicação do Azure configurada, os avisos ficam na fila e saem quando ela for ligada. WhatsApp: só código de acesso e convite.</div>
+                <div class="alerta info"><Icone Nome="info" />
+                    Com o canal E-mail ligado, a regra manda aviso a cada 15 min no expediente (seg–sáb, 6h–21h); mensagem interna sai na hora. Campos no texto:
+                    {documento}, {tarefa}, {rnc}, {restricao}, {data}, {remetente}, {mensagem}, {link}. Sem a comunicação do Azure configurada, os avisos ficam
+                    na fila e saem quando ela for ligada. WhatsApp: só código de acesso e convite.</div>
                 <h4 class="mt-12">Últimos avisos por e-mail <small class="mudo">(@_avisos.Count(a => a.Situacao == SituacaoAviso.Pendente) na fila · @_avisos.Count(a => a.Situacao == SituacaoAviso.Falhou) com falha)</small></h4>
                 <div class="tabela-rolavel"><table class="itens" id="avisos-fila">
                     <thead><tr><th>Criado</th><th>Evento</th><th>Para</th><th>Assunto</th><th>Situação</th><th>Enviado</th><th>Detalhe</th></tr></thead>
@@ -163,7 +166,11 @@
                 <Campo Rotulo="Antecedência" Classe="s6"><input @bind="_n.Antecedencia" placeholder="30 dias" disabled="@(!Perfil())" /></Campo>
                 <Campo Rotulo="Repetir" Classe="s6"><input @bind="_n.Repeticao" placeholder="a cada 7 dias até renovar" disabled="@(!Perfil())" /></Campo>
                 <Campo Rotulo="Destinatários" Obrigatorio Classe="s12"><input @bind="_n.Destinatarios" disabled="@(!Perfil())" /></Campo>
-                <Campo Rotulo="Canal" Classe="s12"><div class="checks">@foreach (var c in new[] { CanalNotificacao.Pendencias, CanalNotificacao.Email, CanalNotificacao.WhatsApp }) { <label><input type="checkbox" disabled="@(!Perfil())" checked="@_n.Canal.HasFlag(c)" @onchange="e => _n.Canal = (bool)e.Value! ? _n.Canal | c : _n.Canal & ~c" /> @De(c)</label> }</div></Campo>
+                <Campo Rotulo="Canal" Classe="s12"><div
+                        class="checks">@foreach (var c in new[] { CanalNotificacao.Pendencias, CanalNotificacao.Email, CanalNotificacao.WhatsApp }) {
+                            <label><input type="checkbox" disabled="@(!Perfil())" checked="@_n.Canal.HasFlag(c)"
+                                    @onchange="e => _n.Canal = (bool)e.Value! ? _n.Canal | c : _n.Canal & ~c" /> @De(c)</label>
+                        }</div></Campo>
                 <Campo Rotulo="Modelo de mensagem (variáveis: {documento}, {fornecedor}, {data}, {link}…)" Obrigatorio Classe="s12"><textarea @bind="_n.ModeloMensagem" disabled="@(!Perfil())"></textarea></Campo>
                 <Campo Rotulo="" Classe="s12"><label><input type="checkbox" @bind="_n.Ativa" disabled="@(!Perfil())" /> Ativa</label></Campo>
             </div>

@@ -17,9 +17,13 @@
             @if (_obraId is null) { <div class="alerta info"><Icone Nome="info" /> Escolha a obra.</div> }
             else
             {
-                <div class="alerta info"><Icone Nome="info" /> Base = receita da venda <b>recebida</b> no mês (inclui correção, juros e permuta). Gera o DARF em Contas a Pagar (conta 6.1), com vencimento no dia configurado do mês seguinte. Reapurar substitui o DARF enquanto não estiver pago.</div>
+                <div class="alerta info"><Icone Nome="info" /> Base = receita da venda <b>recebida</b>
+                    no mês (inclui correção, juros e permuta). Gera o DARF em Contas a Pagar (conta 6.1), com vencimento no dia configurado do mês seguinte.
+                    Reapurar substitui o DARF enquanto não estiver pago.</div>
                 <div class="tabela-rolavel"><table class="itens" id="ret-tabela">
-                    <thead><tr><th>Competência</th><th>Regime</th><th class="num">Receita recebida</th><th class="num">IRPJ</th><th class="num">CSLL</th><th class="num">PIS</th><th class="num">COFINS</th><th class="num">CBS</th><th class="num">IBS</th><th class="num">Total</th><th class="num">Alíquota</th></tr></thead>
+                    <thead><tr><th>Competência</th><th>Regime</th><th class="num">Receita recebida</th><th class="num">IRPJ</th><th class="num">CSLL</th><th
+                                class="num">PIS</th><th class="num">COFINS</th><th class="num">CBS</th><th class="num">IBS</th><th class="num">Total</th><th
+                                class="num">Alíquota</th></tr></thead>
                     <tbody>
                         @foreach (var a in _apuracoes)
                         {

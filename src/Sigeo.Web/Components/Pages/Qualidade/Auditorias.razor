@@ -36,7 +36,12 @@
                 <Campo Rotulo="Independência" Obrigatorio Classe="s6"><input @bind="_a.Independencia" placeholder="Auditor não audita o próprio trabalho" disabled="@Fechada" /></Campo>
             </div>
             <div class="secao"><Icone Nome="lista" /> Checklist e constatações
-                @if (!Fechada) { <span class="acao"><button class="btn sec pq" @onclick="CarregarChecklist">Checklist sugerido</button> <button class="btn sec pq" @onclick="() => _a.Constatacoes.Add(new Constatacao { AuditoriaInternaId = _a.Id })"><Icone Nome="mais" Tam="14" /> Item</button></span> }
+                @if (!Fechada) {
+                    <span class="acao"><button class="btn sec pq" @onclick="CarregarChecklist">Checklist sugerido</button>
+                        <button class="btn sec pq" @onclick="() => _a.Constatacoes.Add(new Constatacao { AuditoriaInternaId = _a.Id })"><Icone Nome="mais"
+                                Tam="14" />
+                            Item</button></span>
+                }
             </div>
             <div class="tabela-rolavel">
             <table class="itens">

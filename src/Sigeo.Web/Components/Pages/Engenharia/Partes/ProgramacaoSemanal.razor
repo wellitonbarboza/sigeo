@@ -11,7 +11,9 @@
     <label>Agrupar por <select @bind="_agrupar"><option value="local">Local</option><option value="macro">Macroetapa</option></select></label>
     <a class="btn prim" id="pg-imprimir" target="_blank" href="@LinkImpressao"><Icone Nome="impressora" Tam="14" /> Imprimir / PDF</a>
 </div>
-<div class="alerta info pq"><Icone Nome="info" /> Uma folha por semana (segunda a sábado): local, atividade/serviço, avanço previsto na semana (de → até) e os dias programados pintados. Usa o plano semanal (curto prazo) quando existe; senão, as atividades do cronograma na semana. Restrição aberta em vermelho.</div>
+<div class="alerta info pq"><Icone Nome="info" />
+    Uma folha por semana (segunda a sábado): local, atividade/serviço, avanço previsto na semana (de → até) e os dias programados pintados. Usa o plano semanal
+    (curto prazo) quando existe; senão, as atividades do cronograma na semana. Restrição aberta em vermelho.</div>
 @if (_p is null) { <Esqueleto Linhas="8" /> }
 else { <div class="tabela-rolavel"><FolhasProgramacao Dados="_p" Agrupar="@_agrupar" Emissor="@Usuario.Nome" /></div> }
 

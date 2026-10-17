@@ -93,7 +93,10 @@
             </div>
             @if (_r.Tipo == TipoRequisicao.Material && Editavel)
             {
-                <div class="barra-filtro"><label>Categoria (grupo do catálogo) <select @bind="_grupoFiltro"><option value="">Todas</option>@foreach (var g in _grupos) { <option>@g.Texto</option> }</select></label><span class="mudo">Filtra a busca de produto; a categoria de cada item vem do produto.</span></div>
+                <div class="barra-filtro"><label>Categoria (grupo do catálogo) <select @bind="_grupoFiltro"><option
+                                value="">Todas</option>@foreach (var g in _grupos) {
+                                <option>@g.Texto</option>
+                            }</select></label><span class="mudo">Filtra a busca de produto; a categoria de cada item vem do produto.</span></div>
             }
             <table class="itens">
                 <thead><tr>

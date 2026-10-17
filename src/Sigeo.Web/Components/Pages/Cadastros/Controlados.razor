@@ -10,8 +10,14 @@
             @if (_podeImportar)
             {
                 <div class="barra-acoes">
-                    <label class="btn sec pq arquivo" style="cursor:@(Ocupado ? "wait" : "pointer")" title="Planilha estruturada da DT.SUP.01.01 (abas 1 Materiais, 2 Documentos, 3 Ensaios, 4 Cadastro de documentos)"><Icone Nome="upload" Tam="14" /> Importar Tabela de Especificação (xlsx)<InputFile OnChange="ImportarTabela" accept=".xlsx" disabled="@Ocupado" class="so-leitor" /></label>
-                    <label class="btn sec pq arquivo" style="cursor:@(Ocupado ? "wait" : "pointer")" title="Mapa do catálogo (aba Produtos com grupo novo e a coluna SUA DECISÃO)"><Icone Nome="upload" Tam="14" /> Aplicar mapa do catálogo (xlsx)<InputFile OnChange="PreverMapa" accept=".xlsx" disabled="@Ocupado" class="so-leitor" /></label>
+                    <label class="btn sec pq arquivo" style="cursor:@(Ocupado ? "wait" : "pointer")"
+                        title="Planilha estruturada da DT.SUP.01.01 (abas 1 Materiais, 2 Documentos, 3 Ensaios, 4 Cadastro de documentos)"><Icone Nome="upload"
+                            Tam="14" />
+                        Importar Tabela de Especificação (xlsx)<InputFile OnChange="ImportarTabela" accept=".xlsx" disabled="@Ocupado"
+                            class="so-leitor" /></label>
+                    <label class="btn sec pq arquivo" style="cursor:@(Ocupado ? "wait" : "pointer")"
+                        title="Mapa do catálogo (aba Produtos com grupo novo e a coluna SUA DECISÃO)"><Icone Nome="upload" Tam="14" />
+                        Aplicar mapa do catálogo (xlsx)<InputFile OnChange="PreverMapa" accept=".xlsx" disabled="@Ocupado" class="so-leitor" /></label>
                     <button class="btn sec pq" disabled="@Ocupado" @onclick="Vincular" title="Reaplica: produto no grupo ligado vira controlado"><Icone Nome="atualizar" Tam="14" /> Vincular produtos pelo grupo</button>
                 </div>
             }
@@ -75,7 +81,11 @@
                 <Campo Rotulo="Código" Obrigatorio Classe="s3"><input @bind="_m.Codigo" /></Campo>
                 <Campo Rotulo="Nome" Obrigatorio Classe="s6"><input @bind="_m.Nome" /></Campo>
                 <Campo Rotulo="UN" Classe="s3"><input @bind="_m.Unidade" /></Campo>
-                <Campo Rotulo="Grupo do catálogo ligado (1 grupo = 1 material)" Classe="s6" Ajuda="Produtos desse grupo viram controlados automaticamente"><select @bind="_m.CategoriaProdutoId"><option value="">—</option>@foreach (var g in _grupos) { <option value="@g.Id">@g.Texto</option> }</select></Campo>
+                <Campo Rotulo="Grupo do catálogo ligado (1 grupo = 1 material)" Classe="s6"
+                    Ajuda="Produtos desse grupo viram controlados automaticamente"><select @bind="_m.CategoriaProdutoId"><option
+                            value="">—</option>@foreach (var g in _grupos) {
+                            <option value="@g.Id">@g.Texto</option>
+                        }</select></Campo>
                 <Campo Rotulo="Grupo sugerido (texto da tabela)" Classe="s6"><input @bind="_m.GrupoCatalogo" /></Campo>
                 <Campo Rotulo="Especificação técnica modelo" Classe="s12"><textarea @bind="_m.EspecificacaoModelo"></textarea></Campo>
                 <Campo Rotulo="Sub-grupos do produto vinculados (separe por ;)" Classe="s12"><input @bind="_m.SubGrupos" placeholder="Aço › Barras e perfis; Vergalhão" /></Campo>
@@ -114,7 +124,9 @@
                 <Kpi Rotulo="Ligados a material controlado" Valor="@_previaMapa.Controlados" Tom="ok" />
                 <Kpi Rotulo="Não encontrados no cadastro" Valor="@_previaMapa.NaoEncontrados" Tom="@(_previaMapa.NaoEncontrados > 0 ? "aviso" : "ok")" />
             </div>
-            <div class="alerta info"><Icone Nome="info" /> A coluna "SUA DECISÃO" prevalece sobre a sugestão. Grupos novos são criados com sigla sugerida; produtos já usados (requisição/pedido) mantêm o código — os demais são recodificados na categoria nova (código anterior fica guardado).</div>
+            <div class="alerta info"><Icone Nome="info" />
+                A coluna "SUA DECISÃO" prevalece sobre a sugestão. Grupos novos são criados com sigla sugerida; produtos já usados (requisição/pedido) mantêm o
+                código — os demais são recodificados na categoria nova (código anterior fica guardado).</div>
             <ul class="mudo">@foreach (var a in _previaMapa.Amostra) { <li>@a</li> }</ul>
         }
     </ChildContent>

@@ -96,7 +96,10 @@
                             {
                                 var l = _porId.GetValueOrDefault(c.LocalId);
                                 <tr @key="(c.Id, _versaoCel)"><td>@l?.Codigo <span class="mudo">@l?.Nome</span></td><td>@_comps.GetValueOrDefault(c.ComposicaoId)?.Descricao</td>
-                                    <td class="num"><input type="number" step="0.01" class="larg-100 texto-dir" aria-label="@($"Quantidade de {_comps.GetValueOrDefault(c.ComposicaoId)?.Descricao} em {l?.Codigo}")" value="@c.Quantidade.ToString(System.Globalization.CultureInfo.InvariantCulture)" @onchange="e => Editar(c, e.Value?.ToString())" /></td>
+                                    <td class="num"><input type="number" step="0.01" class="larg-100 texto-dir"
+                                            aria-label="@($"Quantidade de {_comps.GetValueOrDefault(c.ComposicaoId)?.Descricao} em {l?.Codigo}")"
+                                            value="@c.Quantidade.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                                            @onchange="e => Editar(c, e.Value?.ToString())" /></td>
                                     <td class="num">@c.CustoUnitario.ToString("N2", Br)</td><td class="num">@c.Custo.ToString("N2", Br)</td>
                                     <td>@if (c.Travado) { <Selo Texto="manual (travada)" Tom="aviso" /> } else { <span class="mudo">@c.Origem</span> }</td>
                                     <td>@if (c.Travado) { <button class="btn sec pq" disabled="@_ocupado" @onclick="() => Destravar(c)">Destravar</button> }</td></tr>
@@ -107,7 +110,10 @@
                 }
                 else
                 {
-                    <div class="barra-filtro"><label>Requisitar <select id="ct-tipo" value="@_tipoCtr" @onchange="e => { _tipoCtr = Enum.Parse<TipoRequisicao>(e.Value!.ToString()!); _demanda = null; }"><option value="@TipoRequisicao.Servico">Serviço (contratar)</option><option value="@TipoRequisicao.Material">Material (comprar — sai das composições)</option></select></label>
+                    <div class="barra-filtro"><label>Requisitar <select id="ct-tipo" value="@_tipoCtr"
+                                @onchange="e => { _tipoCtr = Enum.Parse<TipoRequisicao>(e.Value!.ToString()!); _demanda = null; }"><option
+                                    value="@TipoRequisicao.Servico">Serviço (contratar)</option><option
+                                    value="@TipoRequisicao.Material">Material (comprar — sai das composições)</option></select></label>
                         <span class="mudo">Mesmo caminho da tela de requisição: itens com a quebra por local, SPE dos locais, faturamento padrão.</span></div>
                     <SeletorDemanda Servicos="_servicosCtr" Locais="_locais" ServicosSelecionados="_selComp" LocaisSelecionados="_selLoc" Demanda="_demanda"
                                     AoMudarSelecao="() => _demanda = null" AoCalcular="Previa" Ocupado="_ocupado"

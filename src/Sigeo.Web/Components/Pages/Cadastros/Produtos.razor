@@ -31,7 +31,11 @@
             <div class="barra-filtro">
                 <label>Buscar (código ou nome) <input type="search" @bind="_fTexto" @bind:after="Filtrar" placeholder="Digite e tecle Enter" /></label>
                 <label>Grupo <select @bind="_fGrupo" @bind:after="Filtrar"><option value="">Todos</option>@foreach (var g in _grupos) { <option value="@g">@g</option> }</select></label>
-                <label>Cadastro <select id="prod-f-cadastro" @bind="_fCadastro" @bind:after="Filtrar"><option value="@FiltroCadastroProduto.Todos">Todos</option><option value="@FiltroCadastroProduto.Padronizados">Padronizados</option><option value="@FiltroCadastroProduto.Antigos">Antigos (todos)</option><option value="@FiltroCadastroProduto.AClassificar">A classificar</option><option value="@FiltroCadastroProduto.ForaDoCatalogo">Fora do catálogo</option></select></label>
+                <label>Cadastro <select id="prod-f-cadastro" @bind="_fCadastro" @bind:after="Filtrar"><option
+                            value="@FiltroCadastroProduto.Todos">Todos</option><option value="@FiltroCadastroProduto.Padronizados">Padronizados</option><option
+                            value="@FiltroCadastroProduto.Antigos">Antigos (todos)</option><option
+                            value="@FiltroCadastroProduto.AClassificar">A classificar</option><option
+                            value="@FiltroCadastroProduto.ForaDoCatalogo">Fora do catálogo</option></select></label>
                 <label>Situação <select @bind="_fAtivo" @bind:after="Filtrar"><option value="">Todos</option><option value="sim">Ativos</option><option value="nao">Inativos</option></select></label>
                 <span class="mudo" role="status">@(_pagina is null ? "Carregando…" : $"{_pagina.Total} registro(s)")</span>
             </div>
@@ -71,13 +75,21 @@
         {
             <Erros Lista="ErrosForm" />
             <div class="form">
-                <Campo Rotulo="Código" Classe="s3" Ajuda="@(_p.CriadoEm == default ? "Gerado ao salvar: GRUPO-SUBGRUPO-0000" : _p.CodigoAnterior is null ? "Fixo após o 1º uso" : $"Anterior: {_p.CodigoAnterior}")"><input readonly value="@(string.IsNullOrEmpty(_p.Codigo) ? "(automático)" : _p.Codigo)" /></Campo>
+                <Campo Rotulo="Código" Classe="s3"
+                    Ajuda="@(_p.CriadoEm == default ? "Gerado ao salvar: GRUPO-SUBGRUPO-0000" : _p.CodigoAnterior is null ? "Fixo após o 1º uso"
+                        : $"Anterior: {_p.CodigoAnterior}")"><input
+                        readonly value="@(string.IsNullOrEmpty(_p.Codigo) ? "(automático)" : _p.Codigo)" /></Campo>
                 <Campo Rotulo="Descrição genérica" Obrigatorio Classe="s7" Ajuda="Nunca coloque a marca na descrição genérica."><input @bind="_p.Nome" /></Campo>
                 <Campo Rotulo="Unidade" Obrigatorio Classe="s2"><input @bind="_p.Unidade" list="unidades" /><datalist id="unidades">@foreach (var u in Sigeo.Domain.Cadastros.UnidadesPadrao.Lista) { <option>@u</option> }</datalist></Campo>
                 <Campo Rotulo="Descrição completa" Classe="s12"><textarea @bind="_p.DescricaoCompleta" rows="2"></textarea></Campo>
                 <Campo Rotulo="Grupo" Classe="s4"><input @bind="_p.Grupo" list="grupos" /><datalist id="grupos">@foreach (var g in _grupos) { <option>@g</option> }</datalist></Campo>
                 <Campo Rotulo="Subgrupo" Classe="s4"><input @bind="_p.SubGrupo" list="subgrupos" /><datalist id="subgrupos">@foreach (var g in _subgrupos.Where(x => x.Grupo == _p.Grupo)) { <option>@g.Sub</option> }</datalist></Campo>
-                <Campo Rotulo="Tipo de custo" Classe="s4" Ajuda="Curva ABC e custo realizado por tipo"><select id="prod-tipo-custo" value="@(_p.TipoCusto?.ToString() ?? "")" @onchange="e => _p.TipoCusto = Enum.TryParse<TipoCusto>(e.Value?.ToString(), out var t) ? t : null"><option value="">(não informado)</option>@foreach (var t in Sigeo.Domain.Engenharia.TiposCusto.Todos) { <option value="@t">@Sigeo.Domain.Engenharia.TiposCusto.Nome(t)</option> }</select></Campo>
+                <Campo Rotulo="Tipo de custo" Classe="s4" Ajuda="Curva ABC e custo realizado por tipo"><select id="prod-tipo-custo"
+                        value="@(_p.TipoCusto?.ToString() ?? "")"
+                        @onchange="e => _p.TipoCusto = Enum.TryParse<TipoCusto>(e.Value?.ToString(), out var t) ? t : null"><option
+                            value="">(não informado)</option>@foreach (var t in Sigeo.Domain.Engenharia.TiposCusto.Todos) {
+                            <option value="@t">@Sigeo.Domain.Engenharia.TiposCusto.Nome(t)</option>
+                        }</select></Campo>
                 @if (Assistente.Configurado)
                 {
                     <div class="s12" aria-live="polite">
@@ -111,7 +123,10 @@
                     <tbody>
                         @foreach (var e in _equivalentes)
                         {
-                            <tr @key="e.Id"><td>@e.Codigo</td><td>@e.Nome</td><td class="@(e.MesmaUnidade ? "" : "texto-erro")" title="@(e.MesmaUnidade ? null : "Unidade diferente: confira a conversão")">@e.Unidade</td><td>@e.Grupo › @e.SubGrupo</td><td class="num">@((e.Semelhanca * 100).ToString("0"))%</td>
+                            <tr @key="e.Id"><td>@e.Codigo</td><td>@e.Nome</td><td class="@(e.MesmaUnidade ? "" : "texto-erro")"
+                                    title="@(e.MesmaUnidade ? null
+                                        : "Unidade diferente: confira a conversão")">@e.Unidade</td><td>@e.Grupo › @e.SubGrupo</td><td
+                                    class="num">@((e.Semelhanca * 100).ToString("0"))%</td>
                                 <td><button type="button" class="btn sec pq" @onclick="() => _confirmaSub = e">Substituir por este</button></td></tr>
                         }
                         @if (_equivalentes.Count == 0) { <tr><td colspan="6" class="mudo">Nenhum padronizado parecido. Procure pelo código ou nome acima.</td></tr> }
@@ -205,7 +220,10 @@
                 <table class="itens"><thead><tr><th>Linha</th><th>Descrição genérica</th><th>UN</th><th>Grupo › Subgrupo</th><th>Ação</th><th>Detalhe</th></tr></thead>
                     <tbody>@foreach (var l in _previa.Linhas.Where(l => _filtroImp == "Todos" || l.Acao == _filtroImp).Take(500))
                     {
-                        <tr><td>@l.Linha</td><td>@l.Nome</td><td>@l.Unidade</td><td>@l.Grupo › @l.SubGrupo</td><td><Selo Texto="@l.Acao" Tom="@(l.Acao switch { "Inserir" => "ok", "Atualizar" => "info", "Erro" => "erro", "Duplicado" => "aviso", _ => "neutro" })" /></td><td class="mudo">@l.Detalhe</td></tr>
+                        <tr><td>@l.Linha</td><td>@l.Nome</td><td>@l.Unidade</td><td>@l.Grupo › @l.SubGrupo</td><td><Selo Texto="@l.Acao"
+                                    Tom="@(l.Acao switch { "Inserir" => "ok", "Atualizar" => "info", "Erro" => "erro", "Duplicado" => "aviso", _ =>
+                                            "neutro" })" /></td><td
+                                class="mudo">@l.Detalhe</td></tr>
                     }</tbody></table>
                 @if (_previa.Linhas.Count(l => _filtroImp == "Todos" || l.Acao == _filtroImp) > 500) { <p class="mudo">Mostrando as primeiras 500 linhas.</p> }
             </div>

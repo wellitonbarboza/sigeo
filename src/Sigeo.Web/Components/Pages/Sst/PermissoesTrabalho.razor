@@ -14,7 +14,11 @@
                     <Coluna T="PermissaoTrabalho" Titulo="Atividade" Valor="p => p.Atividade" />
                     <Coluna T="PermissaoTrabalho" Titulo="Validade" Valor='p => $"{p.Inicio.ToLocalTime():dd/MM HH:mm}–{p.Fim.ToLocalTime():HH:mm}"' />
                     <Coluna T="PermissaoTrabalho" Titulo="Executantes" Valor="p => p.Executantes.Count" Alinhar="num" />
-                    <Coluna T="PermissaoTrabalho" Titulo="Status" Valor="p => p.Status"><Modelo><Selo Texto="@(context.Status == StatusPermissaoTrabalho.Liberada && context.Fim < DateTimeOffset.UtcNow ? "Sem encerramento" : De(context.Status))" Tom="@(context.Status == StatusPermissaoTrabalho.Liberada && context.Fim < DateTimeOffset.UtcNow ? "erro" : Tom(context.Status))" /></Modelo></Coluna>
+                    <Coluna T="PermissaoTrabalho" Titulo="Status" Valor="p => p.Status"><Modelo><Selo
+                                Texto="@(context.Status == StatusPermissaoTrabalho.Liberada && context.Fim < DateTimeOffset.UtcNow ? "Sem encerramento"
+                                    : De(context.Status))"
+                                Tom="@(context.Status == StatusPermissaoTrabalho.Liberada && context.Fim < DateTimeOffset.UtcNow ? "erro"
+                                    : Tom(context.Status))" /></Modelo></Coluna>
                 </Colunas>
             </Grade>
         </div>
@@ -29,8 +33,19 @@
             var edita = _p.Status is StatusPermissaoTrabalho.Rascunho or StatusPermissaoTrabalho.AguardandoLiberacao or StatusPermissaoTrabalho.Suspensa;
             <Erros Lista="ErrosForm" />
             <div class="form">
-                <Campo Rotulo="Tipo" Obrigatorio Classe="s3"><select value="@_p.Tipo" @onchange="e => { _p.Tipo = Enum.Parse<TipoPermissaoTrabalho>(e.Value!.ToString()!); _p.Medidas = PermissaoTrabalho.MedidasPadrao(_p.Tipo); _p.MedidasMarcadas = string.Empty; }" disabled="@(!string.IsNullOrEmpty(_p.Numero))">@foreach (var t in Enum.GetValues<TipoPermissaoTrabalho>()) { <option value="@t">@De(t)</option> }</select></Campo>
-                <Campo Rotulo="Obra" Obrigatorio Classe="s3"><select value="@_p.ObraId" @onchange="async e => { _p.ObraId = Guid.TryParse(e.Value?.ToString(), out var g) ? g : Guid.Empty; _locais = await Cat.LocaisAsync(_p.ObraId); }" disabled="@(!edita)"><option value="@Guid.Empty">Selecione…</option>@foreach (var o in _obras) { <option value="@o.Id">@o.Texto</option> }</select></Campo>
+                <Campo Rotulo="Tipo" Obrigatorio Classe="s3"><select value="@_p.Tipo"
+                        @onchange="e =>
+                            { _p.Tipo = Enum.Parse<TipoPermissaoTrabalho>(e.Value!.ToString()!); _p.Medidas = PermissaoTrabalho.MedidasPadrao(_p.Tipo);
+                                _p.MedidasMarcadas = string.Empty; }"
+                        disabled="@(!string.IsNullOrEmpty(_p.Numero))">@foreach (var t in Enum.GetValues<TipoPermissaoTrabalho>()) {
+                            <option value="@t">@De(t)</option>
+                        }</select></Campo>
+                <Campo Rotulo="Obra" Obrigatorio Classe="s3"><select value="@_p.ObraId"
+                        @onchange="async e => { _p.ObraId = Guid.TryParse(e.Value?.ToString(), out var g) ? g
+                                : Guid.Empty; _locais = await Cat.LocaisAsync(_p.ObraId); }"
+                        disabled="@(!edita)"><option value="@Guid.Empty">Selecione…</option>@foreach (var o in _obras) {
+                            <option value="@o.Id">@o.Texto</option>
+                        }</select></Campo>
                 <Campo Rotulo="Local" Obrigatorio Classe="s3"><select @bind="_p.LocalId" disabled="@(!edita)"><option value="@Guid.Empty">Selecione…</option>@foreach (var l in _locais) { <option value="@l.Id">@l.Texto</option> }</select></Campo>
                 <Campo Rotulo="Empresa" Obrigatorio Classe="s3"><select @bind="_p.FornecedorId" disabled="@(!edita)"><option value="@Guid.Empty">Selecione…</option>@foreach (var f in _fornecedores) { <option value="@f.Id">@f.Texto</option> }</select></Campo>
                 <Campo Rotulo="Atividade" Obrigatorio Classe="s6"><input @bind="_p.Atividade" disabled="@(!edita)" /></Campo>
@@ -39,7 +54,13 @@
             </div>
             <div class="duas-caixas prop-3-2">
                 <div class="caixa-sec"><div class="secao"><Icone Nome="pessoa" /> Executantes (só aptos para o risco)
-                    @if (edita) { <span class="acao"><select @bind="_novoExec" class="larg-max-220"><option value="">Incluir…</option>@foreach (var c in _colabs.Where(c => _p.Executantes.All(x => x.ColaboradorId != c.Id))) { <option value="@c.Id">@c.Texto</option> }</select> <button class="btn sec pq" @onclick="IncluirExec"><Icone Nome="mais" Tam="14" /></button></span> }
+                    @if (edita) {
+                        <span class="acao"><select @bind="_novoExec" class="larg-max-220"><option
+                                    value="">Incluir…</option>@foreach (var c in _colabs.Where(c => _p.Executantes.All(x => x.ColaboradorId != c.Id))) {
+                                    <option value="@c.Id">@c.Texto</option>
+                                }</select>
+                            <button class="btn sec pq" @onclick="IncluirExec"><Icone Nome="mais" Tam="14" /></button></span>
+                    }
                 </div>
                     <div class="tabela-rolavel"><table class="itens"><thead><tr><th>Colaborador</th><th>Papel</th><th>Situação</th><th></th></tr></thead>
                         <tbody>@foreach (var x in _p.Executantes)

@@ -23,7 +23,10 @@
                 </div>
                 @if (_painel.MesesSemIndice.Count > 0)
                 {
-                    <div class="alerta aviso"><Icone Nome="alerta" /> Sem índice informado em @string.Join(", ", _painel.MesesSemIndice.TakeLast(6).Select(m => m.ToString("MM/yy")))@(_painel.MesesSemIndice.Count > 6 ? "…" : ""): a correção conta 0% nesses meses. Informe em Incorporação e RET › Índices.</div>
+                    <div class="alerta aviso"><Icone Nome="alerta" />
+                        Sem índice informado em @string.Join(", ", _painel.MesesSemIndice.TakeLast(6).Select(m => m.ToString("MM/yy")))@(_painel.MesesSemIndice.Count
+                            > 6
+                            ? "…" : ""): a correção conta 0% nesses meses. Informe em Incorporação e RET › Índices.</div>
                 }
                 <Abas Itens="_abas" @bind-Ativa="_aba" />
                 @if (_aba == "parcelas")

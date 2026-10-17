@@ -66,7 +66,11 @@
                     <Campo Rotulo="CNPJ" Classe="s4"><input @bind="_e.Cnpj" placeholder="00.000.000/0000-00" /></Campo>
                     <Campo Rotulo="Nível SiAC" Classe="s2"><select @bind="_e.NivelSiac"><option>B</option><option>A</option></select></Campo>
                     <Campo Rotulo="Endereço de entrega padrão" Classe="s6"><input @bind="_e.EnderecoEntregaPadrao" /></Campo>
-                    @if (!_novo) { <Campo Rotulo="Situação" Classe="s4"><select id="pc-sit" value="@(_e.Ativa ? "1" : "0")" @onchange='e => _e.Ativa = e.Value?.ToString() == "1"'><option value="1">Ativa</option><option value="0">Suspensa (ninguém entra; dados guardados)</option></select></Campo> }
+                    @if (!_novo) {
+                        <Campo Rotulo="Situação" Classe="s4"><select id="pc-sit" value="@(_e.Ativa ? "1" : "0")"
+                                @onchange='e => _e.Ativa = e.Value?.ToString() == "1"'><option value="1">Ativa</option><option
+                                    value="0">Suspensa (ninguém entra; dados guardados)</option></select></Campo>
+                    }
                 </div>
             }
             @if (_novo && _passo == 1)
@@ -142,7 +146,9 @@
             }
             @if (_senha is not null)
             {
-                <div class="alerta ok"><Icone Nome="cadeado" /> <div>Construtora criada. Senha provisória do administrador <b>@_admLogin</b>: <code id="pc-senha">@_senha</code><br /><span class="mudo">Mostrada só agora. Entregue ao administrador; no primeiro acesso ele define a dele.</span></div></div>
+                <div class="alerta ok"><Icone Nome="cadeado" />
+                    <div>Construtora criada. Senha provisória do administrador <b>@_admLogin</b>: <code id="pc-senha">@_senha</code><br /><span
+                            class="mudo">Mostrada só agora. Entregue ao administrador; no primeiro acesso ele define a dele.</span></div></div>
             }
         }
     </ChildContent>

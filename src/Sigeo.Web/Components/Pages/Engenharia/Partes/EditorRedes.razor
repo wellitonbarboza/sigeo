@@ -130,7 +130,10 @@
                                 @foreach (var l in locaisSel)
                                 {
                                     var incl = Incluido(p, l.Id, _form.Tipo);
-                                    <td class="centro"><input type="checkbox" checked="@incl" disabled="@(!Editavel)" aria-label="@($"{p.Nome} em {l.Nome}")" @onchange="e => p.Ajustes[l.Id] = (bool)e.Value!" />@if (p.Ajustes.ContainsKey(l.Id)) { <span class="selo-mini" title="ajustado à mão">✎</span> }</td>
+                                    <td class="centro"><input type="checkbox" checked="@incl" disabled="@(!Editavel)" aria-label="@($"{p.Nome} em {l.Nome}")"
+                                            @onchange="e => p.Ajustes[l.Id] = (bool)e.Value!" />@if (p.Ajustes.ContainsKey(l.Id)) {
+                                            <span class="selo-mini" title="ajustado à mão">✎</span>
+                                        }</td>
                                 }
                             </tr>
                         }

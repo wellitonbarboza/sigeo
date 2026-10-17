@@ -22,7 +22,9 @@
             {
                 <p class="mudo fonte-13">Realizado = pagamentos e recebimentos pela data da baixa (mais lançamentos avulsos nas contas). Previsto = parcelas em aberto pelo vencimento; as vencidas entram no mês atual.</p>
                 <div class="tabela-rolavel"><table class="itens" id="fx-tabela">
-                    <thead><tr><th>Mês</th><th class="num">Entradas previstas</th><th class="num">Saídas previstas</th><th class="num">Saldo previsto</th><th class="num">Entradas realizadas</th><th class="num">Saídas realizadas</th><th class="num">Saldo realizado</th><th class="num">Acumulado</th></tr></thead>
+                    <thead><tr><th>Mês</th><th class="num">Entradas previstas</th><th class="num">Saídas previstas</th><th class="num">Saldo previsto</th><th
+                                class="num">Entradas realizadas</th><th class="num">Saídas realizadas</th><th class="num">Saldo realizado</th><th
+                                class="num">Acumulado</th></tr></thead>
                     <tbody>
                         @{ decimal acum = 0; }
                         @foreach (var f in _fluxo)

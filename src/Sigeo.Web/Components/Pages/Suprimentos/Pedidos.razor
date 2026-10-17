@@ -44,7 +44,11 @@
             }
             <div class="form">
                 @if (_p.EstabelecimentoFaturamentoId is { } fat) { <Campo Rotulo="Faturar para (CNPJ comprador)" Classe="s6"><input id="ped-fat" readonly value="@(_estabs.FirstOrDefault(x => x.Id == fat)?.Texto ?? "—")" /></Campo> }
-                @if (_p.SpeId is { } spe) { <Campo Rotulo="@(_p.EstabelecimentoFaturamentoId is null ? "Faturar para (SPE)" : "Destino: SPE (informar na observação da NF)")" Classe="s6"><input id="ped-spe" readonly value="@($"{_spes.FirstOrDefault(s => s.Id == spe)?.Texto ?? "—"}{(_p.RequisicaoId is null ? "" : " · requisição")}")" /></Campo> }
+                @if (_p.SpeId is { } spe) {
+                    <Campo Rotulo="@(_p.EstabelecimentoFaturamentoId is null ? "Faturar para (SPE)" : "Destino: SPE (informar na observação da NF)")"
+                        Classe="s6"><input id="ped-spe" readonly
+                            value="@($"{_spes.FirstOrDefault(s => s.Id == spe)?.Texto ?? "—"}{(_p.RequisicaoId is null ? "" : " · requisição")}")" /></Campo>
+                }
                 @if (_p.EntregaAlmoxarifadoCentral) { <div class="campo s12"><div class="alerta info"><Icone Nome="caixa" /> Entrega no almoxarifado central: FVM no recebimento e transferência para a obra/SPE.</div></div> }
                 <Campo Rotulo="Fornecedor" Classe="s6"><input readonly value="@_fornecedor?.RazaoSocial" /></Campo>
                 <Campo Rotulo="Qualificação" Classe="s2"><div class="pt-6">@if (_fornecedor is not null) { var st = _fornecedor.CalcularStatus(Hoje); <Selo Texto="@De(st)" Tom="@Tom(st)" /> }</div></Campo>
@@ -63,7 +67,11 @@
                         var locaisItem = i.RequisicaoItemId is { } rid && _locaisItem.TryGetValue(rid, out var ls) ? ls : null;
                         var aberto = locaisItem is not null && _abertos.Contains(i.Id);
                         <tr @key="i" class="@(aberto ? "com-locais" : "")"><td><b>@i.Descricao</b> @if (i.MaterialControladoId is not null) { <Selo Texto="controlado" Tom="info" /> }
-                                @if (locaisItem is not null) { <br /><button type="button" class="pl-toggle" aria-expanded="@(aberto ? "true" : "false")" @onclick="() => { if (!_abertos.Remove(i.Id)) _abertos.Add(i.Id); }">@(aberto ? "▾" : "▸") <span class="pl-ico">▦</span> Locais: @QuadroLocais.Resumo(locaisItem, i.Unidade)</button> }</td><td>@i.Marca</td><td>@i.Unidade</td>
+                                @if (locaisItem is not null) {
+                                    <br /><button type="button" class="pl-toggle" aria-expanded="@(aberto ? "true" : "false")"
+                                        @onclick="() => { if (!_abertos.Remove(i.Id)) _abertos.Add(i.Id); }">@(aberto ? "▾" : "▸") <span
+                                            class="pl-ico">▦</span> Locais: @QuadroLocais.Resumo(locaisItem, i.Unidade)</button>
+                                }</td><td>@i.Marca</td><td>@i.Unidade</td>
                             <td class="num">@Num(i.Quantidade, 3)</td><td class="num">@Moeda(i.ValorUnitario)</td><td class="num">@Moeda(i.ValorTotal)</td>
                             <td>@i.EspecificacaoTecnica</td><td>@i.DocumentosExigidos</td><td class="num">@Num(i.QuantidadeRecebidaAceita, 3)</td></tr>
                         @if (aberto) { <tr class="linha-locais" @key="(i, 1)"><td colspan="9"><PainelLocais Linhas="locaisItem!" Unidade="@i.Unidade" /></td></tr> }

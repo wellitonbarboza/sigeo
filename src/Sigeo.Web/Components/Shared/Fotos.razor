@@ -12,7 +12,9 @@
     @if (!SomenteLeitura)
     {
         @* O input fica visualmente oculto, mas focável: Tab chega nele e Enter/Espaço abre a câmera/galeria. *@
-        <label class="foto-add" title="Foto" for="@_idInput"><Icone Nome="mais" Tam="12" /><Icone Nome="camera" Tam="14" /><span class="so-leitor">Adicionar foto</span><InputFile id="@_idInput" class="so-leitor" OnChange="Enviar" accept="image/*" capture="environment" multiple disabled="@_ocupado" /></label>
+        <label class="foto-add" title="Foto" for="@_idInput"><Icone Nome="mais" Tam="12" /><Icone Nome="camera" Tam="14" /><span
+                class="so-leitor">Adicionar foto</span><InputFile id="@_idInput" class="so-leitor" OnChange="Enviar" accept="image/*" capture="environment"
+                multiple disabled="@_ocupado" /></label>
     }
     @if (Obrigatoria && _itens.Count == 0) { <small class="texto-erro">foto obrigatória</small> }
 </span>

@@ -13,7 +13,11 @@
                 <button class="btn sec" id="nova-obra" @onclick="NovaObra"><Icone Nome="mais" Tam="14" /> Nova obra</button>
                 @if (_obraId is not null) { <a class="btn sec" href="@($"engenharia/tipologias?obra={_obraId}")"><Icone Nome="lista" Tam="14" /> Tipologias</a><a class="btn sec" href="@($"engenharia/orcamento?obra={_obraId}")"><Icone Nome="calculadora" Tam="14" /> Orçamento</a> }
             </div>
-            @if (_obraId is null && _o is null) { <div class="alerta info"><Icone Nome="info" /> Escolha a obra ou cadastre uma nova. @($"Estrutura: Obra › {_n.Condominio} (= SPE, 1 CNPJ) › {_n.Torre} › {_n.Pavimento} › {_n.Unidade} › {_n.Comodo}, com áreas comuns nos três primeiros níveis.")</div> }
+            @if (_obraId is null && _o is null) {
+                <div class="alerta info"><Icone Nome="info" />
+                    Escolha a obra ou cadastre uma nova.
+                    @($"Estrutura: Obra › {_n.Condominio} (= SPE, 1 CNPJ) › {_n.Torre} › {_n.Pavimento} › {_n.Unidade} › {_n.Comodo}, com áreas comuns nos três primeiros níveis.")</div>
+            }
             else
             {
                 @if (_obraId is not null) { <Abas Itens="_abas" @bind-Ativa="_aba" /> }
@@ -43,7 +47,11 @@
                                     <select id="obra-estab" @bind="_o.EstabelecimentoDonoId"><option value="">Selecione…</option>@foreach (var e in _estabsProprios) { <option value="@e.Id">@e.Texto</option> }</select>
                                 </Campo>
                             }
-                            <Campo Rotulo="Engenheiro (obra sem SPE / obra própria)" Classe="s4" Ajuda="O 1º nível de aprovação usa o engenheiro da SPE; sem SPE, este"><select id="obra-eng" @bind="_o.EngenheiroId"><option value="">—</option>@foreach (var u in _usuarios) { <option value="@u.Id">@u.Texto</option> }</select></Campo>
+                            <Campo Rotulo="Engenheiro (obra sem SPE / obra própria)" Classe="s4"
+                                Ajuda="O 1º nível de aprovação usa o engenheiro da SPE; sem SPE, este"><select id="obra-eng" @bind="_o.EngenheiroId"><option
+                                        value="">—</option>@foreach (var u in _usuarios) {
+                                        <option value="@u.Id">@u.Texto</option>
+                                    }</select></Campo>
                             <Campo Rotulo="Administrativo de obra" Classe="s4"><select @bind="_o.AdministrativoId"><option value="">—</option>@foreach (var u in _usuarios) { <option value="@u.Id">@u.Texto</option> }</select></Campo>
                             <Campo Rotulo="Almoxarife" Classe="s4"><select @bind="_o.AlmoxarifeId"><option value="">—</option>@foreach (var u in _usuarios) { <option value="@u.Id">@u.Texto</option> }</select></Campo>
                             <Campo Rotulo="Observações" Classe="s12"><textarea rows="2" @bind="_o.Observacoes"></textarea></Campo>
@@ -63,7 +71,9 @@
                 {
                     <div class="my-6"><button class="btn sec" id="novo-cond" @onclick="Novo"><Icone Nome="mais" Tam="14" /> @_n.Condominio (SPE)</button></div>
                     <table class="itens" id="condominios">
-                        <thead><tr><th>Sigla</th><th>@_n.Condominio</th><th>Tipo</th><th>Registro do condomínio</th><th class="num">Terreno (m²)</th><th>SPE (CNPJ que é dono do custo)</th><th>Implantação</th><th class="num">@Pl(_n.Torre)</th><th class="num">@Pl(_n.Unidade)</th><th></th></tr></thead>
+                        <thead><tr><th>Sigla</th><th>@_n.Condominio</th><th>Tipo</th><th>Registro do condomínio</th><th
+                                    class="num">Terreno (m²)</th><th>SPE (CNPJ que é dono do custo)</th><th>Implantação</th><th
+                                    class="num">@Pl(_n.Torre)</th><th class="num">@Pl(_n.Unidade)</th><th></th></tr></thead>
                         <tbody>
                             @foreach (var q in _quadras)
                             {
@@ -99,7 +109,11 @@
                     </table>
                     @if (ObraPropria)
                     {
-                        <div class="alerta info" id="obra-propria-info"><Icone Nome="info" /> Obra própria: o custo fica na construtora (@(_estabsProprios.FirstOrDefault(e => e.Id == _o?.EstabelecimentoDonoId)?.Texto ?? "CNPJ não escolhido")). Ao constituir a SPE, informe-a no @_n.Condominio.ToLower() (Editar): os locais e os documentos em aberto (requisições, pedidos, contratos, transferências) passam para ela; o que já foi pago fica na construtora. Com todos os @Pl(_n.Condominio).ToLower() com SPE, a obra deixa de ser própria.</div>
+                        <div class="alerta info" id="obra-propria-info"><Icone Nome="info" />
+                            Obra própria: o custo fica na construtora (@(_estabsProprios.FirstOrDefault(e => e.Id == _o?.EstabelecimentoDonoId)?.Texto
+                                ?? "CNPJ não escolhido")). Ao constituir a SPE, informe-a no @_n.Condominio.ToLower() (Editar): os locais e os documentos em
+                            aberto (requisições, pedidos, contratos, transferências) passam para ela; o que já foi pago fica na construtora. Com todos os
+                            @Pl(_n.Condominio).ToLower() com SPE, a obra deixa de ser própria.</div>
                     }
                 }
                 else if (_aba == "ger")
@@ -124,10 +138,17 @@
                             @if (!Torres.Any()) { <tr><td colspan="7" class="mudo">Nada cadastrado nesta obra.</td></tr> }
                         </tbody>
                     </table>
-                    <div class="alerta info"><Icone Nome="info" /> Editar muda o nome (o código fica, é a chave das FVS, requisições e QR). Excluir leva pavimentos, apartamentos, cômodos, áreas comuns, a distribuição do orçamento e os locais das redes de planejamento; é bloqueado se já houver FVS, RNC, requisição, contrato, medição, apropriação, SST ou cronograma nesses locais.</div>
+                    <div class="alerta info"><Icone Nome="info" />
+                        Editar muda o nome (o código fica, é a chave das FVS, requisições e QR). Excluir leva pavimentos, apartamentos, cômodos, áreas comuns, a
+                        distribuição do orçamento e os locais das redes de planejamento; é bloqueado se já houver FVS, RNC, requisição, contrato, medição,
+                        apropriação, SST ou cronograma nesses locais.</div>
 
                     <div class="secao"><Icone Nome="mais" /> Gerar @Pl(_n.Torre).ToLower() · @_n.Condominio</div>
-                    @if (_quadras.Count == 0 || !_tips.Any(t => t.Tipo == TipoTipologia.Torre)) { <div class="alerta aviso"><Icone Nome="info" /> Cadastre o condomínio (@(ObraPropria ? "a SPE é opcional na obra própria" : "com a SPE")) e as tipologias de apartamento e de torre antes de gerar.</div> }
+                    @if (_quadras.Count == 0 || !_tips.Any(t => t.Tipo == TipoTipologia.Torre)) {
+                        <div class="alerta aviso"><Icone Nome="info" />
+                            Cadastre o condomínio (@(ObraPropria ? "a SPE é opcional na obra própria"
+                                : "com a SPE")) e as tipologias de apartamento e de torre antes de gerar.</div>
+                    }
                     else
                     {
                         <div class="form">
@@ -149,15 +170,25 @@
                         <div class="barra-botoes mais-ar">
                             <button class="btn sec" id="g-add" @onclick="AddTorre"><Icone Nome="mais" Tam="14" /> @_n.Torre</button>
                             <button class="btn prim" id="g-gerar" disabled="@Ocupado" @onclick="Gerar"><Icone Nome="check" Tam="16" /> Gerar @_gTorres.Sum(t => _tips.FirstOrDefault(x => x.Id == t.TipologiaId) is { } tt ? AptosTorre(tt) : 0) apartamentos</button>
-                            <button class="btn sec" id="g-sinc" disabled="@Ocupado" @onclick="Sincronizar" title="Atualiza as medidas dos cômodos/áreas comuns e cria os ambientes incluídos nas tipologias depois da geração"><Icone Nome="atualizar" Tam="14" /> Sincronizar com as tipologias</button>
+                            <button class="btn sec" id="g-sinc" disabled="@Ocupado" @onclick="Sincronizar"
+                                title="Atualiza as medidas dos cômodos/áreas comuns e cria os ambientes incluídos nas tipologias depois da geração"><Icone
+                                    Nome="atualizar" Tam="14" />
+                                Sincronizar com as tipologias</button>
                         </div>
-                        <div class="alerta info"><Icone Nome="info" /> Pode gerar em etapas: torres novas entram no condomínio já existente. Código: CONDOMÍNIO-T01-P02-201-SAL (pavimento × 100 + sequência; cômodo pela sigla). Fração ideal = área privativa ÷ área do condomínio; substitua pela do memorial na aba Apartamentos.</div>
+                        <div class="alerta info"><Icone Nome="info" />
+                            Pode gerar em etapas: torres novas entram no condomínio já existente. Código: CONDOMÍNIO-T01-P02-201-SAL (pavimento × 100 +
+                            sequência; cômodo pela sigla). Fração ideal = área privativa ÷ área do condomínio; substitua pela do memorial na aba
+                            Apartamentos.</div>
                     }
                 }
                 else if (_aba == "loc")
                 {
                     <div class="barra-filtro">
-                        <label>Ver <select @bind="_fLocal" @bind:after="() => { _arvore = null; _pagLoc = 0; }"><option value="">Condomínios e torres (sem pavimentos)</option>@foreach (var t in _locais.Where(l => l.Tipo == GeradorEmpreendimento.TipoTorre).OrderBy(l => l.Codigo)) { <option value="@t.Id">@t.Codigo – @t.Nome (completo)</option> }</select></label>
+                        <label>Ver <select @bind="_fLocal" @bind:after="() => { _arvore = null; _pagLoc = 0; }"><option
+                                    value="">Condomínios e torres (sem pavimentos)</option>@foreach (var t in _locais.Where(l =>
+                                        l.Tipo == GeradorEmpreendimento.TipoTorre).OrderBy(l => l.Codigo)) {
+                                    <option value="@t.Id">@t.Codigo – @t.Nome (completo)</option>
+                                }</select></label>
                         <button class="btn sec" id="novo-local" @onclick="NovoLocal"><Icone Nome="mais" Tam="14" /> Área comum / elemento</button>
                         <span class="mudo">@_locais.Count locais (@ArvoreLista.Count nesta visão) · condomínio, torre, pavimento, apartamento e cômodo vêm do gerador.</span>
                     </div>
@@ -203,7 +234,9 @@
             }
         </div>
     </ChildContent>
-    <Faixa><b>Engenharia · Estrutura</b><span>@($"1 {_n.Condominio.ToLower()} = 1 SPE = 1 CNPJ · {string.Join(", ", new[] { _n.Torre, _n.Pavimento, _n.Unidade, _n.Comodo }.Select(x => Pl(x).ToLower()))} gerados pelas tipologias")</span><span>Fração ideal confere 100% por @_n.Condominio.ToLower()</span></Faixa>
+    <Faixa><b>Engenharia ·
+            Estrutura</b><span>@($"1 {_n.Condominio.ToLower()} = 1 SPE = 1 CNPJ · {string.Join(", ", new[] { _n.Torre, _n.Pavimento, _n.Unidade, _n.Comodo }.Select(x => Pl(x).ToLower()))} gerados pelas tipologias")</span><span>Fração
+            ideal confere 100% por @_n.Condominio.ToLower()</span></Faixa>
 </Pagina>
 
 <Modal @bind-Aberto="_abertoCond" Titulo="@($"{_n.Condominio} e SPE")" Tamanho="grande">
@@ -228,13 +261,19 @@
                 <Campo Rotulo="Código" Obrigatorio Classe="s4"><input id="loc-cod" @bind="_l.Codigo" disabled="@gerado" placeholder="QA-AC-PISC" /></Campo>
                 <Campo Rotulo="Descrição" Obrigatorio Classe="s8"><input id="loc-nome" @bind="_l.Nome" placeholder="Piscina" /></Campo>
                 <Campo Rotulo="Nível" Classe="s4"><select id="loc-tipo" @bind="_l.Tipo" disabled="@gerado">@if (gerado) { <option>@_l.Tipo</option> } else { @foreach (var n in TiposManuais) { <option>@n</option> } }</select></Campo>
-                <Campo Rotulo="Local pai" Classe="s8"><select @bind="_l.LocalPaiId" disabled="@gerado"><option value="">(raiz da obra)</option>@foreach (var x in _locais.Where(x => x.Id != _l.Id && x.Tipo is GeradorEmpreendimento.TipoCondominio or GeradorEmpreendimento.TipoTorre or GeradorEmpreendimento.TipoPavimento)) { <option value="@x.Id">@x.Codigo – @x.Nome</option> }</select></Campo>
+                <Campo Rotulo="Local pai" Classe="s8"><select @bind="_l.LocalPaiId" disabled="@gerado"><option
+                            value="">(raiz da obra)</option>@foreach (var x in _locais.Where(x => x.Id != _l.Id
+                                && x.Tipo is GeradorEmpreendimento.TipoCondominio or GeradorEmpreendimento.TipoTorre or GeradorEmpreendimento.TipoPavimento)) {
+                            <option value="@x.Id">@x.Codigo – @x.Nome</option>
+                        }</select></Campo>
                 <Campo Rotulo="Área de piso (m²)" Classe="s4"><input type="number" step="0.01" @bind="_l.AreaPiso" disabled="@gerado" /></Campo>
                 <Campo Rotulo="Perímetro (m)" Classe="s4"><input type="number" step="0.01" @bind="_l.Perimetro" disabled="@gerado" /></Campo>
                 <Campo Rotulo="Área de parede (m²)" Classe="s4"><input type="number" step="0.01" @bind="_l.AreaParede" disabled="@gerado" /></Campo>
                 <Campo Rotulo="Ordem" Classe="s4"><input type="number" @bind="_l.Ordem" /></Campo>
                 <Campo Rotulo="Quantidade de referência" Classe="s5"><input type="number" step="0.01" @bind="_l.Quantidade" disabled="@gerado" /></Campo>
-                <Campo Rotulo="Unidade" Classe="s3"><select @bind="_l.Unidade" disabled="@gerado"><option value="">—</option>@foreach (var un in UnidadesRef) { <option>@un</option> }@if (!string.IsNullOrEmpty(_l.Unidade) && !UnidadesRef.Contains(_l.Unidade)) { <option>@_l.Unidade</option> }</select></Campo>
+                <Campo Rotulo="Unidade" Classe="s3"><select @bind="_l.Unidade" disabled="@gerado"><option value="">—</option>@foreach (var un in UnidadesRef) {
+                            <option>@un</option>
+                        }@if (!string.IsNullOrEmpty(_l.Unidade) && !UnidadesRef.Contains(_l.Unidade)) { <option>@_l.Unidade</option> }</select></Campo>
             </div>
         }
     </ChildContent>

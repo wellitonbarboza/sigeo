@@ -58,7 +58,11 @@
             @if (_u.ContratoId is not null) { <div class="alerta info"><Icone Nome="info" /> Vendida para @_u.Comprador por @Moeda(_u.ValorVenda). <a href="@($"incorporacao/vendas?obra={_obraId}&contrato={_u.ContratoId}")">Abrir contrato</a></div> }
             <div class="form">
                 <Campo Rotulo="Preço de tabela" Classe="s6"><input id="esp-preco" type="number" step="0.01" @bind="_preco" /></Campo>
-                <Campo Rotulo="Situação" Classe="s6"><select id="esp-sit" @bind="_sit" disabled="@(_u.ContratoId is not null)">@foreach (var s in Enum.GetValues<SituacaoUnidade>().Where(s => _u.ContratoId is not null || s is not (SituacaoUnidade.Vendida or SituacaoUnidade.Permuta))) { <option value="@s">@NomesVenda.Situacao(s)</option> }</select></Campo>
+                <Campo Rotulo="Situação" Classe="s6"><select id="esp-sit" @bind="_sit"
+                        disabled="@(_u.ContratoId is not null)">@foreach (var s in Enum.GetValues<SituacaoUnidade>().Where(s => _u.ContratoId is not null
+                                || s is not (SituacaoUnidade.Vendida or SituacaoUnidade.Permuta))) {
+                            <option value="@s">@NomesVenda.Situacao(s)</option>
+                        }</select></Campo>
                 <Campo Rotulo="Vagas / box" Classe="s6"><input @bind="_vagas" maxlength="60" /></Campo>
                 <Campo Rotulo="Observação" Classe="s12"><input @bind="_obs" /></Campo>
             </div>

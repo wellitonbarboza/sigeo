@@ -22,7 +22,10 @@
             </div>
             <Grade T="EquipamentoMedicao" @ref="_grade" Itens="_itens" AoClicar="Abrir" NomeExportacao="equipamentos" CriadoPor="e => e.CriadoPor">
                 <Colunas>
-                    <Coluna T="EquipamentoMedicao" Titulo="" Ordenavel="false" Largura="34px"><Modelo><input type="checkbox" checked="@_selec.Contains(context.Id)" @onclick:stopPropagation="true" @onchange="e => { if ((bool)e.Value!) _selec.Add(context.Id); else _selec.Remove(context.Id); }" aria-label="Selecionar para etiqueta" /></Modelo></Coluna>
+                    <Coluna T="EquipamentoMedicao" Titulo="" Ordenavel="false" Largura="34px"><Modelo><input type="checkbox"
+                                checked="@_selec.Contains(context.Id)" @onclick:stopPropagation="true"
+                                @onchange="e => { if ((bool)e.Value!) _selec.Add(context.Id); else _selec.Remove(context.Id); }"
+                                aria-label="Selecionar para etiqueta" /></Modelo></Coluna>
                     <Coluna T="EquipamentoMedicao" Titulo="Código" Valor="e => e.Codigo" Largura="90px" />
                     <Coluna T="EquipamentoMedicao" Titulo="Equipamento" Valor="e => e.Descricao" />
                     <Coluna T="EquipamentoMedicao" Titulo="Tipo" Valor="e => NomeTipo(e.TipoMedicaoId)" />
@@ -65,7 +68,11 @@
         {
             <Erros Lista="ErrosForm" />
             <div class="form">
-                <Campo Rotulo="Tipo (configurável)" Classe="s4"><select id="afe-tipo" value="@_e.TipoMedicaoId" @onchange="e => EscolherTipo(e.Value?.ToString())"><option value="">—</option>@foreach (var t in _tipos.Where(t => t.Ativo || t.Id == _e.TipoMedicaoId)) { <option value="@t.Id">@t.Nome</option> }</select></Campo>
+                <Campo Rotulo="Tipo (configurável)" Classe="s4"><select id="afe-tipo" value="@_e.TipoMedicaoId"
+                        @onchange="e => EscolherTipo(e.Value?.ToString())"><option
+                            value="">—</option>@foreach (var t in _tipos.Where(t => t.Ativo || t.Id == _e.TipoMedicaoId)) {
+                            <option value="@t.Id">@t.Nome</option>
+                        }</select></Campo>
                 <Campo Rotulo="Código (etiqueta)" Obrigatorio Classe="s3" Ajuda="@(string.IsNullOrEmpty(_e.Codigo) && _e.TipoMedicaoId is not null ? "Vazio: gera pelo prefixo do tipo" : null)"><input id="afe-codigo" @bind="_e.Codigo" /></Campo>
                 <Campo Rotulo="Descrição / modelo / nº de série" Obrigatorio Classe="s5"><input id="afe-desc" @bind="_e.Descricao" /></Campo>
                 <Campo Rotulo="Dono" Classe="s3"><select id="afe-dono" @bind="_e.Dono"><option value="@DonoFerramenta.Propria">Própria</option><option value="@DonoFerramenta.Terceiro">Empreiteira (terceiro)</option></select></Campo>
@@ -78,7 +85,11 @@
                 <Campo Rotulo="Periodicidade (meses)" Classe="s4"><input type="number" @bind="_e.PeriodicidadeMeses" /></Campo>
                 @if (_e.TipoControle == TipoControleEquipamento.VerificacaoInterna)
                 {
-                    <Campo Rotulo="Padrão usado na verificação" Obrigatorio Classe="s6"><select @bind="_e.PadraoId"><option value="">Selecione…</option>@foreach (var p in _itens!.Where(x => x.TipoControle == TipoControleEquipamento.Padrao && x.Id != _e.Id)) { <option value="@p.Id">@p.Codigo – @p.Descricao</option> }</select></Campo>
+                    <Campo Rotulo="Padrão usado na verificação" Obrigatorio Classe="s6"><select @bind="_e.PadraoId"><option
+                                value="">Selecione…</option>@foreach (var p in _itens!.Where(x => x.TipoControle == TipoControleEquipamento.Padrao
+                                    && x.Id != _e.Id)) {
+                                <option value="@p.Id">@p.Codigo – @p.Descricao</option>
+                            }</select></Campo>
                 }
                 <Campo Rotulo="Critério de aceitação" Obrigatorio Classe="s6"><input @bind="_e.Criterio" placeholder="ex.: erro ≤ 1 mm em 5 m" /></Campo>
                 <Campo Rotulo="Obra" Classe="s6"><select @bind="_e.ObraId"><option value="">—</option>@foreach (var o in _obras) { <option value="@o.Id">@o.Texto</option> }</select></Campo>
@@ -91,8 +102,17 @@
                 <p>@(_e.ComQuem ?? "Almoxarifado")@(_e.CautelaDesde is { } cd ? $" desde {Data(cd)}" : "")</p>
                 <div class="form">
                     <Campo Rotulo="Entregar para" Classe="s4"><input id="afe-para" @bind="_para" placeholder="Nome / equipe / setor" /></Campo>
-                    <Campo Rotulo="Colaborador" Classe="s4"><select @bind="_paraColab" @bind:after="() => { if (_paraColab is { } c) _para = _colabs.FirstOrDefault(x => x.Id == c)?.Texto; }"><option value="">—</option>@foreach (var c in _colabs) { <option value="@c.Id">@c.Texto</option> }</select></Campo>
-                    <Campo Rotulo="Empreiteira" Classe="s4"><select @bind="_paraForn" @bind:after="() => { if (_paraForn is { } f && string.IsNullOrWhiteSpace(_para)) _para = _fornecedores.FirstOrDefault(x => x.Id == f)?.Texto; }"><option value="">—</option>@foreach (var f in _fornecedores) { <option value="@f.Id">@f.Texto</option> }</select></Campo>
+                    <Campo Rotulo="Colaborador" Classe="s4"><select @bind="_paraColab"
+                            @bind:after="() => { if (_paraColab is { } c) _para = _colabs.FirstOrDefault(x => x.Id == c)?.Texto; }"><option
+                                value="">—</option>@foreach (var c in _colabs) {
+                                <option value="@c.Id">@c.Texto</option>
+                            }</select></Campo>
+                    <Campo Rotulo="Empreiteira" Classe="s4"><select @bind="_paraForn"
+                            @bind:after="() => { if (_paraForn is { } f && string.IsNullOrWhiteSpace(_para)) _para = _fornecedores.FirstOrDefault(x =>
+                                        x.Id == f)?.Texto; }"><option
+                                value="">—</option>@foreach (var f in _fornecedores) {
+                                <option value="@f.Id">@f.Texto</option>
+                            }</select></Campo>
                 </div>
                 <div class="linha-botoes">
                     <button class="btn sec" id="afe-entregar" disabled="@Ocupado" @onclick="Entregar"><Icone Nome="enviar" Tam="14" /> Entregar (cautela)</button>

@@ -33,13 +33,22 @@
             @if (_d.Origem == OrigemDocColaborador.PortalFornecedor) { <div class="alerta info"><Icone Nome="enviar" /> Enviado pelo portal do fornecedor em @DataHora(_d.CriadoEm).</div> }
             <div class="form">
                 <Campo Rotulo="Colaborador" Obrigatorio Classe="s6"><select @bind="_d.ColaboradorId" disabled="@(_d.CriadoEm != default)"><option value="@Guid.Empty">Selecione…</option>@foreach (var c in _colabs) { <option value="@c.Id">@c.Texto</option> }</select></Campo>
-                <Campo Rotulo="Exigência / tipo" Obrigatorio Classe="s6"><select @bind="_d.ExigenciaId" disabled="@(_d.CriadoEm != default)"><option value="@Guid.Empty">Selecione…</option>@foreach (var e in _exigs.Where(e => e.Tipo is TipoExigencia.Documento or TipoExigencia.ExameAso or TipoExigencia.Treinamento)) { <option value="@e.Id">@e.Descricao</option> }</select></Campo>
+                <Campo Rotulo="Exigência / tipo" Obrigatorio Classe="s6"><select @bind="_d.ExigenciaId" disabled="@(_d.CriadoEm != default)"><option
+                            value="@Guid.Empty">Selecione…</option>@foreach (var e in _exigs.Where(e =>
+                                e.Tipo is TipoExigencia.Documento or TipoExigencia.ExameAso or TipoExigencia.Treinamento)) {
+                            <option value="@e.Id">@e.Descricao</option>
+                        }</select></Campo>
                 <Campo Rotulo="Data de emissão / exame" Obrigatorio Classe="s4"><input type="date" @bind="_d.DataEmissao" /></Campo>
                 <Campo Rotulo="Validade" Classe="s4"><input type="date" @bind="_d.Validade" /></Campo>
                 @if (ex?.Tipo == TipoExigencia.ExameAso)
                 {
                     <Campo Rotulo="Conclusão" Obrigatorio Classe="s4"><select @bind="_d.ConclusaoAso"><option value="">—</option><option value="@ConclusaoAso.Apto">Apto</option><option value="@ConclusaoAso.Inapto">Inapto</option></select></Campo>
-                    <Campo Rotulo="Apto para atividades de risco" Classe="s12"><div class="checks">@foreach (var a in new[] { AtividadeRisco.Altura, AtividadeRisco.EspacoConfinado, AtividadeRisco.Eletrico, AtividadeRisco.OperacaoEquipamento }) { <label><input type="checkbox" checked="@_d.AptoAtividades.HasFlag(a)" @onchange="x => _d.AptoAtividades = (bool)x.Value! ? _d.AptoAtividades | a : _d.AptoAtividades & ~a" /> @De(a)</label> }</div></Campo>
+                    <Campo Rotulo="Apto para atividades de risco" Classe="s12"><div
+                            class="checks">@foreach (var a in new[] { AtividadeRisco.Altura, AtividadeRisco.EspacoConfinado, AtividadeRisco.Eletrico,
+                                    AtividadeRisco.OperacaoEquipamento }) {
+                                <label><input type="checkbox" checked="@_d.AptoAtividades.HasFlag(a)"
+                                        @onchange="x => _d.AptoAtividades = (bool)x.Value! ? _d.AptoAtividades | a : _d.AptoAtividades & ~a" /> @De(a)</label>
+                            }</div></Campo>
                     <div class="campo s12"><div class="alerta erro"><Icone Nome="cadeado" /> Dado de saúde (LGPD): o sistema guarda só a conclusão (apto/inapto), a aptidão para atividades de risco e a validade. Diagnóstico nunca é digitado. Arquivo restrito ao perfil SST.</div></div>
                 }
                 <Campo Rotulo="Arquivo" Classe="s12">

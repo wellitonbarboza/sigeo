@@ -33,7 +33,10 @@
                                 <button class="@cls" aria-pressed="@(_data == data)" disabled="@(data > Hoje)" title="@Dica(r)" @onclick="() => Abrir(data)">@dia</button>
                             }
                         </div>
-                        <div class="legenda"><span><i style="background:var(--ok-suave)"></i>assinado</span><span><i style="background:var(--info-suave)"></i>chuva</span><span><i style="background:var(--erro-suave)"></i>não trabalhado</span><span><b style="color:var(--aviso)">•</b> rascunho</span></div>
+                        <div class="legenda"><span><i style="background:var(--ok-suave)"></i>assinado</span><span><i
+                                    style="background:var(--info-suave)"></i>chuva</span><span><i
+                                    style="background:var(--erro-suave)"></i>não trabalhado</span><span><b
+                                    style="color:var(--aviso)">•</b> rascunho</span></div>
                         <p class="mudo">O diário alimenta o Planejamento: dias trabalhados × úteis, dias perdidos por chuva (evidência na reprogramação) e o efetivo médio.</p>
                     </div>
 
@@ -59,8 +62,13 @@
                             <div class="form">
                                 <Campo Rotulo="Clima manhã" Classe="s3"><select @bind="d.ClimaManha" disabled="@ro">@foreach (var c in Enum.GetValues<ClimaDia>()) { <option value="@c">@Clima(c)</option> }</select></Campo>
                                 <Campo Rotulo="Clima tarde" Classe="s3"><select @bind="d.ClimaTarde" disabled="@ro">@foreach (var c in Enum.GetValues<ClimaDia>()) { <option value="@c">@Clima(c)</option> }</select></Campo>
-                                <Campo Rotulo="Condição" Classe="s3"><select @bind="d.Condicao" disabled="@ro"><option value="@CondicaoDia.Praticavel">Praticável</option><option value="@CondicaoDia.ParcialmentePraticavel">Parcialmente praticável</option><option value="@CondicaoDia.Impraticavel">Impraticável</option></select></Campo>
-                                <Campo Rotulo="Dia trabalhado" Classe="s3"><select id="rdo-trab" @bind="d.Trabalhado" disabled="@ro"><option value="@DiaTrabalhado.Sim">Sim</option><option value="@DiaTrabalhado.NaoChuva">Não — chuva</option><option value="@DiaTrabalhado.NaoFeriadoParalisacao">Não — feriado / paralisação</option></select></Campo>
+                                <Campo Rotulo="Condição" Classe="s3"><select @bind="d.Condicao" disabled="@ro"><option
+                                            value="@CondicaoDia.Praticavel">Praticável</option><option
+                                            value="@CondicaoDia.ParcialmentePraticavel">Parcialmente praticável</option><option
+                                            value="@CondicaoDia.Impraticavel">Impraticável</option></select></Campo>
+                                <Campo Rotulo="Dia trabalhado" Classe="s3"><select id="rdo-trab" @bind="d.Trabalhado" disabled="@ro"><option
+                                            value="@DiaTrabalhado.Sim">Sim</option><option value="@DiaTrabalhado.NaoChuva">Não — chuva</option><option
+                                            value="@DiaTrabalhado.NaoFeriadoParalisacao">Não — feriado / paralisação</option></select></Campo>
                                 <Campo Rotulo="Início" Classe="s2"><input type="time" @bind="d.HoraInicio" disabled="@ro" /></Campo>
                                 <Campo Rotulo="Término" Classe="s2"><input type="time" @bind="d.HoraTermino" disabled="@ro" /></Campo>
                                 <Campo Rotulo="Observação do clima" Classe="s8"><input @bind="d.ObservacaoClima" disabled="@ro" /></Campo>
@@ -156,7 +164,14 @@
                             {
                                 <div class="barra-botoes fim">
                                     <button class="btn sec" id="rdo-salvar" disabled="@Ocupado" @onclick="Salvar"><Icone Nome="check" Tam="14" /> Salvar rascunho</button>
-                                    @if (_podeAssinar) { <button class="btn prim" id="rdo-assinar" disabled="@Ocupado" @onclick='() => Confirmar("Assinar e fechar o diário? Depois de assinado ele não muda (correção vira observação no dia seguinte).", Assinar)'><Icone Nome="check-circulo" Tam="14" /> Assinar e fechar o dia</button> }
+                                    @if (_podeAssinar) {
+                                        <button class="btn prim" id="rdo-assinar" disabled="@Ocupado"
+                                            @onclick='() =>
+                                                Confirmar("Assinar e fechar o diário? Depois de assinado ele não muda (correção vira observação no dia seguinte).",
+                                                    Assinar)'><Icone
+                                                Nome="check-circulo" Tam="14" />
+                                            Assinar e fechar o dia</button>
+                                    }
                                 </div>
                                 @if (!_podeAssinar) { <p class="mudo">Quem assina é o engenheiro(a) da obra (Obras › engenheiro da obra ou da SPE).</p> }
                             }

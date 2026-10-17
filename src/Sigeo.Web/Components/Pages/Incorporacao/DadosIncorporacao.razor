@@ -16,7 +16,11 @@
                 {
                     <div class="form">
                         <Campo Rotulo="Empreendimento" Obrigatorio Classe="s6"><input id="inc-nome" @bind="_i.Nome" maxlength="150" /></Campo>
-                        <Campo Rotulo="SPE" Classe="s6"><select value="@(_i.SpeId?.ToString() ?? "")" @onchange="e => _i.SpeId = Guid.TryParse(e.Value?.ToString(), out var g) ? g : null"><option value="">—</option>@foreach (var s in _spes) { <option value="@s.Id">@s.Texto</option> }</select></Campo>
+                        <Campo Rotulo="SPE" Classe="s6"><select value="@(_i.SpeId?.ToString() ?? "")"
+                                @onchange="e => _i.SpeId = Guid.TryParse(e.Value?.ToString(), out var g) ? g : null"><option
+                                    value="">—</option>@foreach (var s in _spes) {
+                                    <option value="@s.Id">@s.Texto</option>
+                                }</select></Campo>
                         <Campo Rotulo="Registro do memorial (matrícula/R.)" Classe="s6"><input @bind="_i.MemorialRegistro" maxlength="120" /></Campo>
                         <Campo Rotulo="Data do registro" Classe="s3"><input type="date" @bind="_i.DataRegistroMemorial" /></Campo>
                         <Campo Rotulo="Previsão das chaves" Classe="s3"><input id="inc-chaves" type="date" @bind="_i.PrevisaoChaves" /></Campo>

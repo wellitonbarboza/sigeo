@@ -6,7 +6,9 @@
 <Pagina Titulo="Exigências por função" AoAtualizar="Carregar">
     <ChildContent>
         <div class="pagina">
-            <div class="alerta info"><Icone Nome="info" /> <span><b>Matriz inicial</b> para validação do SST: substitua pelas funções e riscos do PGR/PCMSO da obra. <b>O</b> = obrigatório · <b>C</b> = conforme a atividade (só de quem executa) · — = não se aplica. Clique na célula para alternar.</span></div>
+            <div class="alerta info"><Icone Nome="info" />
+                <span><b>Matriz inicial</b> para validação do SST: substitua pelas funções e riscos do PGR/PCMSO da obra. <b>O</b> = obrigatório · <b>C</b> =
+                    conforme a atividade (só de quem executa) · — = não se aplica. Clique na célula para alternar.</span></div>
             <div class="barra-botoes-sst">
                 <button class="btn sec pq" @onclick="() => { _f = new FuncaoObra(); ErrosForm = null; _abertoF = true; }"><Icone Nome="mais" Tam="14" /> Função</button>
                 <button class="btn sec pq" @onclick="() => { _e = new Exigencia { Tipo = TipoExigencia.Treinamento, Ordem = _exig.Count + 1 }; ErrosForm = null; _abertoE = true; }"><Icone Nome="mais" Tam="14" /> Exigência</button>
@@ -53,7 +55,10 @@
                 <Campo Rotulo="Se vencer" Classe="s6"><select @bind="_e.EfeitoVencimento">@foreach (var t in Enum.GetValues<EfeitoVencimento>()) { <option value="@t">@De(t)</option> }</select></Campo>
                 <Campo Rotulo="Fonte" Obrigatorio Classe="s6"><input @bind="_e.Fonte" placeholder="NR-35 · PGR da obra" /></Campo>
                 <Campo Rotulo="Atividades que exigem" Classe="s12">
-                    <div class="checks">@foreach (var a in Enum.GetValues<AtividadeRisco>().Where(a => a != AtividadeRisco.Nenhuma)) { <label><input type="checkbox" checked="@_e.Atividades.HasFlag(a)" @onchange="x => _e.Atividades = (bool)x.Value! ? _e.Atividades | a : _e.Atividades & ~a" /> @De(a)</label> }</div>
+                    <div class="checks">@foreach (var a in Enum.GetValues<AtividadeRisco>().Where(a => a != AtividadeRisco.Nenhuma)) {
+                            <label><input type="checkbox" checked="@_e.Atividades.HasFlag(a)"
+                                    @onchange="x => _e.Atividades = (bool)x.Value! ? _e.Atividades | a : _e.Atividades & ~a" /> @De(a)</label>
+                        }</div>
                 </Campo>
             </div>
         }

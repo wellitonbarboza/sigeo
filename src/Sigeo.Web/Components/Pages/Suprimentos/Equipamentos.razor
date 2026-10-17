@@ -24,7 +24,9 @@
                 </div>
                 <Grade T="EquipamentosServico.Situacao" @ref="_gEq" Itens="EquipFiltrados" AoClicar="s => Abrir(s.Equipamento.Id)" NomeExportacao="equipamentos" Vazio="Nenhum equipamento cadastrado.">
                     <Colunas>
-                        <Coluna T="EquipamentosServico.Situacao" Titulo="" Ordenavel="false" Largura="34px"><Modelo><input type="checkbox" checked="@_selec.Contains(context.Equipamento.Id)" @onclick:stopPropagation="true" @onchange="e => Marcar(context.Equipamento.Id, (bool)e.Value!)" aria-label="Selecionar" /></Modelo></Coluna>
+                        <Coluna T="EquipamentosServico.Situacao" Titulo="" Ordenavel="false" Largura="34px"><Modelo><input type="checkbox"
+                                    checked="@_selec.Contains(context.Equipamento.Id)" @onclick:stopPropagation="true"
+                                    @onchange="e => Marcar(context.Equipamento.Id, (bool)e.Value!)" aria-label="Selecionar" /></Modelo></Coluna>
                         <Coluna T="EquipamentosServico.Situacao" Titulo="Patrimônio" Valor="s => s.Equipamento.Patrimonio" Largura="110px" />
                         <Coluna T="EquipamentosServico.Situacao" Titulo="Equipamento" Valor="s => s.Equipamento.Nome" />
                         <Coluna T="EquipamentosServico.Situacao" Titulo="Família" Valor="s => NomeFamilia(s.Equipamento.FamiliaId)" />
@@ -139,7 +141,10 @@
                 @if (_e.Propriedade == PropriedadeEquipamento.Locada)
                 {
                     <Campo Rotulo="Contrato de locação" Classe="s4">
-                        <select id="eq-ctr" value="@_e.ContratoId" @onchange="e => TrocarContrato(e.Value?.ToString())"><option value="">—</option>@foreach (var c in _contratos.Where(c => _e.FornecedorId is null || c.Extra == _e.FornecedorId.ToString())) { <option value="@c.Id">@c.Texto</option> }</select>
+                        <select id="eq-ctr" value="@_e.ContratoId" @onchange="e => TrocarContrato(e.Value?.ToString())"><option
+                                value="">—</option>@foreach (var c in _contratos.Where(c => _e.FornecedorId is null || c.Extra == _e.FornecedorId.ToString())) {
+                                <option value="@c.Id">@c.Texto</option>
+                            }</select>
                     </Campo>
                     <Campo Rotulo="Item do contrato (diária / mês)" Classe="s4">
                         <select id="eq-ctr-item" @bind="_e.ContratoItemId"><option value="">—</option>@foreach (var i in _itensContrato) { <option value="@i.Id">@i.Texto</option> }</select>
@@ -258,7 +263,12 @@
             <Erros Lista="ErrosForm" />
             <div class="form">
                 <Campo Rotulo="Equipamento" Classe="s6" Obrigatorio="true">
-                    <select id="pl-eq" @bind="_pl.EquipamentoId"><option value="@Guid.Empty">—</option>@foreach (var s in _sits.Where(s => s.Equipamento.Situacao is not (SituacaoEquipamento.Baixado or SituacaoEquipamento.Devolvido)).OrderBy(s => s.Equipamento.Patrimonio)) { <option value="@s.Equipamento.Id">@s.Equipamento.Patrimonio – @s.Equipamento.Nome</option> }</select>
+                    <select id="pl-eq" @bind="_pl.EquipamentoId"><option
+                            value="@Guid.Empty">—</option>@foreach (var s in _sits.Where(s =>
+                                s.Equipamento.Situacao is not (SituacaoEquipamento.Baixado or SituacaoEquipamento.Devolvido)).OrderBy(s =>
+                                s.Equipamento.Patrimonio)) {
+                            <option value="@s.Equipamento.Id">@s.Equipamento.Patrimonio – @s.Equipamento.Nome</option>
+                        }</select>
                 </Campo>
                 <Campo Rotulo="Nome do plano" Classe="s6" Obrigatorio="true"><input id="pl-nome" @bind="_pl.Nome" placeholder="Ex.: Revisão 250 h, Inspeção mensal" /></Campo>
                 <Campo Rotulo="Gatilho" Classe="s3">

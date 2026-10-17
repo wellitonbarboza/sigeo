@@ -25,7 +25,9 @@
                         <b>fornecedores</b> (CPF/CNPJ) e <b>insumos cadastrados</b> (unidade e categoria). Nada entra nos cadastros até você confirmar.
                         Antes da data de corte tudo entra como <b>histórico</b> (sem aprovações nem FVM/FVS); a partir dela, lance no sistema.</span></div>
                 <div class="acoes-pagina">
-                    <label class="btn prim arquivo cursor-mao" id="imp-enviar-rotulo"><Icone Nome="upload" Tam="16" /> @(_enviando ? "Lendo relatórios…" : "Enviar relatórios")<InputFile id="imp-arquivos" OnChange="Enviar" multiple accept=".xlsx,.xls" class="so-leitor" disabled="@_enviando" /></label>
+                    <label class="btn prim arquivo cursor-mao" id="imp-enviar-rotulo"><Icone Nome="upload" Tam="16" />
+                        @(_enviando ? "Lendo relatórios…" : "Enviar relatórios")<InputFile id="imp-arquivos" OnChange="Enviar" multiple accept=".xlsx,.xls"
+                            class="so-leitor" disabled="@_enviando" /></label>
                     @if (_lotes.Count > 0)
                     {
                         <select id="imp-lote" class="larg-260" value="@_loteId" @onchange="async e => { if (Guid.TryParse(e.Value?.ToString(), out var g)) await AbrirLote(g); }" aria-label="Importação">
@@ -42,7 +44,11 @@
                         <Kpi Rotulo="Já importados" Valor="@($"{_r.CustosJaImportados} / {_r.PedidosJaImportados}")" Sub="custos / pedidos (não duplicam)" />
                         @if (_r.Titulos > 0)
                         {
-                            <Kpi Rotulo="Contas a pagar (documentos)" Valor="@_r.Titulos" Sub="@(_r.FinanceiroAtivo ? $"{_r.ValorTitulos.ToString("C0", Br)} · {_r.TitulosAbertos} em aberto · {_r.TitulosJaImportados} já importados" : "módulo Financeiro não liberado")" Tom="@(_r.FinanceiroAtivo ? "" : "aviso")" />
+                            <Kpi Rotulo="Contas a pagar (documentos)" Valor="@_r.Titulos"
+                                Sub="@(_r.FinanceiroAtivo
+                                    ? $"{_r.ValorTitulos.ToString("C0", Br)} · {_r.TitulosAbertos} em aberto · {_r.TitulosJaImportados} já importados"
+                                    : "módulo Financeiro não liberado")"
+                                Tom="@(_r.FinanceiroAtivo ? "" : "aviso")" />
                         }
                         <Kpi Rotulo="Após o corte (não entram)" Valor="@_r.ValorAposCorte.ToString("C0", Br)" Sub="@($"{_r.LinhasAposCorte} linhas")" Tom="@(_r.LinhasAposCorte > 0 ? "aviso" : "")" />
                     </div>
@@ -79,7 +85,10 @@
     </ChildContent>
 </Pagina>
 
-<Confirmacao Pergunta="@(_confirmar && _r is not null ? $"Importar {_r.LinhasCusto - _r.CustosJaImportados} lançamentos de custo ({_r.ValorCusto.ToString("C2", Br)}) e {_r.Pedidos - _r.PedidosJaImportados} pedidos como histórico, criando {_r.Produtos.Count(p => p.Acao == AcaoDePara.Criar)} produtos e {_r.Fornecedores.Count(f => f.Acao == AcaoDePara.Criar)} fornecedores{(_r.FinanceiroAtivo && _r.Titulos > 0 ? $", mais {_r.Titulos - _r.TitulosJaImportados} contas a pagar" : "")}?" : null)"
+<Confirmacao
+    Pergunta="@(_confirmar && _r is not null
+        ? $"Importar {_r.LinhasCusto - _r.CustosJaImportados} lançamentos de custo ({_r.ValorCusto.ToString("C2", Br)}) e {_r.Pedidos - _r.PedidosJaImportados} pedidos como histórico, criando {_r.Produtos.Count(p => p.Acao == AcaoDePara.Criar)} produtos e {_r.Fornecedores.Count(f => f.Acao == AcaoDePara.Criar)} fornecedores{(_r.FinanceiroAtivo && _r.Titulos > 0 ? $", mais {_r.Titulos - _r.TitulosJaImportados} contas a pagar" : "")}?"
+        : null)"
              Titulo="Confirmar importação" TextoSim="Importar" AoSim="Confirmar" AoNao="() => _confirmar = false" />
 
 @code {

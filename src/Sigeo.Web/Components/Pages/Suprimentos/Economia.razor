@@ -20,7 +20,9 @@
                 <p class="mudo">@Inicio.ToString("dd/MM/yyyy") a @Fim.ToString("dd/MM/yyyy") · base = último preço pago do item, mesma unidade, frete incluso · emergenciais e diferenças acima do limite ficam fora · sem correção por índice</p>
                 <div class="kpis">
                     <Kpi Rotulo="Economia real" Valor="@Moeda(r.Economia)" Sub="@($"{r.Percentual:0.0}% sobre {Moeda(r.BaseTotal)} com base")" Tom="@(r.Economia >= 0 ? "ok" : "erro")" />
-                    <Kpi Rotulo="Meta do setor" Valor="@(_d.MetaSetorPerc is { } m ? $"{m:0.0}%" : "—")" Sub="@(_d.MetaSetorPerc is { } m2 && m2 > 0 ? $"{Math.Round(r.Percentual / m2 * 100):0}% da meta" : "configure em Gestão › Metas")" Tom="@(_d.MetaSetorPerc is { } m3 && r.Percentual >= m3 ? "ok" : "aviso")" />
+                    <Kpi Rotulo="Meta do setor" Valor="@(_d.MetaSetorPerc is { } m ? $"{m:0.0}%" : "—")"
+                        Sub="@(_d.MetaSetorPerc is { } m2 && m2 > 0 ? $"{Math.Round(r.Percentual / m2 * 100):0}% da meta" : "configure em Gestão › Metas")"
+                        Tom="@(_d.MetaSetorPerc is { } m3 && r.Percentual >= m3 ? "ok" : "aviso")" />
                     <Kpi Rotulo="Cobertura da base" Valor="@($"{r.Cobertura:0}%")" Sub="do valor comprado tem histórico" />
                     <Kpi Rotulo="Perda (pagou mais)" Valor="@Moeda(r.Perdas)" Sub="já descontada do total" Tom="erro" />
                     <Kpi Rotulo="@($"Aumentos acima de {_d.LimiteAumento:0}%")" Valor="@_d.Aumentos.Count" Sub="lista do gestor (abaixo)" Tom="@(_d.Aumentos.Count > 0 ? "aviso" : "ok")" />
@@ -58,19 +60,33 @@
                 <div class="secao"><Icone Nome="lista" /> Por categoria (grupo do catálogo)</div>
                 <table class="itens" id="eco-categorias">
                     <thead><tr><th>Categoria</th><th class="num">Comprado</th><th class="num">Base</th><th class="num">Economia</th><th class="num">%</th></tr></thead>
-                    <tbody>@foreach (var c in _d.PorCategoria) { <tr @key="c.Chave"><td>@c.Nome</td><td class="num">@Moeda(c.Comprado)</td><td class="num">@Moeda(c.BaseTotal)</td><td class="num @(c.Economia < 0 ? "texto-erro" : "")">@Moeda(c.Economia)</td><td class="num">@c.Percentual.ToString("0.0")</td></tr> }</tbody>
+                    <tbody>@foreach (var c in _d.PorCategoria) {
+                            <tr @key="c.Chave"><td>@c.Nome</td><td class="num">@Moeda(c.Comprado)</td><td class="num">@Moeda(c.BaseTotal)</td><td
+                                    class="num @(c.Economia < 0 ? "texto-erro" : "")">@Moeda(c.Economia)</td><td
+                                    class="num">@c.Percentual.ToString("0.0")</td></tr>
+                        }</tbody>
                 </table>
 
                 <div class="grade-2 mt-12">
                     <div>
                         <div class="secao"><Icone Nome="medalha" /> Maiores economias</div>
                         <table class="itens"><thead><tr><th>Item</th><th class="num">Base</th><th class="num">Pago</th><th class="num">Resultado</th><th>Comprador</th></tr></thead>
-                            <tbody>@foreach (var a in _d.Ganhos) { <tr><td><a href="@($"suprimentos/precos?produto={a.Compra.ProdutoId}")">@a.Compra.Descricao</a> <small class="mudo">(@a.Compra.Unidade)</small></td><td class="num">@Moeda(a.PrecoBase)</td><td class="num">@Moeda(a.Compra.PrecoUnitario)</td><td class="num texto-ok">+@Moeda(a.Economia)</td><td>@(a.Compra.Comprador ?? "—")</td></tr> }</tbody></table>
+                            <tbody>@foreach (var a in _d.Ganhos) {
+                                    <tr><td><a href="@($"suprimentos/precos?produto={a.Compra.ProdutoId}")">@a.Compra.Descricao</a>
+                                            <small class="mudo">(@a.Compra.Unidade)</small></td><td class="num">@Moeda(a.PrecoBase)</td><td
+                                            class="num">@Moeda(a.Compra.PrecoUnitario)</td><td
+                                            class="num texto-ok">+@Moeda(a.Economia)</td><td>@(a.Compra.Comprador ?? "—")</td></tr>
+                                }</tbody></table>
                     </div>
                     <div>
                         <div class="secao"><Icone Nome="alerta" /> Maiores perdas (pagou mais)</div>
                         <table class="itens"><thead><tr><th>Item</th><th class="num">Base</th><th class="num">Pago</th><th class="num">Resultado</th><th>Comprador</th></tr></thead>
-                            <tbody>@foreach (var a in _d.Perdas) { <tr><td><a href="@($"suprimentos/precos?produto={a.Compra.ProdutoId}")">@a.Compra.Descricao</a> <small class="mudo">(@a.Compra.Unidade)</small></td><td class="num">@Moeda(a.PrecoBase)</td><td class="num">@Moeda(a.Compra.PrecoUnitario)</td><td class="num texto-erro">@Moeda(a.Economia)</td><td>@(a.Compra.Comprador ?? "—")</td></tr> }</tbody></table>
+                            <tbody>@foreach (var a in _d.Perdas) {
+                                    <tr><td><a href="@($"suprimentos/precos?produto={a.Compra.ProdutoId}")">@a.Compra.Descricao</a>
+                                            <small class="mudo">(@a.Compra.Unidade)</small></td><td class="num">@Moeda(a.PrecoBase)</td><td
+                                            class="num">@Moeda(a.Compra.PrecoUnitario)</td><td
+                                            class="num texto-erro">@Moeda(a.Economia)</td><td>@(a.Compra.Comprador ?? "—")</td></tr>
+                                }</tbody></table>
                     </div>
                 </div>
 
@@ -79,7 +95,13 @@
                         <div class="secao"><Icone Nome="alerta" /> Aumentos acima de @_d.LimiteAumento.ToString("0")% (lista do gestor)</div>
                         <table class="itens" id="eco-aumentos"><thead><tr><th>Item</th><th>Fornecedor</th><th class="num">Último</th><th class="num">Pago</th><th class="num">Aumento</th><th>Pedido</th></tr></thead>
                             <tbody>
-                                @foreach (var a in _d.Aumentos) { <tr><td><a href="@($"suprimentos/precos?produto={a.Compra.ProdutoId}")">@a.Compra.Descricao</a></td><td>@a.Compra.Fornecedor</td><td class="num">@Moeda(a.PrecoBase)</td><td class="num">@Moeda(a.Compra.PrecoUnitario)</td><td class="num texto-erro peso-600">+@a.VariacaoPerc?.ToString("0.0")%</td><td><a href="@($"pedidos?id={a.Compra.PedidoId}")">@a.Compra.PedidoNumero</a></td></tr> }
+                                @foreach (var a in _d.Aumentos) {
+                                    <tr><td><a
+                                                href="@($"suprimentos/precos?produto={a.Compra.ProdutoId}")">@a.Compra.Descricao</a></td><td>@a.Compra.Fornecedor</td><td
+                                            class="num">@Moeda(a.PrecoBase)</td><td class="num">@Moeda(a.Compra.PrecoUnitario)</td><td
+                                            class="num texto-erro peso-600">+@a.VariacaoPerc?.ToString("0.0")%</td><td><a
+                                                href="@($"pedidos?id={a.Compra.PedidoId}")">@a.Compra.PedidoNumero</a></td></tr>
+                                }
                                 @if (_d.Aumentos.Count == 0) { <tr><td colspan="6" class="mudo">Nenhum aumento acima do limite no período.</td></tr> }
                             </tbody></table>
                     </div>

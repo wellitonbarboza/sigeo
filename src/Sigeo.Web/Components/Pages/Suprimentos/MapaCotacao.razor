@@ -34,7 +34,9 @@
                 <p class="fonte-13"><b>@_c.Nome</b> · @_obra · @De(_c.Tipo) · frete @De(_c.Frete) · <Selo Texto="@De(_c.Status)" Tom="@Tom(_c.Status)" />
                     @if (!Editavel) { <span class="mudo">· somente leitura (cotação @De(_c.Status).ToLowerInvariant())</span> }</p>
                 <div class="kpis">
-                    <Kpi Rotulo="@(_c.FornecedorVencedorId is null ? "Menor total (1 fornecedor)" : "Total do vencedor")" Valor="@Moeda(_c.FornecedorVencedorId is { } v ? Total(v) : MenorTotal?.Total)" Sub="@(_c.FornecedorVencedorId is { } v2 ? Nome(v2) : MenorTotal is { } m ? Nome(m.Id) : "sem preços")" Tom="info" />
+                    <Kpi Rotulo="@(_c.FornecedorVencedorId is null ? "Menor total (1 fornecedor)" : "Total do vencedor")"
+                        Valor="@Moeda(_c.FornecedorVencedorId is { } v ? Total(v) : MenorTotal?.Total)"
+                        Sub="@(_c.FornecedorVencedorId is { } v2 ? Nome(v2) : MenorTotal is { } m ? Nome(m.Id) : "sem preços")" Tom="info" />
                     <Kpi Rotulo="Melhor preço por item" Valor="@Moeda(MelhorPorItem)" Sub="@(MenorTotal is { } mt && mt.Total > MelhorPorItem ? $"dividir economiza {Moeda(mt.Total - MelhorPorItem)}" : "sem ganho em dividir")" />
                     <Kpi Rotulo="Economia negociada" Valor="@Moeda(econ.Negociada)" Sub="@($"{econ.NegociadaPerc:0.0}% vs. ofertado")" Tom="ok" />
                     <Kpi Rotulo="Economia vs. último preço" Valor="@(econ.VsUltimo is { } u ? Moeda(u) : "—")" Sub="@(econ.VsUltimoPerc is { } up ? $"{up:0.0}%" : "sem compra anterior")" Tom="@(econ.VsUltimo is < 0 ? "erro" : "ok")" />
@@ -45,7 +47,13 @@
                 <div class="secao"><Icone Nome="predio" /> Propostas dos fornecedores</div>
                 <div class="tabela-rolavel">
                     <table class="itens mapa" id="mapa-fornecedores">
-                        <thead><tr><th>Condição</th>@foreach (var f in forns) { <th class="texto-centro @(f.FornecedorId == _c.FornecedorVencedorId ? "destaque" : "")">@Nome(f.FornecedorId)@if (f.FornecedorId == _c.FornecedorVencedorId) { <br /><Selo Texto="vencedor" Tom="ok" /> }</th> }</tr></thead>
+                        <thead><tr><th>Condição</th>@foreach (var f in forns) {
+                                    <th
+                                        class="texto-centro @(f.FornecedorId == _c.FornecedorVencedorId ? "destaque"
+                                            : "")">@Nome(f.FornecedorId)@if (f.FornecedorId == _c.FornecedorVencedorId) {
+                                            <br /><Selo Texto="vencedor" Tom="ok" />
+                                        }</th>
+                                }</tr></thead>
                         <tbody>
                             <tr><td>Qualificação</td>@foreach (var f in forns) { <td class="texto-centro"><Selo Texto="@De(f.QualificacaoNaData)" Tom="@Tom(f.QualificacaoNaData)" /></td> }</tr>
                             @if (forns.Any(f => !string.IsNullOrWhiteSpace(f.PendenciaNaData)))
@@ -54,7 +62,10 @@
                             }
                             @if (_c.VencedorPorItem)
                             {
-                                <tr class="peso-600"><td>Itens vencidos · total</td>@foreach (var f in forns) { var vi = _c.Itens.Where(i => i.FornecedorId == f.FornecedorId && i.Vencedor).ToList(); <td class="num">@(vi.Count == 0 ? "—" : $"{vi.Count} · {Moeda(vi.Sum(i => i.ValorTotalVencido))}")</td> }</tr>
+                                <tr class="peso-600"><td>Itens vencidos · total</td>@foreach (var f in forns) {
+                                        var vi = _c.Itens.Where(i => i.FornecedorId == f.FornecedorId && i.Vencedor).ToList();
+                                        <td class="num">@(vi.Count == 0 ? "—" : $"{vi.Count} · {Moeda(vi.Sum(i => i.ValorTotalVencido))}")</td>
+                                    }</tr>
                             }
                             <tr><td>Situação / resposta</td>@foreach (var f in forns) { <td class="texto-centro">@De(f.Status) @(f.DataResposta is { } d ? $"· {d:dd/MM}" : "")</td> }</tr>
                             <tr><td>Prazo de entrega ofertado</td>@foreach (var f in forns) { <td class="texto-centro @(f.PrazoEntregaOfertado is { } p && p == MelhorPrazo ? "melhor" : "")">@Data(f.PrazoEntregaOfertado)</td> }</tr>
@@ -72,7 +83,9 @@
                 <div class="tabela-rolavel">
                     <table class="itens mapa" id="mapa-itens">
                         <thead>
-                            <tr><th rowspan="2">Item</th><th rowspan="2">UN</th><th rowspan="2" class="num">Quant.</th><th rowspan="2" class="num" title="Último preço unitário pago pelo mesmo produto">Último</th><th rowspan="2" class="num" title="Preço de referência do cadastro do produto">Ref.</th>
+                            <tr><th rowspan="2">Item</th><th rowspan="2">UN</th><th rowspan="2" class="num">Quant.</th><th rowspan="2" class="num"
+                                    title="Último preço unitário pago pelo mesmo produto">Último</th><th rowspan="2" class="num"
+                                    title="Preço de referência do cadastro do produto">Ref.</th>
                                 @foreach (var f in forns) { <th colspan="3" class="texto-centro">@Nome(f.FornecedorId)</th> }<th rowspan="2" class="num">Melhor</th></tr>
                             <tr>@foreach (var _ in forns) { <th>Ofertado</th><th>Negociado</th><th class="num">Total</th> }</tr>
                         </thead>
@@ -87,7 +100,11 @@
                                 <tr @key="primeiro.Id">
                                     <td><b>@primeiro.Descricao</b> @if (primeiro.MaterialControlado) { <Selo Texto="controlado" Tom="info" /> }
                                         @if (primeiro.RequisicaoItemId is { } rqm && _pedidas.TryGetValue(rqm, out var mp) && !string.IsNullOrWhiteSpace(mp.Marca)) { <br /><small class="mudo">Pedida: @mp.Marca@(mp.Mesma ? " (somente esta)" : " ou similar")</small> }
-                                        @if (locaisItem is not null) { <br /><button type="button" class="pl-toggle" aria-expanded="@(aberto ? "true" : "false")" @onclick="() => AlternarLocais(primeiro.RequisicaoItemId!.Value)">@(aberto ? "▾" : "▸") <span class="pl-ico">▦</span> Locais: @QuadroLocais.Resumo(locaisItem, primeiro.Unidade)</button> }</td>
+                                        @if (locaisItem is not null) {
+                                            <br /><button type="button" class="pl-toggle" aria-expanded="@(aberto ? "true" : "false")"
+                                                @onclick="() => AlternarLocais(primeiro.RequisicaoItemId!.Value)">@(aberto ? "▾" : "▸") <span
+                                                    class="pl-ico">▦</span> Locais: @QuadroLocais.Resumo(locaisItem, primeiro.Unidade)</button>
+                                        }</td>
                                     <td>@primeiro.Unidade</td><td class="num">@Num(primeiro.Quantidade, 3)</td>
                                     <td class="num mudo">@(primeiro.PrecoUltimo is { } pu ? Moeda(pu) : "—")</td>
                                     <td class="num mudo">@(primeiro.PrecoReferencia is { } pr ? Moeda(pr) : "—")</td>
@@ -97,7 +114,12 @@
                                         if (it is null) { <td></td><td></td><td></td> continue; }
                                         var melhor = it.ValorUnitarioFinal > 0 && it.ValorUnitarioFinal == menor;
                                         <td class="larg-110 @(melhor ? "melhor" : "")"><input type="number" step="0.01" aria-label="@($"Ofertado {Nome(f.FornecedorId)} – {primeiro.Descricao}")" @bind="it.ValorOfertado" @bind:after="Recalcular" disabled="@(!Editavel)" />
-                                            @if (_c.Tipo == TipoRequisicao.Material) { <input class="mt-4 @(it.ValorOfertado > 0 && string.IsNullOrWhiteSpace(it.Marca) ? "invalido" : "")" list="mapa-marcas" placeholder="marca" aria-label="@($"Marca {Nome(f.FornecedorId)} – {primeiro.Descricao}")" @bind="it.Marca" disabled="@(!Editavel)" /> }
+                                            @if (_c.Tipo == TipoRequisicao.Material) {
+                                                <input class="mt-4 @(it.ValorOfertado > 0 && string.IsNullOrWhiteSpace(it.Marca) ? "invalido" : "")"
+                                                    list="mapa-marcas" placeholder="marca"
+                                                    aria-label="@($"Marca {Nome(f.FornecedorId)} – {primeiro.Descricao}")" @bind="it.Marca"
+                                                    disabled="@(!Editavel)" />
+                                            }
                                             @if (it.Entrega is { } en) { <small class="mudo">entrega @en.ToString("dd/MM")</small> }
                                             @if (it.MaterialControlado) { <small class="@(it.AtendeEspecificacao == true ? "" : "texto-erro")">@(it.AtendeEspecificacao switch { true => "atende espec.", false => "não atende espec.", _ => "espec. não avaliada" })</small> }</td>
                                         <td class="larg-110"><input type="number" step="0.01" aria-label="@($"Negociado {Nome(f.FornecedorId)} – {primeiro.Descricao}")" @bind="it.ValorNegociado" @bind:after="Recalcular" disabled="@(!Editavel)" />
@@ -107,7 +129,12 @@
                                             @if (it.ValorUnitarioFinal > 0)
                                             {
                                                 <br /><label class="check fonte-12"><input type="radio" name="@($"venc-{primeiro.Id}")" checked="@it.Vencedor" disabled="@(!Editavel)" @onchange="() => Vencer(it)" /> vencer</label>
-                                                @if (it.Vencedor && Editavel) { <input type="number" class="mt-4" step="0.001" min="0" max="@it.Quantidade" title="Quantidade que este fornecedor atende (vazio = toda)" placeholder="qtd. toda" value="@it.QuantidadeVencida" @onchange="e => DefinirQtd(it, e.Value)" aria-label="@($"Quantidade vencida – {primeiro.Descricao}")" /> }
+                                                @if (it.Vencedor && Editavel) {
+                                                    <input type="number" class="mt-4" step="0.001" min="0" max="@it.Quantidade"
+                                                        title="Quantidade que este fornecedor atende (vazio = toda)" placeholder="qtd. toda"
+                                                        value="@it.QuantidadeVencida" @onchange="e => DefinirQtd(it, e.Value)"
+                                                        aria-label="@($"Quantidade vencida – {primeiro.Descricao}")" />
+                                                }
                                                 else if (it.Vencedor && it.QuantidadeVencida is { } qv) { <small>só @Num(qv, 3)</small> }
                                             }</td>
                                     }

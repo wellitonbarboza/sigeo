@@ -8,7 +8,9 @@
             @if (_negado) { <AcessoPlataforma /> }
             else
             {
-                <div class="alerta info pq"><Icone Nome="info" Tam="14" /> Um login pode acessar mais de uma construtora, com perfil e obras próprios em cada uma (o administrador de cada construtora ajusta obras e alçadas em Sistema › Usuários). Quem tem mais de uma escolhe ao entrar e troca pelo menu. A senha é da pessoa (uma só).</div>
+                <div class="alerta info pq"><Icone Nome="info" Tam="14" />
+                    Um login pode acessar mais de uma construtora, com perfil e obras próprios em cada uma (o administrador de cada construtora ajusta obras e
+                    alçadas em Sistema › Usuários). Quem tem mais de uma escolhe ao entrar e troca pelo menu. A senha é da pessoa (uma só).</div>
                 <div class="barra-filtro">
                     <label>Procurar <input type="search" @bind="_busca" @bind:event="oninput" placeholder="nome, login ou e-mail" /></label>
                     <label>Construtora <select @bind="_fEmp"><option value="">Todas</option>@foreach (var (id, nome) in _empresas) { <option value="@id">@nome</option> }</select></label>
@@ -23,7 +25,11 @@
                             @foreach (var c in Filtradas)
                             {
                                 <tr @key="c.Id"><td><b>@c.Nome</b>@if (c.AdministradorPlataforma) { <Selo Texto="plataforma" Tom="aviso" /> }</td><td>@c.Login</td><td>@c.Email</td>
-                                    <td><div class="chips-acesso">@foreach (var a in c.Acessos) { <span class="selo-acesso @(a.Ativo ? "" : "off")" title="@(a.Principal ? "cadastro principal" : a.SuporteAte != null ? "suporte" : "vínculo")">@a.Empresa · @De(a.Perfil)@(a.SuporteAte != null ? " · suporte" : "")</span> }</div></td>
+                                    <td><div class="chips-acesso">@foreach (var a in c.Acessos) {
+                                                <span class="selo-acesso @(a.Ativo ? "" : "off")"
+                                                    title="@(a.Principal ? "cadastro principal" : a.SuporteAte != null ? "suporte"
+                                                        : "vínculo")">@a.Empresa · @De(a.Perfil)@(a.SuporteAte != null ? " · suporte" : "")</span>
+                                            }</div></td>
                                     <td>@(c.UltimoAcesso is { } u ? DataHora(u) : "—")</td>
                                     <td><Selo Texto="@(!c.Ativo ? "Inativo" : c.Bloqueado ? "Bloqueado" : "Ativo")" Tom="@(c.Ativo && !c.Bloqueado ? "ok" : "erro")" /></td>
                                     <td><button class="btn sec pq" @onclick="() => Abrir(c)">Acessos</button></td></tr>

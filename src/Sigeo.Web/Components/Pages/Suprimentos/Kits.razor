@@ -34,7 +34,11 @@
                         <select id="sep-kit" @bind="_kitSep" @bind:after="LimparCalculo"><option value="">—</option>@foreach (var k in _kits.Where(k => k.Ativo)) { <option value="@k.Id">@k.Codigo – @k.Nome</option> }</select>
                     </Campo>
                     <Campo Rotulo="Sai do almoxarifado" Classe="s4">
-                        <select id="sep-almox" @bind="_almoxSep" @bind:after="LimparCalculo">@foreach (var a in _almoxs.Where(a => a.Ativo && (a.ObraId == _obraId || a.Tipo == TipoAlmoxarifado.Central))) { <option value="@a.Id">@(a.Tipo == TipoAlmoxarifado.Central ? "Central · " : "")@a.Nome</option> }</select>
+                        <select id="sep-almox" @bind="_almoxSep"
+                            @bind:after="LimparCalculo">@foreach (var a in _almoxs.Where(a => a.Ativo && (a.ObraId == _obraId
+                                        || a.Tipo == TipoAlmoxarifado.Central))) {
+                                <option value="@a.Id">@(a.Tipo == TipoAlmoxarifado.Central ? "Central · " : "")@a.Nome</option>
+                            }</select>
                     </Campo>
                     <Campo Rotulo="Filtrar apartamentos" Classe="s4"><input id="sep-filtro" @bind="_filtroApto" @bind:event="oninput" placeholder="Ex.: Torre A, 10" /></Campo>
                 </div>
@@ -79,7 +83,9 @@
                     <Grade T="Opcao" Itens="_aptos.Where(a => _marcados.Contains(a.Id)).ToList()" MostrarAgrupamento="false" NomeExportacao="kit-entregas">
                         <Colunas>
                             <Coluna T="Opcao" Titulo="Apartamento" Valor="a => a.Texto" />
-                            <Coluna T="Opcao" Titulo="Entregue" Valor="a => _entregues.Contains(a.Id) ? EntregueTexto : PendenteTexto"><Modelo><Selo Texto="@(_entregues.Contains(context.Id) ? EntregueTexto : PendenteTexto)" Tom="@(_entregues.Contains(context.Id) ? "ok" : "aviso")" /></Modelo></Coluna>
+                            <Coluna T="Opcao" Titulo="Entregue" Valor="a => _entregues.Contains(a.Id) ? EntregueTexto : PendenteTexto"><Modelo><Selo
+                                        Texto="@(_entregues.Contains(context.Id) ? EntregueTexto : PendenteTexto)"
+                                        Tom="@(_entregues.Contains(context.Id) ? "ok" : "aviso")" /></Modelo></Coluna>
                         </Colunas>
                         <Acoes><button class="btn pq" disabled="@Ocupado" @onclick="() => AbrirEntrega(context)" @onclick:stopPropagation="true"><Icone Nome="sacola" Tam="14" /> Entregar</button></Acoes>
                     </Grade>

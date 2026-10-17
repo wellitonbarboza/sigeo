@@ -44,7 +44,10 @@
                     {
                         <Campo Rotulo="SPE contratante (CNPJ da NF)" Classe="s6"><select @bind="_k.SpeId" disabled="@(!Editavel)"><option value="">—</option>@foreach (var s in _spes.Where(s => s.Extra == _k.ObraId.ToString())) { <option value="@s.Id">@s.Texto</option> }</select></Campo>
                     }
-                    <Campo Rotulo="Fornecedor" Obrigatorio Classe="s5"><select @bind="_k.FornecedorId" disabled="@(!Editavel)"><option value="@Guid.Empty">Selecione…</option>@foreach (var f in _fornecedores) { <option value="@f.Id">@f.Texto (@(Enum.TryParse<StatusQualificacao>(f.Extra, out var s) ? De(s) : ""))</option> }</select></Campo>
+                    <Campo Rotulo="Fornecedor" Obrigatorio Classe="s5"><select @bind="_k.FornecedorId" disabled="@(!Editavel)"><option
+                                value="@Guid.Empty">Selecione…</option>@foreach (var f in _fornecedores) {
+                                <option value="@f.Id">@f.Texto (@(Enum.TryParse<StatusQualificacao>(f.Extra, out var s) ? De(s) : ""))</option>
+                            }</select></Campo>
                     <Campo Rotulo="Centro de custo" Classe="s3"><select @bind="_k.CentroCustoId" disabled="@(!Editavel)"><option value="">—</option>@foreach (var c in _ccs) { <option value="@c.Id">@c.Texto</option> }</select></Campo>
                     <Campo Rotulo="Categoria" Obrigatorio Classe="s4"><select @bind="_k.Categoria" disabled="@(!Editavel)"><option value="">Selecione…</option>@foreach (var c in _categorias) { <option>@c</option> }</select></Campo>
                     <Campo Rotulo="Formalização" Classe="s3"><select @bind="_k.Formalizacao" disabled="@(!Editavel)">@foreach (var f in Enum.GetValues<FormalizacaoContrato>()) { <option value="@f">@De(f)</option> }</select></Campo>
@@ -119,7 +122,9 @@
                                 <td><input @bind="i.Descricao" disabled="@(!Editavel)" />
                                     @if (locaisItem is not null)
                                     {
-                                        <button type="button" class="pl-toggle" aria-expanded="@(aberto ? "true" : "false")" @onclick="() => AlternarLocais(i.Id)">@(aberto ? "▾" : "▸") <span class="pl-ico">▦</span> Locais (medição por local): @QuadroLocais.Resumo(locaisItem, i.Unidade)</button>
+                                        <button type="button" class="pl-toggle" aria-expanded="@(aberto ? "true" : "false")"
+                                            @onclick="() => AlternarLocais(i.Id)">@(aberto ? "▾" : "▸") <span
+                                                class="pl-ico">▦</span> Locais (medição por local): @QuadroLocais.Resumo(locaisItem, i.Unidade)</button>
                                     }</td>
                                 <td><select @bind="i.ServicoControladoId" disabled="@(!Editavel)"><option value="">—</option>@foreach (var s in _servicos) { <option value="@s.Id">@s.Texto</option> }</select></td>
                                 <td class="larg-70"><input @bind="i.Unidade" disabled="@(!Editavel)" /></td>
@@ -157,7 +162,12 @@
                     <table class="itens">
                         <thead><tr><th>Nº</th><th>Tipo</th><th>Justificativa</th><th class="num">Valor</th><th class="num">% acumulado</th><th>Nova vigência</th><th>Status</th></tr></thead>
                         <tbody>
-                            @foreach (var a in _aditivos) { <tr class="clicavel" @onclick="() => AbrirAditivo(a.Id)"><td>@a.Numero</td><td>@De(a.Tipo)</td><td>@a.Justificativa</td><td class="num">@Moeda(a.Valor)</td><td class="num">@a.PercAcumulado.ToString("0.##")%</td><td>@Data(a.NovaVigencia)</td><td><Selo Texto="@De(a.Status)" Tom="@Tom(a.Status)" /></td></tr> }
+                            @foreach (var a in _aditivos) {
+                                <tr class="clicavel" @onclick="() => AbrirAditivo(a.Id)"><td>@a.Numero</td><td>@De(a.Tipo)</td><td>@a.Justificativa</td><td
+                                        class="num">@Moeda(a.Valor)</td><td
+                                        class="num">@a.PercAcumulado.ToString("0.##")%</td><td>@Data(a.NovaVigencia)</td><td><Selo Texto="@De(a.Status)"
+                                            Tom="@Tom(a.Status)" /></td></tr>
+                            }
                             @if (_aditivos.Count == 0) { <tr><td colspan="7" class="mudo">Nenhum aditivo.</td></tr> }
                         </tbody>
                     </table>
@@ -176,7 +186,12 @@
                     @if (_ad.AlteraValor)
                     {
                         <div class="secao"><Icone Nome="tabela" /> Itens alterados
-                            @if (editaAd) { <span class="acao"><select @bind="_itemAd" class="max-260"><option value="">Item existente…</option>@foreach (var ci in _k.Itens.Where(ci => _ad.Itens.All(x => x.ContratoItemId != ci.Id))) { <option value="@ci.Id">@ci.Item – @ci.Descricao</option> }</select>
+                            @if (editaAd) {
+                                <span class="acao"><select @bind="_itemAd" class="max-260"><option
+                                            value="">Item existente…</option>@foreach (var ci in _k.Itens.Where(ci => _ad.Itens.All(x =>
+                                                    x.ContratoItemId != ci.Id))) {
+                                            <option value="@ci.Id">@ci.Item – @ci.Descricao</option>
+                                        }</select>
                                 <button class="btn sec pq" @onclick="IncluirItemAditivo"><Icone Nome="mais" Tam="14" /></button> <button class="btn sec pq" @onclick="ItemNovoAditivo">Item novo</button></span> }
                         </div>
                         <table class="itens">

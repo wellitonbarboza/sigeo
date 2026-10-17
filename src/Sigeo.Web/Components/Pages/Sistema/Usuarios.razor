@@ -71,7 +71,11 @@
                             @foreach (var u in (_usuarios ?? []).Where(u => u.Ativo).OrderBy(u => u.Nome))
                             {
                                 var todas = u.VeTodasObras;
-                                <tr><td>@if (todas) { <span title="Acessa todas as obras">✓ todas</span> } else { <input type="checkbox" checked="@_acesso.GetValueOrDefault(u.Id)" disabled="@(!Perfil())" @onchange="e => _acesso[u.Id] = (bool)e.Value!" aria-label="@($"Acesso de {u.Nome}")" /> }</td>
+                                <tr><td>@if (todas) { <span title="Acessa todas as obras">✓ todas</span>
+                                        } else {
+                                            <input type="checkbox" checked="@_acesso.GetValueOrDefault(u.Id)" disabled="@(!Perfil())"
+                                                @onchange="e => _acesso[u.Id] = (bool)e.Value!" aria-label="@($"Acesso de {u.Nome}")" />
+                                        }</td>
                                     <td>@u.Nome</td><td>@De(u.Perfil)</td><td>@u.Funcao</td>
                                     <td>@(todas ? (Sigeo.Domain.Estrutura.Usuario.PerfilVeTodas(u.Perfil) ? "Perfil vê todas as obras" : "Marcado \"todas as obras\"") : _acesso.GetValueOrDefault(u.Id) ? "Com acesso" : "Sem acesso")</td></tr>
                             }
@@ -83,7 +87,8 @@
             }
         </div>
     </ChildContent>
-    <Faixa><b>Tela 28 · Usuários, perfis e alçadas</b><span>Aprovações por regra configurável, não fixas no código · congeladas no envio</span><span>Limite por usuário: aprova só até o valor configurado</span><span>Delegação com período · quem solicita não aprova (segregação)</span></Faixa>
+    <Faixa><b>Tela 28 · Usuários, perfis e alçadas</b><span>Aprovações por regra configurável, não fixas no código · congeladas no envio</span><span>Limite por
+            usuário: aprova só até o valor configurado</span><span>Delegação com período · quem solicita não aprova (segregação)</span></Faixa>
 </Pagina>
 
 <Modal @bind-Aberto="_abertoU" Titulo="Usuário">

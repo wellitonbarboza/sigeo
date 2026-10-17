@@ -24,7 +24,11 @@
                 }
             </div>
             <Erros Lista="ErrosForm" />
-            @if (!_siegOk) { <div class="alerta info"><Icone Nome="info" /> Integração SIEG ainda não configurada para esta empresa: importe os XMLs por arquivo. Configuração: script <b>configurar-sieg.sh</b> no Cloud Shell (credenciais da API do SIEG no Key Vault) com o código desta empresa: <code>@Usuario.EmpresaId</code></div> }
+            @if (!_siegOk) {
+                <div class="alerta info"><Icone Nome="info" />
+                    Integração SIEG ainda não configurada para esta empresa: importe os XMLs por arquivo. Configuração: script <b>configurar-sieg.sh</b>
+                    no Cloud Shell (credenciais da API do SIEG no Key Vault) com o código desta empresa: <code>@Usuario.EmpresaId</code></div>
+            }
             @if (_resultado is { } r)
             {
                 <div class="alerta @(r.Avisos.Count == 0 ? "ok" : "aviso")" role="status"><Icone Nome="info" />
@@ -62,7 +66,14 @@
             {
                 <details class="mt-10"><summary>Últimas importações</summary>
                     <table class="itens"><thead><tr><th>Quando</th><th>Origem</th><th>CNPJ</th><th>Período</th><th class="num">Lidas</th><th class="num">Novas</th><th>Detalhe</th></tr></thead>
-                        <tbody>@foreach (var i in _importacoes) { <tr @key="i.Id" class="@(i.Falhou ? "texto-erro" : "")"><td>@i.CriadoEm.ToLocalTime().ToString("dd/MM HH:mm")</td><td>@De(i.Origem)</td><td>@Cnpj(i.Cnpj)</td><td>@(i.De is null ? "" : $"{i.De:dd/MM} a {i.Ate:dd/MM}")</td><td class="num">@i.Lidas</td><td class="num">@i.Novas</td><td class="fonte-13">@i.Detalhe</td></tr> }</tbody></table>
+                        <tbody>@foreach (var i in _importacoes) {
+                                <tr @key="i.Id"
+                                    class="@(i.Falhou ? "texto-erro"
+                                        : "")"><td>@i.CriadoEm.ToLocalTime().ToString("dd/MM HH:mm")</td><td>@De(i.Origem)</td><td>@Cnpj(i.Cnpj)</td><td>@(i.De
+                                            is null
+                                            ? "" : $"{i.De:dd/MM} a {i.Ate:dd/MM}")</td><td
+                                        class="num">@i.Lidas</td><td class="num">@i.Novas</td><td class="fonte-13">@i.Detalhe</td></tr>
+                            }</tbody></table>
                 </details>
             }
         </div>

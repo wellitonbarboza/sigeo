@@ -67,7 +67,11 @@
                 <Campo Rotulo="Banco" Classe="s6"><input @bind="_c.Banco" maxlength="100" /></Campo>
                 <Campo Rotulo="Agência" Classe="s4"><input @bind="_c.Agencia" maxlength="20" /></Campo>
                 <Campo Rotulo="Conta" Classe="s8" Ajuda="Fica guardado; nas telas aparece só o final"><input @bind="_c.Numero" maxlength="30" autocomplete="off" /></Campo>
-                <Campo Rotulo="Titular (CNPJ)" Classe="s12"><select value="@(_c.EstabelecimentoId?.ToString() ?? "")" @onchange="e => _c.EstabelecimentoId = Guid.TryParse(e.Value?.ToString(), out var g) ? g : null"><option value="">—</option>@foreach (var e in _estab) { <option value="@e.Id">@e.Texto</option> }</select></Campo>
+                <Campo Rotulo="Titular (CNPJ)" Classe="s12"><select value="@(_c.EstabelecimentoId?.ToString() ?? "")"
+                        @onchange="e => _c.EstabelecimentoId = Guid.TryParse(e.Value?.ToString(), out var g) ? g : null"><option
+                            value="">—</option>@foreach (var e in _estab) {
+                            <option value="@e.Id">@e.Texto</option>
+                        }</select></Campo>
                 <Campo Rotulo="Saldo inicial" Classe="s6"><input type="number" step="0.01" @bind="_c.SaldoInicial" /></Campo>
                 <Campo Rotulo="Em" Classe="s6"><input type="date" @bind="_c.DataSaldoInicial" /></Campo>
                 <Campo Rotulo="" Classe="s12"><label><input type="checkbox" @bind="_c.Ativa" /> Ativa</label></Campo>

@@ -21,7 +21,9 @@
                     <Coluna T="Composicao" Titulo="Ativo" Valor="c => c.Ativa" />
                 </Colunas>
             </Grade>
-            <div class="alerta info"><Icone Nome="info" /> Cada serviço tem a composição (insumos por unidade): materiais do cadastro de produtos, mão de obra própria em horas (base da apropriação), empreitada (R$/un — vai para a cotação), equipamentos e terceiros. A ITS liga o serviço ao modelo de FVS e ao mapa da torre.</div>
+            <div class="alerta info"><Icone Nome="info" />
+                Cada serviço tem a composição (insumos por unidade): materiais do cadastro de produtos, mão de obra própria em horas (base da apropriação),
+                empreitada (R$/un — vai para a cotação), equipamentos e terceiros. A ITS liga o serviço ao modelo de FVS e ao mapa da torre.</div>
         </div>
     </ChildContent>
     <Faixa><b>Composições</b><span>Serviço × insumos × coeficiente × perda</span><span>Quantidade do serviço sai da geometria do local (piso, parede, perímetro, unidade)</span></Faixa>
@@ -72,7 +74,9 @@
                     @if (_c.Itens.Count == 0) { <tr><td colspan="8" class="mudo">Ex.: contrapiso — cimento 7,5 kg/m² · areia 0,045 m³/m² · pedreiro 0,35 h/m² · servente 0,40 h/m².</td></tr> }
                 </tbody>
                 <tfoot><tr><td colspan="6" class="texto-dir">
-                    Material @_c.Custo(TipoInsumo.Material).ToString("N2", Br) · M.O. própria @_c.Custo(TipoInsumo.MaoObraPropria).ToString("N2", Br) (@_c.HorasPorUnidade.ToString("N3", Br) h) · Empreitada @_c.Custo(TipoInsumo.MaoObraEmpreitada).ToString("N2", Br) · Equip./terceiros @((_c.Custo(TipoInsumo.Equipamento) + _c.Custo(TipoInsumo.ServicoTerceiro)).ToString("N2", Br))
+                    Material @_c.Custo(TipoInsumo.Material).ToString("N2", Br) · M.O. própria @_c.Custo(TipoInsumo.MaoObraPropria).ToString("N2", Br)
+                    (@_c.HorasPorUnidade.ToString("N3", Br) h) · Empreitada @_c.Custo(TipoInsumo.MaoObraEmpreitada).ToString("N2", Br) · Equip./terceiros
+                    @((_c.Custo(TipoInsumo.Equipamento) + _c.Custo(TipoInsumo.ServicoTerceiro)).ToString("N2", Br))
                     </td><td class="num"><b>@_c.CustoUnitario.ToString("N2", Br)</b></td><td></td></tr></tfoot>
             </table>
             <p class="mudo">Custo do item = coeficiente × (1 + perda) × custo unitário. Material puxa o preço de referência do produto. Mão de obra própria: o custo-hora real vem do fechamento mensal da apropriação.</p>

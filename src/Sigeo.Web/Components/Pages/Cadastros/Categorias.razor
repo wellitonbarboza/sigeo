@@ -10,21 +10,36 @@
     <div class="topo"><h1>Categorias de produto e siglas</h1></div>
     <div class="miolo"><div class="pagina">
         <div class="acoes-pagina">
-            <label class="btn sec pq arquivo" id="cat-padrao" style="cursor:@(Ocupado ? "wait" : "pointer")" title="Planilha com as abas Grupos (tipo de custo, fase do orçamento, material controlado), Reclassificar (regras) e Produtos (insumos classificados)"><Icone Nome="upload" Tam="14" /> Aplicar padrão do catálogo (xlsx)<InputFile OnChange="PreverPadrao" accept=".xlsx" disabled="@Ocupado" class="so-leitor" /></label>
+            <label class="btn sec pq arquivo" id="cat-padrao" style="cursor:@(Ocupado ? "wait" : "pointer")"
+                title="Planilha com as abas Grupos (tipo de custo, fase do orçamento, material controlado), Reclassificar (regras) e Produtos (insumos classificados)"><Icone
+                    Nome="upload" Tam="14" />
+                Aplicar padrão do catálogo (xlsx)<InputFile OnChange="PreverPadrao" accept=".xlsx" disabled="@Ocupado" class="so-leitor" /></label>
             <button class="btn sec pq" disabled="@Ocupado" @onclick="GerarDosProdutos" title="Cria os grupos/subgrupos que aparecem nos produtos, com sigla sugerida (não altera códigos)"><Icone Nome="mais" Tam="14" /> Gerar a partir dos produtos</button>
         </div>
-        <div class="alerta info"><Icone Nome="info" /> Código do produto = <b>SIGLA DO GRUPO</b>-<b>SIGLA DO SUBGRUPO</b>-<b>0000</b> (ex.: HID-CNX-0001). Ao mudar uma sigla, os produtos ainda não usados são recodificados; os já usados mantêm o código (fica o anterior guardado). Subgrupos duplicados por grafia podem ser mesclados.</div>
+        <div class="alerta info"><Icone Nome="info" /> Código do produto = <b>SIGLA DO GRUPO</b>-<b>SIGLA DO SUBGRUPO</b>-<b>0000</b>
+            (ex.: HID-CNX-0001). Ao mudar uma sigla, os produtos ainda não usados são recodificados; os já usados mantêm o código (fica o anterior guardado).
+            Subgrupos duplicados por grafia podem ser mesclados.</div>
         <Erros Lista="ErrosForm" />
         <table class="itens">
-            <thead><tr><th class="larg-90">Sigla</th><th>Grupo › Subgrupo</th><th class="num">Produtos</th><th>Tipo de custo</th><th>Fase do orçamento</th><th class="num" title="Dias da autorização ao recebimento. Subgrupo vazio herda do grupo.">Lead time (dias)</th><th>Material controlado</th><th>Ações</th></tr></thead>
+            <thead><tr><th class="larg-90">Sigla</th><th>Grupo › Subgrupo</th><th class="num">Produtos</th><th>Tipo de custo</th><th>Fase do orçamento</th><th
+                        class="num"
+                        title="Dias da autorização ao recebimento. Subgrupo vazio herda do grupo.">Lead time (dias)</th><th>Material controlado</th><th>Ações</th></tr></thead>
             <tbody>
                 @foreach (var g in _cats.Where(c => c.PaiId == null).OrderBy(c => c.Nome))
                 {
                     <tr @key="g.Id" class="fundo-sup2">
                         <td><input value="@g.Sigla" maxlength="3" class="larg-64 maiusc peso-700" @onchange="e => Sigla(g, e.Value?.ToString())" /></td>
                         <td><b>@g.Nome</b></td><td class="num"><b>@_qtd.Where(q => q.Key.Grupo == g.Nome).Sum(q => q.Value)</b></td>
-                        <td><select aria-label="@($"Tipo de custo de {g.Nome}")" value="@(g.TipoCustoPadrao?.ToString() ?? "")" @onchange="e => SalvarPadrao(g, e.Value?.ToString(), g.FasePadrao)"><option value="">—</option>@foreach (var t in Enum.GetValues<TipoCusto>()) { <option value="@t">@De(t)</option> }</select></td>
-                        <td><select aria-label="@($"Fase do orçamento de {g.Nome}")" value="@(g.FasePadrao ?? "")" @onchange="e => SalvarPadrao(g, g.TipoCustoPadrao?.ToString(), e.Value?.ToString())"><option value="">—</option>@foreach (var f in _fases) { <option>@f</option> }@if (g.FasePadrao is { } fp && !_fases.Contains(fp)) { <option>@fp</option> }</select></td>
+                        <td><select aria-label="@($"Tipo de custo de {g.Nome}")" value="@(g.TipoCustoPadrao?.ToString() ?? "")"
+                                @onchange="e => SalvarPadrao(g, e.Value?.ToString(), g.FasePadrao)"><option
+                                    value="">—</option>@foreach (var t in Enum.GetValues<TipoCusto>()) {
+                                    <option value="@t">@De(t)</option>
+                                }</select></td>
+                        <td><select aria-label="@($"Fase do orçamento de {g.Nome}")" value="@(g.FasePadrao ?? "")"
+                                @onchange="e => SalvarPadrao(g, g.TipoCustoPadrao?.ToString(), e.Value?.ToString())"><option
+                                    value="">—</option>@foreach (var f in _fases) {
+                                    <option>@f</option>
+                                }@if (g.FasePadrao is { } fp && !_fases.Contains(fp)) { <option>@fp</option> }</select></td>
                         <td class="num"><input type="number" min="0" max="365" class="larg-64" value="@g.LeadTimeDias" aria-label="@($"Lead time de {g.Nome}")" @onchange="e => LeadTime(g, e.Value?.ToString())" /></td>
                         <td class="mudo">@string.Join(", ", _mats.Where(m => m.CategoriaProdutoId == g.Id).Select(m => $"{m.Codigo} {m.Nome}"))</td>
                         <td></td>
@@ -36,7 +51,12 @@
                             <td class="pl-18">› @s.Nome <span class="mudo">(@g.Sigla-@s.Sigla-0001)</span></td>
                             <td class="num">@_qtd.GetValueOrDefault((g.Nome, s.Nome))</td><td colspan="2"></td>
                             <td class="num"><input type="number" min="0" max="365" class="larg-64" value="@s.LeadTimeDias" placeholder="@g.LeadTimeDias" aria-label="@($"Lead time de {s.Nome}")" @onchange="e => LeadTime(s, e.Value?.ToString())" /></td><td></td>
-                            <td><select @key="(s.Id, _versao)" aria-label="@($"Mesclar {s.Nome} em outro subgrupo")" @onchange="e => Mesclar(s, e.Value?.ToString())"><option value="">Mesclar em…</option>@foreach (var d in _cats.Where(c => c.PaiId == g.Id && c.Id != s.Id).OrderBy(c => c.Nome)) { <option value="@d.Id">@d.Nome</option> }</select></td>
+                            <td><select @key="(s.Id, _versao)" aria-label="@($"Mesclar {s.Nome} em outro subgrupo")"
+                                    @onchange="e => Mesclar(s, e.Value?.ToString())"><option
+                                        value="">Mesclar em…</option>@foreach (var d in _cats.Where(c => c.PaiId == g.Id && c.Id != s.Id).OrderBy(c =>
+                                            c.Nome)) {
+                                        <option value="@d.Id">@d.Nome</option>
+                                    }</select></td>
                         </tr>
                     }
                 }

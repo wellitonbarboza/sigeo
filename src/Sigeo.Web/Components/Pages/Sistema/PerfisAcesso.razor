@@ -6,7 +6,10 @@
     <ChildContent>
         <div class="pagina">
             @if (!Perfil()) { <div class="alerta aviso"><Icone Nome="escudo" /> Só o administrador da construtora altera perfis de acesso. Você pode consultar.</div> }
-            <div class="alerta info pq"><Icone Nome="info" Tam="14" /> <div>O que cada usuário vê no menu e pode fazer em cada tela. Só aparecem as telas que a plataforma liberou para @Usuario.EmpresaNome. “Aprovar” vale junto com a alçada de valor do usuário. Mudanças valem na próxima tela que a pessoa abrir, sem sair e entrar. O <b>Administrador</b> tem acesso total (fixo).</div></div>
+            <div class="alerta info pq"><Icone Nome="info" Tam="14" />
+                <div>O que cada usuário vê no menu e pode fazer em cada tela. Só aparecem as telas que a plataforma liberou para @Usuario.EmpresaNome. “Aprovar”
+                    vale junto com a alçada de valor do usuário. Mudanças valem na próxima tela que a pessoa abrir, sem sair e entrar. O <b>Administrador</b>
+                    tem acesso total (fixo).</div></div>
             <Abas Itens="_abas" @bind-Ativa="_aba" />
             @if (_perfis is null || _mapa is null) { <Esqueleto Linhas="10" /> }
             else if (_aba == "perfis")
@@ -98,7 +101,9 @@
                                 @if (Perfil()) { <button class="btn sec pq" disabled="@(QtdExcecoes == 0)" @onclick="() => _exc.Clear()">Limpar exceções</button> }
                                 <span class="mudo pq">Obras que acessa e alçadas de valor continuam em Usuários e Alçadas.</span>
                             </div>
-                            <div class="legenda pq mt-6"><span><button class="celx base" tabindex="-1">✓</button> vem do perfil</span><span><button class="celx mais" tabindex="-1">+</button> liberado só para ele</span><span><button class="celx menos" tabindex="-1">−</button> bloqueado só para ele</span><span>Clique: perfil → exceção → volta ao perfil.</span></div>
+                            <div class="legenda pq mt-6"><span><button class="celx base" tabindex="-1">✓</button> vem do perfil</span><span><button
+                                        class="celx mais" tabindex="-1">+</button> liberado só para ele</span><span><button class="celx menos"
+                                        tabindex="-1">−</button> bloqueado só para ele</span><span>Clique: perfil → exceção → volta ao perfil.</span></div>
                             <div class="tabela-rolavel" style="max-height:60vh"><table class="matriz-acesso" id="pa-usu-matriz">
                                 <thead><tr><th>Tela</th>@foreach (var (l, n) in AcaoTela.Lista) { <th>@n</th> }<th>Resultado</th></tr></thead>
                                 <tbody>

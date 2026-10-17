@@ -79,7 +79,10 @@
                             @foreach (var m in _t.Mix.OrderBy(m => m.Ordem))
                             {
                                 <tr @key="m"><td class="larg-90"><input type="number" min="1" @bind="m.PavimentoDe" /></td><td class="larg-90"><input type="number" min="1" @bind="m.PavimentoAte" /></td>
-                                    <td><select @bind="m.ApartamentoTipologiaId"><option value="@Guid.Empty">—</option>@foreach (var a in _lista.Where(x => x.Tipo == TipoTipologia.Apartamento)) { <option value="@a.Id">@a.Codigo – @a.Nome (@a.AreaPrivativa.ToString("N2", Br) m²)</option> }</select></td>
+                                    <td><select @bind="m.ApartamentoTipologiaId"><option
+                                                value="@Guid.Empty">—</option>@foreach (var a in _lista.Where(x => x.Tipo == TipoTipologia.Apartamento)) {
+                                                <option value="@a.Id">@a.Codigo – @a.Nome (@a.AreaPrivativa.ToString("N2", Br) m²)</option>
+                                            }</select></td>
                                     <td class="larg-120"><input type="number" min="1" @bind="m.Quantidade" /></td>
                                     <td><button class="icone-btn" @onclick="() => _t.Mix.Remove(m)"><Icone Nome="lixeira" Tam="16" /></button></td></tr>
                             }
@@ -92,7 +95,9 @@
                 <div class="secao"><Icone Nome="regua" /> @(_t.Tipo switch { TipoTipologia.Apartamento => $"{_n.Comodo}s", TipoTipologia.Torre => $"Áreas comuns do {_n.Pavimento.ToLower()} e da {_n.Torre.ToLower()}", _ => $"Áreas comuns do {_n.Condominio.ToLower()}" })
                     <span class="acao"><button class="btn sec pq" id="amb-add" @onclick="AddAmbiente"><Icone Nome="mais" Tam="14" /> Ambiente</button></span></div>
                 <table class="itens" id="ambientes">
-                    <thead><tr><th>Nome</th><th>Sigla</th><th>Categoria</th>@if (_t.Tipo == TipoTipologia.Torre) { <th>Onde</th><th>Pav. de–até</th> }<th class="num">Piso (m²)</th><th class="num">Perímetro (m)</th><th class="num">Pé-dir. (m)</th><th class="num">Vãos (m²)</th><th class="num">Parede (m²)</th><th></th></tr></thead>
+                    <thead><tr><th>Nome</th><th>Sigla</th><th>Categoria</th>@if (_t.Tipo == TipoTipologia.Torre) { <th>Onde</th><th>Pav. de–até</th>
+                            }<th class="num">Piso (m²)</th><th class="num">Perímetro (m)</th><th class="num">Pé-dir. (m)</th><th class="num">Vãos (m²)</th><th
+                                class="num">Parede (m²)</th><th></th></tr></thead>
                     <tbody>
                         @foreach (var a in _t.Ambientes.OrderBy(a => a.Ordem))
                         {
@@ -110,7 +115,12 @@
                                 <td class="num">@a.AreaParede(_t.PeDireitoPadrao).ToString("N2", Br)</td>
                                 <td class="sem-quebra"><button class="icone-btn" title="Subir" @onclick="() => Mover(a, -1)">↑</button><button class="icone-btn" title="Remover" @onclick="() => _t.Ambientes.Remove(a)"><Icone Nome="lixeira" Tam="16" /></button></td></tr>
                         }
-                        @if (_t.Ambientes.Count == 0) { <tr><td colspan="11" class="mudo">@(_t.Tipo == TipoTipologia.Apartamento ? "Inclua os cômodos (sala, cozinha, dormitórios, BWC…) com as medidas do projeto." : "Inclua as áreas comuns (hall, escada, fachada, guarita, lazer…).")</td></tr> }
+                        @if (_t.Ambientes.Count == 0) {
+                            <tr><td colspan="11"
+                                    class="mudo">@(_t.Tipo == TipoTipologia.Apartamento
+                                        ? "Inclua os cômodos (sala, cozinha, dormitórios, BWC…) com as medidas do projeto."
+                                        : "Inclua as áreas comuns (hall, escada, fachada, guarita, lazer…).")</td></tr>
+                        }
                     </tbody>
                 </table>
                 <datalist id="tipos-comodo">@foreach (var c in _comodos) { <option>@c</option> }</datalist>

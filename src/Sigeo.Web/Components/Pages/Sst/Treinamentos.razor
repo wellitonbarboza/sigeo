@@ -78,7 +78,11 @@
                         <tr @key="p.Id"><td>@Nome(_colabs, p.ColaboradorId)</td>
                             <td><input type="checkbox" @bind="p.Presenca" disabled="@fechada" /></td>
                             <td class="larg-140"><input @bind="p.Avaliacao" disabled="@fechada" /></td>
-                            <td>@if (!fechada) { <select @bind="p.Resultado"><option value="">(auto)</option><option value="@ResultadoParticipante.Aprovado">Aprovado</option><option value="@ResultadoParticipante.Reprovado">Reprovado</option></select> } else { @(p.Resultado is { } r ? De(r) : "—") }</td>
+                            <td>@if (!fechada) {
+                                    <select @bind="p.Resultado"><option value="">(auto)</option><option
+                                            value="@ResultadoParticipante.Aprovado">Aprovado</option><option
+                                            value="@ResultadoParticipante.Reprovado">Reprovado</option></select>
+                                } else { @(p.Resultado is { } r ? De(r) : "—") }</td>
                             <td>@(p.ValidoAte == DateOnly.MaxValue ? "sem vencimento" : Data(p.ValidoAte))</td>
                             <td>@if (!fechada) { <button class="icone-btn" @onclick="() => _turma.Participantes.Remove(p)"><Icone Nome="lixeira" Tam="16" /></button> }</td></tr>
                     }

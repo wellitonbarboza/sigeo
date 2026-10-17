@@ -60,7 +60,12 @@
                             <td class="larg-140"><input type="date" @bind="f.ValidadeProposta" disabled="@(!Editavel)" /></td>
                             <td class="larg-110">@if (_c.Frete == TipoFrete.NaoSeAplica) { <span class="mudo">N/A</span> } else { <input type="number" step="0.01" @bind="f.ValorFrete" disabled="@(!Editavel)" /> }</td>
                             <td class="num">@Moeda(total)</td>
-                            <td>@if (Editavel) { <button class="btn sec pq" title="Envia ao contato do fornecedor (e-mail ou WhatsApp) o acesso à proposta na Área do Fornecedor" @onclick="() => Convidar(f)"><Icone Nome="enviar" Tam="14" /> @(f.Status == StatusConvite.Convidado ? "Convidar" : "Reenviar")</button> }</td>
+                            <td>@if (Editavel) {
+                                    <button class="btn sec pq"
+                                        title="Envia ao contato do fornecedor (e-mail ou WhatsApp) o acesso à proposta na Área do Fornecedor"
+                                        @onclick="() => Convidar(f)"><Icone Nome="enviar" Tam="14" />
+                                        @(f.Status == StatusConvite.Convidado ? "Convidar" : "Reenviar")</button>
+                                }</td>
                             @if (Editavel) { <td><button class="btn sec pq" title="Retirar o fornecedor da cotação" @onclick="() => Retirar(f)"><Icone Nome="lixeira" Tam="14" /></button></td> }
                         </tr>
                     }
@@ -95,7 +100,10 @@
                 <Campo Rotulo="Critério de seleção" Obrigatorio Classe="s3">
                     <select @bind="_c.CriterioSelecao" disabled="@(!Editavel)"><option value="">Selecione…</option>@foreach (var c in Enum.GetValues<CriterioSelecao>()) { <option value="@c">@De(c)</option> }</select>
                 </Campo>
-                <Campo Rotulo="Frete" Classe="s3"><select id="cot-frete" @bind="_c.Frete" disabled="@(!Editavel)"><option value="@TipoFrete.CIF">CIF (fornecedor entrega)</option><option value="@TipoFrete.FOB">FOB (retirar / transportadora)</option><option value="@TipoFrete.NaoSeAplica">N/A (não se aplica)</option></select></Campo>
+                <Campo Rotulo="Frete" Classe="s3"><select id="cot-frete" @bind="_c.Frete" disabled="@(!Editavel)"><option
+                            value="@TipoFrete.CIF">CIF (fornecedor entrega)</option><option
+                            value="@TipoFrete.FOB">FOB (retirar / transportadora)</option><option
+                            value="@TipoFrete.NaoSeAplica">N/A (não se aplica)</option></select></Campo>
                 <Campo Rotulo="Endereço de entrega" Classe="s2"><input @bind="_c.EnderecoEntrega" disabled="@(!Editavel)" /></Campo>
                 <Campo Rotulo="Prazo de resposta dos fornecedores" Classe="s4" Ajuda="Depois dele o portal não aceita envio nem edição"><input type="datetime-local" id="cot-prazo-resp" @bind="PrazoLocal" disabled="@(!Editavel)" /></Campo>
                 @if (_c.PropostasRecebidas < _c.PropostasExigidas || _c.CriterioSelecao is not null and not CriterioSelecao.MenorPreco)

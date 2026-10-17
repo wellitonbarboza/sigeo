@@ -49,13 +49,24 @@
             else if (_aba == "tarefas")
             {
                 <div class="tabela-rolavel"><table class="itens"><thead><tr><th>Nº</th><th>Título</th><th>Solicitante</th><th>Prioridade</th><th>Prazo</th><th>Status</th></tr></thead>
-                    <tbody>@foreach (var t in _tarefas) { <tr class="cursor-mao" @onclick='() => Nav.NavigateTo($"tarefas?id={t.Id}")'><td>@t.Numero</td><td>@t.Titulo @if (t.Leituras.Count == 0) { <Selo Texto="nova" Tom="info" /> }</td><td>@t.CriadoPor</td><td><Selo Texto="@De(t.Prioridade)" Tom="@Tom(t.Prioridade)" /></td><td class="@(t.Atrasada(Hoje) ? "texto-erro" : "")">@Data(t.Prazo)</td><td><Selo Texto="@De(t.Status)" Tom="@Tom(t.Status)" /></td></tr> }
+                    <tbody>@foreach (var t in _tarefas) {
+                            <tr class="cursor-mao" @onclick='() => Nav.NavigateTo($"tarefas?id={t.Id}")'><td>@t.Numero</td><td>@t.Titulo
+                                    @if (t.Leituras.Count == 0) { <Selo Texto="nova" Tom="info" />
+                                    }</td><td>@t.CriadoPor</td><td><Selo Texto="@De(t.Prioridade)" Tom="@Tom(t.Prioridade)" /></td><td
+                                    class="@(t.Atrasada(Hoje) ? "texto-erro" : "")">@Data(t.Prazo)</td><td><Selo Texto="@De(t.Status)"
+                                        Tom="@Tom(t.Status)" /></td></tr>
+                        }
                     @if (_tarefas.Count == 0) { <tr><td colspan="6" class="mudo">Nenhuma tarefa aberta para você.</td></tr> }</tbody></table></div>
             }
             else if (_aba == "mensagens")
             {
                 <div class="tabela-rolavel"><table class="itens"><thead><tr><th>Assunto</th><th>Última</th><th>Registro</th><th>Quando</th><th></th></tr></thead>
-                    <tbody>@foreach (var m in _msgs.Where(m => m.NaoLidas > 0)) { <tr class="cursor-mao" @onclick='() => Nav.NavigateTo($"mensagens?id={m.Id}")'><td><b>@m.Assunto</b> <Selo Texto="@($"{m.NaoLidas} nova(s)")" Tom="erro" /></td><td>@m.UltimoAutor: <span class="mudo">@m.Previa</span></td><td>@m.RegistroDescricao</td><td>@DataHora(m.UltimaEm)</td><td><button class="btn pq prim">Abrir</button></td></tr> }
+                    <tbody>@foreach (var m in _msgs.Where(m => m.NaoLidas > 0)) {
+                            <tr class="cursor-mao" @onclick='() => Nav.NavigateTo($"mensagens?id={m.Id}")'><td><b>@m.Assunto</b>
+                                    <Selo Texto="@($"{m.NaoLidas} nova(s)")" Tom="erro" /></td><td>@m.UltimoAutor: <span
+                                        class="mudo">@m.Previa</span></td><td>@m.RegistroDescricao</td><td>@DataHora(m.UltimaEm)</td><td><button
+                                        class="btn pq prim">Abrir</button></td></tr>
+                        }
                     @if (!_msgs.Any(m => m.NaoLidas > 0)) { <tr><td colspan="5" class="mudo">Nenhuma mensagem nova. <a href="mensagens">Abrir a caixa de mensagens</a></td></tr> }</tbody></table></div>
             }
             else if (_aba == "leituras")
@@ -67,7 +78,14 @@
             else
             {
                 <div class="tabela-rolavel"><table class="itens"><thead><tr><th>Tipo</th><th>Título</th><th>Enviado</th><th>Etapa</th><th>Status</th></tr></thead>
-                    <tbody>@foreach (var s in _meus) { <tr class="cursor-mao" @onclick="() => Ir(s.Entidade, s.EntidadeId)"><td>@De(s.Entidade)</td><td>@s.Titulo</td><td>@DataHora(s.EnviadoEm)</td><td>@s.EtapaAtual de @s.Etapas.Count</td><td><Selo Texto="@De(s.Status)" Tom="@(s.Status == StatusAprovacao.Aprovado ? "ok" : s.Status == StatusAprovacao.Reprovado ? "erro" : "aviso")" /></td></tr> }
+                    <tbody>@foreach (var s in _meus) {
+                            <tr class="cursor-mao"
+                                @onclick="() => Ir(s.Entidade,
+                                        s.EntidadeId)"><td>@De(s.Entidade)</td><td>@s.Titulo</td><td>@DataHora(s.EnviadoEm)</td><td>@s.EtapaAtual de @s.Etapas.Count</td><td><Selo
+                                        Texto="@De(s.Status)"
+                                        Tom="@(s.Status == StatusAprovacao.Aprovado ? "ok" : s.Status == StatusAprovacao.Reprovado ? "erro"
+                                            : "aviso")" /></td></tr>
+                        }
                     @if (_meus.Count == 0) { <tr><td colspan="5" class="mudo">Você não enviou nada para aprovação nos últimos 60 dias.</td></tr> }</tbody></table></div>
                 @if (_meus.Count >= LimiteMeus) { <div class="alerta info"><Icone Nome="info" /> Exibindo os primeiros @LimiteMeus (os mais recentes) — veja os demais na tela de cada documento.</div> }
             }

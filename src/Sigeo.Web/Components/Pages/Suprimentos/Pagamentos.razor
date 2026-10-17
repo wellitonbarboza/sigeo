@@ -47,7 +47,10 @@
                 }
                 else
                 {
-                    <Campo Rotulo="Medição aprovada" Obrigatorio Classe="s5"><select value="@_l.MedicaoId" @onchange="e => EscolherMedicao(e.Value?.ToString())" disabled="@(!Novo_)"><option value="">Selecione…</option>@foreach (var m in _medicoesOp) { <option value="@m.Id">@m.Texto</option> }</select></Campo>
+                    <Campo Rotulo="Medição aprovada" Obrigatorio Classe="s5"><select value="@_l.MedicaoId" @onchange="e => EscolherMedicao(e.Value?.ToString())"
+                            disabled="@(!Novo_)"><option value="">Selecione…</option>@foreach (var m in _medicoesOp) {
+                                <option value="@m.Id">@m.Texto</option>
+                            }</select></Campo>
                 }
                 <Campo Rotulo="Vencimento" Classe="s2"><input type="date" @bind="_l.Vencimento" disabled="@(!Novo_)" /></Campo>
                 <Campo Rotulo="Chave NF-e (44 dígitos)" Obrigatorio Classe="s6"><input @bind="_l.ChaveNFe" maxlength="44" disabled="@(!Novo_)" /></Campo>
@@ -72,7 +75,11 @@
                 else
                 {
                     <div class="via @(_medicao is not null ? "ok" : "")"><b>1. Contrato</b>@if (_medicao is not null) { <span>@_medicao.Contrato.Numero</span><span>@_medicao.Contrato.Fornecedor.NomeExibicao</span> } else { <span class="mudo">—</span> }</div>
-                    <div class="via @(_medicao?.Status is StatusMedicao.Aprovada or StatusMedicao.NfRecebida or StatusMedicao.Paga ? "ok" : _medicao is null ? "" : "erro")"><b>2. Medição</b>@if (_medicao is not null) { <span>Nº @_medicao.NumeroMedicao.ToString("00") · @Moeda(_medicao.ValorPeriodo)</span><span>nota @Num(_medicao.NotaFinal) · @De(_medicao.Status)</span> } else { <span class="mudo">não vinculada</span> }</div>
+                    <div
+                        class="via @(_medicao?.Status is StatusMedicao.Aprovada or StatusMedicao.NfRecebida or StatusMedicao.Paga ? "ok" : _medicao is null ? ""
+                            : "erro")"><b>2. Medição</b>@if (_medicao is not null) {
+                            <span>Nº @_medicao.NumeroMedicao.ToString("00") · @Moeda(_medicao.ValorPeriodo)</span><span>nota @Num(_medicao.NotaFinal) · @De(_medicao.Status)</span>
+                        } else { <span class="mudo">não vinculada</span> }</div>
                 }
                 <div class="via @(_l.ChaveNFe is { Length: 44 } ? "ok" : "")"><b>3. Nota fiscal</b><span>@(_l.ChaveNFe is { Length: 44 } ? "…" + _l.ChaveNFe[^9..] : "informe a chave")</span><span>@Moeda(_l.ValorNF)</span></div>
             </div>

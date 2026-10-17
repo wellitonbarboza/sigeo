@@ -30,7 +30,9 @@ else
                 Status @Rotulos.Data(_versao.DataStatus) · Custo orçado @_versao.CustoTotal.ToString("C0", Rotulos.Br) · emitido @DateTime.Now.ToString("dd/MM/yyyy HH:mm")</div>
         </div>
         @((MarkupString)_svg)
-        <div class="legenda"><i style="background:#4f52d6"></i>atividade (cheio = avanço)<i style="background:#d64545"></i>caminho crítico<i style="background:#a5a8ee;height:3px"></i>linha de base<i style="background:#64748b"></i>agrupador<i style="background:#d4691e;height:1px"></i>data de status</div>
+        <div class="legenda"><i style="background:#4f52d6"></i>atividade (cheio = avanço)<i style="background:#d64545"></i>caminho crítico<i
+                style="background:#a5a8ee;height:3px"></i>linha de base<i style="background:#64748b"></i>agrupador<i
+                style="background:#d4691e;height:1px"></i>data de status</div>
     </div>
     <script>window.addEventListener('load', () => setTimeout(() => window.print(), 500));</script>
 }

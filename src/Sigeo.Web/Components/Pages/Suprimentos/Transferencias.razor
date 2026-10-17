@@ -41,7 +41,10 @@
             <div class="form">
                 <Campo Rotulo="De (origem)" Classe="s4"><input readonly value="@NomeAlmox(_t.OrigemAlmoxarifadoId, "Almoxarifado central")" /></Campo>
                 <Campo Rotulo="Para (destino)" Classe="s4"><input readonly value="@NomeAlmox(_t.DestinoAlmoxarifadoId, _obras.FirstOrDefault(o => o.Id == _t.ObraId)?.Texto)" /></Campo>
-                <Campo Rotulo="SPE (destino do custo)" Classe="s5"><select @bind="_t.SpeId" disabled="@(_t.Status != StatusTransferencia.Rascunho)"><option value="">—</option>@foreach (var s in _spes.Where(s => s.Extra == _t.ObraId.ToString())) { <option value="@s.Id">@s.Texto</option> }</select></Campo>
+                <Campo Rotulo="SPE (destino do custo)" Classe="s5"><select @bind="_t.SpeId" disabled="@(_t.Status != StatusTransferencia.Rascunho)"><option
+                            value="">—</option>@foreach (var s in _spes.Where(s => s.Extra == _t.ObraId.ToString())) {
+                            <option value="@s.Id">@s.Texto</option>
+                        }</select></Campo>
                 <Campo Rotulo="Data" Classe="s3"><input type="date" @bind="_t.Data" disabled="@(_t.Status != StatusTransferencia.Rascunho)" /></Campo>
                 <Campo Rotulo="Observação" Classe="s12"><input id="tr-obs" @bind="_t.Observacao" disabled="@(_t.Status == StatusTransferencia.Recebida)" /></Campo>
             </div>
@@ -54,7 +57,11 @@
                             <tr @key="(i.Id, _versaoConf)"><td>@i.Descricao</td><td>@i.Unidade</td><td>@i.Lote</td>
                                 <td class="larg-100"><input type="number" step="0.001" @bind="i.Quantidade" disabled="@(_t.Status != StatusTransferencia.Rascunho)" /></td>
                                 <td class="num">@i.CustoUnitario.ToString("N2", Br)</td><td class="num">@i.Valor.ToString("N2", Br)</td>
-                                <td class="larg-110">@if (_t.Status == StatusTransferencia.Enviada) { <input type="number" step="0.001" value="@(_conf.GetValueOrDefault(i.Id, i.Quantidade).ToString(System.Globalization.CultureInfo.InvariantCulture))" @onchange="e => DefinirConferido(i, e.Value)" /> } else { @i.QuantidadeRecebida?.ToString("N3", Br) }</td>
+                                <td class="larg-110">@if (_t.Status == StatusTransferencia.Enviada) {
+                                        <input type="number" step="0.001"
+                                            value="@(_conf.GetValueOrDefault(i.Id, i.Quantidade).ToString(System.Globalization.CultureInfo.InvariantCulture))"
+                                            @onchange="e => DefinirConferido(i, e.Value)" />
+                                    } else { @i.QuantidadeRecebida?.ToString("N3", Br) }</td>
                                 <td>@if (_t.Status == StatusTransferencia.Rascunho && _t.Itens.Count > 1) { <button class="icone-btn" title="Remover item (salve para gravar)" aria-label="Remover item" @onclick="() => _t.Itens.Remove(i)"><Icone Nome="lixeira" Tam="15" /></button> }</td></tr>
                         }
                     </tbody>

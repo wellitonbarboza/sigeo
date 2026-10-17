@@ -39,7 +39,10 @@
                             @for (var i = 0; i < pts.Count; i++)
                             {
                                 var l = pts[i];
-                                <circle cx="@X(i).ToString(System.Globalization.CultureInfo.InvariantCulture)" cy="@Y(l.Compra.PrecoUnitario).ToString(System.Globalization.CultureInfo.InvariantCulture)" r="5" fill="@(l.Aumento ? "#991b1b" : l.Reducao ? "#166534" : "#43597a")"><title>@($"{l.Compra.Data:dd/MM/yyyy} · {Moeda(l.Compra.PrecoUnitario)}")</title></circle>
+                                <circle cx="@X(i).ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                                    cy="@Y(l.Compra.PrecoUnitario).ToString(System.Globalization.CultureInfo.InvariantCulture)" r="5"
+                                    fill="@(l.Aumento ? "#991b1b" : l.Reducao ? "#166534"
+                                        : "#43597a")"><title>@($"{l.Compra.Data:dd/MM/yyyy} · {Moeda(l.Compra.PrecoUnitario)}")</title></circle>
                             }
                         </svg>
                         <small class="mudo">Vermelho = aumento sobre a compra anterior · verde = redução · emergenciais não entram na linha</small>
