@@ -1,4 +1,6 @@
-# SIGEO
+# SIGEO — Sistema Integrado de Governança de Empreendimentos e Obras
+
+*Governança imobiliária 360°: da incorporação ao pós-obra.*
 
 Sistema de **suprimentos com qualidade, aprovações por alçada e controle documental do SGQ** para construtoras que buscam **PBQP-H / SiAC**. Complementa o ERP: o ERP segue com orçamento, financeiro e fiscal; o SIGEO controla, aprova e evidencia.
 

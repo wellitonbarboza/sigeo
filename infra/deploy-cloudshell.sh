@@ -43,8 +43,8 @@ else echo "  Já existe ($GRUPO_ID)."; fi
 titulo "3/7 Login"
 echo "  Login por usuário e senha do próprio SIGEO (sem conta Microsoft)."
 
-titulo "4/7 Infraestrutura (App Service B1, SQL serverless, Storage, Key Vault, App Insights)"
-echo "  Custo estimado: ~R\$150–400/mês (SQL pausa sozinho sem uso)."
+titulo "4/7 Infraestrutura (App Service B1, SQL Standard S0, Storage, Key Vault, App Insights)"
+echo "  Custo estimado: ~R\$150–400/mês (SQL S0 com custo fixo)."
 ok "Criar/atualizar o grupo de recursos $RG e os recursos." || exit 1
 az group create -n "$RG" -l "$LOCAL" --tags sistema=SIGEO ambiente="$AMBIENTE" -o none
 DEP="qualyhub-$(date +%Y%m%d%H%M)"

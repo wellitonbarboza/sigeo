@@ -145,9 +145,15 @@ Sigeo.Web (Blazor Server + API)  ──►  Sigeo.Application (casos de uso)  �
   projeto entram no calendário da obra. `Nest_Cancelli_Cronograma_R08_importacao_Sigeo.xml` = baseline R08 adequada.
 
 ## Nome do sistema: SIGEO (antes QualyHub, depois Groundkey) — 16/10/2026
-- SIGEO = Sistema Integrado de Gestão de Engenharia e Obras. Marca: marcador de local (geo) com dois volumes vazados (a obra) sobre a linha de chão; palavra "sigeo" em contorno (Outfit Bold), "si" em grafite/areia e "geo" em ardósia; subtítulo "ENGENHARIA E OBRAS". Paleta Sand & Slate mantida.
+- SIGEO = Sistema Integrado de Governança de Empreendimentos e Obras (governança imobiliária 360°: incorporação, projeto, obra, entrega e pós-obra). Marca: anel de 360° aberto no topo (ardósia = incorporação, projeto e obra; cobre = entrega e pós-obra) envolvendo dois volumes sobre a linha de chão; palavra "sigeo" em contorno (Outfit Bold), uma cor só; subtítulo "GOVERNANÇA IMOBILIÁRIA 360°". Paleta Sand & Slate mantida.
 - Solução, projetos e namespaces: `Sigeo.*`; executável `Sigeo.Web.dll`.
 - Configuração: chaves `Sigeo:*` e conexão `Sigeo`. `ConfiguracaoLegada` copia as antigas (`Groundkey:*` e `QualyHub:*`, conexões e segredos com esses nomes) quando a nova não existe; Groundkey vence QualyHub. Sites já configurados seguem funcionando.
 - Endereço: `infra/criar-endereco-sigeo.sh` cria o site `sigeo` no mesmo plano (copia do site em uso — `groundkey` se já existir e não redirecionar, senão `qualyhub` —, renomeia as chaves, permissões, banco, IA, comunicação) e põe `Sigeo__RedirecionarPara` nos sites antigos: respondem 301 para o novo (mantém caminho e parâmetros) e não rodam as rotinas em segundo plano.
 - Nomes de recursos do Azure existentes não mudam (grupo `rg-qualyhub-prd`, banco, Key Vault, Storage, grupo `QualyHub-DBA`, papel `qualyhub_app`, modelos de WhatsApp aprovados).
 - Cookies passam a `sigeo` e `sigeo-fornecedor`: todos entram de novo uma vez.
+
+## Banco: DTU Standard S0 (16/10/2026)
+- Plano padrão do banco passa de vCore serverless (GP_S_Gen5, 0,5–1 vCore, pausa em 60 min) para **DTU Standard S0** (10 DTU, até 250 GB): custo fixo e previsível, sem o atraso de ~1 min para "acordar".
+- `infra/main.bicep`: parâmetro `sqlPlano` (S0 | S1 | S2 | Serverless; padrão S0). Ambiente existente: `infra/mudar-banco-s0.sh` (troca online, confirma antes; `PLANO=S1` ou `PLANO=Serverless` para outras opções).
+- Nada muda no app nem nos dados: mesma conexão, Managed Identity, backups (14 dias) e colação UTF-8. Não há recursos exclusivos de vCore no esquema (sem columnstore/in-memory).
+- Acompanhar "DTU percentage": média acima de ~70% com frequência → S1.

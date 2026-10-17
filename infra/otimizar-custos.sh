@@ -7,7 +7,7 @@
 #   3. Retenção longa de backup do banco: 1 por mês por 12 meses, 1 por ano por 5 anos (auditoria SiAC)
 #   4. Segredo CodigoPlataforma no Key Vault (cadastrar outras construtoras em /plataforma/nova-construtora)
 #   5. Alertas por e-mail: CPU do banco, memória do servidor, erros 5xx
-#   6. Mostra se o banco está pausando (métrica de CPU faturada das últimas 24 h)
+#   6. Mostra o uso do banco (S0/S1: % de DTU; serverless: se está pausando)
 set -euo pipefail
 RG="${RG:-rg-qualyhub-prd}"
 confirmar() { read -r -p "$1 (s/N) " r; [[ "$r" =~ ^[sS]$ ]]; }
@@ -46,13 +46,21 @@ if confirmar "Criar alertas por e-mail (CPU do banco, memória do servidor, erro
   AG=$(az monitor action-group show -g "$RG" -n ag-qualyhub --query id -o tsv)
   DBID=$(az sql db show -g "$RG" -s "$SQL" -n "$DB" --query id -o tsv)
   WEBID=$(az webapp show -g "$RG" -n "$WEB" --query id -o tsv)
-  az monitor metrics alert create -g "$RG" -n al-sql-cpu --scopes "$DBID" --condition "avg cpu_percent > 85" --window-size 15m --evaluation-frequency 5m --action "$AG" --description "Banco acima de 85% de CPU: avaliar 2 vCores" -o none
+  az monitor metrics alert create -g "$RG" -n al-sql-cpu --scopes "$DBID" --condition "avg cpu_percent > 85" --window-size 15m --evaluation-frequency 5m --action "$AG" --description "Banco acima de 85% de CPU: avaliar plano maior (S0→S1 ou mais vCores)" -o none
   az monitor metrics alert create -g "$RG" -n al-web-memoria --scopes "$PLANO" --condition "avg MemoryPercentage > 85" --window-size 15m --evaluation-frequency 5m --action "$AG" --description "Servidor acima de 85% de memória: avaliar P0v3" -o none
   az monitor metrics alert create -g "$RG" -n al-web-5xx --scopes "$WEBID" --condition "total Http5xx > 10" --window-size 15m --evaluation-frequency 5m --action "$AG" --description "Mais de 10 erros 5xx em 15 min" -o none
   echo "  ok"
 fi
 
-# 6) O banco está pausando?
-echo "CPU faturada do banco nas últimas 24 h (zeros à noite = pausando):"
-az monitor metrics list --resource "$(az sql db show -g "$RG" -s "$SQL" -n "$DB" --query id -o tsv)" --metric app_cpu_billed \
-  --interval PT1H --offset 1d --query "value[0].timeseries[0].data[].{hora:timeStamp, vcoreSeg:total}" -o table || true
+# 6) Uso do banco
+TIER=$(az sql db show -g "$RG" -s "$SQL" -n "$DB" --query sku.tier -o tsv)
+DBID=$(az sql db show -g "$RG" -s "$SQL" -n "$DB" --query id -o tsv)
+if [[ "$TIER" == "Standard" || "$TIER" == "Basic" ]]; then
+  echo "Uso de DTU do banco por hora nas últimas 24 h (média acima de ~70% com frequência → subir de S0 para S1):"
+  az monitor metrics list --resource "$DBID" --metric dtu_consumption_percent --interval PT1H --offset 1d \
+    --query "value[0].timeseries[0].data[].{hora:timeStamp, media:average}" -o table || true
+else
+  echo "CPU faturada do banco nas últimas 24 h (zeros à noite = pausando):"
+  az monitor metrics list --resource "$DBID" --metric app_cpu_billed \
+    --interval PT1H --offset 1d --query "value[0].timeseries[0].data[].{hora:timeStamp, vcoreSeg:total}" -o table || true
+fi

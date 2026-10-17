@@ -25,10 +25,14 @@ param sqlAdminGrupoNome string
 @allowed([ 'F1', 'B1', 'B2', 'B3', 'S1', 'P0v3', 'P1v3' ])
 param appServiceSku string = 'B1'
 
-@description('vCores máximos do SQL serverless (0.5 a 2 cobre o MVP).')
+@description('Plano do banco: S0/S1/S2 = DTU com custo fixo mensal (padrão S0); Serverless = vCore que pausa sem uso.')
+@allowed([ 'S0', 'S1', 'S2', 'Serverless' ])
+param sqlPlano string = 'S0'
+
+@description('vCores máximos do SQL serverless (só vale com sqlPlano = Serverless).')
 param sqlMaxVCores int = 1
 
-@description('Minutos sem uso até pausar o banco (mín. 60). -1 desativa o auto-pause.')
+@description('Minutos sem uso até pausar o banco (mín. 60; só Serverless). -1 desativa o auto-pause.')
 param sqlAutoPauseMinutos int = 60
 
 @description('Orçamento mensal (moeda da assinatura) para alerta de custo.')
@@ -187,15 +191,15 @@ resource db 'Microsoft.Sql/servers/databases@2023-08-01-preview' = {
   name: 'sqldb-${prefixo}'
   location: local
   tags: tags
-  sku: { name: 'GP_S_Gen5', tier: 'GeneralPurpose', family: 'Gen5', capacity: sqlMaxVCores }
-  properties: {
-    autoPauseDelay: sqlAutoPauseMinutos
-    minCapacity: json('0.5')
+  sku: sqlPlano == 'Serverless'
+    ? { name: 'GP_S_Gen5', tier: 'GeneralPurpose', family: 'Gen5', capacity: sqlMaxVCores }
+    : { name: sqlPlano, tier: 'Standard' }
+  properties: union({
     maxSizeBytes: 34359738368 // 32 GB
     zoneRedundant: false
     requestedBackupStorageRedundancy: 'Local'
     collation: 'Latin1_General_100_CI_AI_SC_UTF8'
-  }
+  }, sqlPlano == 'Serverless' ? { autoPauseDelay: sqlAutoPauseMinutos, minCapacity: json('0.5') } : {})
 }
 
 resource dbBackup 'Microsoft.Sql/servers/databases/backupShortTermRetentionPolicies@2023-08-01-preview' = {
