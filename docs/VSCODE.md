@@ -106,3 +106,11 @@ Pastas de tela que têm nome de menu diferente do módulo: `Pages/Documentos` = 
 7. Rota e permissão em `Contratos/Acesso.cs` (`CatalogoTelas` e `PerfisPadrao`).
 8. Testes em `tests/…/<Módulo>/`.
 9. Tarefa **mapa do banco** e commit junto.
+
+## 8. Na VM do cérebro (VS Code no navegador)
+
+Na VM da equipe (pacote `cerebro-sigeo-azure`), o código fica em `/srv/cerebro/projetos/sigeo/repo` e já vem pronto:
+.NET 10, `dotnet-ef`, SQL Server de desenvolvimento em `127.0.0.1:1433` (variáveis `QH_TEST_SQL`, `QH_SQL` e
+`ConnectionStrings__Sigeo` carregadas no terminal para quem está no grupo `sigeo-dev`) e o comando `sigeo-consulta`
+para ler o banco de produção pelo endpoint privado, com a conta Entra de cada pessoa (grupo SIGEO-Leitura, só SELECT).
+As extensões vêm do Open VSX: use **C#** (muhammad-sammy.csharp) no lugar do C# Dev Kit e **SQLTools** no lugar do mssql.
