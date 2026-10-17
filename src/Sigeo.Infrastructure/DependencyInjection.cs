@@ -18,8 +18,8 @@ public static class DependencyInjection
         services.AddSingleton(TimeProvider.System);
         services.AddScoped<AuditoriaInterceptor>();
         services.AddScoped<AcessoInterceptor>();
-        services.TryAddScoped<Application.Servicos.IContextoTela, Application.Servicos.SemContextoTela>();
-        services.AddScoped<Application.Servicos.AcessoServico>();
+        services.TryAddScoped<Application.Sistema.IContextoTela, Application.Sistema.SemContextoTela>();
+        services.AddScoped<Application.Sistema.AcessoServico>();
         services.AddDbContext<SigeoDbContext>((sp, o) => o
             .UseSqlServer(connectionString, sql =>
             {
@@ -34,8 +34,8 @@ public static class DependencyInjection
         services.AddScoped<IFabricaDb, Servicos.FabricaDb>();
         services.AddScoped<IExclusao, Servicos.Exclusao>();
         services.AddScoped<AprovacaoServico>();
-        services.AddScoped<Application.Consultas.PaineisConsultas>();
-        services.AddScoped<Application.Consultas.EngenhariaConsultas>();
+        services.AddScoped<Application.Sistema.PaineisConsultas>();
+        services.AddScoped<Application.Engenharia.EngenhariaConsultas>();
         services.AddScoped<Application.Fiscal.NotasFiscaisServico>();
         // Suprimentos: um serviço por processo (antes um só com 7 processos).
         services.AddScoped<RequisicoesServico>();
@@ -131,8 +131,8 @@ public static class DependencyInjectionComunicacao
         services.AddSingleton<Application.Fiscal.IFonteNotas, Servicos.FonteSieg>();
         // IA (Azure OpenAI + Document Intelligence): sem endpoint configurado os botões não aparecem.
         services.AddHttpClient("ia", c => c.Timeout = TimeSpan.FromMinutes(2));
-        services.AddSingleton<Application.IA.IAssistenteIa, Servicos.AssistenteAzureOpenAi>();
-        services.AddSingleton<Application.IA.ILeitorDocumentos, Servicos.LeitorDocumentIntelligence>();
+        services.AddSingleton<Application.Abstracoes.IAssistenteIa, Servicos.AssistenteAzureOpenAi>();
+        services.AddSingleton<Application.Abstracoes.ILeitorDocumentos, Servicos.LeitorDocumentIntelligence>();
         services.AddSingleton(new Application.IA.LimitesIa(int.TryParse(cfg["IA:LimiteMensalPorEmpresa"], out var l) ? l : 3000));
         services.AddScoped<Application.IA.AnalisesIaServico>();
         services.AddSingleton<Application.Fiscal.ILeitorImagemNota, Servicos.LeitorImagemNota>();

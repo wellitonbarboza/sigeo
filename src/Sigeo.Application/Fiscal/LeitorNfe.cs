@@ -8,12 +8,6 @@ using Sigeo.Domain.Fiscal;
 
 namespace Sigeo.Application.Fiscal;
 
-/// <summary>Resultado da leitura de um XML: nota (NF-e modelo 55), cancelamento (evento 110111) ou arquivo ignorado.</summary>
-public abstract record XmlLido(string Arquivo);
-public sealed record NotaLida(string Arquivo, NotaFiscalEntrada Nota, string Xml) : XmlLido(Arquivo);
-public sealed record CancelamentoLido(string Arquivo, string Chave) : XmlLido(Arquivo);
-public sealed record XmlIgnorado(string Arquivo, string Motivo) : XmlLido(Arquivo);
-
 /// <summary>
 /// Leitura do XML da NF-e (layout 4.00, com ou sem nfeProc) e do evento de cancelamento. Aceita um XML solto ou um ZIP com vários.
 /// Não confia no arquivo: DTD desligado, tamanho limitado, campos numéricos lidos com cultura invariante.

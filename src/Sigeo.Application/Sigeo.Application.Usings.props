@@ -1,0 +1,22 @@
+<Project>
+  <!-- Importado por Infrastructure, Web e testes: enxergam todos os módulos da Application sem using em cada arquivo. -->
+  <ItemGroup>
+    <Using Include="Sigeo.Application.Abstracoes" />
+    <Using Include="Sigeo.Application.Comum" />
+    <Using Include="Sigeo.Application.Aprovacoes" />
+    <Using Include="Sigeo.Application.Cadastros" />
+    <Using Include="Sigeo.Application.PortalFornecedor" />
+    <Using Include="Sigeo.Application.Colaboracao" />
+    <Using Include="Sigeo.Application.Documentos" />
+    <Using Include="Sigeo.Application.Engenharia" />
+    <Using Include="Sigeo.Application.Planejamento" />
+    <Using Include="Sigeo.Application.Qualidade" />
+    <Using Include="Sigeo.Application.Sst" />
+    <Using Include="Sigeo.Application.Financeiro" />
+    <Using Include="Sigeo.Application.Incorporacao" />
+    <Using Include="Sigeo.Application.Sistema" />
+    <Using Include="Sigeo.Application.Suprimentos" />
+    <Using Include="Sigeo.Application.Fiscal" />
+    <Using Include="Sigeo.Application.IA" />
+  </ItemGroup>
+</Project>

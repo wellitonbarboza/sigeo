@@ -37,12 +37,12 @@ public sealed class AcessoInterceptor(IServiceProvider sp) : SaveChangesIntercep
 
     private async Task ConferirAsync(DbContext ctx, CancellationToken ct)
     {
-        var tela = CatalogoTelas.TelaDe(sp.GetService<Application.Servicos.IContextoTela>()?.Rota);
+        var tela = CatalogoTelas.TelaDe(sp.GetService<Application.Sistema.IContextoTela>()?.Rota);
         if (tela is null || sp.GetService<IUsuarioAtual>()?.UsuarioId is null) return;
         var acao = Classificar(ctx.ChangeTracker.Entries());
         if (acao is null) return;
-        var mapa = await sp.GetRequiredService<Application.Servicos.AcessoServico>().MapaAsync(ct);
-        Application.Servicos.AcessoServico.Conferir(mapa, tela.Rota, acao.Value);
+        var mapa = await sp.GetRequiredService<Application.Sistema.AcessoServico>().MapaAsync(ct);
+        Application.Sistema.AcessoServico.Conferir(mapa, tela.Rota, acao.Value);
     }
 
     /// <summary>

@@ -1,4 +1,3 @@
-using Sigeo.Application.Servicos;
 using Sigeo.Contratos;
 using Sigeo.Web.Client.Servicos;
 

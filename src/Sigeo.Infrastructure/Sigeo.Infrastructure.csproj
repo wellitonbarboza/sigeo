@@ -27,4 +27,5 @@
   <ItemGroup>
     <Using Include="Sigeo.Contratos" />
   </ItemGroup>
+  <Import Project="..\Sigeo.Application\Sigeo.Application.Usings.props" />
 </Project>

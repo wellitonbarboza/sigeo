@@ -24,4 +24,5 @@
   <ItemGroup>
     <EmbeddedResource Include="Recursos\syncfusion-pt-BR.json" LogicalName="syncfusion-pt-BR.json" />
   </ItemGroup>
+  <Import Project="..\Sigeo.Application\Sigeo.Application.Usings.props" />
 </Project>

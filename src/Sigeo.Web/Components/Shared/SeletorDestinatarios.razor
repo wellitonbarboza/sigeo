@@ -15,7 +15,7 @@
 
 @code {
     [Parameter] public string Rotulo { get; set; } = "Para";
-    [Parameter] public IReadOnlyList<Sigeo.Application.Servicos.MensagensServico.Destinatario> Opcoes { get; set; } = [];
+    [Parameter] public IReadOnlyList<Sigeo.Application.Colaboracao.MensagensServico.Destinatario> Opcoes { get; set; } = [];
     [Parameter] public List<string> Selecionados { get; set; } = [];
     [Parameter] public EventCallback SelecionadosChanged { get; set; }
 

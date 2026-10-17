@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Components;
-using Sigeo.Application.Servicos;
 
 namespace Sigeo.Web.Seguranca;
 

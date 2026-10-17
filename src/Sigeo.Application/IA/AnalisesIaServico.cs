@@ -11,16 +11,6 @@ using Sigeo.Domain.Fiscal;
 
 namespace Sigeo.Application.IA;
 
-public sealed record SugestaoRnc(string Resumo, IReadOnlyList<string> CausasProvaveis, IReadOnlyList<string> CincoPorques, string Disposicao,
-    string AcaoCorretiva, string AcaoPreventiva, int PrazoDias, IReadOnlyList<string> Referencias);
-
-public sealed record SugestaoProduto(string? Grupo, string? SubGrupo, string? Unidade, IReadOnlyList<string> PossiveisDuplicados, string? Observacao);
-
-public sealed record ResultadoLaudo(string? Tipo, string? Emitente, string? Numero, DateOnly? DataEmissao, DateOnly? Validade, string? Lote, string? Material,
-    IReadOnlyList<ResultadoEnsaioLido> Resultados, bool? Conforme, string? Conclusao, int Paginas);
-
-public sealed record ResultadoEnsaioLido(string Ensaio, string? Valor, string? Unidade, string? Especificacao, bool? Conforme);
-
 /// <summary>
 /// Usos de IA do Sigeo. Toda análise é acionada por botão (ou pela rotina de notas), registrada em UsosIa
 /// (limite mensal por construtora) e devolvida como sugestão para a pessoa conferir — a IA não aprova, não escolhe vencedor
@@ -283,6 +273,3 @@ public sealed class AnalisesIaServico(IFabricaDb fabrica, IAssistenteIa ia, ILei
 
     private static string Cortar(string s, int max) => s.Length <= max ? s : s[..max];
 }
-
-/// <summary>Limite de chamadas de IA por construtora no mês (controle de custo; configuração IA:LimiteMensalPorEmpresa).</summary>
-public sealed record LimitesIa(int ChamadasPorMes);

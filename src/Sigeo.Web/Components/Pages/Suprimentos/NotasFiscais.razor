@@ -172,7 +172,7 @@
     protected override async Task OnInitializedAsync()
     {
         _siegOk = Fonte.Configurada(Usuario.EmpresaId);
-        _iaOk = Servicos.GetService<Sigeo.Application.IA.IAssistenteIa>()?.Configurado == true;
+        _iaOk = Servicos.GetService<Sigeo.Application.Abstracoes.IAssistenteIa>()?.Configurado == true;
         _ate = Hoje; _de = Hoje.AddDays(-7);
         await Carregar();
         if (IdQuery is { } id) await Abrir(id);

@@ -8,30 +8,6 @@ using Sigeo.Domain.Fiscal;
 
 namespace Sigeo.Application.Fiscal;
 
-/// <summary>Leitura de imagem sem custo de IA: códigos de barras/QR e redução para envio (implementação com ZXing + SkiaSharp).</summary>
-public interface ILeitorImagemNota
-{
-    /// <summary>Textos dos códigos de barras (Code 128 do DANFE) e QR Codes encontrados na foto; vazio se nenhum.</summary>
-    IReadOnlyList<string> LerCodigos(byte[] imagem);
-    /// <summary>JPEG com o maior lado limitado (o Document Intelligence gratuito aceita até 4 MB por arquivo).</summary>
-    byte[] Reduzir(byte[] imagem, int maiorLado = 2000, int qualidade = 85);
-}
-
-public sealed record ItemNotaLido(string Descricao, string? Unidade, decimal Quantidade, decimal? ValorUnitario);
-public sealed record PedidoDaNota(Guid Id, int Numero, string Obra);
-
-/// <summary>Resultado da leitura da nota no recebimento: o que foi lido, o que já existe no sistema e avisos para conferir.</summary>
-public sealed record NotaLidaNoRecebimento(
-    string Chave, string? Numero, string? Serie, string? CnpjEmitente, string? Emitente,
-    Guid? FornecedorId, string? Fornecedor,
-    Guid? NotaId, SituacaoNota? Situacao, Guid? PedidoDaNotaId,
-    IReadOnlyList<PedidoDaNota> PedidosAbertos, int? RecebimentoExistente,
-    IReadOnlyList<ItemNotaLido> Itens, string Origem, IReadOnlyList<string> Avisos)
-{
-    /// <summary>Nota importada (XML/SIEG) já ligada ao pedido: o recebimento sai inteiro dela.</summary>
-    public bool ProntaParaReceber => NotaId is not null && PedidoDaNotaId is not null && Situacao == SituacaoNota.Vinculada;
-}
-
 /// <summary>
 /// Leitura da NF-e no recebimento pela câmera do tablet/celular:
 /// 1. código de barras do DANFE (chave de 44 dígitos, sem custo);

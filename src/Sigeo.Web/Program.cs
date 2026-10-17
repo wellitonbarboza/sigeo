@@ -81,7 +81,7 @@ builder.Services.AddScoped<Notificacoes>();
 builder.Services.AddScoped<Catalogos>();
 builder.Services.AddScoped<Sigeo.Web.Client.Servicos.IContadorMensagens, ContadorMensagensServidor>();
 builder.Services.AddScoped<Sigeo.Web.Client.Servicos.IAcessoTelas, AcessoTelasServidor>();
-builder.Services.AddScoped<Sigeo.Application.Servicos.IContextoTela, ContextoTelaWeb>();
+builder.Services.AddScoped<Sigeo.Application.Sistema.IContextoTela, ContextoTelaWeb>();
 builder.Services.AddSingleton<CacheCompartilhado>();
 builder.Services.AddSingleton<RotinaCadastros>();
 // Site antigo apontado para o endereço novo (Sigeo:RedirecionarPara): só redireciona; rotinas rodam apenas no site novo.

@@ -1,6 +1,5 @@
 using System.Collections.Concurrent;
 using Sigeo.Application.Abstracoes;
-using Sigeo.Application.Servicos;
 
 namespace Sigeo.Web.Servicos;
 

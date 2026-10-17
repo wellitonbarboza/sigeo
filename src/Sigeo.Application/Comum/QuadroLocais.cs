@@ -4,19 +4,6 @@ using Sigeo.Domain.Engenharia;
 
 namespace Sigeo.Application.Comum;
 
-/// <summary>
-/// Uma linha da quebra por local de um item, já situada na árvore da obra (torre › pavimento › apartamento › cômodo).
-/// Base do quadro visual dos locais (mapa da torre, por cômodo, lista) na cotação e no portal do fornecedor.
-/// </summary>
-public sealed record LocalQuantidade(
-    string Codigo, string Nome, string Nivel, decimal Quantidade,
-    string? Torre, int TorreOrdem, string? Pavimento, int PavimentoOrdem,
-    string? Apartamento, int ApartamentoOrdem, string? Comodo)
-{
-    /// <summary>Número do apartamento sem o prefixo ("Apto 302" → "302").</summary>
-    public string? NumeroApartamento => Apartamento?.Replace("Apto", "", StringComparison.OrdinalIgnoreCase).Trim();
-}
-
 /// <summary>Monta e resume a quebra por local (sem depender da tela).</summary>
 public static class QuadroLocais
 {
@@ -84,21 +71,4 @@ public static class QuadroLocais
         partes.Add($"total {linhas.Sum(l => l.Quantidade).ToString("#,##0.###", br)}{(string.IsNullOrWhiteSpace(unidade) ? "" : " " + unidade)}");
         return string.Join(" · ", partes);
     }
-}
-
-/// <summary>Árvore de locais de uma obra já carregada na tela: situa a quebra por local de qualquer item sem ir ao banco.</summary>
-public sealed class ArvoreLocais
-{
-    private readonly Dictionary<Guid, QuadroLocais.No> _nos;
-
-    public ArvoreLocais(IEnumerable<Domain.Estrutura.Local> locais) =>
-        _nos = locais.GroupBy(l => l.Id).ToDictionary(g => g.Key, g => { var l = g.First(); return new QuadroLocais.No(l.Id, l.LocalPaiId, l.Tipo, l.Nome, l.Codigo, l.Ordem); });
-
-    public static readonly ArvoreLocais Vazia = new([]);
-
-    /// <summary>Nome legível de cada local ("QA-T01-P03-302-SAL – Torre 1 › 3º pavimento › Apto 302 › Sala"); ordena pelo código.</summary>
-    public Dictionary<Guid, string> Nomes() =>
-        _nos.Keys.ToDictionary(id => id, id => Situar([(id, 0m)]) is [var l] ? $"{l.Codigo} – {QuadroLocais.Caminho(l)}" : "");
-
-    public List<LocalQuantidade> Situar(IEnumerable<(Guid LocalId, decimal Quantidade)> quebra) => QuadroLocais.Montar(quebra, _nos);
 }

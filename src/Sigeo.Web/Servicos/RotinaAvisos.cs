@@ -1,7 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Sigeo.Application.Abstracoes;
 using Sigeo.Application.Comum;
-using Sigeo.Application.Servicos;
 
 namespace Sigeo.Web.Servicos;
 

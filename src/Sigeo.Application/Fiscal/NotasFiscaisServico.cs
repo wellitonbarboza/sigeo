@@ -7,17 +7,6 @@ using Sigeo.Domain.Fiscal;
 
 namespace Sigeo.Application.Fiscal;
 
-/// <summary>XMLs de NF-e baixados de uma fonte externa (SIEG) para um CNPJ e período.</summary>
-public interface IFonteNotas
-{
-    /// <summary>Credenciais da fonte cadastradas para a empresa.</summary>
-    bool Configurada(Guid empresaId);
-    /// <summary>XMLs (NF-e e eventos) das notas emitidas contra o CNPJ no período (até 2 meses por chamada).</summary>
-    Task<IReadOnlyList<(string Nome, string Xml)>> BaixarAsync(Guid empresaId, string cnpjDestinatario, DateOnly de, DateOnly ate, CancellationToken ct = default);
-}
-
-public sealed record ResultadoImportacaoNotas(int Lidas, int Novas, int Repetidas, int Canceladas, int Vinculadas, IReadOnlyList<string> Avisos);
-
 /// <summary>
 /// Notas fiscais de entrada: importa o XML (arquivo ou SIEG), liga ao fornecedor e ao pedido pela regra
 /// (CNPJ do emitente, nº do pedido citado na nota, descrição dos itens) e deixa pronta para gerar o recebimento.

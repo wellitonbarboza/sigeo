@@ -1,7 +1,6 @@
 using ClosedXML.Excel;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
-using Sigeo.Application.Servicos;
 using Sigeo.Domain.Common;
 using Sigeo.Infrastructure.Importacao;
 using Xunit;

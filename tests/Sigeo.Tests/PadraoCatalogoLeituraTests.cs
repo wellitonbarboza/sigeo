@@ -1,5 +1,4 @@
 using ClosedXML.Excel;
-using Sigeo.Application.Servicos;
 using Sigeo.Domain.Common;
 using Sigeo.Infrastructure.Importacao;
 using Xunit;

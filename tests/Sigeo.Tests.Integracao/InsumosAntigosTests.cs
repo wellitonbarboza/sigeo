@@ -1,5 +1,4 @@
 using System.Security.Cryptography;
-using Sigeo.Application.Servicos;
 using Sigeo.Domain.Cadastros;
 using Sigeo.Domain.Common;
 using Sigeo.Domain.Importacao;

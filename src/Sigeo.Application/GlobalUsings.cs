@@ -1,4 +1,20 @@
+// Namespaces da Application: um por módulo (pasta). Os projetos que usam a Application importam o mesmo conjunto
+// por src/Sigeo.Application/Sigeo.Application.Usings.props.
 global using Sigeo.Application.Abstracoes;
 global using Sigeo.Application.Comum;
-global using Sigeo.Application.Servicos;
+global using Sigeo.Application.Aprovacoes;
+global using Sigeo.Application.Cadastros;
+global using Sigeo.Application.PortalFornecedor;
+global using Sigeo.Application.Colaboracao;
+global using Sigeo.Application.Documentos;
+global using Sigeo.Application.Engenharia;
+global using Sigeo.Application.Planejamento;
+global using Sigeo.Application.Qualidade;
+global using Sigeo.Application.Sst;
+global using Sigeo.Application.Financeiro;
+global using Sigeo.Application.Incorporacao;
+global using Sigeo.Application.Sistema;
+global using Sigeo.Application.Suprimentos;
+global using Sigeo.Application.Fiscal;
+global using Sigeo.Application.IA;
 global using Sigeo.Domain.Aprovacoes;
