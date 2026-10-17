@@ -5,6 +5,12 @@ Envie as 3 partes pelo botão "Carregar" do Cloud Shell e rode, NESTA ORDEM:
   cat sigeo-app.part0 sigeo-app.part1 sigeo-app.part2 > sigeo-app.zip
   rm -rf sigeo && unzip -o sigeo-app.zip -d sigeo && cd sigeo
 
+JÁ FEZ os passos 1 a 4 com o pacote de 16/10? Então rode só:
+  bash atualizar-app.sh
+  (publica esta versão; o banco ganha as colunas/tabelas novas sozinho ao iniciar — migração só adiciona)
+
+Ainda não fez? Siga 1 a 5 (o passo 1 já publica esta versão):
+
 1) bash criar-endereco-sigeo.sh
    Cria https://sigeo.azurewebsites.net (mesmo plano, sem custo extra), copia configurações, permissões
    e a conexão com o MESMO banco, e publica a versão nova.
