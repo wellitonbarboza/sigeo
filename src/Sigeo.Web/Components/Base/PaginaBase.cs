@@ -6,7 +6,7 @@ using Sigeo.Web.Components.Shared;
 using Sigeo.Web.Seguranca;
 using Sigeo.Web.Servicos;
 
-namespace Sigeo.Web.Components;
+namespace Sigeo.Web.Components.Base;
 
 /// <summary>Base das telas: acesso ao banco, usuário, mensagens e execução com tratamento de regra de negócio.</summary>
 public abstract class PaginaBase : ComponentBase, IDisposable

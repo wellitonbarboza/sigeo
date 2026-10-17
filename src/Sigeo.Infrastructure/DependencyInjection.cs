@@ -34,8 +34,10 @@ public static class DependencyInjection
         services.AddScoped<IFabricaDb, Servicos.FabricaDb>();
         services.AddScoped<IExclusao, Servicos.Exclusao>();
         services.AddScoped<AprovacaoServico>();
-        services.AddScoped<Application.Sistema.PaineisConsultas>();
-        services.AddScoped<Application.Engenharia.EngenhariaConsultas>();
+        // Leituras das telas: toda classe "*Consultas" da Application (uma por tela ou módulo) entra por convenção.
+        foreach (var t in typeof(AprovacaoServico).Assembly.GetTypes()
+                     .Where(t => t is { IsClass: true, IsAbstract: false, IsPublic: true } && t.Name.EndsWith("Consultas", StringComparison.Ordinal)))
+            services.TryAddScoped(t);
         services.AddScoped<Application.Fiscal.NotasFiscaisServico>();
         // Suprimentos: um serviço por processo (antes um só com 7 processos).
         services.AddScoped<RequisicoesServico>();

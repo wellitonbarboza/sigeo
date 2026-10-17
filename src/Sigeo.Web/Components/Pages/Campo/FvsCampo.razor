@@ -38,7 +38,7 @@ else
         @if (EmInspecao && _f.Itens.Any(i => i.Resultado == ResultadoItem.NaoConforme))
         {
             <div class="campo-card nc"><b>Não conformidade</b>
-                <select @bind="_f.Disposicao"><option value="">Disposição…</option>@foreach (var d in Sigeo.Web.Components.Pages.QualidadeObra.Fvss.Disposicoes) { <option>@d</option> }</select>
+                <select @bind="_f.Disposicao"><option value="">Disposição…</option>@foreach (var d in Sigeo.Web.Components.Pages.Qualidade.Fvss.Disposicoes) { <option>@d</option> }</select>
                 <input type="date" @bind="_f.PrazoCorrecao" />
             </div>
         }
