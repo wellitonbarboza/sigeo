@@ -1,0 +1,63 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "compilar",
+      "type": "process",
+      "command": "dotnet",
+      "args": ["build", "${workspaceFolder}/Sigeo.slnx", "-nologo", "/property:GenerateFullPaths=true", "/consoleloggerparameters:NoSummary"],
+      "group": { "kind": "build", "isDefault": true },
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "testes (unitários)",
+      "type": "process",
+      "command": "dotnet",
+      "args": ["test", "${workspaceFolder}/tests/Sigeo.Tests", "-nologo"],
+      "group": { "kind": "test", "isDefault": true },
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "testes (integração, precisa do SQL local)",
+      "type": "process",
+      "command": "dotnet",
+      "args": ["test", "${workspaceFolder}/tests/Sigeo.Tests.Integracao", "-nologo"],
+      "options": { "env": { "QH_TEST_SQL": "Server=localhost,1433;User Id=sa;Password=${input:senhaSql};TrustServerCertificate=True" } },
+      "group": "test",
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "rodar o site (watch)",
+      "type": "process",
+      "command": "dotnet",
+      "args": ["watch", "run", "--project", "${workspaceFolder}/src/Sigeo.Web"],
+      "isBackground": true,
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "SQL local: subir (Docker)",
+      "type": "shell",
+      "command": "docker compose up -d sql",
+      "options": { "env": { "SIGEO_SQL_SENHA": "${input:senhaSql}" } },
+      "problemMatcher": []
+    },
+    {
+      "label": "nova migração",
+      "type": "process",
+      "command": "dotnet",
+      "args": ["ef", "migrations", "add", "${input:nomeMigracao}", "--project", "src/Sigeo.Infrastructure", "--startup-project", "src/Sigeo.Infrastructure", "--output-dir", "Dados/Migracoes"],
+      "options": { "env": { "QH_SQL": "Server=localhost,1433;Database=Sigeo;User Id=sa;Password=${input:senhaSql};TrustServerCertificate=True" } },
+      "problemMatcher": []
+    },
+    {
+      "label": "mapa do banco (docs/BANCO.md)",
+      "type": "shell",
+      "command": "python3 tools/mapa-banco/gerar.py || py tools/mapa-banco/gerar.py",
+      "problemMatcher": []
+    }
+  ],
+  "inputs": [
+    { "id": "senhaSql", "type": "promptString", "description": "Senha do usuário sa do SQL local (a mesma do docker-compose)", "password": true },
+    { "id": "nomeMigracao", "type": "promptString", "description": "Nome da migração (ex.: CamposNovosMedicao)" }
+  ]
+}

@@ -1,0 +1,60 @@
+# Padrão de formatação do SIGEO (VS Code e Visual Studio leem este arquivo).
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+[*.{json,yml,yaml,csproj,props,slnx,xml}]
+indent_size = 2
+
+[*.{razor,cshtml,html,css,js}]
+indent_size = 4
+max_line_length = 160
+
+[*.md]
+trim_trailing_whitespace = false
+
+[*.sh]
+end_of_line = lf
+
+[*.cs]
+max_line_length = 160
+# Organização
+csharp_style_namespace_declarations = file_scoped:suggestion
+dotnet_sort_system_directives_first = true
+dotnet_separate_import_directive_groups = false
+csharp_using_directive_placement = outside_namespace:suggestion
+# Estilo
+csharp_style_var_for_built_in_types = true:suggestion
+csharp_style_var_when_type_is_apparent = true:suggestion
+csharp_style_var_elsewhere = true:suggestion
+csharp_style_expression_bodied_methods = when_on_single_line:silent
+csharp_style_expression_bodied_properties = true:suggestion
+csharp_prefer_braces = when_multiline:silent
+csharp_style_prefer_primary_constructors = true:suggestion
+dotnet_style_prefer_collection_expression = when_types_loosely_match:suggestion
+# Nomes (português, PascalCase em público, _campo em privado)
+dotnet_naming_rule.campos_privados.symbols = campos_privados
+dotnet_naming_rule.campos_privados.style = sublinhado
+dotnet_naming_rule.campos_privados.severity = suggestion
+dotnet_naming_symbols.campos_privados.applicable_kinds = field
+dotnet_naming_symbols.campos_privados.applicable_accessibilities = private
+dotnet_naming_style.sublinhado.required_prefix = _
+dotnet_naming_style.sublinhado.capitalization = camel_case
+# Namespace segue a pasta (src)
+dotnet_style_namespace_match_folder = true:suggestion
+
+[tests/**/*.cs]
+# Testes ficam em pastas por módulo, mas todos no namespace do projeto (helpers e fixtures compartilhados).
+dotnet_style_namespace_match_folder = false
+dotnet_diagnostic.IDE0130.severity = none
+
+[src/**/Migracoes/*.cs]
+# Gerado pelo EF Core: não reformatar.
+generated_code = true
+dotnet_diagnostic.IDE0130.severity = none

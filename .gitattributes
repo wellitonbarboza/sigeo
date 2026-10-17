@@ -1,0 +1,3 @@
+* text=auto eol=lf
+*.{png,jpg,jpeg,gif,ico,pdf,xlsx,docx,zip,woff,woff2,ttf} binary
+*.sh text eol=lf

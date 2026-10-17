@@ -1,0 +1,19 @@
+# SQL Server local para desenvolvimento e testes de integração.
+# Uso: defina a senha (mínimo 8 caracteres, maiúscula, minúscula, número e símbolo) e suba:
+#   Windows (PowerShell):  $env:SIGEO_SQL_SENHA="..."; docker compose up -d sql
+#   Linux/macOS:           SIGEO_SQL_SENHA='...' docker compose up -d sql
+# Depois aponte o site para ele em src/Sigeo.Web/appsettings.Development.local.json (veja docs/VSCODE.md).
+services:
+  sql:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: sigeo-sql
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "${SIGEO_SQL_SENHA:?Defina SIGEO_SQL_SENHA}"
+      MSSQL_PID: "Developer"
+    ports:
+      - "1433:1433"
+    volumes:
+      - sigeo-sql-dados:/var/opt/mssql
+volumes:
+  sigeo-sql-dados:

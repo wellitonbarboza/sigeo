@@ -1,0 +1,10 @@
+<Project>
+  <!-- Configuração comum a todos os projetos (src e tests). Cada .csproj só declara o que é dele. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <SatelliteResourceLanguages>pt-BR</SatelliteResourceLanguages>
+  </PropertyGroup>
+</Project>

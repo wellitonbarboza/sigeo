@@ -1,0 +1,42 @@
+{
+  // Explorador: esconde saída de compilação e agrupa arquivos irmãos
+  "files.exclude": {
+    "**/bin": true,
+    "**/obj": true,
+    "**/.vs": true,
+    "**/TestResults": true
+  },
+  "search.exclude": {
+    "**/wwwroot/lib/**": true,
+    "**/Migracoes/*.Designer.cs": true,
+    "**/Migracoes/SigeoDbContextModelSnapshot.cs": true,
+    "docs/banco-modelo.json": true,
+    "db/*.sql": true
+  },
+  "explorer.fileNesting.enabled": true,
+  "explorer.fileNesting.expand": false,
+  "explorer.fileNesting.patterns": {
+    "*.razor": "${capture}.razor.cs, ${capture}.razor.css, ${capture}.razor.js",
+    "*.cs": "${capture}.Designer.cs, ${capture}.*.cs",
+    "*.csproj": "packages.lock.json",
+    "appsettings.json": "appsettings.*.json",
+    "README.md": "LEIAME.md, LEIA-ME*.txt",
+    "BANCO.md": "banco-modelo.json"
+  },
+  "explorer.sortOrder": "type",
+
+  // Editor
+  "editor.rulers": [140, 160],
+  "editor.formatOnSave": false,
+  "editor.wordWrap": "off",
+  "files.trimTrailingWhitespace": true,
+  "files.insertFinalNewline": true,
+  "files.associations": { "*.razor": "aspnetcorerazor" },
+
+  // .NET
+  "dotnet.defaultSolution": "Sigeo.slnx",
+  "dotnet.testWindow.useTestingPlatformProtocol": false,
+
+  // Markdown com diagramas Mermaid (docs/BANCO.md)
+  "markdown.preview.breaks": false
+}

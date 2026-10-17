@@ -1,5 +1,4 @@
-using Syncfusion.Blazor;
-﻿using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Sigeo.Domain.Common;
 using Sigeo.Domain.Estrutura;
@@ -11,8 +10,13 @@ using Sigeo.Web.Components;
 using Sigeo.Web.Seguranca;
 using Sigeo.Web.Servicos;
 using Azure.Monitor.OpenTelemetry.AspNetCore;
+using Syncfusion.Blazor;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Desenvolvimento: configuração pessoal fora do Git (conexão com o SQL local, chaves de teste). Ver docs/VSCODE.md.
+if (builder.Environment.IsDevelopment())
+    builder.Configuration.AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.local.json", optional: true, reloadOnChange: true);
 
 // O sistema se chamou QualyHub e depois Groundkey: configurações antigas (QualyHub__* / Groundkey__*, conexões e segredos com esses nomes)
 // continuam valendo como Sigeo:* enquanto o Azure não for reconfigurado.
