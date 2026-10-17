@@ -176,3 +176,9 @@ Sigeo.Web (Blazor Server + API)  ──►  Sigeo.Application (casos de uso)  �
 - **Avisos ao fornecedor** (`AvisosServico`, um e-mail por dia por fornecedor): documento vencendo (30/15/7/0 dias), vencido (a cada N dias), recusado, competência aberta/perto do limite/atrasada, cotação encerrando em 24 h.
 - Catálogo de telas versionado (`CatalogoTelas.Versao`, `PerfilAcesso.CatalogoVersao`): perfis salvos antes herdam o padrão das telas novas. Teste `CatalogoTemPaginaTests` garante página para toda rota do catálogo.
 - Migração `20261017051918_SuprimentosMetasPortal`: só adiciona colunas e 9 tabelas.
+
+## Mapa do banco (docs/BANCO.md)
+
+- `python3 tools/mapa-banco/gerar.py` lê o snapshot das migrações e as telas e gera `docs/BANCO.md` (diagrama Mermaid de ligações por módulo, tabela → arquivo → telas, tela → tabelas) e `docs/banco-modelo.json`.
+- Tabela = entidade de negócio em `src/Sigeo.Domain/<Módulo>`; configuração em `Infrastructure/Dados/Configuracoes*.cs`; criação pelas migrações. Tela não tem tabela própria: usa as do negócio pelos serviços.
+- Rodar o script depois de cada migração e commitar junto.
