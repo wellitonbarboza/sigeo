@@ -130,17 +130,13 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Aprovacoes/Aprovacoes.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes.cs",
+   "arquivo": "src/Sigeo.Domain/Aprovacoes/DelegacaoAprovacao.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Aprovacoes.cs",
    "telas": [
     "(início)",
-    "cotacao/{Token:guid}",
     "engenharia/obras",
     "engenharia/tipologias",
-    "fornecedor/area",
-    "fornecedores/documentos",
     "mensagens",
-    "portal/{Token}",
     "sistema/parametros",
     "sistema/permissoes",
     "sistema/usuarios"
@@ -232,10 +228,9 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Aprovacoes/Aprovacoes.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes.cs",
+   "arquivo": "src/Sigeo.Domain/Aprovacoes/EtapaAprovacao.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Aprovacoes.cs",
    "telas": [
-    "(início)",
     "engenharia/obras",
     "engenharia/tipologias"
    ]
@@ -352,8 +347,8 @@
      "ObraId"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Aprovacoes/Aprovacoes.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes.cs",
+   "arquivo": "src/Sigeo.Domain/Aprovacoes/LimiteAprovacao.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Aprovacoes.cs",
    "telas": []
   },
   {
@@ -483,17 +478,13 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Aprovacoes/Aprovacoes.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes.cs",
+   "arquivo": "src/Sigeo.Domain/Aprovacoes/SolicitacaoAprovacao.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Aprovacoes.cs",
    "telas": [
     "(início)",
-    "cotacao/{Token:guid}",
     "engenharia/obras",
     "engenharia/tipologias",
-    "fornecedor/area",
-    "fornecedores/documentos",
     "mensagens",
-    "portal/{Token}",
     "requisicoes"
    ]
   },
@@ -610,24 +601,18 @@
      "Sigla"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Cadastros/CodigoProduto.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesModulos.cs",
+   "arquivo": "src/Sigeo.Domain/Cadastros/CategoriaProduto.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Cadastros.cs",
    "telas": [
-    "(início)",
     "cadastros/categorias",
     "cadastros/controlados",
     "cadastros/produtos",
-    "cotacoes",
-    "cotacoes/mapa",
     "engenharia/custo-realizado",
     "engenharia/importar-erp",
-    "engenharia/obras",
     "engenharia/tipologias",
     "fornecedores",
     "requisicoes",
-    "suprimentos/compradores",
-    "suprimentos/fila",
-    "suprimentos/painel"
+    "suprimentos/compradores"
    ]
   },
   {
@@ -712,8 +697,8 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Cadastros/AcessoFornecedor.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesEngenharia.cs",
+   "arquivo": "src/Sigeo.Domain/Cadastros/CodigoAcessoFornecedor.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Cadastros.cs",
    "telas": [
     "fornecedor",
     "fornecedor/area",
@@ -982,12 +967,11 @@
      "CpfCnpj"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Cadastros/Cadastros.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesModulos.cs",
+   "arquivo": "src/Sigeo.Domain/Cadastros/Fornecedor.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Cadastros.cs",
    "telas": [
     "(início)",
     "campo/fvs/{Id:guid}",
-    "cotacao/{Token:guid}",
     "cotacoes",
     "cotacoes/mapa",
     "engenharia/custo-realizado",
@@ -1003,7 +987,6 @@
     "fornecedor/cotacao/{CotacaoId:guid}",
     "fornecedores",
     "fornecedores/avaliacao",
-    "fornecedores/documentos",
     "fornecedores/exigencias",
     "fornecedores/qualificacao",
     "gestao/metas",
@@ -1013,10 +996,8 @@
     "mensagens",
     "notas-fiscais",
     "obra/equipamentos/etiquetas",
-    "obra/fvs",
     "pagamentos",
     "pedidos",
-    "portal/{Token}",
     "recebimentos",
     "requisicoes",
     "sgq/grd",
@@ -1095,15 +1076,12 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Cadastros/Cadastros.cs",
+   "arquivo": "src/Sigeo.Domain/Cadastros/FornecedorContato.cs",
    "config": null,
    "telas": [
-    "cotacao/{Token:guid}",
     "fornecedor",
     "fornecedor/area",
-    "fornecedor/cotacao/{CotacaoId:guid}",
-    "fornecedores/documentos",
-    "portal/{Token}"
+    "fornecedor/cotacao/{CotacaoId:guid}"
    ]
   },
   {
@@ -1288,15 +1266,11 @@
      "Competencia"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Cadastros/Cadastros.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesModulos.cs",
+   "arquivo": "src/Sigeo.Domain/Cadastros/FornecedorDocumento.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Cadastros.cs",
    "telas": [
-    "(início)",
-    "cotacao/{Token:guid}",
-    "fornecedor/area",
     "fornecedores/documentos",
     "medicoes",
-    "portal/{Token}",
     "suprimentos/documentacao-mensal"
    ]
   },
@@ -1346,8 +1320,8 @@
      "TipoDocumentoExigidoId"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Cadastros/Cadastros.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesEngenharia.cs",
+   "arquivo": "src/Sigeo.Domain/Cadastros/FornecedorExigencia.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Cadastros.cs",
    "telas": []
   },
   {
@@ -1396,13 +1370,11 @@
      "CategoriaProdutoId"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Cadastros/Cadastros.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesEngenharia.cs",
+   "arquivo": "src/Sigeo.Domain/Cadastros/FornecedorGrupo.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Cadastros.cs",
    "telas": [
-    "cotacoes",
     "fornecedores",
-    "fornecedores/exigencias",
-    "requisicoes"
+    "fornecedores/exigencias"
    ]
   },
   {
@@ -1575,8 +1547,8 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Cadastros/Cadastros.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesModulos.cs",
+   "arquivo": "src/Sigeo.Domain/Cadastros/FornecedorQualificacao.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Cadastros.cs",
    "telas": [
     "fornecedores/avaliacao",
     "fornecedores/qualificacao",
@@ -1624,13 +1596,11 @@
      "ServicoControladoId"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Cadastros/Cadastros.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesEngenharia.cs",
+   "arquivo": "src/Sigeo.Domain/Cadastros/FornecedorServico.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Cadastros.cs",
    "telas": [
-    "cotacoes",
     "fornecedores",
-    "fornecedores/exigencias",
-    "requisicoes"
+    "fornecedores/exigencias"
    ]
   },
   {
@@ -1764,15 +1734,12 @@
      "TokenHash"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Cadastros/Cadastros.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesModulos.cs",
+   "arquivo": "src/Sigeo.Domain/Cadastros/LinkPortalFornecedor.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Cadastros.cs",
    "telas": [
-    "cotacao/{Token:guid}",
     "fornecedor",
     "fornecedor/area",
-    "fornecedor/cotacao/{CotacaoId:guid}",
-    "fornecedores/documentos",
-    "portal/{Token}"
+    "fornecedor/cotacao/{CotacaoId:guid}"
    ]
   },
   {
@@ -1862,12 +1829,17 @@
      "Nome"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Cadastros/Cadastros.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesModulos.cs",
+   "arquivo": "src/Sigeo.Domain/Cadastros/Marca.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Cadastros.cs",
    "telas": [
+    "cadastros/categorias",
+    "cadastros/controlados",
     "cadastros/marcas",
     "cadastros/produtos",
-    "recebimentos"
+    "cotacoes",
+    "cotacoes/mapa",
+    "recebimentos",
+    "requisicoes"
    ]
   },
   {
@@ -2052,24 +2024,23 @@
      "Codigo"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Cadastros/Cadastros.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesModulos.cs",
+   "arquivo": "src/Sigeo.Domain/Cadastros/MaterialControlado.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Cadastros.cs",
    "telas": [
     "(início)",
     "cadastros/categorias",
     "cadastros/controlados",
     "cadastros/produtos",
-    "cotacoes",
     "engenharia/tipologias",
     "fornecedores",
     "fornecedores/avaliacao",
     "fornecedores/exigencias",
     "fornecedores/qualificacao",
+    "medicoes",
     "obra/modelos/{TipoRota}",
     "plataforma/auditoria",
     "plataforma/construtoras",
     "plataforma/usuarios",
-    "requisicoes",
     "sistema/parametros",
     "sistema/permissoes",
     "sistema/usuarios"
@@ -2256,8 +2227,8 @@
      "Codigo"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Cadastros/Cadastros.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesModulos.cs",
+   "arquivo": "src/Sigeo.Domain/Cadastros/Produto.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Cadastros.cs",
    "telas": [
     "(início)",
     "cadastros/categorias",
@@ -2278,20 +2249,13 @@
     "fornecedores/exigencias",
     "fornecedores/qualificacao",
     "gestao/metas",
+    "medicoes",
     "obra/rnc",
     "recebimentos",
     "requisicoes",
     "sistema/parametros",
     "sistema/permissoes",
     "sistema/usuarios",
-    "sst/colaboradores",
-    "sst/documentos",
-    "sst/epi",
-    "sst/exigencias",
-    "sst/inspecoes",
-    "sst/ocorrencias",
-    "sst/pt",
-    "sst/treinamentos",
     "suprimentos/compradores",
     "suprimentos/economia",
     "suprimentos/fila",
@@ -2417,8 +2381,8 @@
      "Codigo"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Cadastros/Cadastros.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesModulos.cs",
+   "arquivo": "src/Sigeo.Domain/Cadastros/ServicoControlado.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Cadastros.cs",
    "telas": [
     "cadastros/controlados",
     "engenharia/tipologias",
@@ -2600,21 +2564,15 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Cadastros/Cadastros.cs",
+   "arquivo": "src/Sigeo.Domain/Cadastros/TipoDocumentoExigido.cs",
    "config": null,
    "telas": [
-    "cotacao/{Token:guid}",
-    "cotacoes",
-    "fornecedor/area",
     "fornecedores",
-    "fornecedores/documentos",
     "fornecedores/exigencias",
     "medicoes",
     "plataforma/auditoria",
     "plataforma/construtoras",
     "plataforma/usuarios",
-    "portal/{Token}",
-    "requisicoes",
     "sistema/parametros",
     "suprimentos/documentacao-mensal"
    ]
@@ -2751,15 +2709,11 @@
      "Chave"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Colaboracao/Avisos.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesQualidadeSst.cs",
+   "arquivo": "src/Sigeo.Domain/Colaboracao/AvisoEmail.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Colaboracao.cs",
    "telas": [
     "(início)",
-    "cotacao/{Token:guid}",
-    "fornecedor/area",
-    "fornecedores/documentos",
     "mensagens",
-    "portal/{Token}",
     "sistema/parametros"
    ]
   },
@@ -2890,8 +2844,8 @@
      "Numero"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Colaboracao/Mensagens.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesQualidadeSst.cs",
+   "arquivo": "src/Sigeo.Domain/Colaboracao/Conversa.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Colaboracao.cs",
    "telas": [
     "(início)",
     "mensagens"
@@ -2944,8 +2898,8 @@
      "UsuarioId"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Colaboracao/Mensagens.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesQualidadeSst.cs",
+   "arquivo": "src/Sigeo.Domain/Colaboracao/LeituraMensagem.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Colaboracao.cs",
    "telas": [
     "(início)",
     "mensagens"
@@ -2998,8 +2952,8 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Colaboracao/Mensagens.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesQualidadeSst.cs",
+   "arquivo": "src/Sigeo.Domain/Colaboracao/MensagemConversa.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Colaboracao.cs",
    "telas": [
     "(início)",
     "mensagens"
@@ -3162,8 +3116,8 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Colaboracao/Metas.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesComprasPortal.cs",
+   "arquivo": "src/Sigeo.Domain/Colaboracao/Meta.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Colaboracao.cs",
    "telas": [
     "gestao/metas",
     "suprimentos/economia",
@@ -3228,8 +3182,8 @@
      "Mes"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Colaboracao/Metas.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesComprasPortal.cs",
+   "arquivo": "src/Sigeo.Domain/Colaboracao/MetaApuracao.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Colaboracao.cs",
    "telas": []
   },
   {
@@ -3309,10 +3263,9 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Colaboracao/Colaboracao.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesQualidadeSst.cs",
+   "arquivo": "src/Sigeo.Domain/Colaboracao/Nota.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Colaboracao.cs",
    "telas": [
-    "(início)",
     "cotacoes",
     "cotacoes/mapa",
     "engenharia/obras",
@@ -3431,8 +3384,8 @@
      "UsuarioId"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Colaboracao/Mensagens.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesQualidadeSst.cs",
+   "arquivo": "src/Sigeo.Domain/Colaboracao/ParticipanteConversa.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Colaboracao.cs",
    "telas": [
     "(início)",
     "mensagens"
@@ -3630,17 +3583,13 @@
      "Numero"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Colaboracao/Colaboracao.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesQualidadeSst.cs",
+   "arquivo": "src/Sigeo.Domain/Colaboracao/Tarefa.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Colaboracao.cs",
    "telas": [
     "(início)",
-    "cotacao/{Token:guid}",
     "engenharia/planejamento/imprimir-programacao",
-    "fornecedor/area",
-    "fornecedores/documentos",
     "gestao/metas",
     "mensagens",
-    "portal/{Token}",
     "tarefas"
    ]
   },
@@ -3691,8 +3640,8 @@
      "UsuarioId"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Colaboracao/Colaboracao.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesQualidadeSst.cs",
+   "arquivo": "src/Sigeo.Domain/Colaboracao/TarefaLeitura.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Colaboracao.cs",
    "telas": [
     "gestao/metas",
     "tarefas"
@@ -3755,7 +3704,7 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Colaboracao/Colaboracao.cs",
+   "arquivo": "src/Sigeo.Domain/Colaboracao/TarefaProrrogacao.cs",
    "config": null,
    "telas": [
     "gestao/metas",
@@ -3865,7 +3814,7 @@
    ],
    "unique": [],
    "arquivo": "src/Sigeo.Domain/Common/Anexo.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesModulos.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Comum.cs",
    "telas": [
     "campo/fvs/{Id:guid}",
     "campo/local/{Qr}",
@@ -3960,7 +3909,7 @@
    ],
    "unique": [],
    "arquivo": "src/Sigeo.Domain/Common/RegistroAuditoria.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Comum.cs",
    "telas": [
     "recebimentos",
     "sistema/log"
@@ -4008,31 +3957,21 @@
      "Chave"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Common/Anexo.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesModulos.cs",
+   "arquivo": "src/Sigeo.Domain/Common/Sequencia.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Comum.cs",
    "telas": [
     "(início)",
     "cadastros/categorias",
-    "cadastros/centros-custo",
     "cadastros/controlados",
-    "cadastros/estabelecimentos",
-    "cadastros/marcas",
     "cadastros/produtos",
     "campo/fvs/{Id:guid}",
     "campo/local/{Qr}",
     "contratos",
-    "cotacao/{Token:guid}",
     "cotacoes",
     "cotacoes/mapa",
-    "engenharia/composicoes",
-    "engenharia/cronograma",
     "engenharia/diario",
     "engenharia/importar-erp",
-    "engenharia/mao-de-obra",
     "engenharia/obras",
-    "engenharia/planejamento",
-    "engenharia/planejamento/imprimir",
-    "engenharia/planejamento/imprimir-programacao",
     "engenharia/tipologias",
     "equipamentos",
     "estoque",
@@ -4044,10 +3983,7 @@
     "fornecedor",
     "fornecedor/area",
     "fornecedor/cotacao/{CotacaoId:guid}",
-    "fornecedores",
     "fornecedores/avaliacao",
-    "fornecedores/documentos",
-    "fornecedores/exigencias",
     "fornecedores/planos",
     "fornecedores/qualificacao",
     "gestao/metas",
@@ -4061,23 +3997,15 @@
     "obra/acoes",
     "obra/auditorias",
     "obra/equipamentos",
-    "obra/equipamentos/etiquetas",
     "obra/fvs",
-    "obra/mapa",
     "obra/modelos/{TipoRota}",
     "obra/rnc",
     "pagamentos",
     "plataforma/auditoria",
     "plataforma/construtoras",
     "plataforma/usuarios",
-    "portal/{Token}",
     "recebimentos",
     "requisicoes",
-    "sgq/externos",
-    "sistema/parametros",
-    "sistema/perfis",
-    "sistema/permissoes",
-    "sistema/usuarios",
     "sst/colaboradores",
     "sst/documentos",
     "sst/epi",
@@ -4086,12 +4014,6 @@
     "sst/ocorrencias",
     "sst/pt",
     "sst/treinamentos",
-    "suprimentos/compradores",
-    "suprimentos/documentacao-mensal",
-    "suprimentos/economia",
-    "suprimentos/fila",
-    "suprimentos/painel",
-    "suprimentos/precos",
     "tarefas",
     "transferencias"
    ]
@@ -4202,11 +4124,9 @@
      "DocumentoRevisaoId"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Documentos/Documentos.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesModulos.cs",
-   "telas": [
-    "sgq/documentos"
-   ]
+   "arquivo": "src/Sigeo.Domain/Documentos/CheckoutDocumento.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Documentos.cs",
+   "telas": []
   },
   {
    "entity": "Ciencia",
@@ -4319,16 +4239,11 @@
      "UsuarioId"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Documentos/Documentos.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesModulos.cs",
+   "arquivo": "src/Sigeo.Domain/Documentos/Ciencia.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Documentos.cs",
    "telas": [
     "(início)",
-    "cotacao/{Token:guid}",
-    "fornecedor/area",
-    "fornecedores/documentos",
     "mensagens",
-    "portal/{Token}",
-    "sgq/documentos",
     "sgq/leituras"
    ]
   },
@@ -4504,13 +4419,11 @@
      "NumeroCopia"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Documentos/Documentos.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesModulos.cs",
+   "arquivo": "src/Sigeo.Domain/Documentos/CopiaControlada.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Documentos.cs",
    "telas": [
-    "(início)",
     "qr/{Token}",
-    "sgq/copias",
-    "sgq/documentos"
+    "sgq/copias"
    ]
   },
   {
@@ -4717,10 +4630,9 @@
      "Codigo"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Documentos/Documentos.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesModulos.cs",
+   "arquivo": "src/Sigeo.Domain/Documentos/Documento.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Documentos.cs",
    "telas": [
-    "(início)",
     "campo/fvs/{Id:guid}",
     "campo/local/{Qr}",
     "engenharia/obras",
@@ -4731,7 +4643,6 @@
     "obra/modelos/{TipoRota}",
     "obra/rnc",
     "recebimentos",
-    "sgq/documentos",
     "sgq/lista-mestra",
     "sistema/log",
     "sistema/permissoes",
@@ -4861,8 +4772,8 @@
      "Edicao"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Documentos/Documentos.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesModulos.cs",
+   "arquivo": "src/Sigeo.Domain/Documentos/DocumentoExterno.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Documentos.cs",
    "telas": [
     "sgq/externos"
    ]
@@ -4908,8 +4819,8 @@
      "RelacionadoId"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Documentos/Documentos.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesModulos.cs",
+   "arquivo": "src/Sigeo.Domain/Documentos/DocumentoRelacionado.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Documentos.cs",
    "telas": []
   },
   {
@@ -5104,8 +5015,8 @@
      "Revisao"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Documentos/Documentos.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesModulos.cs",
+   "arquivo": "src/Sigeo.Domain/Documentos/DocumentoRevisao.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Documentos.cs",
    "telas": [
     "qr/{Token}",
     "sgq/copias",
@@ -5184,7 +5095,7 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Documentos/Documentos.cs",
+   "arquivo": "src/Sigeo.Domain/Documentos/EtapaRevisao.cs",
    "config": null,
    "telas": []
   },
@@ -5260,11 +5171,10 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Documentos/Documentos.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesModulos.cs",
+   "arquivo": "src/Sigeo.Domain/Documentos/EventoDocumento.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Documentos.cs",
    "telas": [
     "(início)",
-    "sgq/documentos",
     "sistema/log",
     "sistema/parametros",
     "sistema/permissoes",
@@ -5399,10 +5309,9 @@
      "Numero"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Documentos/Documentos.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesModulos.cs",
+   "arquivo": "src/Sigeo.Domain/Documentos/Grd.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Documentos.cs",
    "telas": [
-    "(início)",
     "sgq/grd"
    ]
   },
@@ -5442,8 +5351,8 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Documentos/Documentos.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesModulos.cs",
+   "arquivo": "src/Sigeo.Domain/Documentos/GrdItem.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Documentos.cs",
    "telas": []
   },
   {
@@ -5528,13 +5437,12 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Documentos/Documentos.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesModulos.cs",
+   "arquivo": "src/Sigeo.Domain/Documentos/Pasta.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Documentos.cs",
    "telas": [
     "plataforma/auditoria",
     "plataforma/construtoras",
     "plataforma/usuarios",
-    "sgq/documentos",
     "sgq/lista-mestra",
     "sistema/permissoes"
    ]
@@ -5671,8 +5579,8 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Documentos/Documentos.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesModulos.cs",
+   "arquivo": "src/Sigeo.Domain/Documentos/PermissaoDocumento.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Documentos.cs",
    "telas": [
     "(início)",
     "sistema/parametros",
@@ -5782,13 +5690,12 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Documentos/Documentos.cs",
+   "arquivo": "src/Sigeo.Domain/Documentos/RegraRetencao.cs",
    "config": null,
    "telas": [
     "plataforma/auditoria",
     "plataforma/construtoras",
     "plataforma/usuarios",
-    "sgq/documentos",
     "sgq/registros"
    ]
   },
@@ -5919,8 +5826,8 @@
      "Numero"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Documentos/Documentos.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesModulos.cs",
+   "arquivo": "src/Sigeo.Domain/Documentos/SolicitacaoCopia.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Documentos.cs",
    "telas": [
     "sgq/copias"
    ]
@@ -5971,8 +5878,8 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Documentos/Documentos.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesModulos.cs",
+   "arquivo": "src/Sigeo.Domain/Documentos/SolicitacaoCopiaItem.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Documentos.cs",
    "telas": []
   },
   {
@@ -6104,8 +6011,8 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Engenharia/MaoObra.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesEngenharia.cs",
+   "arquivo": "src/Sigeo.Domain/Engenharia/Apropriacao.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Engenharia.cs",
    "telas": [
     "engenharia/mao-de-obra",
     "engenharia/obras",
@@ -6246,10 +6153,9 @@
      "Codigo"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Engenharia/Orcamento.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesEngenharia.cs",
+   "arquivo": "src/Sigeo.Domain/Engenharia/Composicao.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Engenharia.cs",
    "telas": [
-    "(início)",
     "engenharia/composicoes",
     "engenharia/cronograma",
     "engenharia/custo-realizado",
@@ -6264,14 +6170,6 @@
     "estoque/kits",
     "recebimentos",
     "requisicoes",
-    "sst/colaboradores",
-    "sst/documentos",
-    "sst/epi",
-    "sst/exigencias",
-    "sst/inspecoes",
-    "sst/ocorrencias",
-    "sst/pt",
-    "sst/treinamentos",
     "transferencias"
    ]
   },
@@ -6355,11 +6253,9 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Engenharia/Orcamento.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesEngenharia.cs",
+   "arquivo": "src/Sigeo.Domain/Engenharia/ComposicaoItem.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Engenharia.cs",
    "telas": [
-    "cadastros/categorias",
-    "cadastros/controlados",
     "cadastros/produtos"
    ]
   },
@@ -6507,8 +6403,8 @@
      "Descricao"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Engenharia/MaoObra.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesEngenharia.cs",
+   "arquivo": "src/Sigeo.Domain/Engenharia/CustoMaoObraMes.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Engenharia.cs",
    "telas": [
     "engenharia/mao-de-obra"
    ]
@@ -6708,11 +6604,8 @@
     ]
    ],
    "arquivo": "src/Sigeo.Domain/Engenharia/CustoRealizado.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesEngenharia.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Engenharia.cs",
    "telas": [
-    "(início)",
-    "cadastros/categorias",
-    "cadastros/controlados",
     "cadastros/produtos",
     "engenharia/custo-realizado",
     "engenharia/importar-erp"
@@ -6810,8 +6703,8 @@
      "Codigo"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Engenharia/MaoObra.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesEngenharia.cs",
+   "arquivo": "src/Sigeo.Domain/Engenharia/Equipe.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Engenharia.cs",
    "telas": [
     "engenharia/mao-de-obra",
     "gestao/metas"
@@ -6868,8 +6761,8 @@
      "ColaboradorId"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Engenharia/MaoObra.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesEngenharia.cs",
+   "arquivo": "src/Sigeo.Domain/Engenharia/EquipeMembro.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Engenharia.cs",
    "telas": []
   },
   {
@@ -7028,7 +6921,7 @@
      "Codigo"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Engenharia/Engenharia.cs",
+   "arquivo": "src/Sigeo.Domain/Engenharia/Quadra.cs",
    "config": null,
    "telas": [
     "engenharia/obras",
@@ -7151,8 +7044,8 @@
      "AmbienteModeloId"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Engenharia/Orcamento.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesEngenharia.cs",
+   "arquivo": "src/Sigeo.Domain/Engenharia/ServicoAplicacao.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Engenharia.cs",
    "telas": [
     "engenharia/composicoes",
     "engenharia/obras",
@@ -7285,10 +7178,9 @@
      "LocalId"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Engenharia/Orcamento.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesEngenharia.cs",
+   "arquivo": "src/Sigeo.Domain/Engenharia/ServicoLocal.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Engenharia.cs",
    "telas": [
-    "(início)",
     "engenharia/composicoes",
     "engenharia/cronograma",
     "engenharia/custo-realizado",
@@ -7305,14 +7197,6 @@
     "medicoes",
     "recebimentos",
     "requisicoes",
-    "sst/colaboradores",
-    "sst/documentos",
-    "sst/epi",
-    "sst/exigencias",
-    "sst/inspecoes",
-    "sst/ocorrencias",
-    "sst/pt",
-    "sst/treinamentos",
     "transferencias"
    ]
   },
@@ -7465,11 +7349,9 @@
      "Codigo"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Engenharia/Engenharia.cs",
+   "arquivo": "src/Sigeo.Domain/Engenharia/Spe.cs",
    "config": null,
    "telas": [
-    "(início)",
-    "cotacao/{Token:guid}",
     "engenharia/diario",
     "engenharia/obras",
     "engenharia/planejamento/imprimir-programacao",
@@ -7477,20 +7359,9 @@
     "equipamentos",
     "estoque",
     "estoque/kits",
-    "fornecedor/area",
-    "fornecedores/documentos",
     "notas-fiscais",
-    "portal/{Token}",
     "recebimentos",
     "requisicoes",
-    "sst/colaboradores",
-    "sst/documentos",
-    "sst/epi",
-    "sst/exigencias",
-    "sst/inspecoes",
-    "sst/ocorrencias",
-    "sst/pt",
-    "sst/treinamentos",
     "transferencias"
    ]
   },
@@ -7631,7 +7502,7 @@
      "Codigo"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Engenharia/Engenharia.cs",
+   "arquivo": "src/Sigeo.Domain/Engenharia/Tipologia.cs",
    "config": null,
    "telas": [
     "engenharia/composicoes",
@@ -7737,8 +7608,8 @@
      "Sigla"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Engenharia/Engenharia.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesEngenharia.cs",
+   "arquivo": "src/Sigeo.Domain/Engenharia/TipologiaAmbiente.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Engenharia.cs",
    "telas": [
     "engenharia/obras",
     "engenharia/tipologias"
@@ -7800,8 +7671,8 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Engenharia/Engenharia.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesEngenharia.cs",
+   "arquivo": "src/Sigeo.Domain/Engenharia/TipologiaMix.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Engenharia.cs",
    "telas": []
   },
   {
@@ -7936,20 +7807,16 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Estrutura/Estrutura.cs",
+   "arquivo": "src/Sigeo.Domain/Estrutura/Alcada.cs",
    "config": null,
    "telas": [
     "(início)",
-    "cotacao/{Token:guid}",
     "engenharia/obras",
     "engenharia/tipologias",
-    "fornecedor/area",
-    "fornecedores/documentos",
     "mensagens",
     "plataforma/auditoria",
     "plataforma/construtoras",
     "plataforma/usuarios",
-    "portal/{Token}",
     "sistema/usuarios"
    ]
   },
@@ -8069,11 +7936,12 @@
      "Codigo"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Estrutura/Estrutura.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesModulos.cs",
+   "arquivo": "src/Sigeo.Domain/Estrutura/CentroCusto.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Estrutura.cs",
    "telas": [
     "cadastros/centros-custo",
-    "cadastros/estabelecimentos"
+    "cadastros/estabelecimentos",
+    "requisicoes"
    ]
   },
   {
@@ -8182,8 +8050,8 @@
      "UsuarioId"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Estrutura/Estrutura.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes.cs",
+   "arquivo": "src/Sigeo.Domain/Estrutura/CredencialUsuario.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Estrutura.cs",
    "telas": [
     "conta/construtora",
     "plataforma/auditoria",
@@ -8268,36 +8136,19 @@
      "Cnpj"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Estrutura/Estrutura.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes.cs",
+   "arquivo": "src/Sigeo.Domain/Estrutura/Empresa.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Estrutura.cs",
    "telas": [
     "(início)",
-    "cadastros/categorias",
-    "cadastros/centros-custo",
-    "cadastros/controlados",
-    "cadastros/estabelecimentos",
-    "cadastros/marcas",
-    "cadastros/produtos",
-    "campo/fvs/{Id:guid}",
-    "campo/local/{Qr}",
     "conta/construtora",
-    "contratos",
-    "cotacao/{Token:guid}",
-    "cotacoes",
-    "cotacoes/mapa",
-    "engenharia/composicoes",
     "engenharia/cronograma",
     "engenharia/diario",
     "engenharia/importar-erp",
-    "engenharia/mao-de-obra",
     "engenharia/obras",
     "engenharia/planejamento",
     "engenharia/planejamento/imprimir",
     "engenharia/planejamento/imprimir-programacao",
     "engenharia/tipologias",
-    "equipamentos",
-    "estoque",
-    "estoque/kits",
     "financeiro/bancos",
     "financeiro/cadastros",
     "financeiro/fluxo",
@@ -8306,55 +8157,18 @@
     "fornecedor/area",
     "fornecedor/cotacao/{CotacaoId:guid}",
     "fornecedores",
-    "fornecedores/avaliacao",
-    "fornecedores/documentos",
     "fornecedores/exigencias",
-    "fornecedores/planos",
-    "fornecedores/qualificacao",
-    "gestao/metas",
     "incorporacao/carteira",
-    "incorporacao/empreendimento",
-    "incorporacao/espelho",
-    "incorporacao/ret",
     "incorporacao/vendas",
-    "medicoes",
     "mensagens",
-    "obra/acoes",
-    "obra/auditorias",
-    "obra/equipamentos",
-    "obra/equipamentos/etiquetas",
-    "obra/fvs",
-    "obra/mapa",
-    "obra/modelos/{TipoRota}",
-    "obra/rnc",
-    "pagamentos",
     "plataforma/auditoria",
     "plataforma/construtoras",
     "plataforma/usuarios",
-    "portal/{Token}",
     "recebimentos",
-    "requisicoes",
-    "sgq/externos",
     "sistema/parametros",
     "sistema/perfis",
     "sistema/permissoes",
-    "sistema/usuarios",
-    "sst/colaboradores",
-    "sst/documentos",
-    "sst/epi",
-    "sst/exigencias",
-    "sst/inspecoes",
-    "sst/ocorrencias",
-    "sst/pt",
-    "sst/treinamentos",
-    "suprimentos/compradores",
-    "suprimentos/documentacao-mensal",
-    "suprimentos/economia",
-    "suprimentos/fila",
-    "suprimentos/painel",
-    "suprimentos/precos",
-    "tarefas",
-    "transferencias"
+    "sistema/usuarios"
    ]
   },
   {
@@ -8524,21 +8338,26 @@
      "FaturaMateriais"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Estrutura/Estrutura.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesEngenharia.cs",
+   "arquivo": "src/Sigeo.Domain/Estrutura/Estabelecimento.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Estrutura.cs",
    "telas": [
     "cadastros/centros-custo",
     "cadastros/estabelecimentos",
-    "cotacao/{Token:guid}",
+    "campo/fvs/{Id:guid}",
+    "campo/local/{Qr}",
     "cotacoes",
     "cotacoes/mapa",
+    "engenharia/obras",
     "equipamentos",
     "estoque",
     "estoque/kits",
-    "fornecedor/area",
-    "fornecedores/documentos",
     "notas-fiscais",
-    "portal/{Token}",
+    "obra/acoes",
+    "obra/auditorias",
+    "obra/equipamentos",
+    "obra/fvs",
+    "obra/modelos/{TipoRota}",
+    "obra/rnc",
     "recebimentos",
     "requisicoes",
     "sst/colaboradores",
@@ -8653,11 +8472,12 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Estrutura/Estrutura.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesEngenharia.cs",
+   "arquivo": "src/Sigeo.Domain/Estrutura/FluxoEstabelecimento.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Estrutura.cs",
    "telas": [
     "cadastros/centros-custo",
-    "cadastros/estabelecimentos"
+    "cadastros/estabelecimentos",
+    "requisicoes"
    ]
   },
   {
@@ -8753,8 +8573,8 @@
      "Nome"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Estrutura/Estrutura.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesModulos.cs",
+   "arquivo": "src/Sigeo.Domain/Estrutura/ItemLista.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Estrutura.cs",
    "telas": [
     "plataforma/auditoria",
     "plataforma/construtoras",
@@ -8940,10 +8760,9 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Estrutura/Estrutura.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes.cs",
+   "arquivo": "src/Sigeo.Domain/Estrutura/Local.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Estrutura.cs",
    "telas": [
-    "(início)",
     "campo/fvs/{Id:guid}",
     "campo/local/{Qr}",
     "contratos",
@@ -8978,6 +8797,7 @@
     "obra/mapa",
     "obra/modelos/{TipoRota}",
     "obra/rnc",
+    "pedidos",
     "recebimentos",
     "requisicoes",
     "sst/colaboradores",
@@ -9163,13 +8983,14 @@
      "Codigo"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Estrutura/Estrutura.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes.cs",
+   "arquivo": "src/Sigeo.Domain/Estrutura/Obra.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Estrutura.cs",
    "telas": [
     "(início)",
     "cadastros/produtos",
+    "campo/fvs/{Id:guid}",
+    "campo/local/{Qr}",
     "contratos",
-    "cotacao/{Token:guid}",
     "cotacoes",
     "cotacoes/mapa",
     "engenharia/cronograma",
@@ -9192,7 +9013,6 @@
     "fornecedor",
     "fornecedor/area",
     "fornecedor/cotacao/{CotacaoId:guid}",
-    "fornecedores/documentos",
     "gestao/metas",
     "incorporacao/carteira",
     "incorporacao/empreendimento",
@@ -9201,13 +9021,16 @@
     "incorporacao/vendas",
     "medicoes",
     "mensagens",
-    "notas-fiscais",
+    "obra/acoes",
+    "obra/auditorias",
+    "obra/equipamentos",
+    "obra/fvs",
+    "obra/modelos/{TipoRota}",
     "obra/rnc",
     "pedidos",
     "plataforma/auditoria",
     "plataforma/construtoras",
     "plataforma/usuarios",
-    "portal/{Token}",
     "recebimentos",
     "requisicoes",
     "sst/colaboradores",
@@ -9329,54 +9152,20 @@
      "Chave"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Estrutura/Estrutura.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesModulos.cs",
+   "arquivo": "src/Sigeo.Domain/Estrutura/Parametro.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Estrutura.cs",
    "telas": [
     "(início)",
-    "cadastros/categorias",
-    "cadastros/centros-custo",
-    "cadastros/controlados",
-    "cadastros/estabelecimentos",
-    "cadastros/marcas",
-    "cadastros/produtos",
     "campo/fvs/{Id:guid}",
     "campo/local/{Qr}",
-    "contratos",
-    "cotacao/{Token:guid}",
     "cotacoes",
     "cotacoes/mapa",
-    "engenharia/composicoes",
-    "engenharia/cronograma",
-    "engenharia/diario",
-    "engenharia/importar-erp",
-    "engenharia/mao-de-obra",
     "engenharia/obras",
-    "engenharia/planejamento",
-    "engenharia/planejamento/imprimir",
-    "engenharia/planejamento/imprimir-programacao",
-    "engenharia/tipologias",
-    "equipamentos",
-    "estoque",
-    "estoque/kits",
-    "financeiro/bancos",
-    "financeiro/cadastros",
-    "financeiro/fluxo",
-    "financeiro/pagar",
-    "fornecedor",
-    "fornecedor/area",
-    "fornecedor/cotacao/{CotacaoId:guid}",
     "fornecedores",
     "fornecedores/avaliacao",
-    "fornecedores/documentos",
     "fornecedores/exigencias",
-    "fornecedores/planos",
     "fornecedores/qualificacao",
     "gestao/metas",
-    "incorporacao/carteira",
-    "incorporacao/empreendimento",
-    "incorporacao/espelho",
-    "incorporacao/ret",
-    "incorporacao/vendas",
     "medicoes",
     "mensagens",
     "obra/acoes",
@@ -9387,35 +9176,22 @@
     "obra/mapa",
     "obra/modelos/{TipoRota}",
     "obra/rnc",
-    "pagamentos",
     "plataforma/auditoria",
     "plataforma/construtoras",
     "plataforma/usuarios",
-    "portal/{Token}",
     "qr/f/{Token}",
     "recebimentos",
     "requisicoes",
     "sgq/externos",
     "sistema/parametros",
-    "sistema/perfis",
     "sistema/permissoes",
     "sistema/usuarios",
-    "sst/colaboradores",
-    "sst/documentos",
     "sst/epi",
-    "sst/exigencias",
-    "sst/inspecoes",
     "sst/ocorrencias",
-    "sst/pt",
-    "sst/treinamentos",
-    "suprimentos/compradores",
     "suprimentos/documentacao-mensal",
     "suprimentos/economia",
-    "suprimentos/fila",
     "suprimentos/painel",
-    "suprimentos/precos",
-    "tarefas",
-    "transferencias"
+    "suprimentos/precos"
    ]
   },
   {
@@ -9505,89 +9281,24 @@
      "Nome"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Estrutura/Estrutura.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes.cs",
+   "arquivo": "src/Sigeo.Domain/Estrutura/PerfilAcesso.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Estrutura.cs",
    "telas": [
     "(início)",
-    "cadastros/categorias",
-    "cadastros/centros-custo",
-    "cadastros/controlados",
-    "cadastros/estabelecimentos",
-    "cadastros/marcas",
-    "cadastros/produtos",
-    "campo/fvs/{Id:guid}",
-    "campo/local/{Qr}",
-    "contratos",
-    "cotacao/{Token:guid}",
-    "cotacoes",
-    "cotacoes/mapa",
-    "engenharia/composicoes",
     "engenharia/cronograma",
     "engenharia/diario",
-    "engenharia/importar-erp",
-    "engenharia/mao-de-obra",
     "engenharia/obras",
     "engenharia/planejamento",
     "engenharia/planejamento/imprimir",
     "engenharia/planejamento/imprimir-programacao",
     "engenharia/tipologias",
-    "equipamentos",
-    "estoque",
-    "estoque/kits",
-    "financeiro/bancos",
-    "financeiro/cadastros",
-    "financeiro/fluxo",
-    "financeiro/pagar",
-    "fornecedor",
-    "fornecedor/area",
-    "fornecedor/cotacao/{CotacaoId:guid}",
     "fornecedores",
-    "fornecedores/avaliacao",
-    "fornecedores/documentos",
     "fornecedores/exigencias",
-    "fornecedores/planos",
-    "fornecedores/qualificacao",
-    "gestao/metas",
-    "incorporacao/carteira",
-    "incorporacao/empreendimento",
-    "incorporacao/espelho",
-    "incorporacao/ret",
-    "incorporacao/vendas",
-    "medicoes",
-    "mensagens",
-    "obra/acoes",
-    "obra/auditorias",
-    "obra/equipamentos",
-    "obra/equipamentos/etiquetas",
-    "obra/fvs",
-    "obra/mapa",
-    "obra/modelos/{TipoRota}",
-    "obra/rnc",
-    "pagamentos",
-    "portal/{Token}",
     "recebimentos",
-    "requisicoes",
-    "sgq/externos",
     "sistema/parametros",
     "sistema/perfis",
     "sistema/permissoes",
-    "sistema/usuarios",
-    "sst/colaboradores",
-    "sst/documentos",
-    "sst/epi",
-    "sst/exigencias",
-    "sst/inspecoes",
-    "sst/ocorrencias",
-    "sst/pt",
-    "sst/treinamentos",
-    "suprimentos/compradores",
-    "suprimentos/documentacao-mensal",
-    "suprimentos/economia",
-    "suprimentos/fila",
-    "suprimentos/painel",
-    "suprimentos/precos",
-    "tarefas",
-    "transferencias"
+    "sistema/usuarios"
    ]
   },
   {
@@ -9637,8 +9348,8 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Estrutura/Estrutura.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes.cs",
+   "arquivo": "src/Sigeo.Domain/Estrutura/RegistroPlataforma.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Estrutura.cs",
    "telas": [
     "plataforma/auditoria",
     "plataforma/construtoras",
@@ -9742,18 +9453,14 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Estrutura/Estrutura.cs",
+   "arquivo": "src/Sigeo.Domain/Estrutura/RegraNotificacao.cs",
    "config": null,
    "telas": [
     "(início)",
-    "cotacao/{Token:guid}",
-    "fornecedor/area",
-    "fornecedores/documentos",
     "mensagens",
     "plataforma/auditoria",
     "plataforma/construtoras",
     "plataforma/usuarios",
-    "portal/{Token}",
     "sistema/parametros"
    ]
   },
@@ -9888,93 +9595,48 @@
      "Login"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Estrutura/Estrutura.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes.cs",
+   "arquivo": "src/Sigeo.Domain/Estrutura/Usuario.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Estrutura.cs",
    "telas": [
     "(início)",
-    "cadastros/categorias",
-    "cadastros/centros-custo",
-    "cadastros/controlados",
-    "cadastros/estabelecimentos",
-    "cadastros/marcas",
-    "cadastros/produtos",
     "campo/fvs/{Id:guid}",
     "campo/local/{Qr}",
     "conta/construtora",
-    "contratos",
-    "cotacao/{Token:guid}",
     "cotacoes",
     "cotacoes/mapa",
-    "engenharia/composicoes",
     "engenharia/cronograma",
     "engenharia/diario",
-    "engenharia/importar-erp",
-    "engenharia/mao-de-obra",
     "engenharia/obras",
     "engenharia/planejamento",
     "engenharia/planejamento/imprimir",
     "engenharia/planejamento/imprimir-programacao",
     "engenharia/tipologias",
-    "equipamentos",
-    "estoque",
-    "estoque/kits",
-    "financeiro/bancos",
-    "financeiro/cadastros",
-    "financeiro/fluxo",
-    "financeiro/pagar",
-    "fornecedor",
-    "fornecedor/area",
-    "fornecedor/cotacao/{CotacaoId:guid}",
     "fornecedores",
-    "fornecedores/avaliacao",
-    "fornecedores/documentos",
     "fornecedores/exigencias",
-    "fornecedores/planos",
-    "fornecedores/qualificacao",
     "gestao/metas",
-    "incorporacao/carteira",
-    "incorporacao/empreendimento",
-    "incorporacao/espelho",
-    "incorporacao/ret",
-    "incorporacao/vendas",
     "medicoes",
     "mensagens",
     "obra/acoes",
     "obra/auditorias",
     "obra/equipamentos",
-    "obra/equipamentos/etiquetas",
     "obra/fvs",
-    "obra/mapa",
     "obra/modelos/{TipoRota}",
     "obra/rnc",
-    "pagamentos",
     "plataforma/auditoria",
     "plataforma/construtoras",
     "plataforma/usuarios",
-    "portal/{Token}",
     "recebimentos",
     "requisicoes",
-    "sgq/externos",
     "sistema/parametros",
     "sistema/perfis",
     "sistema/permissoes",
     "sistema/usuarios",
-    "sst/colaboradores",
-    "sst/documentos",
-    "sst/epi",
-    "sst/exigencias",
-    "sst/inspecoes",
     "sst/ocorrencias",
-    "sst/pt",
-    "sst/treinamentos",
     "suprimentos/compradores",
     "suprimentos/documentacao-mensal",
-    "suprimentos/economia",
     "suprimentos/fila",
     "suprimentos/painel",
-    "suprimentos/precos",
-    "tarefas",
-    "transferencias"
+    "tarefas"
    ]
   },
   {
@@ -10018,8 +9680,8 @@
      "ObraId"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Estrutura/Estrutura.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes.cs",
+   "arquivo": "src/Sigeo.Domain/Estrutura/UsuarioObra.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Estrutura.cs",
    "telas": [
     "(início)",
     "sistema/parametros",
@@ -10114,8 +9776,8 @@
      "Nome"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Financeiro/Financeiro.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesFinanceiro.cs",
+   "arquivo": "src/Sigeo.Domain/Financeiro/CondicaoPagamento.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Financeiro.cs",
    "telas": [
     "engenharia/importar-erp",
     "financeiro/bancos",
@@ -10241,8 +9903,8 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Financeiro/Financeiro.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesFinanceiro.cs",
+   "arquivo": "src/Sigeo.Domain/Financeiro/ContaBancaria.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Financeiro.cs",
    "telas": [
     "engenharia/importar-erp",
     "financeiro/bancos",
@@ -10340,8 +10002,8 @@
      "Codigo"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Financeiro/Financeiro.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesFinanceiro.cs",
+   "arquivo": "src/Sigeo.Domain/Financeiro/ContaGerencial.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Financeiro.cs",
    "telas": [
     "engenharia/importar-erp",
     "financeiro/bancos",
@@ -10474,8 +10136,8 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Financeiro/Financeiro.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesFinanceiro.cs",
+   "arquivo": "src/Sigeo.Domain/Financeiro/MovimentoBancario.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Financeiro.cs",
    "telas": [
     "engenharia/importar-erp",
     "financeiro/bancos",
@@ -10723,8 +10385,8 @@
      "Numero"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Financeiro/Financeiro.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesFinanceiro.cs",
+   "arquivo": "src/Sigeo.Domain/Financeiro/Titulo.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Financeiro.cs",
    "telas": [
     "engenharia/importar-erp",
     "financeiro/bancos",
@@ -10903,8 +10565,8 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Financeiro/Financeiro.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesFinanceiro.cs",
+   "arquivo": "src/Sigeo.Domain/Financeiro/TituloParcela.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Financeiro.cs",
    "telas": [
     "engenharia/importar-erp",
     "financeiro/bancos",
@@ -11025,8 +10687,8 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Fiscal/NotaFiscal.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesFiscal.cs",
+   "arquivo": "src/Sigeo.Domain/Fiscal/ImportacaoNota.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Fiscal.cs",
    "telas": [
     "notas-fiscais"
    ]
@@ -11222,8 +10884,8 @@
      "Chave"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Fiscal/NotaFiscal.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesFiscal.cs",
+   "arquivo": "src/Sigeo.Domain/Fiscal/NotaFiscalEntrada.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Fiscal.cs",
    "telas": [
     "cadastros/produtos",
     "contratos/parcelas",
@@ -11333,8 +10995,8 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Fiscal/NotaFiscal.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesFiscal.cs",
+   "arquivo": "src/Sigeo.Domain/Fiscal/NotaFiscalItem.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Fiscal.cs",
    "telas": []
   },
   {
@@ -11430,7 +11092,7 @@
    ],
    "unique": [],
    "arquivo": "src/Sigeo.Domain/Fiscal/UsoIa.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesFiscal.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Fiscal.cs",
    "telas": [
     "cadastros/produtos",
     "obra/rnc"
@@ -11533,8 +11195,8 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Importacao/Importacao.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes.cs",
+   "arquivo": "src/Sigeo.Domain/Importacao/LayoutImportacao.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Importacao.cs",
    "telas": []
   },
   {
@@ -11594,8 +11256,8 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Importacao/Importacao.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes.cs",
+   "arquivo": "src/Sigeo.Domain/Importacao/LinhaImportacao.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Importacao.cs",
    "telas": []
   },
   {
@@ -11730,8 +11392,8 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Importacao/Importacao.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes.cs",
+   "arquivo": "src/Sigeo.Domain/Importacao/LoteImportacao.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Importacao.cs",
    "telas": []
   },
   {
@@ -11844,11 +11506,9 @@
      "Chave"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Importacao/Importacao.cs",
+   "arquivo": "src/Sigeo.Domain/Importacao/VinculoOrigem.cs",
    "config": null,
    "telas": [
-    "cadastros/categorias",
-    "cadastros/controlados",
     "cadastros/produtos"
    ]
   },
@@ -11970,8 +11630,8 @@
      "VigenciaInicio"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Incorporacao/Incorporacao.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesFinanceiro.cs",
+   "arquivo": "src/Sigeo.Domain/Incorporacao/AliquotaRegime.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Incorporacao.cs",
    "telas": [
     "engenharia/importar-erp",
     "financeiro/bancos",
@@ -12129,8 +11789,8 @@
      "Competencia"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Incorporacao/Incorporacao.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesFinanceiro.cs",
+   "arquivo": "src/Sigeo.Domain/Incorporacao/ApuracaoRet.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Incorporacao.cs",
    "telas": [
     "engenharia/importar-erp",
     "financeiro/bancos",
@@ -12205,8 +11865,8 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Incorporacao/Incorporacao.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesFinanceiro.cs",
+   "arquivo": "src/Sigeo.Domain/Incorporacao/BlocoCondicaoVenda.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Incorporacao.cs",
    "telas": []
   },
   {
@@ -12289,8 +11949,8 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Incorporacao/Incorporacao.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesFinanceiro.cs",
+   "arquivo": "src/Sigeo.Domain/Incorporacao/ComissaoVenda.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Incorporacao.cs",
    "telas": []
   },
   {
@@ -12390,8 +12050,8 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Incorporacao/Incorporacao.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesFinanceiro.cs",
+   "arquivo": "src/Sigeo.Domain/Incorporacao/Comprador.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Incorporacao.cs",
    "telas": [
     "engenharia/importar-erp",
     "financeiro/bancos",
@@ -12565,8 +12225,8 @@
      "Numero"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Incorporacao/Incorporacao.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesFinanceiro.cs",
+   "arquivo": "src/Sigeo.Domain/Incorporacao/ContratoVenda.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Incorporacao.cs",
    "telas": [
     "engenharia/importar-erp",
     "financeiro/bancos",
@@ -12731,8 +12391,8 @@
      "ObraId"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Incorporacao/Incorporacao.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesFinanceiro.cs",
+   "arquivo": "src/Sigeo.Domain/Incorporacao/IncorporacaoObra.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Incorporacao.cs",
    "telas": [
     "engenharia/importar-erp",
     "financeiro/bancos",
@@ -12829,8 +12489,8 @@
      "Competencia"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Incorporacao/Incorporacao.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesFinanceiro.cs",
+   "arquivo": "src/Sigeo.Domain/Incorporacao/IndiceEconomico.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Incorporacao.cs",
    "telas": [
     "engenharia/importar-erp",
     "financeiro/bancos",
@@ -12945,8 +12605,8 @@
      "LocalId"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Incorporacao/Incorporacao.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesFinanceiro.cs",
+   "arquivo": "src/Sigeo.Domain/Incorporacao/UnidadeComercial.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Incorporacao.cs",
    "telas": [
     "engenharia/importar-erp",
     "financeiro/bancos",
@@ -13099,8 +12759,8 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Planejamento/Planejamento.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesPlanejamento.cs",
+   "arquivo": "src/Sigeo.Domain/Planejamento/AtividadeCronograma.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Planejamento.cs",
    "telas": [
     "engenharia/cronograma",
     "engenharia/obras",
@@ -13182,8 +12842,8 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Planejamento/CurtoPrazo.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesPlanejamento.cs",
+   "arquivo": "src/Sigeo.Domain/Planejamento/CompromissoSemanal.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Planejamento.cs",
    "telas": []
   },
   {
@@ -13233,8 +12893,8 @@
      "Mes"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Planejamento/Planejamento.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesPlanejamento.cs",
+   "arquivo": "src/Sigeo.Domain/Planejamento/DesembolsoVersao.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Planejamento.cs",
    "telas": [
     "engenharia/cronograma",
     "engenharia/planejamento",
@@ -13293,8 +12953,8 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Planejamento/Acompanhamento.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesPlanejamento.cs",
+   "arquivo": "src/Sigeo.Domain/Planejamento/DiarioAtividade.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Planejamento.cs",
    "telas": [
     "engenharia/diario"
    ]
@@ -13351,8 +13011,8 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Planejamento/Acompanhamento.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesPlanejamento.cs",
+   "arquivo": "src/Sigeo.Domain/Planejamento/DiarioEfetivo.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Planejamento.cs",
    "telas": []
   },
   {
@@ -13406,8 +13066,8 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Planejamento/Acompanhamento.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesEstoque.cs",
+   "arquivo": "src/Sigeo.Domain/Planejamento/DiarioEquipamento.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Planejamento.cs",
    "telas": []
   },
   {
@@ -13577,8 +13237,8 @@
      "Data"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Planejamento/Acompanhamento.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesPlanejamento.cs",
+   "arquivo": "src/Sigeo.Domain/Planejamento/DiarioObra.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Planejamento.cs",
    "telas": [
     "engenharia/diario",
     "engenharia/diario/imprimir",
@@ -13667,8 +13327,8 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Planejamento/Planejamento.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesPlanejamento.cs",
+   "arquivo": "src/Sigeo.Domain/Planejamento/Feriado.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Planejamento.cs",
    "telas": [
     "engenharia/cronograma",
     "engenharia/planejamento",
@@ -13828,8 +13488,8 @@
      "Semana"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Planejamento/Acompanhamento.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesPlanejamento.cs",
+   "arquivo": "src/Sigeo.Domain/Planejamento/MedicaoSemanal.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Planejamento.cs",
    "telas": [
     "engenharia/planejamento/imprimir-programacao"
    ]
@@ -13951,12 +13611,11 @@
      "Semana"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Planejamento/CurtoPrazo.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesPlanejamento.cs",
+   "arquivo": "src/Sigeo.Domain/Planejamento/PlanoSemanal.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Planejamento.cs",
    "telas": [
     "engenharia/diario",
     "engenharia/planejamento/imprimir-programacao",
-    "estoque/kits",
     "gestao/metas"
    ]
   },
@@ -14006,8 +13665,8 @@
      "LocalId"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Planejamento/Planejamento.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesPlanejamento.cs",
+   "arquivo": "src/Sigeo.Domain/Planejamento/RedeLocal.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Planejamento.cs",
    "telas": [
     "engenharia/cronograma",
     "engenharia/obras",
@@ -14073,8 +13732,8 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Planejamento/Planejamento.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesPlanejamento.cs",
+   "arquivo": "src/Sigeo.Domain/Planejamento/RedePacote.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Planejamento.cs",
    "telas": [
     "engenharia/cronograma",
     "engenharia/planejamento",
@@ -14128,8 +13787,8 @@
      "LocalId"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Planejamento/Planejamento.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesPlanejamento.cs",
+   "arquivo": "src/Sigeo.Domain/Planejamento/RedePacoteLocal.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Planejamento.cs",
    "telas": [
     "engenharia/cronograma",
     "engenharia/obras",
@@ -14236,8 +13895,8 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Planejamento/Planejamento.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesPlanejamento.cs",
+   "arquivo": "src/Sigeo.Domain/Planejamento/RedePlanejamento.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Planejamento.cs",
    "telas": [
     "engenharia/cronograma",
     "engenharia/planejamento",
@@ -14401,20 +14060,25 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Planejamento/CurtoPrazo.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesPlanejamento.cs",
+   "arquivo": "src/Sigeo.Domain/Planejamento/Restricao.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Planejamento.cs",
    "telas": [
     "(início)",
-    "cotacao/{Token:guid}",
+    "campo/fvs/{Id:guid}",
+    "campo/local/{Qr}",
     "engenharia/diario",
+    "engenharia/obras",
     "engenharia/planejamento/imprimir-programacao",
     "equipamentos",
     "estoque",
     "estoque/kits",
-    "fornecedor/area",
-    "fornecedores/documentos",
     "mensagens",
-    "portal/{Token}",
+    "obra/acoes",
+    "obra/auditorias",
+    "obra/equipamentos",
+    "obra/fvs",
+    "obra/modelos/{TipoRota}",
+    "obra/rnc",
     "recebimentos",
     "requisicoes",
     "sst/colaboradores",
@@ -14590,8 +14254,8 @@
      "Numero"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Planejamento/Planejamento.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesPlanejamento.cs",
+   "arquivo": "src/Sigeo.Domain/Planejamento/VersaoCronograma.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Planejamento.cs",
    "telas": [
     "(início)",
     "engenharia/cronograma",
@@ -14662,8 +14326,8 @@
      "SucessoraId"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Planejamento/Planejamento.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesPlanejamento.cs",
+   "arquivo": "src/Sigeo.Domain/Planejamento/VinculoAtividade.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Planejamento.cs",
    "telas": [
     "engenharia/cronograma",
     "engenharia/planejamento",
@@ -14731,8 +14395,8 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Planejamento/Planejamento.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesPlanejamento.cs",
+   "arquivo": "src/Sigeo.Domain/Planejamento/VinculoRede.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Planejamento.cs",
    "telas": [
     "engenharia/cronograma",
     "engenharia/planejamento",
@@ -14887,7 +14551,7 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Qualidade/Qualidade.cs",
+   "arquivo": "src/Sigeo.Domain/Qualidade/AcaoCorretiva.cs",
    "config": null,
    "telas": [
     "(início)",
@@ -14962,7 +14626,7 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Qualidade/Qualidade.cs",
+   "arquivo": "src/Sigeo.Domain/Qualidade/AcaoCorretivaItem.cs",
    "config": null,
    "telas": []
   },
@@ -15023,7 +14687,7 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Qualidade/Qualidade.cs",
+   "arquivo": "src/Sigeo.Domain/Qualidade/AplicacaoLote.cs",
    "config": null,
    "telas": [
     "campo/fvs/{Id:guid}",
@@ -15157,7 +14821,7 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Qualidade/Qualidade.cs",
+   "arquivo": "src/Sigeo.Domain/Qualidade/AuditoriaInterna.cs",
    "config": null,
    "telas": [
     "(início)",
@@ -15247,7 +14911,7 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Qualidade/Qualidade.cs",
+   "arquivo": "src/Sigeo.Domain/Qualidade/Calibracao.cs",
    "config": null,
    "telas": [
     "campo/fvs/{Id:guid}",
@@ -15378,8 +15042,8 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Qualidade/Qualidade.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesEstoque.cs",
+   "arquivo": "src/Sigeo.Domain/Qualidade/CautelaFerramenta.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Qualidade.cs",
    "telas": [
     "campo/fvs/{Id:guid}",
     "campo/local/{Qr}",
@@ -15451,7 +15115,7 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Qualidade/Qualidade.cs",
+   "arquivo": "src/Sigeo.Domain/Qualidade/Constatacao.cs",
    "config": null,
    "telas": []
   },
@@ -15522,7 +15186,7 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Qualidade/Qualidade.cs",
+   "arquivo": "src/Sigeo.Domain/Qualidade/EnsaioModelo.cs",
    "config": null,
    "telas": []
   },
@@ -15663,10 +15327,9 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Qualidade/Qualidade.cs",
+   "arquivo": "src/Sigeo.Domain/Qualidade/EnsaioRecebimento.cs",
    "config": null,
    "telas": [
-    "(início)",
     "campo/fvs/{Id:guid}",
     "campo/local/{Qr}",
     "engenharia/obras",
@@ -15884,10 +15547,9 @@
      "Codigo"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Qualidade/Qualidade.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesQualidadeSst.cs",
+   "arquivo": "src/Sigeo.Domain/Qualidade/EquipamentoMedicao.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Qualidade.cs",
    "telas": [
-    "(início)",
     "campo/fvs/{Id:guid}",
     "campo/local/{Qr}",
     "engenharia/obras",
@@ -15985,7 +15647,7 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Qualidade/Qualidade.cs",
+   "arquivo": "src/Sigeo.Domain/Qualidade/FvmItem.cs",
    "config": null,
    "telas": [
     "obra/modelos/{TipoRota}"
@@ -16187,8 +15849,8 @@
      "Numero"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Qualidade/Qualidade.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesQualidadeSst.cs",
+   "arquivo": "src/Sigeo.Domain/Qualidade/Fvs.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Qualidade.cs",
    "telas": [
     "(início)",
     "campo/fvs/{Id:guid}",
@@ -16306,7 +15968,7 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Qualidade/Qualidade.cs",
+   "arquivo": "src/Sigeo.Domain/Qualidade/FvsItem.cs",
    "config": null,
    "telas": [
     "obra/modelos/{TipoRota}"
@@ -16389,7 +16051,7 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Qualidade/Qualidade.cs",
+   "arquivo": "src/Sigeo.Domain/Qualidade/ItemVerificacao.cs",
    "config": null,
    "telas": []
   },
@@ -16560,8 +16222,8 @@
      "Codigo"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Qualidade/Qualidade.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesQualidadeSst.cs",
+   "arquivo": "src/Sigeo.Domain/Qualidade/ModeloInspecao.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Qualidade.cs",
    "telas": [
     "cadastros/controlados",
     "campo/fvs/{Id:guid}",
@@ -16769,18 +16431,15 @@
      "Numero"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Qualidade/Qualidade.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesQualidadeSst.cs",
+   "arquivo": "src/Sigeo.Domain/Qualidade/Rnc.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Qualidade.cs",
    "telas": [
     "(início)",
     "campo/fvs/{Id:guid}",
     "campo/local/{Qr}",
-    "cotacao/{Token:guid}",
     "engenharia/obras",
     "engenharia/tipologias",
-    "fornecedor/area",
     "fornecedores/avaliacao",
-    "fornecedores/documentos",
     "fornecedores/qualificacao",
     "medicoes",
     "mensagens",
@@ -16790,7 +16449,6 @@
     "obra/fvs",
     "obra/modelos/{TipoRota}",
     "obra/rnc",
-    "portal/{Token}",
     "recebimentos",
     "sst/colaboradores",
     "sst/documentos",
@@ -16904,8 +16562,8 @@
      "Nome"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Qualidade/Qualidade.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesEstoque.cs",
+   "arquivo": "src/Sigeo.Domain/Qualidade/TipoEquipamentoMedicao.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Qualidade.cs",
    "telas": [
     "campo/fvs/{Id:guid}",
     "campo/local/{Qr}",
@@ -17095,16 +16753,11 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Sst/Sst.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesQualidadeSst.cs",
+   "arquivo": "src/Sigeo.Domain/Sst/Colaborador.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Sst.cs",
    "telas": [
-    "(início)",
-    "cotacao/{Token:guid}",
     "engenharia/mao-de-obra",
-    "fornecedor/area",
-    "fornecedores/documentos",
     "medicoes",
-    "portal/{Token}",
     "sst/colaboradores",
     "sst/documentos",
     "sst/epi",
@@ -17258,14 +16911,9 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Sst/Sst.cs",
+   "arquivo": "src/Sigeo.Domain/Sst/DocumentoColaborador.cs",
    "config": null,
    "telas": [
-    "(início)",
-    "cotacao/{Token:guid}",
-    "fornecedor/area",
-    "fornecedores/documentos",
-    "portal/{Token}",
     "sst/colaboradores",
     "sst/documentos",
     "sst/epi",
@@ -17388,7 +17036,7 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Sst/Sst.cs",
+   "arquivo": "src/Sigeo.Domain/Sst/EntregaEpi.cs",
    "config": null,
    "telas": [
     "sst/colaboradores",
@@ -17493,12 +17141,9 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Sst/Sst.cs",
+   "arquivo": "src/Sigeo.Domain/Sst/Epi.cs",
    "config": null,
    "telas": [
-    "(início)",
-    "cadastros/categorias",
-    "cadastros/controlados",
     "cadastros/produtos",
     "sst/colaboradores",
     "sst/documentos",
@@ -17562,7 +17207,7 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Sst/Sst.cs",
+   "arquivo": "src/Sigeo.Domain/Sst/ExecutantePt.cs",
    "config": null,
    "telas": []
   },
@@ -17678,16 +17323,12 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Sst/Sst.cs",
+   "arquivo": "src/Sigeo.Domain/Sst/Exigencia.cs",
    "config": null,
    "telas": [
-    "cotacao/{Token:guid}",
-    "fornecedor/area",
-    "fornecedores/documentos",
     "plataforma/auditoria",
     "plataforma/construtoras",
     "plataforma/usuarios",
-    "portal/{Token}",
     "sst/colaboradores",
     "sst/documentos",
     "sst/epi",
@@ -17739,7 +17380,7 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Sst/Sst.cs",
+   "arquivo": "src/Sigeo.Domain/Sst/FuncaoExigencia.cs",
    "config": null,
    "telas": [
     "sst/colaboradores",
@@ -17834,16 +17475,12 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Sst/Sst.cs",
+   "arquivo": "src/Sigeo.Domain/Sst/FuncaoObra.cs",
    "config": null,
    "telas": [
-    "cotacao/{Token:guid}",
-    "fornecedor/area",
-    "fornecedores/documentos",
     "plataforma/auditoria",
     "plataforma/construtoras",
     "plataforma/usuarios",
-    "portal/{Token}",
     "sst/exigencias"
    ]
   },
@@ -17969,7 +17606,7 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Sst/Sst.cs",
+   "arquivo": "src/Sigeo.Domain/Sst/InspecaoSeguranca.cs",
    "config": null,
    "telas": [
     "engenharia/obras",
@@ -18066,7 +17703,7 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Sst/Sst.cs",
+   "arquivo": "src/Sigeo.Domain/Sst/InspecaoSegurancaItem.cs",
    "config": null,
    "telas": []
   },
@@ -18217,7 +17854,7 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Sst/Sst.cs",
+   "arquivo": "src/Sigeo.Domain/Sst/Ocorrencia.cs",
    "config": null,
    "telas": [
     "campo/fvs/{Id:guid}",
@@ -18286,7 +17923,7 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Sst/Sst.cs",
+   "arquivo": "src/Sigeo.Domain/Sst/Participante.cs",
    "config": null,
    "telas": [
     "sst/colaboradores",
@@ -18446,10 +18083,9 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Sst/Sst.cs",
+   "arquivo": "src/Sigeo.Domain/Sst/PermissaoTrabalho.cs",
    "config": null,
    "telas": [
-    "(início)",
     "engenharia/obras",
     "engenharia/tipologias",
     "sst/colaboradores",
@@ -18564,7 +18200,7 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Sst/Sst.cs",
+   "arquivo": "src/Sigeo.Domain/Sst/Treinamento.cs",
    "config": null,
    "telas": [
     "plataforma/auditoria",
@@ -18692,7 +18328,7 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Sst/Sst.cs",
+   "arquivo": "src/Sigeo.Domain/Sst/Turma.cs",
    "config": null,
    "telas": [
     "sst/colaboradores",
@@ -18857,10 +18493,9 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Suprimentos/Contrato.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesQualidadeSst.cs",
+   "arquivo": "src/Sigeo.Domain/Suprimentos/Aditivo.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Suprimentos.cs",
    "telas": [
-    "(início)",
     "contratos",
     "engenharia/obras",
     "engenharia/tipologias"
@@ -18938,7 +18573,7 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Suprimentos/Contrato.cs",
+   "arquivo": "src/Sigeo.Domain/Suprimentos/AditivoItem.cs",
    "config": null,
    "telas": []
   },
@@ -19057,13 +18692,22 @@
      "ObraId"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Suprimentos/Estoque.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesEstoque.cs",
+   "arquivo": "src/Sigeo.Domain/Suprimentos/Almoxarifado.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Suprimentos.cs",
    "telas": [
+    "campo/fvs/{Id:guid}",
+    "campo/local/{Qr}",
     "engenharia/diario",
+    "engenharia/obras",
     "equipamentos",
     "estoque",
     "estoque/kits",
+    "obra/acoes",
+    "obra/auditorias",
+    "obra/equipamentos",
+    "obra/fvs",
+    "obra/modelos/{TipoRota}",
+    "obra/rnc",
     "recebimentos",
     "requisicoes",
     "sst/colaboradores",
@@ -19124,8 +18768,8 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Suprimentos/Atendimento.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesComprasPortal.cs",
+   "arquivo": "src/Sigeo.Domain/Suprimentos/AusenciaComprador.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Suprimentos.cs",
    "telas": []
   },
   {
@@ -19281,8 +18925,8 @@
      "FornecedorId"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Suprimentos/Medicao.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesModulos.cs",
+   "arquivo": "src/Sigeo.Domain/Suprimentos/AvaliacaoSemestral.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Suprimentos.cs",
    "telas": [
     "fornecedores/avaliacao",
     "fornecedores/qualificacao",
@@ -19336,8 +18980,8 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Suprimentos/Atendimento.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesComprasPortal.cs",
+   "arquivo": "src/Sigeo.Domain/Suprimentos/CarteiraCategoria.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Suprimentos.cs",
    "telas": []
   },
   {
@@ -19437,14 +19081,14 @@
      "UsuarioId"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Suprimentos/Atendimento.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesComprasPortal.cs",
+   "arquivo": "src/Sigeo.Domain/Suprimentos/CarteiraComprador.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Suprimentos.cs",
    "telas": [
-    "(início)",
     "cotacoes",
     "cotacoes/mapa",
     "engenharia/obras",
     "engenharia/tipologias",
+    "gestao/metas",
     "requisicoes",
     "suprimentos/compradores",
     "suprimentos/fila",
@@ -19581,16 +19225,12 @@
      "Mes"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Suprimentos/Portal.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesComprasPortal.cs",
+   "arquivo": "src/Sigeo.Domain/Suprimentos/CompetenciaDocumental.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Suprimentos.cs",
    "telas": [
     "(início)",
-    "cotacao/{Token:guid}",
-    "fornecedor/area",
-    "fornecedores/documentos",
     "medicoes",
     "mensagens",
-    "portal/{Token}",
     "suprimentos/documentacao-mensal"
    ]
   },
@@ -19862,27 +19502,24 @@
     ]
    ],
    "arquivo": "src/Sigeo.Domain/Suprimentos/Contrato.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesModulos.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Suprimentos.cs",
    "telas": [
     "(início)",
     "cadastros/centros-custo",
     "contratos",
     "contratos/parcelas",
-    "cotacao/{Token:guid}",
     "cotacoes",
     "cotacoes/mapa",
     "engenharia/obras",
     "engenharia/tipologias",
-    "equipamentos",
     "fornecedor",
     "fornecedor/area",
     "fornecedor/cotacao/{CotacaoId:guid}",
     "fornecedores",
-    "fornecedores/documentos",
     "fornecedores/exigencias",
+    "gestao/metas",
     "medicoes",
     "mensagens",
-    "portal/{Token}",
     "requisicoes",
     "sgq/grd",
     "suprimentos/documentacao-mensal",
@@ -19964,15 +19601,12 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Suprimentos/Contrato.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesModulos.cs",
+   "arquivo": "src/Sigeo.Domain/Suprimentos/ContratoItem.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Suprimentos.cs",
    "telas": [
     "contratos",
-    "contratos/parcelas",
-    "cotacoes",
     "fornecedores",
-    "fornecedores/exigencias",
-    "requisicoes"
+    "fornecedores/exigencias"
    ]
   },
   {
@@ -20021,8 +19655,8 @@
      "LocalId"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Suprimentos/Contrato.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesEngenharia.cs",
+   "arquivo": "src/Sigeo.Domain/Suprimentos/ContratoItemLocal.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Suprimentos.cs",
    "telas": [
     "contratos",
     "engenharia/obras",
@@ -20070,8 +19704,8 @@
      "ServicoControladoId"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Suprimentos/Contrato.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesModulos.cs",
+   "arquivo": "src/Sigeo.Domain/Suprimentos/ContratoServico.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Suprimentos.cs",
    "telas": []
   },
   {
@@ -20285,11 +19919,10 @@
     ]
    ],
    "arquivo": "src/Sigeo.Domain/Suprimentos/Cotacao.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesModulos.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Suprimentos.cs",
    "telas": [
     "(início)",
     "cadastros/produtos",
-    "cotacao/{Token:guid}",
     "cotacoes",
     "cotacoes/mapa",
     "engenharia/obras",
@@ -20299,12 +19932,12 @@
     "fornecedor/cotacao/{CotacaoId:guid}",
     "fornecedores",
     "fornecedores/avaliacao",
-    "fornecedores/documentos",
     "fornecedores/exigencias",
     "fornecedores/qualificacao",
+    "gestao/metas",
+    "medicoes",
     "mensagens",
     "obra/rnc",
-    "portal/{Token}",
     "requisicoes",
     "sistema/parametros",
     "sistema/permissoes",
@@ -20428,8 +20061,8 @@
      "FornecedorId"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Suprimentos/Cotacao.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesModulos.cs",
+   "arquivo": "src/Sigeo.Domain/Suprimentos/CotacaoFornecedor.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Suprimentos.cs",
    "telas": [
     "(início)",
     "cotacoes",
@@ -20438,6 +20071,7 @@
     "fornecedores/avaliacao",
     "fornecedores/exigencias",
     "fornecedores/qualificacao",
+    "medicoes",
     "requisicoes",
     "sistema/parametros",
     "sistema/permissoes",
@@ -20554,16 +20188,15 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Suprimentos/Cotacao.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesModulos.cs",
+   "arquivo": "src/Sigeo.Domain/Suprimentos/CotacaoItem.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Suprimentos.cs",
    "telas": [
     "(início)",
-    "cotacoes",
     "fornecedores",
     "fornecedores/avaliacao",
     "fornecedores/exigencias",
     "fornecedores/qualificacao",
-    "requisicoes",
+    "medicoes",
     "sistema/parametros",
     "sistema/permissoes",
     "sistema/usuarios"
@@ -20790,8 +20423,8 @@
      "Patrimonio"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Suprimentos/Equipamentos.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesEstoque.cs",
+   "arquivo": "src/Sigeo.Domain/Suprimentos/Equipamento.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Suprimentos.cs",
    "telas": [
     "contratos/parcelas",
     "engenharia/diario",
@@ -20843,8 +20476,8 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Suprimentos/Equipamentos.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesEstoque.cs",
+   "arquivo": "src/Sigeo.Domain/Suprimentos/EquipamentoDocumento.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Suprimentos.cs",
    "telas": []
   },
   {
@@ -20944,8 +20577,8 @@
      "Nome"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Suprimentos/Equipamentos.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesEstoque.cs",
+   "arquivo": "src/Sigeo.Domain/Suprimentos/FamiliaEquipamento.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Suprimentos.cs",
    "telas": [
     "engenharia/diario",
     "equipamentos",
@@ -21077,22 +20710,14 @@
      "Numero"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Suprimentos/Estoque.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesEstoque.cs",
+   "arquivo": "src/Sigeo.Domain/Suprimentos/InventarioEstoque.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Suprimentos.cs",
    "telas": [
     "equipamentos",
     "estoque",
     "estoque/kits",
     "recebimentos",
     "requisicoes",
-    "sst/colaboradores",
-    "sst/documentos",
-    "sst/epi",
-    "sst/exigencias",
-    "sst/inspecoes",
-    "sst/ocorrencias",
-    "sst/pt",
-    "sst/treinamentos",
     "transferencias"
    ]
   },
@@ -21152,22 +20777,14 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Suprimentos/Estoque.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesEstoque.cs",
+   "arquivo": "src/Sigeo.Domain/Suprimentos/InventarioItem.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Suprimentos.cs",
    "telas": [
     "equipamentos",
     "estoque",
     "estoque/kits",
     "recebimentos",
     "requisicoes",
-    "sst/colaboradores",
-    "sst/documentos",
-    "sst/epi",
-    "sst/exigencias",
-    "sst/inspecoes",
-    "sst/ocorrencias",
-    "sst/pt",
-    "sst/treinamentos",
     "transferencias"
    ]
   },
@@ -21293,8 +20910,8 @@
      "ColaboradorId"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Suprimentos/Portal.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesComprasPortal.cs",
+   "arquivo": "src/Sigeo.Domain/Suprimentos/ItemCompetencia.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Suprimentos.cs",
    "telas": [
     "medicoes",
     "suprimentos/documentacao-mensal"
@@ -21407,22 +21024,14 @@
      "Codigo"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Suprimentos/Estoque.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesEstoque.cs",
+   "arquivo": "src/Sigeo.Domain/Suprimentos/KitMaterial.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Suprimentos.cs",
    "telas": [
     "equipamentos",
     "estoque",
     "estoque/kits",
     "recebimentos",
     "requisicoes",
-    "sst/colaboradores",
-    "sst/documentos",
-    "sst/epi",
-    "sst/exigencias",
-    "sst/inspecoes",
-    "sst/ocorrencias",
-    "sst/pt",
-    "sst/treinamentos",
     "transferencias"
    ]
   },
@@ -21467,11 +21076,9 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Suprimentos/Estoque.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesEstoque.cs",
+   "arquivo": "src/Sigeo.Domain/Suprimentos/KitMaterialItem.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Suprimentos.cs",
    "telas": [
-    "cadastros/categorias",
-    "cadastros/controlados",
     "cadastros/produtos"
    ]
   },
@@ -21673,8 +21280,8 @@
      "Numero"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Suprimentos/Medicao.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesModulos.cs",
+   "arquivo": "src/Sigeo.Domain/Suprimentos/LiberacaoPagamento.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Suprimentos.cs",
    "telas": [
     "(início)",
     "engenharia/importar-erp",
@@ -21826,10 +21433,9 @@
      "Letra"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Suprimentos/Atendimento.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesComprasPortal.cs",
+   "arquivo": "src/Sigeo.Domain/Suprimentos/LoteCompra.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Suprimentos.cs",
    "telas": [
-    "(início)",
     "cotacoes",
     "cotacoes/mapa",
     "engenharia/obras",
@@ -22074,11 +21680,9 @@
     ]
    ],
    "arquivo": "src/Sigeo.Domain/Suprimentos/Medicao.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesModulos.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Suprimentos.cs",
    "telas": [
     "(início)",
-    "contratos",
-    "cotacoes",
     "engenharia/custo-realizado",
     "engenharia/importar-erp",
     "engenharia/obras",
@@ -22096,7 +21700,6 @@
     "medicoes",
     "mensagens",
     "pagamentos",
-    "requisicoes",
     "suprimentos/documentacao-mensal"
    ]
   },
@@ -22180,8 +21783,8 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Suprimentos/Medicao.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesModulos.cs",
+   "arquivo": "src/Sigeo.Domain/Suprimentos/MedicaoItem.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Suprimentos.cs",
    "telas": [
     "engenharia/obras",
     "engenharia/tipologias"
@@ -22297,8 +21900,8 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Suprimentos/Equipamentos.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesEstoque.cs",
+   "arquivo": "src/Sigeo.Domain/Suprimentos/MovimentoEquipamento.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Suprimentos.cs",
    "telas": [
     "contratos/parcelas",
     "engenharia/diario",
@@ -22496,15 +22099,22 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Suprimentos/Estoque.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesEstoque.cs",
+   "arquivo": "src/Sigeo.Domain/Suprimentos/MovimentoEstoque.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Suprimentos.cs",
    "telas": [
-    "cadastros/categorias",
-    "cadastros/controlados",
     "cadastros/produtos",
+    "campo/fvs/{Id:guid}",
+    "campo/local/{Qr}",
+    "engenharia/obras",
     "equipamentos",
     "estoque",
     "estoque/kits",
+    "obra/acoes",
+    "obra/auditorias",
+    "obra/equipamentos",
+    "obra/fvs",
+    "obra/modelos/{TipoRota}",
+    "obra/rnc",
     "recebimentos",
     "requisicoes",
     "sst/colaboradores",
@@ -22732,8 +22342,8 @@
      "Numero"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Suprimentos/Equipamentos.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesEstoque.cs",
+   "arquivo": "src/Sigeo.Domain/Suprimentos/OrdemServico.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Suprimentos.cs",
    "telas": [
     "engenharia/diario",
     "equipamentos",
@@ -22949,8 +22559,8 @@
      "Numero"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Suprimentos/ContratoRecorrente.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesEstoque.cs",
+   "arquivo": "src/Sigeo.Domain/Suprimentos/ParcelaContrato.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Suprimentos.cs",
    "telas": [
     "contratos/parcelas",
     "engenharia/diario",
@@ -23199,14 +22809,15 @@
      "Numero"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Suprimentos/Cotacao.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesModulos.cs",
+   "arquivo": "src/Sigeo.Domain/Suprimentos/Pedido.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Suprimentos.cs",
    "telas": [
     "(início)",
+    "cadastros/categorias",
     "cadastros/centros-custo",
+    "cadastros/controlados",
     "cadastros/marcas",
     "cadastros/produtos",
-    "cotacao/{Token:guid}",
     "cotacoes",
     "cotacoes/mapa",
     "engenharia/custo-realizado",
@@ -23217,7 +22828,6 @@
     "fornecedor/area",
     "fornecedor/cotacao/{CotacaoId:guid}",
     "fornecedores",
-    "fornecedores/documentos",
     "fornecedores/exigencias",
     "gestao/metas",
     "mensagens",
@@ -23225,7 +22835,6 @@
     "obra/rnc",
     "pagamentos",
     "pedidos",
-    "portal/{Token}",
     "recebimentos",
     "requisicoes",
     "suprimentos/compradores",
@@ -23339,8 +22948,8 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Suprimentos/Cotacao.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesModulos.cs",
+   "arquivo": "src/Sigeo.Domain/Suprimentos/PedidoItem.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Suprimentos.cs",
    "telas": [
     "(início)",
     "cadastros/categorias",
@@ -23356,6 +22965,7 @@
     "fornecedores/exigencias",
     "fornecedores/qualificacao",
     "gestao/metas",
+    "medicoes",
     "notas-fiscais",
     "recebimentos",
     "requisicoes",
@@ -23520,11 +23130,10 @@
      "Numero"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Suprimentos/Medicao.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesModulos.cs",
+   "arquivo": "src/Sigeo.Domain/Suprimentos/PlanoAcaoFornecedor.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Suprimentos.cs",
    "telas": [
     "(início)",
-    "cotacoes",
     "fornecedores",
     "fornecedores/avaliacao",
     "fornecedores/exigencias",
@@ -23532,8 +23141,7 @@
     "fornecedores/qualificacao",
     "medicoes",
     "mensagens",
-    "recebimentos",
-    "requisicoes"
+    "recebimentos"
    ]
   },
   {
@@ -23667,8 +23275,8 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Suprimentos/Equipamentos.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesEstoque.cs",
+   "arquivo": "src/Sigeo.Domain/Suprimentos/PlanoManutencao.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Suprimentos.cs",
    "telas": [
     "engenharia/diario",
     "equipamentos"
@@ -23751,15 +23359,12 @@
      "Versao"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Suprimentos/Cotacao.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesComprasPortal.cs",
+   "arquivo": "src/Sigeo.Domain/Suprimentos/PropostaVersao.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Suprimentos.cs",
    "telas": [
-    "cotacao/{Token:guid}",
     "fornecedor",
     "fornecedor/area",
-    "fornecedor/cotacao/{CotacaoId:guid}",
-    "fornecedores/documentos",
-    "portal/{Token}"
+    "fornecedor/cotacao/{CotacaoId:guid}"
    ]
   },
   {
@@ -24010,7 +23615,7 @@
     ]
    ],
    "arquivo": "src/Sigeo.Domain/Suprimentos/Recebimento.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesModulos.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Suprimentos.cs",
    "telas": [
     "(início)",
     "campo/fvs/{Id:guid}",
@@ -24023,6 +23628,7 @@
     "fornecedores/avaliacao",
     "fornecedores/exigencias",
     "fornecedores/qualificacao",
+    "gestao/metas",
     "medicoes",
     "mensagens",
     "obra/acoes",
@@ -24131,11 +23737,9 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Suprimentos/Recebimento.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesModulos.cs",
+   "arquivo": "src/Sigeo.Domain/Suprimentos/RecebimentoItem.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Suprimentos.cs",
    "telas": [
-    "cadastros/categorias",
-    "cadastros/controlados",
     "cadastros/produtos"
    ]
   },
@@ -24360,21 +23964,17 @@
     ]
    ],
    "arquivo": "src/Sigeo.Domain/Suprimentos/Requisicao.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesModulos.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Suprimentos.cs",
    "telas": [
     "(início)",
     "cadastros/centros-custo",
-    "cotacao/{Token:guid}",
     "cotacoes",
     "cotacoes/mapa",
     "engenharia/composicoes",
     "engenharia/obras",
     "engenharia/tipologias",
-    "fornecedor/area",
-    "fornecedores/documentos",
     "gestao/metas",
     "mensagens",
-    "portal/{Token}",
     "requisicoes",
     "suprimentos/compradores",
     "suprimentos/economia",
@@ -24526,8 +24126,8 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Suprimentos/Requisicao.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesModulos.cs",
+   "arquivo": "src/Sigeo.Domain/Suprimentos/RequisicaoItem.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Suprimentos.cs",
    "telas": [
     "(início)",
     "cadastros/categorias",
@@ -24543,6 +24143,7 @@
     "fornecedores/exigencias",
     "fornecedores/qualificacao",
     "gestao/metas",
+    "medicoes",
     "requisicoes",
     "sistema/parametros",
     "sistema/permissoes",
@@ -24610,12 +24211,13 @@
      "ComposicaoId"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Suprimentos/Requisicao.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesEngenharia.cs",
+   "arquivo": "src/Sigeo.Domain/Suprimentos/RequisicaoItemLocal.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Suprimentos.cs",
    "telas": [
     "engenharia/composicoes",
     "engenharia/obras",
     "engenharia/tipologias",
+    "pedidos",
     "requisicoes"
    ]
   },
@@ -24740,15 +24342,22 @@
      "ProdutoId"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Suprimentos/Estoque.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesEstoque.cs",
+   "arquivo": "src/Sigeo.Domain/Suprimentos/SaldoEstoque.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Suprimentos.cs",
    "telas": [
-    "cadastros/categorias",
-    "cadastros/controlados",
     "cadastros/produtos",
+    "campo/fvs/{Id:guid}",
+    "campo/local/{Qr}",
+    "engenharia/obras",
     "equipamentos",
     "estoque",
     "estoque/kits",
+    "obra/acoes",
+    "obra/auditorias",
+    "obra/equipamentos",
+    "obra/fvs",
+    "obra/modelos/{TipoRota}",
+    "obra/rnc",
     "recebimentos",
     "requisicoes",
     "sst/colaboradores",
@@ -24846,8 +24455,8 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Suprimentos/Transferencia.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesEngenharia.cs",
+   "arquivo": "src/Sigeo.Domain/Suprimentos/TransferenciaItem.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Suprimentos.cs",
    "telas": [
     "engenharia/obras",
     "engenharia/tipologias",
@@ -25029,8 +24638,8 @@
      "Numero"
     ]
    ],
-   "arquivo": "src/Sigeo.Domain/Suprimentos/Transferencia.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesEngenharia.cs",
+   "arquivo": "src/Sigeo.Domain/Suprimentos/TransferenciaMaterial.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Suprimentos.cs",
    "telas": [
     "engenharia/obras",
     "engenharia/tipologias",
@@ -25039,14 +24648,6 @@
     "estoque/kits",
     "recebimentos",
     "requisicoes",
-    "sst/colaboradores",
-    "sst/documentos",
-    "sst/epi",
-    "sst/exigencias",
-    "sst/inspecoes",
-    "sst/ocorrencias",
-    "sst/pt",
-    "sst/treinamentos",
     "transferencias"
    ]
   },
@@ -25160,8 +24761,8 @@
     "Id"
    ],
    "unique": [],
-   "arquivo": "src/Sigeo.Domain/Suprimentos/ContratoRecorrente.cs",
-   "config": "src/Sigeo.Infrastructure/Dados/ConfiguracoesEstoque.cs",
+   "arquivo": "src/Sigeo.Domain/Suprimentos/UsoContrato.cs",
+   "config": "src/Sigeo.Infrastructure/Dados/Configuracoes/Suprimentos.cs",
    "telas": [
     "contratos/parcelas"
    ]
@@ -25170,52 +24771,33 @@
  "telas": [
   {
    "rota": "(início)",
-   "arquivo": "src/Sigeo.Web/Components/Pages/Home.razor",
+   "arquivo": "src/Sigeo.Web/Components/Pages/Inicio/Home.razor",
    "servicos": [
-    "AprovacaoServico",
     "MensagensServico",
     "SistemaServico"
    ],
    "tabelas": [
     "AcaoCorretiva",
-    "Aditivo",
     "Alcada",
     "AuditoriaInterna",
     "AvisoEmail",
-    "CarteiraComprador",
-    "CategoriaProduto",
     "Ciencia",
-    "Colaborador",
     "CompetenciaDocumental",
-    "Composicao",
     "Contrato",
     "Conversa",
-    "CopiaControlada",
     "Cotacao",
     "CotacaoFornecedor",
     "CotacaoItem",
-    "CustoRealizado",
     "DelegacaoAprovacao",
-    "Documento",
-    "DocumentoColaborador",
     "Empresa",
-    "EnsaioRecebimento",
-    "Epi",
-    "EquipamentoMedicao",
-    "EtapaAprovacao",
     "EventoDocumento",
     "Fornecedor",
-    "FornecedorDocumento",
     "Fvs",
-    "Grd",
     "LeituraMensagem",
     "LiberacaoPagamento",
-    "Local",
-    "LoteCompra",
     "MaterialControlado",
     "Medicao",
     "MensagemConversa",
-    "Nota",
     "Obra",
     "Parametro",
     "ParticipanteConversa",
@@ -25223,7 +24805,6 @@
     "PedidoItem",
     "PerfilAcesso",
     "PermissaoDocumento",
-    "PermissaoTrabalho",
     "PlanoAcaoFornecedor",
     "Produto",
     "Recebimento",
@@ -25233,9 +24814,7 @@
     "Restricao",
     "Rnc",
     "Sequencia",
-    "ServicoLocal",
     "SolicitacaoAprovacao",
-    "Spe",
     "Tarefa",
     "Usuario",
     "UsuarioObra",
@@ -25250,125 +24829,95 @@
   },
   {
    "rota": "cadastros/categorias",
-   "arquivo": "src/Sigeo.Web/Components/Pages/Cadastro/Categorias.razor",
+   "arquivo": "src/Sigeo.Web/Components/Pages/Cadastros/Categorias.razor",
    "servicos": [
     "CadastrosServico",
+    "CategoriasConsultas",
     "CodigosProdutoServico",
     "PadraoCatalogoServico"
    ],
    "tabelas": [
     "CategoriaProduto",
-    "ComposicaoItem",
-    "CustoRealizado",
-    "Empresa",
-    "Epi",
-    "KitMaterialItem",
+    "Marca",
     "MaterialControlado",
-    "MovimentoEstoque",
-    "Parametro",
+    "Pedido",
     "PedidoItem",
-    "PerfilAcesso",
     "Produto",
-    "RecebimentoItem",
     "RequisicaoItem",
-    "SaldoEstoque",
-    "Sequencia",
-    "Usuario",
-    "VinculoOrigem"
+    "Sequencia"
    ]
   },
   {
    "rota": "cadastros/centros-custo",
-   "arquivo": "src/Sigeo.Web/Components/Pages/Cadastro/CentrosCusto.razor",
+   "arquivo": "src/Sigeo.Web/Components/Pages/Cadastros/CentrosCusto.razor",
    "servicos": [
+    "CentrosCustoConsultas",
     "EstabelecimentosServico"
    ],
    "tabelas": [
     "CentroCusto",
     "Contrato",
-    "Empresa",
     "Estabelecimento",
     "FluxoEstabelecimento",
-    "Parametro",
     "Pedido",
-    "PerfilAcesso",
-    "Requisicao",
-    "Sequencia",
-    "Usuario"
+    "Requisicao"
    ]
   },
   {
    "rota": "cadastros/controlados",
-   "arquivo": "src/Sigeo.Web/Components/Pages/Cadastro/Controlados.razor",
+   "arquivo": "src/Sigeo.Web/Components/Pages/Cadastros/Controlados.razor",
    "servicos": [
-    "CadastrosServico"
+    "CadastrosServico",
+    "ControladosConsultas"
    ],
    "tabelas": [
     "CategoriaProduto",
-    "ComposicaoItem",
-    "CustoRealizado",
-    "Empresa",
-    "Epi",
-    "KitMaterialItem",
+    "Marca",
     "MaterialControlado",
     "ModeloInspecao",
-    "MovimentoEstoque",
-    "Parametro",
+    "Pedido",
     "PedidoItem",
-    "PerfilAcesso",
     "Produto",
-    "RecebimentoItem",
     "RequisicaoItem",
-    "SaldoEstoque",
     "Sequencia",
-    "ServicoControlado",
-    "Usuario",
-    "VinculoOrigem"
+    "ServicoControlado"
    ]
   },
   {
    "rota": "cadastros/estabelecimentos",
-   "arquivo": "src/Sigeo.Web/Components/Pages/Cadastro/Estabelecimentos.razor",
+   "arquivo": "src/Sigeo.Web/Components/Pages/Cadastros/Estabelecimentos.razor",
    "servicos": [
+    "EstabelecimentosConsultas",
     "EstabelecimentosServico"
    ],
    "tabelas": [
     "CentroCusto",
-    "Empresa",
     "Estabelecimento",
-    "FluxoEstabelecimento",
-    "Parametro",
-    "PerfilAcesso",
-    "Sequencia",
-    "Usuario"
+    "FluxoEstabelecimento"
    ]
   },
   {
    "rota": "cadastros/marcas",
-   "arquivo": "src/Sigeo.Web/Components/Pages/Cadastro/Marcas.razor",
+   "arquivo": "src/Sigeo.Web/Components/Pages/Cadastros/Marcas.razor",
    "servicos": [
+    "MarcasConsultas",
     "MarcasServico"
    ],
    "tabelas": [
-    "Empresa",
     "Marca",
-    "Parametro",
     "Pedido",
-    "PedidoItem",
-    "PerfilAcesso",
-    "Sequencia",
-    "Usuario"
+    "PedidoItem"
    ]
   },
   {
    "rota": "cadastros/obras",
-   "arquivo": "src/Sigeo.Web/Components/Pages/Cadastro/ObrasRedireciona.razor",
+   "arquivo": "src/Sigeo.Web/Components/Pages/Cadastros/ObrasRedireciona.razor",
    "servicos": [],
    "tabelas": []
   },
   {
    "rota": "cadastros/produtos",
-   "arquivo": "src/Sigeo.Web/Components/Pages/Cadastro/Produtos.razor",
+   "arquivo": "src/Sigeo.Web/Components/Pages/Cadastros/Produtos.razor",
    "servicos": [
     "AnalisesIaServico",
     "CadastrosServico",
@@ -25381,7 +24930,6 @@
     "ComposicaoItem",
     "Cotacao",
     "CustoRealizado",
-    "Empresa",
     "Epi",
     "KitMaterialItem",
     "Marca",
@@ -25389,17 +24937,14 @@
     "MovimentoEstoque",
     "NotaFiscalEntrada",
     "Obra",
-    "Parametro",
     "Pedido",
     "PedidoItem",
-    "PerfilAcesso",
     "Produto",
     "RecebimentoItem",
     "RequisicaoItem",
     "SaldoEstoque",
     "Sequencia",
     "UsoIa",
-    "Usuario",
     "VinculoOrigem"
    ]
   },
@@ -25407,28 +24952,33 @@
    "rota": "campo/fvs/{Id:guid}",
    "arquivo": "src/Sigeo.Web/Components/Pages/Campo/FvsCampo.razor",
    "servicos": [
+    "FvsCampoConsultas",
     "QualidadeObraServico"
    ],
    "tabelas": [
     "AcaoCorretiva",
+    "Almoxarifado",
     "Anexo",
     "AplicacaoLote",
     "AuditoriaInterna",
     "Calibracao",
     "CautelaFerramenta",
     "Documento",
-    "Empresa",
     "EnsaioRecebimento",
     "EquipamentoMedicao",
+    "Estabelecimento",
     "Fornecedor",
     "Fvs",
     "Local",
     "ModeloInspecao",
+    "MovimentoEstoque",
+    "Obra",
     "Ocorrencia",
     "Parametro",
-    "PerfilAcesso",
     "Recebimento",
+    "Restricao",
     "Rnc",
+    "SaldoEstoque",
     "Sequencia",
     "TipoEquipamentoMedicao",
     "Usuario"
@@ -25438,27 +24988,32 @@
    "rota": "campo/local/{Qr}",
    "arquivo": "src/Sigeo.Web/Components/Pages/Campo/LocalCampo.razor",
    "servicos": [
+    "LocalCampoConsultas",
     "QualidadeObraServico"
    ],
    "tabelas": [
     "AcaoCorretiva",
+    "Almoxarifado",
     "Anexo",
     "AplicacaoLote",
     "AuditoriaInterna",
     "Calibracao",
     "CautelaFerramenta",
     "Documento",
-    "Empresa",
     "EnsaioRecebimento",
     "EquipamentoMedicao",
+    "Estabelecimento",
     "Fvs",
     "Local",
     "ModeloInspecao",
+    "MovimentoEstoque",
+    "Obra",
     "Ocorrencia",
     "Parametro",
-    "PerfilAcesso",
     "Recebimento",
+    "Restricao",
     "Rnc",
+    "SaldoEstoque",
     "Sequencia",
     "TipoEquipamentoMedicao",
     "Usuario"
@@ -25505,14 +25060,9 @@
     "Contrato",
     "ContratoItem",
     "ContratoItemLocal",
-    "Empresa",
     "Local",
-    "Medicao",
     "Obra",
-    "Parametro",
-    "PerfilAcesso",
-    "Sequencia",
-    "Usuario"
+    "Sequencia"
    ]
   },
   {
@@ -25523,7 +25073,6 @@
    ],
    "tabelas": [
     "Contrato",
-    "ContratoItem",
     "Equipamento",
     "MovimentoEquipamento",
     "NotaFiscalEntrada",
@@ -25534,80 +25083,34 @@
   {
    "rota": "cotacao/{Token:guid}",
    "arquivo": "src/Sigeo.Web/Components/Pages/Publico/PortalCotacao.razor",
-   "servicos": [
-    "PortalServico"
-   ],
-   "tabelas": [
-    "Alcada",
-    "AvisoEmail",
-    "Ciencia",
-    "Colaborador",
-    "CompetenciaDocumental",
-    "Contrato",
-    "Cotacao",
-    "DelegacaoAprovacao",
-    "DocumentoColaborador",
-    "Empresa",
-    "Estabelecimento",
-    "Exigencia",
-    "Fornecedor",
-    "FornecedorContato",
-    "FornecedorDocumento",
-    "FuncaoObra",
-    "LinkPortalFornecedor",
-    "Obra",
-    "Parametro",
-    "Pedido",
-    "PerfilAcesso",
-    "PropostaVersao",
-    "RegraNotificacao",
-    "Requisicao",
-    "Restricao",
-    "Rnc",
-    "Sequencia",
-    "SolicitacaoAprovacao",
-    "Spe",
-    "Tarefa",
-    "TipoDocumentoExigido",
-    "Usuario"
-   ]
+   "servicos": [],
+   "tabelas": []
   },
   {
    "rota": "cotacoes",
    "arquivo": "src/Sigeo.Web/Components/Pages/Suprimentos/Cotacoes.razor",
    "servicos": [
-    "CotacoesServico",
-    "FornecedoresServico"
+    "CotacoesServico"
    ],
    "tabelas": [
     "CarteiraComprador",
-    "CategoriaProduto",
     "Contrato",
-    "ContratoItem",
     "Cotacao",
     "CotacaoFornecedor",
-    "CotacaoItem",
-    "Empresa",
     "Estabelecimento",
     "Fornecedor",
-    "FornecedorGrupo",
-    "FornecedorServico",
     "LoteCompra",
-    "MaterialControlado",
-    "Medicao",
+    "Marca",
     "Nota",
     "Obra",
     "Parametro",
     "Pedido",
     "PedidoItem",
-    "PerfilAcesso",
-    "PlanoAcaoFornecedor",
     "Produto",
     "Recebimento",
     "Requisicao",
     "RequisicaoItem",
     "Sequencia",
-    "TipoDocumentoExigido",
     "Usuario"
    ]
   },
@@ -25619,20 +25122,18 @@
    ],
    "tabelas": [
     "CarteiraComprador",
-    "CategoriaProduto",
     "Contrato",
     "Cotacao",
     "CotacaoFornecedor",
-    "Empresa",
     "Estabelecimento",
     "Fornecedor",
     "LoteCompra",
+    "Marca",
     "Nota",
     "Obra",
     "Parametro",
     "Pedido",
     "PedidoItem",
-    "PerfilAcesso",
     "Produto",
     "Recebimento",
     "Requisicao",
@@ -25645,29 +25146,26 @@
    "rota": "engenharia/composicoes",
    "arquivo": "src/Sigeo.Web/Components/Pages/Engenharia/Composicoes.razor",
    "servicos": [
+    "ComposicoesConsultas",
     "OrcamentoServico"
    ],
    "tabelas": [
     "Composicao",
-    "Empresa",
     "Local",
-    "Parametro",
-    "PerfilAcesso",
     "Produto",
     "Requisicao",
     "RequisicaoItem",
     "RequisicaoItemLocal",
-    "Sequencia",
     "ServicoAplicacao",
     "ServicoLocal",
-    "Tipologia",
-    "Usuario"
+    "Tipologia"
    ]
   },
   {
    "rota": "engenharia/cronograma",
    "arquivo": "src/Sigeo.Web/Components/Pages/Engenharia/Cronograma.razor",
    "servicos": [
+    "CronogramaConsultas",
     "PlanejamentoServico"
    ],
    "tabelas": [
@@ -25678,13 +25176,11 @@
     "Feriado",
     "Local",
     "Obra",
-    "Parametro",
     "PerfilAcesso",
     "RedeLocal",
     "RedePacote",
     "RedePacoteLocal",
     "RedePlanejamento",
-    "Sequencia",
     "ServicoLocal",
     "Usuario",
     "VersaoCronograma",
@@ -25727,7 +25223,6 @@
     "MovimentoEquipamento",
     "Obra",
     "OrdemServico",
-    "Parametro",
     "ParcelaContrato",
     "PerfilAcesso",
     "PlanoManutencao",
@@ -25741,7 +25236,9 @@
   {
    "rota": "engenharia/diario/imprimir",
    "arquivo": "src/Sigeo.Web/Components/Pages/Engenharia/DiarioImprimir.razor",
-   "servicos": [],
+   "servicos": [
+    "DiarioImprimirConsultas"
+   ],
    "tabelas": [
     "Anexo",
     "DiarioObra",
@@ -25777,23 +25274,22 @@
     "Medicao",
     "MovimentoBancario",
     "Obra",
-    "Parametro",
     "Pedido",
-    "PerfilAcesso",
     "Produto",
     "Sequencia",
     "ServicoLocal",
     "Tipologia",
     "Titulo",
     "TituloParcela",
-    "UnidadeComercial",
-    "Usuario"
+    "UnidadeComercial"
    ]
   },
   {
    "rota": "engenharia/last-planner",
    "arquivo": "src/Sigeo.Web/Components/Pages/Engenharia/LastPlanner.razor",
-   "servicos": [],
+   "servicos": [
+    "LastPlannerConsultas"
+   ],
    "tabelas": [
     "VersaoCronograma"
    ]
@@ -25809,14 +25305,9 @@
     "Colaborador",
     "Composicao",
     "CustoMaoObraMes",
-    "Empresa",
     "Equipe",
     "Local",
-    "Parametro",
-    "PerfilAcesso",
-    "Sequencia",
-    "ServicoLocal",
-    "Usuario"
+    "ServicoLocal"
    ]
   },
   {
@@ -25830,6 +25321,7 @@
     "AcaoCorretiva",
     "Aditivo",
     "Alcada",
+    "Almoxarifado",
     "Anexo",
     "AplicacaoLote",
     "Apropriacao",
@@ -25837,7 +25329,6 @@
     "AuditoriaInterna",
     "Calibracao",
     "CarteiraComprador",
-    "CategoriaProduto",
     "CautelaFerramenta",
     "Contrato",
     "ContratoItemLocal",
@@ -25847,6 +25338,7 @@
     "Empresa",
     "EnsaioRecebimento",
     "EquipamentoMedicao",
+    "Estabelecimento",
     "EtapaAprovacao",
     "Fornecedor",
     "Fvs",
@@ -25857,6 +25349,7 @@
     "Medicao",
     "MedicaoItem",
     "ModeloInspecao",
+    "MovimentoEstoque",
     "Nota",
     "Obra",
     "Ocorrencia",
@@ -25873,7 +25366,9 @@
     "Requisicao",
     "RequisicaoItem",
     "RequisicaoItemLocal",
+    "Restricao",
     "Rnc",
+    "SaldoEstoque",
     "Sequencia",
     "ServicoAplicacao",
     "ServicoLocal",
@@ -25890,7 +25385,9 @@
   {
    "rota": "engenharia/planejamento",
    "arquivo": "src/Sigeo.Web/Components/Pages/Engenharia/Planejamento.razor",
-   "servicos": [],
+   "servicos": [
+    "PlanejamentoTelaConsultas"
+   ],
    "tabelas": [
     "AtividadeCronograma",
     "Composicao",
@@ -25899,13 +25396,11 @@
     "Feriado",
     "Local",
     "Obra",
-    "Parametro",
     "PerfilAcesso",
     "RedeLocal",
     "RedePacote",
     "RedePacoteLocal",
     "RedePlanejamento",
-    "Sequencia",
     "ServicoLocal",
     "Usuario",
     "VersaoCronograma",
@@ -25916,7 +25411,9 @@
   {
    "rota": "engenharia/planejamento/imprimir",
    "arquivo": "src/Sigeo.Web/Components/Pages/Engenharia/PlanejamentoImprimir.razor",
-   "servicos": [],
+   "servicos": [
+    "PlanejamentoImprimirConsultas"
+   ],
    "tabelas": [
     "AtividadeCronograma",
     "Composicao",
@@ -25925,13 +25422,11 @@
     "Feriado",
     "Local",
     "Obra",
-    "Parametro",
     "PerfilAcesso",
     "RedeLocal",
     "RedePacote",
     "RedePacoteLocal",
     "RedePlanejamento",
-    "Sequencia",
     "ServicoLocal",
     "Usuario",
     "VersaoCronograma",
@@ -25956,7 +25451,6 @@
     "Local",
     "MedicaoSemanal",
     "Obra",
-    "Parametro",
     "PerfilAcesso",
     "PlanoSemanal",
     "RedeLocal",
@@ -25964,7 +25458,6 @@
     "RedePacoteLocal",
     "RedePlanejamento",
     "Restricao",
-    "Sequencia",
     "ServicoLocal",
     "Spe",
     "Tarefa",
@@ -26009,7 +25502,6 @@
     "Nota",
     "Obra",
     "Ocorrencia",
-    "Parametro",
     "Pedido",
     "PedidoItem",
     "PerfilAcesso",
@@ -26046,8 +25538,6 @@
    "tabelas": [
     "Almoxarifado",
     "Composicao",
-    "Contrato",
-    "Empresa",
     "Equipamento",
     "Estabelecimento",
     "FamiliaEquipamento",
@@ -26059,9 +25549,7 @@
     "MovimentoEstoque",
     "Obra",
     "OrdemServico",
-    "Parametro",
     "ParcelaContrato",
-    "PerfilAcesso",
     "PlanoManutencao",
     "Produto",
     "Restricao",
@@ -26069,8 +25557,7 @@
     "Sequencia",
     "ServicoLocal",
     "Spe",
-    "TransferenciaMaterial",
-    "Usuario"
+    "TransferenciaMaterial"
    ]
   },
   {
@@ -26082,7 +25569,6 @@
    "tabelas": [
     "Almoxarifado",
     "Composicao",
-    "Empresa",
     "Estabelecimento",
     "InventarioEstoque",
     "InventarioItem",
@@ -26090,16 +25576,13 @@
     "Local",
     "MovimentoEstoque",
     "Obra",
-    "Parametro",
-    "PerfilAcesso",
     "Produto",
     "Restricao",
     "SaldoEstoque",
     "Sequencia",
     "ServicoLocal",
     "Spe",
-    "TransferenciaMaterial",
-    "Usuario"
+    "TransferenciaMaterial"
    ]
   },
   {
@@ -26111,7 +25594,6 @@
    "tabelas": [
     "Almoxarifado",
     "Composicao",
-    "Empresa",
     "Estabelecimento",
     "InventarioEstoque",
     "InventarioItem",
@@ -26119,17 +25601,13 @@
     "Local",
     "MovimentoEstoque",
     "Obra",
-    "Parametro",
-    "PerfilAcesso",
-    "PlanoSemanal",
     "Produto",
     "Restricao",
     "SaldoEstoque",
     "Sequencia",
     "ServicoLocal",
     "Spe",
-    "TransferenciaMaterial",
-    "Usuario"
+    "TransferenciaMaterial"
    ]
   },
   {
@@ -26155,14 +25633,11 @@
     "Medicao",
     "MovimentoBancario",
     "Obra",
-    "Parametro",
-    "PerfilAcesso",
     "Sequencia",
     "Tipologia",
     "Titulo",
     "TituloParcela",
-    "UnidadeComercial",
-    "Usuario"
+    "UnidadeComercial"
    ]
   },
   {
@@ -26188,14 +25663,11 @@
     "Medicao",
     "MovimentoBancario",
     "Obra",
-    "Parametro",
-    "PerfilAcesso",
     "Sequencia",
     "Tipologia",
     "Titulo",
     "TituloParcela",
-    "UnidadeComercial",
-    "Usuario"
+    "UnidadeComercial"
    ]
   },
   {
@@ -26221,14 +25693,11 @@
     "Medicao",
     "MovimentoBancario",
     "Obra",
-    "Parametro",
-    "PerfilAcesso",
     "Sequencia",
     "Tipologia",
     "Titulo",
     "TituloParcela",
-    "UnidadeComercial",
-    "Usuario"
+    "UnidadeComercial"
    ]
   },
   {
@@ -26254,14 +25723,11 @@
     "Medicao",
     "MovimentoBancario",
     "Obra",
-    "Parametro",
-    "PerfilAcesso",
     "Sequencia",
     "Tipologia",
     "Titulo",
     "TituloParcela",
-    "UnidadeComercial",
-    "Usuario"
+    "UnidadeComercial"
    ]
   },
   {
@@ -26279,55 +25745,29 @@
     "FornecedorContato",
     "LinkPortalFornecedor",
     "Obra",
-    "Parametro",
     "Pedido",
-    "PerfilAcesso",
     "PropostaVersao",
-    "Sequencia",
-    "Usuario"
+    "Sequencia"
    ]
   },
   {
    "rota": "fornecedor/area",
    "arquivo": "src/Sigeo.Web/Components/Pages/AreaFornecedor/Area.razor",
    "servicos": [
-    "AcessoFornecedorServico",
-    "PortalServico"
+    "AcessoFornecedorServico"
    ],
    "tabelas": [
-    "Alcada",
-    "AvisoEmail",
-    "Ciencia",
     "CodigoAcessoFornecedor",
-    "Colaborador",
-    "CompetenciaDocumental",
     "Contrato",
     "Cotacao",
-    "DelegacaoAprovacao",
-    "DocumentoColaborador",
     "Empresa",
-    "Estabelecimento",
-    "Exigencia",
     "Fornecedor",
     "FornecedorContato",
-    "FornecedorDocumento",
-    "FuncaoObra",
     "LinkPortalFornecedor",
     "Obra",
-    "Parametro",
     "Pedido",
-    "PerfilAcesso",
     "PropostaVersao",
-    "RegraNotificacao",
-    "Requisicao",
-    "Restricao",
-    "Rnc",
-    "Sequencia",
-    "SolicitacaoAprovacao",
-    "Spe",
-    "Tarefa",
-    "TipoDocumentoExigido",
-    "Usuario"
+    "Sequencia"
    ]
   },
   {
@@ -26345,18 +25785,16 @@
     "FornecedorContato",
     "LinkPortalFornecedor",
     "Obra",
-    "Parametro",
     "Pedido",
-    "PerfilAcesso",
     "PropostaVersao",
-    "Sequencia",
-    "Usuario"
+    "Sequencia"
    ]
   },
   {
    "rota": "fornecedores",
-   "arquivo": "src/Sigeo.Web/Components/Pages/Cadastro/Fornecedores.razor",
+   "arquivo": "src/Sigeo.Web/Components/Pages/Cadastros/Fornecedores.razor",
    "servicos": [
+    "FornecedoresCadastroConsultas",
     "FornecedoresServico"
    ],
    "tabelas": [
@@ -26380,85 +25818,52 @@
     "Produto",
     "Recebimento",
     "RequisicaoItem",
-    "Sequencia",
     "TipoDocumentoExigido",
     "Usuario"
    ]
   },
   {
    "rota": "fornecedores/avaliacao",
-   "arquivo": "src/Sigeo.Web/Components/Pages/Qualidade/AvaliacaoFornecedores.razor",
+   "arquivo": "src/Sigeo.Web/Components/Pages/Documentos/AvaliacaoFornecedores.razor",
    "servicos": [
-    "AvaliacaoFornecedoresServico"
+    "AvaliacaoFornecedoresServico",
+    "AvaliacaoFornecedoresSgqConsultas"
    ],
    "tabelas": [
     "AvaliacaoSemestral",
     "Cotacao",
     "CotacaoFornecedor",
     "CotacaoItem",
-    "Empresa",
     "Fornecedor",
     "FornecedorQualificacao",
     "MaterialControlado",
     "Medicao",
     "Parametro",
     "PedidoItem",
-    "PerfilAcesso",
     "PlanoAcaoFornecedor",
     "Produto",
     "Recebimento",
     "RequisicaoItem",
     "Rnc",
-    "Sequencia",
-    "Usuario"
+    "Sequencia"
    ]
   },
   {
    "rota": "fornecedores/documentos",
-   "arquivo": "src/Sigeo.Web/Components/Pages/Cadastro/DocumentosFornecedor.razor",
+   "arquivo": "src/Sigeo.Web/Components/Pages/Cadastros/DocumentosFornecedor.razor",
    "servicos": [
-    "PortalServico"
+    "DocumentosFornecedorConsultas"
    ],
    "tabelas": [
-    "Alcada",
-    "AvisoEmail",
-    "Ciencia",
-    "Colaborador",
-    "CompetenciaDocumental",
-    "Contrato",
-    "Cotacao",
-    "DelegacaoAprovacao",
-    "DocumentoColaborador",
-    "Empresa",
-    "Estabelecimento",
-    "Exigencia",
-    "Fornecedor",
-    "FornecedorContato",
-    "FornecedorDocumento",
-    "FuncaoObra",
-    "LinkPortalFornecedor",
-    "Obra",
-    "Parametro",
-    "Pedido",
-    "PerfilAcesso",
-    "PropostaVersao",
-    "RegraNotificacao",
-    "Requisicao",
-    "Restricao",
-    "Rnc",
-    "Sequencia",
-    "SolicitacaoAprovacao",
-    "Spe",
-    "Tarefa",
-    "TipoDocumentoExigido",
-    "Usuario"
+    "FornecedorDocumento"
    ]
   },
   {
    "rota": "fornecedores/exigencias",
-   "arquivo": "src/Sigeo.Web/Components/Pages/Cadastro/MatrizDocumentos.razor",
+   "arquivo": "src/Sigeo.Web/Components/Pages/Cadastros/MatrizDocumentos.razor",
    "servicos": [
-    "FornecedoresServico"
+    "FornecedoresServico",
+    "MatrizDocumentosConsultas"
    ],
    "tabelas": [
     "Contrato",
@@ -26480,63 +25885,60 @@
     "Produto",
     "Recebimento",
     "RequisicaoItem",
-    "Sequencia",
     "TipoDocumentoExigido",
     "Usuario"
    ]
   },
   {
    "rota": "fornecedores/planos",
-   "arquivo": "src/Sigeo.Web/Components/Pages/Qualidade/PlanosAcao.razor",
+   "arquivo": "src/Sigeo.Web/Components/Pages/Documentos/PlanosAcao.razor",
    "servicos": [
-    "PlanosAcaoServico"
+    "PlanosAcaoServico",
+    "PlanosAcaoSgqConsultas"
    ],
    "tabelas": [
-    "Empresa",
-    "Parametro",
-    "PerfilAcesso",
     "PlanoAcaoFornecedor",
-    "Sequencia",
-    "Usuario"
+    "Sequencia"
    ]
   },
   {
    "rota": "fornecedores/qualificacao",
-   "arquivo": "src/Sigeo.Web/Components/Pages/Cadastro/Qualificacao.razor",
+   "arquivo": "src/Sigeo.Web/Components/Pages/Cadastros/Qualificacao.razor",
    "servicos": [
-    "AvaliacaoFornecedoresServico"
+    "AvaliacaoFornecedoresServico",
+    "QualificacaoConsultas"
    ],
    "tabelas": [
     "AvaliacaoSemestral",
     "Cotacao",
     "CotacaoFornecedor",
     "CotacaoItem",
-    "Empresa",
     "Fornecedor",
     "FornecedorQualificacao",
     "MaterialControlado",
     "Medicao",
     "Parametro",
     "PedidoItem",
-    "PerfilAcesso",
     "PlanoAcaoFornecedor",
     "Produto",
     "Recebimento",
     "RequisicaoItem",
     "Rnc",
-    "Sequencia",
-    "Usuario"
+    "Sequencia"
    ]
   },
   {
    "rota": "gestao/metas",
-   "arquivo": "src/Sigeo.Web/Components/Pages/Gestao/Metas.razor",
+   "arquivo": "src/Sigeo.Web/Components/Pages/Colaboracao/Metas.razor",
    "servicos": [
     "ColaboracaoServico",
+    "MetasConsultas",
     "MetasServico"
    ],
    "tabelas": [
-    "Empresa",
+    "CarteiraComprador",
+    "Contrato",
+    "Cotacao",
     "Equipe",
     "Fornecedor",
     "LoteCompra",
@@ -26546,9 +25948,9 @@
     "Parametro",
     "Pedido",
     "PedidoItem",
-    "PerfilAcesso",
     "PlanoSemanal",
     "Produto",
+    "Recebimento",
     "Requisicao",
     "RequisicaoItem",
     "Sequencia",
@@ -26560,7 +25962,7 @@
   },
   {
    "rota": "incorporacao/carteira",
-   "arquivo": "src/Sigeo.Web/Components/Pages/Incorporadora/CarteiraRecebiveis.razor",
+   "arquivo": "src/Sigeo.Web/Components/Pages/Incorporacao/CarteiraRecebiveis.razor",
    "servicos": [
     "FinanceiroServico",
     "IncorporacaoServico"
@@ -26582,19 +25984,16 @@
     "Medicao",
     "MovimentoBancario",
     "Obra",
-    "Parametro",
-    "PerfilAcesso",
     "Sequencia",
     "Tipologia",
     "Titulo",
     "TituloParcela",
-    "UnidadeComercial",
-    "Usuario"
+    "UnidadeComercial"
    ]
   },
   {
    "rota": "incorporacao/empreendimento",
-   "arquivo": "src/Sigeo.Web/Components/Pages/Incorporadora/DadosIncorporacao.razor",
+   "arquivo": "src/Sigeo.Web/Components/Pages/Incorporacao/DadosIncorporacao.razor",
    "servicos": [
     "IncorporacaoServico"
    ],
@@ -26604,24 +26003,20 @@
     "Comprador",
     "ContaGerencial",
     "ContratoVenda",
-    "Empresa",
     "IncorporacaoObra",
     "IndiceEconomico",
     "Local",
     "Obra",
-    "Parametro",
-    "PerfilAcesso",
     "Sequencia",
     "Tipologia",
     "Titulo",
     "TituloParcela",
-    "UnidadeComercial",
-    "Usuario"
+    "UnidadeComercial"
    ]
   },
   {
    "rota": "incorporacao/espelho",
-   "arquivo": "src/Sigeo.Web/Components/Pages/Incorporadora/EspelhoVendas.razor",
+   "arquivo": "src/Sigeo.Web/Components/Pages/Incorporacao/EspelhoVendas.razor",
    "servicos": [
     "IncorporacaoServico"
    ],
@@ -26631,24 +26026,20 @@
     "Comprador",
     "ContaGerencial",
     "ContratoVenda",
-    "Empresa",
     "IncorporacaoObra",
     "IndiceEconomico",
     "Local",
     "Obra",
-    "Parametro",
-    "PerfilAcesso",
     "Sequencia",
     "Tipologia",
     "Titulo",
     "TituloParcela",
-    "UnidadeComercial",
-    "Usuario"
+    "UnidadeComercial"
    ]
   },
   {
    "rota": "incorporacao/ret",
-   "arquivo": "src/Sigeo.Web/Components/Pages/Incorporadora/ApuracaoRetTela.razor",
+   "arquivo": "src/Sigeo.Web/Components/Pages/Incorporacao/ApuracaoRetTela.razor",
    "servicos": [
     "IncorporacaoServico"
    ],
@@ -26658,24 +26049,20 @@
     "Comprador",
     "ContaGerencial",
     "ContratoVenda",
-    "Empresa",
     "IncorporacaoObra",
     "IndiceEconomico",
     "Local",
     "Obra",
-    "Parametro",
-    "PerfilAcesso",
     "Sequencia",
     "Tipologia",
     "Titulo",
     "TituloParcela",
-    "UnidadeComercial",
-    "Usuario"
+    "UnidadeComercial"
    ]
   },
   {
    "rota": "incorporacao/vendas",
-   "arquivo": "src/Sigeo.Web/Components/Pages/Incorporadora/VendasContratos.razor",
+   "arquivo": "src/Sigeo.Web/Components/Pages/Incorporacao/VendasContratos.razor",
    "servicos": [
     "FinanceiroServico",
     "IncorporacaoServico"
@@ -26697,14 +26084,11 @@
     "Medicao",
     "MovimentoBancario",
     "Obra",
-    "Parametro",
-    "PerfilAcesso",
     "Sequencia",
     "Tipologia",
     "Titulo",
     "TituloParcela",
-    "UnidadeComercial",
-    "Usuario"
+    "UnidadeComercial"
    ]
   },
   {
@@ -26725,19 +26109,24 @@
     "Colaborador",
     "CompetenciaDocumental",
     "Contrato",
-    "Empresa",
+    "Cotacao",
+    "CotacaoFornecedor",
+    "CotacaoItem",
     "Fornecedor",
     "FornecedorDocumento",
     "FornecedorQualificacao",
     "Fvs",
     "ItemCompetencia",
     "Local",
+    "MaterialControlado",
     "Medicao",
     "Obra",
     "Parametro",
-    "PerfilAcesso",
+    "PedidoItem",
     "PlanoAcaoFornecedor",
+    "Produto",
     "Recebimento",
+    "RequisicaoItem",
     "Rnc",
     "Sequencia",
     "ServicoLocal",
@@ -26747,7 +26136,7 @@
   },
   {
    "rota": "mensagens",
-   "arquivo": "src/Sigeo.Web/Components/Pages/Mensagens.razor",
+   "arquivo": "src/Sigeo.Web/Components/Pages/Colaboracao/Mensagens.razor",
    "servicos": [
     "CanalAvisos",
     "MensagensServico"
@@ -26774,7 +26163,6 @@
     "Parametro",
     "ParticipanteConversa",
     "Pedido",
-    "PerfilAcesso",
     "PlanoAcaoFornecedor",
     "Recebimento",
     "RegraNotificacao",
@@ -26805,7 +26193,6 @@
     "Fornecedor",
     "ImportacaoNota",
     "NotaFiscalEntrada",
-    "Obra",
     "Pedido",
     "PedidoItem",
     "Spe"
@@ -26813,29 +26200,34 @@
   },
   {
    "rota": "obra/acoes",
-   "arquivo": "src/Sigeo.Web/Components/Pages/QualidadeObra/AcoesCorretivas.razor",
+   "arquivo": "src/Sigeo.Web/Components/Pages/Qualidade/AcoesCorretivas.razor",
    "servicos": [
+    "AcoesCorretivasConsultas",
     "QualidadeObraServico"
    ],
    "tabelas": [
     "AcaoCorretiva",
+    "Almoxarifado",
     "Anexo",
     "AplicacaoLote",
     "AuditoriaInterna",
     "Calibracao",
     "CautelaFerramenta",
     "Documento",
-    "Empresa",
     "EnsaioRecebimento",
     "EquipamentoMedicao",
+    "Estabelecimento",
     "Fvs",
     "Local",
     "ModeloInspecao",
+    "MovimentoEstoque",
+    "Obra",
     "Ocorrencia",
     "Parametro",
-    "PerfilAcesso",
     "Recebimento",
+    "Restricao",
     "Rnc",
+    "SaldoEstoque",
     "Sequencia",
     "TipoEquipamentoMedicao",
     "Usuario"
@@ -26843,29 +26235,34 @@
   },
   {
    "rota": "obra/auditorias",
-   "arquivo": "src/Sigeo.Web/Components/Pages/QualidadeObra/Auditorias.razor",
+   "arquivo": "src/Sigeo.Web/Components/Pages/Qualidade/Auditorias.razor",
    "servicos": [
+    "AuditoriasConsultas",
     "QualidadeObraServico"
    ],
    "tabelas": [
     "AcaoCorretiva",
+    "Almoxarifado",
     "Anexo",
     "AplicacaoLote",
     "AuditoriaInterna",
     "Calibracao",
     "CautelaFerramenta",
     "Documento",
-    "Empresa",
     "EnsaioRecebimento",
     "EquipamentoMedicao",
+    "Estabelecimento",
     "Fvs",
     "Local",
     "ModeloInspecao",
+    "MovimentoEstoque",
+    "Obra",
     "Ocorrencia",
     "Parametro",
-    "PerfilAcesso",
     "Recebimento",
+    "Restricao",
     "Rnc",
+    "SaldoEstoque",
     "Sequencia",
     "TipoEquipamentoMedicao",
     "Usuario"
@@ -26873,29 +26270,33 @@
   },
   {
    "rota": "obra/equipamentos",
-   "arquivo": "src/Sigeo.Web/Components/Pages/QualidadeObra/Equipamentos.razor",
+   "arquivo": "src/Sigeo.Web/Components/Pages/Qualidade/Equipamentos.razor",
    "servicos": [
     "QualidadeObraServico"
    ],
    "tabelas": [
     "AcaoCorretiva",
+    "Almoxarifado",
     "Anexo",
     "AplicacaoLote",
     "AuditoriaInterna",
     "Calibracao",
     "CautelaFerramenta",
     "Documento",
-    "Empresa",
     "EnsaioRecebimento",
     "EquipamentoMedicao",
+    "Estabelecimento",
     "Fvs",
     "Local",
     "ModeloInspecao",
+    "MovimentoEstoque",
+    "Obra",
     "Ocorrencia",
     "Parametro",
-    "PerfilAcesso",
     "Recebimento",
+    "Restricao",
     "Rnc",
+    "SaldoEstoque",
     "Sequencia",
     "TipoEquipamentoMedicao",
     "Usuario"
@@ -26904,45 +26305,46 @@
   {
    "rota": "obra/equipamentos/etiquetas",
    "arquivo": "src/Sigeo.Web/Components/Pages/Suprimentos/Etiquetas.razor",
-   "servicos": [],
+   "servicos": [
+    "EtiquetasConsultas"
+   ],
    "tabelas": [
-    "Empresa",
     "Equipamento",
     "EquipamentoMedicao",
     "FamiliaEquipamento",
     "Fornecedor",
-    "Parametro",
-    "PerfilAcesso",
-    "Sequencia",
-    "Usuario"
+    "Parametro"
    ]
   },
   {
    "rota": "obra/fvs",
-   "arquivo": "src/Sigeo.Web/Components/Pages/QualidadeObra/Fvss.razor",
+   "arquivo": "src/Sigeo.Web/Components/Pages/Qualidade/Fvss.razor",
    "servicos": [
     "QualidadeObraServico"
    ],
    "tabelas": [
     "AcaoCorretiva",
+    "Almoxarifado",
     "Anexo",
     "AplicacaoLote",
     "AuditoriaInterna",
     "Calibracao",
     "CautelaFerramenta",
     "Documento",
-    "Empresa",
     "EnsaioRecebimento",
     "EquipamentoMedicao",
-    "Fornecedor",
+    "Estabelecimento",
     "Fvs",
     "Local",
     "ModeloInspecao",
+    "MovimentoEstoque",
+    "Obra",
     "Ocorrencia",
     "Parametro",
-    "PerfilAcesso",
     "Recebimento",
+    "Restricao",
     "Rnc",
+    "SaldoEstoque",
     "Sequencia",
     "TipoEquipamentoMedicao",
     "Usuario"
@@ -26950,47 +26352,50 @@
   },
   {
    "rota": "obra/mapa",
-   "arquivo": "src/Sigeo.Web/Components/Pages/QualidadeObra/Mapa.razor",
-   "servicos": [],
+   "arquivo": "src/Sigeo.Web/Components/Pages/Qualidade/Mapa.razor",
+   "servicos": [
+    "MapaConsultas"
+   ],
    "tabelas": [
-    "Empresa",
     "Fvs",
     "Local",
-    "Parametro",
-    "PerfilAcesso",
-    "Sequencia",
-    "Usuario"
+    "Parametro"
    ]
   },
   {
    "rota": "obra/modelos/{TipoRota}",
-   "arquivo": "src/Sigeo.Web/Components/Pages/QualidadeObra/Modelos.razor",
+   "arquivo": "src/Sigeo.Web/Components/Pages/Qualidade/Modelos.razor",
    "servicos": [
     "KitModelosServico",
+    "ModelosConsultas",
     "QualidadeObraServico"
    ],
    "tabelas": [
     "AcaoCorretiva",
+    "Almoxarifado",
     "Anexo",
     "AplicacaoLote",
     "AuditoriaInterna",
     "Calibracao",
     "CautelaFerramenta",
     "Documento",
-    "Empresa",
     "EnsaioRecebimento",
     "EquipamentoMedicao",
+    "Estabelecimento",
     "FvmItem",
     "Fvs",
     "FvsItem",
     "Local",
     "MaterialControlado",
     "ModeloInspecao",
+    "MovimentoEstoque",
+    "Obra",
     "Ocorrencia",
     "Parametro",
-    "PerfilAcesso",
     "Recebimento",
+    "Restricao",
     "Rnc",
+    "SaldoEstoque",
     "Sequencia",
     "ServicoControlado",
     "TipoEquipamentoMedicao",
@@ -26999,13 +26404,15 @@
   },
   {
    "rota": "obra/rnc",
-   "arquivo": "src/Sigeo.Web/Components/Pages/QualidadeObra/Rncs.razor",
+   "arquivo": "src/Sigeo.Web/Components/Pages/Qualidade/Rncs.razor",
    "servicos": [
     "AnalisesIaServico",
-    "QualidadeObraServico"
+    "QualidadeObraServico",
+    "RncsConsultas"
    ],
    "tabelas": [
     "AcaoCorretiva",
+    "Almoxarifado",
     "Anexo",
     "AplicacaoLote",
     "AuditoriaInterna",
@@ -27013,21 +26420,23 @@
     "CautelaFerramenta",
     "Cotacao",
     "Documento",
-    "Empresa",
     "EnsaioRecebimento",
     "EquipamentoMedicao",
+    "Estabelecimento",
     "Fvs",
     "Local",
     "ModeloInspecao",
+    "MovimentoEstoque",
     "NotaFiscalEntrada",
     "Obra",
     "Ocorrencia",
     "Parametro",
     "Pedido",
-    "PerfilAcesso",
     "Produto",
     "Recebimento",
+    "Restricao",
     "Rnc",
+    "SaldoEstoque",
     "Sequencia",
     "TipoEquipamentoMedicao",
     "UsoIa",
@@ -27038,31 +26447,31 @@
    "rota": "pagamentos",
    "arquivo": "src/Sigeo.Web/Components/Pages/Suprimentos/Pagamentos.razor",
    "servicos": [
+    "PagamentosConsultas",
     "PagamentosServico"
    ],
    "tabelas": [
-    "Empresa",
     "Fornecedor",
     "LiberacaoPagamento",
     "Medicao",
-    "Parametro",
     "Pedido",
-    "PerfilAcesso",
     "Recebimento",
-    "Sequencia",
-    "Usuario"
+    "Sequencia"
    ]
   },
   {
    "rota": "pedidos",
    "arquivo": "src/Sigeo.Web/Components/Pages/Suprimentos/Pedidos.razor",
    "servicos": [
+    "PedidosConsultas",
     "PedidosServico"
    ],
    "tabelas": [
     "Fornecedor",
+    "Local",
     "Obra",
-    "Pedido"
+    "Pedido",
+    "RequisicaoItemLocal"
    ]
   },
   {
@@ -27173,43 +26582,8 @@
   {
    "rota": "portal/{Token}",
    "arquivo": "src/Sigeo.Web/Components/Pages/Publico/PortalFornecedor.razor",
-   "servicos": [
-    "PortalServico"
-   ],
-   "tabelas": [
-    "Alcada",
-    "AvisoEmail",
-    "Ciencia",
-    "Colaborador",
-    "CompetenciaDocumental",
-    "Contrato",
-    "Cotacao",
-    "DelegacaoAprovacao",
-    "DocumentoColaborador",
-    "Empresa",
-    "Estabelecimento",
-    "Exigencia",
-    "Fornecedor",
-    "FornecedorContato",
-    "FornecedorDocumento",
-    "FuncaoObra",
-    "LinkPortalFornecedor",
-    "Obra",
-    "Parametro",
-    "Pedido",
-    "PerfilAcesso",
-    "PropostaVersao",
-    "RegraNotificacao",
-    "Requisicao",
-    "Restricao",
-    "Rnc",
-    "Sequencia",
-    "SolicitacaoAprovacao",
-    "Spe",
-    "Tarefa",
-    "TipoDocumentoExigido",
-    "Usuario"
-   ]
+   "servicos": [],
+   "tabelas": []
   },
   {
    "rota": "qr/f/{Token}",
@@ -27294,7 +26668,6 @@
    "servicos": [
     "CotacoesServico",
     "EstoqueServico",
-    "FornecedoresServico",
     "OrcamentoServico",
     "RequisicoesServico"
    ],
@@ -27303,32 +26676,26 @@
     "Anexo",
     "CarteiraComprador",
     "CategoriaProduto",
+    "CentroCusto",
     "Composicao",
     "Contrato",
-    "ContratoItem",
     "Cotacao",
     "CotacaoFornecedor",
-    "CotacaoItem",
-    "Empresa",
     "Estabelecimento",
+    "FluxoEstabelecimento",
     "Fornecedor",
-    "FornecedorGrupo",
-    "FornecedorServico",
     "InventarioEstoque",
     "InventarioItem",
     "KitMaterial",
     "Local",
     "LoteCompra",
-    "MaterialControlado",
-    "Medicao",
+    "Marca",
     "MovimentoEstoque",
     "Nota",
     "Obra",
     "Parametro",
     "Pedido",
     "PedidoItem",
-    "PerfilAcesso",
-    "PlanoAcaoFornecedor",
     "Produto",
     "Recebimento",
     "Requisicao",
@@ -27341,7 +26708,6 @@
     "ServicoLocal",
     "SolicitacaoAprovacao",
     "Spe",
-    "TipoDocumentoExigido",
     "Tipologia",
     "TransferenciaMaterial",
     "Usuario"
@@ -27349,8 +26715,10 @@
   },
   {
    "rota": "sgq/copias",
-   "arquivo": "src/Sigeo.Web/Components/Pages/Qualidade/Copias.razor",
-   "servicos": [],
+   "arquivo": "src/Sigeo.Web/Components/Pages/Documentos/Copias.razor",
+   "servicos": [
+    "CopiasConsultas"
+   ],
    "tabelas": [
     "CopiaControlada",
     "DocumentoRevisao",
@@ -27359,35 +26727,27 @@
   },
   {
    "rota": "sgq/documentos",
-   "arquivo": "src/Sigeo.Web/Components/Pages/Qualidade/DocumentosSgq.razor",
+   "arquivo": "src/Sigeo.Web/Components/Pages/Documentos/DocumentosSgq.razor",
    "servicos": [],
-   "tabelas": [
-    "CheckoutDocumento",
-    "Ciencia",
-    "CopiaControlada",
-    "Documento",
-    "EventoDocumento",
-    "Pasta",
-    "RegraRetencao"
-   ]
+   "tabelas": []
   },
   {
    "rota": "sgq/externos",
-   "arquivo": "src/Sigeo.Web/Components/Pages/Qualidade/Externos.razor",
-   "servicos": [],
+   "arquivo": "src/Sigeo.Web/Components/Pages/Documentos/Externos.razor",
+   "servicos": [
+    "ExternosConsultas"
+   ],
    "tabelas": [
     "DocumentoExterno",
-    "Empresa",
-    "Parametro",
-    "PerfilAcesso",
-    "Sequencia",
-    "Usuario"
+    "Parametro"
    ]
   },
   {
    "rota": "sgq/grd",
-   "arquivo": "src/Sigeo.Web/Components/Pages/Qualidade/Grds.razor",
-   "servicos": [],
+   "arquivo": "src/Sigeo.Web/Components/Pages/Documentos/Grds.razor",
+   "servicos": [
+    "GrdsConsultas"
+   ],
    "tabelas": [
     "Contrato",
     "DocumentoRevisao",
@@ -27397,16 +26757,20 @@
   },
   {
    "rota": "sgq/leituras",
-   "arquivo": "src/Sigeo.Web/Components/Pages/Qualidade/Leituras.razor",
-   "servicos": [],
+   "arquivo": "src/Sigeo.Web/Components/Pages/Documentos/Leituras.razor",
+   "servicos": [
+    "LeiturasConsultas"
+   ],
    "tabelas": [
     "Ciencia"
    ]
   },
   {
    "rota": "sgq/lista-mestra",
-   "arquivo": "src/Sigeo.Web/Components/Pages/Qualidade/ListaMestra.razor",
-   "servicos": [],
+   "arquivo": "src/Sigeo.Web/Components/Pages/Documentos/ListaMestra.razor",
+   "servicos": [
+    "ListaMestraConsultas"
+   ],
    "tabelas": [
     "Documento",
     "Pasta"
@@ -27414,8 +26778,10 @@
   },
   {
    "rota": "sgq/registros",
-   "arquivo": "src/Sigeo.Web/Components/Pages/Qualidade/Registros.razor",
-   "servicos": [],
+   "arquivo": "src/Sigeo.Web/Components/Pages/Documentos/Registros.razor",
+   "servicos": [
+    "RegistrosConsultas"
+   ],
    "tabelas": [
     "RegraRetencao"
    ]
@@ -27423,7 +26789,9 @@
   {
    "rota": "sistema/log",
    "arquivo": "src/Sigeo.Web/Components/Pages/Sistema/Log.razor",
-   "servicos": [],
+   "servicos": [
+    "LogConsultas"
+   ],
    "tabelas": [
     "Documento",
     "EventoDocumento",
@@ -27434,6 +26802,7 @@
    "rota": "sistema/parametros",
    "arquivo": "src/Sigeo.Web/Components/Pages/Sistema/ParametrosListas.razor",
    "servicos": [
+    "ParametrosListasConsultas",
     "SistemaServico"
    ],
    "tabelas": [
@@ -27454,7 +26823,6 @@
     "Produto",
     "RegraNotificacao",
     "RequisicaoItem",
-    "Sequencia",
     "TipoDocumentoExigido",
     "Usuario",
     "UsuarioObra"
@@ -27468,9 +26836,7 @@
    ],
    "tabelas": [
     "Empresa",
-    "Parametro",
     "PerfilAcesso",
-    "Sequencia",
     "Usuario"
    ]
   },
@@ -27478,6 +26844,7 @@
    "rota": "sistema/permissoes",
    "arquivo": "src/Sigeo.Web/Components/Pages/Sistema/Permissoes.razor",
    "servicos": [
+    "PermissoesDocumentoConsultas",
     "SistemaServico"
    ],
    "tabelas": [
@@ -27497,7 +26864,6 @@
     "PermissaoDocumento",
     "Produto",
     "RequisicaoItem",
-    "Sequencia",
     "Usuario",
     "UsuarioObra"
    ]
@@ -27507,7 +26873,8 @@
    "arquivo": "src/Sigeo.Web/Components/Pages/Sistema/Usuarios.razor",
    "servicos": [
     "ContaServico",
-    "SistemaServico"
+    "SistemaServico",
+    "UsuariosConsultas"
    ],
    "tabelas": [
     "Alcada",
@@ -27526,7 +26893,6 @@
     "PermissaoDocumento",
     "Produto",
     "RequisicaoItem",
-    "Sequencia",
     "Usuario",
     "UsuarioObra"
    ]
@@ -27535,56 +26901,44 @@
    "rota": "sst/colaboradores",
    "arquivo": "src/Sigeo.Web/Components/Pages/Sst/Colaboradores.razor",
    "servicos": [
+    "ColaboradoresConsultas",
     "SstServico"
    ],
    "tabelas": [
     "Almoxarifado",
     "Colaborador",
-    "Composicao",
     "DocumentoColaborador",
-    "Empresa",
     "EntregaEpi",
     "Epi",
     "Estabelecimento",
     "Exigencia",
     "FuncaoExigencia",
     "InspecaoSeguranca",
-    "InventarioEstoque",
-    "InventarioItem",
-    "KitMaterial",
     "Local",
     "ModeloInspecao",
     "MovimentoEstoque",
     "Obra",
-    "Parametro",
     "Participante",
-    "PerfilAcesso",
     "PermissaoTrabalho",
-    "Produto",
     "Restricao",
     "Rnc",
     "SaldoEstoque",
     "Sequencia",
-    "ServicoLocal",
-    "Spe",
-    "TransferenciaMaterial",
     "Treinamento",
-    "Turma",
-    "Usuario"
+    "Turma"
    ]
   },
   {
    "rota": "sst/documentos",
    "arquivo": "src/Sigeo.Web/Components/Pages/Sst/DocumentosColaborador.razor",
    "servicos": [
+    "DocumentosColaboradorConsultas",
     "SstServico"
    ],
    "tabelas": [
     "Almoxarifado",
     "Colaborador",
-    "Composicao",
     "DocumentoColaborador",
-    "Empresa",
     "EntregaEpi",
     "Epi",
     "Estabelecimento",
@@ -27592,42 +26946,31 @@
     "Fornecedor",
     "FuncaoExigencia",
     "InspecaoSeguranca",
-    "InventarioEstoque",
-    "InventarioItem",
-    "KitMaterial",
     "Local",
     "ModeloInspecao",
     "MovimentoEstoque",
     "Obra",
-    "Parametro",
     "Participante",
-    "PerfilAcesso",
     "PermissaoTrabalho",
-    "Produto",
     "Restricao",
     "Rnc",
     "SaldoEstoque",
     "Sequencia",
-    "ServicoLocal",
-    "Spe",
-    "TransferenciaMaterial",
     "Treinamento",
-    "Turma",
-    "Usuario"
+    "Turma"
    ]
   },
   {
    "rota": "sst/epi",
    "arquivo": "src/Sigeo.Web/Components/Pages/Sst/Epis.razor",
    "servicos": [
+    "EpisConsultas",
     "SstServico"
    ],
    "tabelas": [
     "Almoxarifado",
     "Colaborador",
-    "Composicao",
     "DocumentoColaborador",
-    "Empresa",
     "EntregaEpi",
     "Epi",
     "Estabelecimento",
@@ -27635,42 +26978,32 @@
     "Fornecedor",
     "FuncaoExigencia",
     "InspecaoSeguranca",
-    "InventarioEstoque",
-    "InventarioItem",
-    "KitMaterial",
     "Local",
     "ModeloInspecao",
     "MovimentoEstoque",
     "Obra",
     "Parametro",
     "Participante",
-    "PerfilAcesso",
     "PermissaoTrabalho",
-    "Produto",
     "Restricao",
     "Rnc",
     "SaldoEstoque",
     "Sequencia",
-    "ServicoLocal",
-    "Spe",
-    "TransferenciaMaterial",
     "Treinamento",
-    "Turma",
-    "Usuario"
+    "Turma"
    ]
   },
   {
    "rota": "sst/exigencias",
    "arquivo": "src/Sigeo.Web/Components/Pages/Sst/Exigencias.razor",
    "servicos": [
+    "ExigenciasConsultas",
     "SstServico"
    ],
    "tabelas": [
     "Almoxarifado",
     "Colaborador",
-    "Composicao",
     "DocumentoColaborador",
-    "Empresa",
     "EntregaEpi",
     "Epi",
     "Estabelecimento",
@@ -27678,76 +27011,56 @@
     "FuncaoExigencia",
     "FuncaoObra",
     "InspecaoSeguranca",
-    "InventarioEstoque",
-    "InventarioItem",
-    "KitMaterial",
     "Local",
     "ModeloInspecao",
     "MovimentoEstoque",
     "Obra",
-    "Parametro",
     "Participante",
-    "PerfilAcesso",
     "PermissaoTrabalho",
-    "Produto",
     "Restricao",
     "Rnc",
     "SaldoEstoque",
     "Sequencia",
-    "ServicoLocal",
-    "Spe",
-    "TransferenciaMaterial",
     "Treinamento",
-    "Turma",
-    "Usuario"
+    "Turma"
    ]
   },
   {
    "rota": "sst/inspecoes",
    "arquivo": "src/Sigeo.Web/Components/Pages/Sst/Inspecoes.razor",
    "servicos": [
+    "InspecoesConsultas",
     "SstServico"
    ],
    "tabelas": [
     "Almoxarifado",
     "Colaborador",
-    "Composicao",
     "DocumentoColaborador",
-    "Empresa",
     "EntregaEpi",
     "Epi",
     "Estabelecimento",
     "Exigencia",
     "FuncaoExigencia",
     "InspecaoSeguranca",
-    "InventarioEstoque",
-    "InventarioItem",
-    "KitMaterial",
     "Local",
     "ModeloInspecao",
     "MovimentoEstoque",
     "Obra",
-    "Parametro",
     "Participante",
-    "PerfilAcesso",
     "PermissaoTrabalho",
-    "Produto",
     "Restricao",
     "Rnc",
     "SaldoEstoque",
     "Sequencia",
-    "ServicoLocal",
-    "Spe",
-    "TransferenciaMaterial",
     "Treinamento",
-    "Turma",
-    "Usuario"
+    "Turma"
    ]
   },
   {
    "rota": "sst/ocorrencias",
    "arquivo": "src/Sigeo.Web/Components/Pages/Sst/Ocorrencias.razor",
    "servicos": [
+    "OcorrenciasConsultas",
     "QualidadeObraServico",
     "SstServico"
    ],
@@ -27760,10 +27073,8 @@
     "Calibracao",
     "CautelaFerramenta",
     "Colaborador",
-    "Composicao",
     "Documento",
     "DocumentoColaborador",
-    "Empresa",
     "EnsaioRecebimento",
     "EntregaEpi",
     "Epi",
@@ -27773,9 +27084,6 @@
     "FuncaoExigencia",
     "Fvs",
     "InspecaoSeguranca",
-    "InventarioEstoque",
-    "InventarioItem",
-    "KitMaterial",
     "Local",
     "ModeloInspecao",
     "MovimentoEstoque",
@@ -27783,18 +27091,13 @@
     "Ocorrencia",
     "Parametro",
     "Participante",
-    "PerfilAcesso",
     "PermissaoTrabalho",
-    "Produto",
     "Recebimento",
     "Restricao",
     "Rnc",
     "SaldoEstoque",
     "Sequencia",
-    "ServicoLocal",
-    "Spe",
     "TipoEquipamentoMedicao",
-    "TransferenciaMaterial",
     "Treinamento",
     "Turma",
     "Usuario"
@@ -27804,110 +27107,85 @@
    "rota": "sst/pt",
    "arquivo": "src/Sigeo.Web/Components/Pages/Sst/PermissoesTrabalho.razor",
    "servicos": [
+    "PermissoesTrabalhoConsultas",
     "SstServico"
    ],
    "tabelas": [
     "Almoxarifado",
     "Colaborador",
-    "Composicao",
     "DocumentoColaborador",
-    "Empresa",
     "EntregaEpi",
     "Epi",
     "Estabelecimento",
     "Exigencia",
     "FuncaoExigencia",
     "InspecaoSeguranca",
-    "InventarioEstoque",
-    "InventarioItem",
-    "KitMaterial",
     "Local",
     "ModeloInspecao",
     "MovimentoEstoque",
     "Obra",
-    "Parametro",
     "Participante",
-    "PerfilAcesso",
     "PermissaoTrabalho",
-    "Produto",
     "Restricao",
     "Rnc",
     "SaldoEstoque",
     "Sequencia",
-    "ServicoLocal",
-    "Spe",
-    "TransferenciaMaterial",
     "Treinamento",
-    "Turma",
-    "Usuario"
+    "Turma"
    ]
   },
   {
    "rota": "sst/treinamentos",
    "arquivo": "src/Sigeo.Web/Components/Pages/Sst/Treinamentos.razor",
    "servicos": [
-    "SstServico"
+    "SstServico",
+    "TreinamentosConsultas"
    ],
    "tabelas": [
     "Almoxarifado",
     "Colaborador",
-    "Composicao",
     "DocumentoColaborador",
-    "Empresa",
     "EntregaEpi",
     "Epi",
     "Estabelecimento",
     "Exigencia",
     "FuncaoExigencia",
     "InspecaoSeguranca",
-    "InventarioEstoque",
-    "InventarioItem",
-    "KitMaterial",
     "Local",
     "ModeloInspecao",
     "MovimentoEstoque",
     "Obra",
-    "Parametro",
     "Participante",
-    "PerfilAcesso",
     "PermissaoTrabalho",
-    "Produto",
     "Restricao",
     "Rnc",
     "SaldoEstoque",
     "Sequencia",
-    "ServicoLocal",
-    "Spe",
-    "TransferenciaMaterial",
     "Treinamento",
-    "Turma",
-    "Usuario"
+    "Turma"
    ]
   },
   {
    "rota": "suprimentos/compradores",
    "arquivo": "src/Sigeo.Web/Components/Pages/Suprimentos/Compradores.razor",
    "servicos": [
-    "AtendimentoServico"
+    "AtendimentoServico",
+    "CompradoresConsultas"
    ],
    "tabelas": [
     "CarteiraComprador",
     "CategoriaProduto",
     "Cotacao",
-    "Empresa",
     "Fornecedor",
     "LoteCompra",
     "Nota",
     "Obra",
-    "Parametro",
     "Pedido",
     "PedidoItem",
-    "PerfilAcesso",
     "Produto",
     "Recebimento",
     "Requisicao",
     "RequisicaoItem",
-    "Sequencia",
     "Usuario"
    ]
   },
@@ -27922,15 +27200,12 @@
     "Colaborador",
     "CompetenciaDocumental",
     "Contrato",
-    "Empresa",
     "Fornecedor",
     "FornecedorDocumento",
     "ItemCompetencia",
     "Medicao",
     "Obra",
     "Parametro",
-    "PerfilAcesso",
-    "Sequencia",
     "TipoDocumentoExigido",
     "Usuario"
    ]
@@ -27939,10 +27214,10 @@
    "rota": "suprimentos/economia",
    "arquivo": "src/Sigeo.Web/Components/Pages/Suprimentos/Economia.razor",
    "servicos": [
+    "EconomiaConsultas",
     "EconomiaServico"
    ],
    "tabelas": [
-    "Empresa",
     "Fornecedor",
     "LoteCompra",
     "Meta",
@@ -27950,38 +27225,31 @@
     "Parametro",
     "Pedido",
     "PedidoItem",
-    "PerfilAcesso",
     "Produto",
     "Requisicao",
-    "RequisicaoItem",
-    "Sequencia",
-    "Usuario"
+    "RequisicaoItem"
    ]
   },
   {
    "rota": "suprimentos/fila",
    "arquivo": "src/Sigeo.Web/Components/Pages/Suprimentos/FilaCompras.razor",
    "servicos": [
-    "AtendimentoServico"
+    "AtendimentoServico",
+    "FilaComprasConsultas"
    ],
    "tabelas": [
     "CarteiraComprador",
-    "CategoriaProduto",
     "Cotacao",
-    "Empresa",
     "Fornecedor",
     "LoteCompra",
     "Nota",
     "Obra",
-    "Parametro",
     "Pedido",
     "PedidoItem",
-    "PerfilAcesso",
     "Produto",
     "Recebimento",
     "Requisicao",
     "RequisicaoItem",
-    "Sequencia",
     "Usuario"
    ]
   },
@@ -27993,10 +27261,8 @@
    ],
    "tabelas": [
     "CarteiraComprador",
-    "CategoriaProduto",
     "Contrato",
     "Cotacao",
-    "Empresa",
     "Fornecedor",
     "LoteCompra",
     "Meta",
@@ -28005,12 +27271,10 @@
     "Parametro",
     "Pedido",
     "PedidoItem",
-    "PerfilAcesso",
     "Produto",
     "Recebimento",
     "Requisicao",
     "RequisicaoItem",
-    "Sequencia",
     "Usuario"
    ]
   },
@@ -28021,7 +27285,6 @@
     "EconomiaServico"
    ],
    "tabelas": [
-    "Empresa",
     "Fornecedor",
     "LoteCompra",
     "Meta",
@@ -28029,25 +27292,20 @@
     "Parametro",
     "Pedido",
     "PedidoItem",
-    "PerfilAcesso",
     "Produto",
     "Requisicao",
-    "RequisicaoItem",
-    "Sequencia",
-    "Usuario"
+    "RequisicaoItem"
    ]
   },
   {
    "rota": "tarefas",
-   "arquivo": "src/Sigeo.Web/Components/Pages/Tarefas.razor",
+   "arquivo": "src/Sigeo.Web/Components/Pages/Colaboracao/Tarefas.razor",
    "servicos": [
-    "ColaboracaoServico"
+    "ColaboracaoServico",
+    "TarefasConsultas"
    ],
    "tabelas": [
-    "Empresa",
     "Nota",
-    "Parametro",
-    "PerfilAcesso",
     "Sequencia",
     "Tarefa",
     "TarefaLeitura",
@@ -28060,12 +27318,12 @@
    "arquivo": "src/Sigeo.Web/Components/Pages/Suprimentos/Transferencias.razor",
    "servicos": [
     "EstoqueServico",
+    "TransferenciasConsultas",
     "TransferenciasServico"
    ],
    "tabelas": [
     "Almoxarifado",
     "Composicao",
-    "Empresa",
     "Estabelecimento",
     "InventarioEstoque",
     "InventarioItem",
@@ -28073,8 +27331,6 @@
     "Local",
     "MovimentoEstoque",
     "Obra",
-    "Parametro",
-    "PerfilAcesso",
     "Produto",
     "Recebimento",
     "Restricao",
@@ -28083,8 +27339,7 @@
     "ServicoLocal",
     "Spe",
     "TransferenciaItem",
-    "TransferenciaMaterial",
-    "Usuario"
+    "TransferenciaMaterial"
    ]
   }
  ]
