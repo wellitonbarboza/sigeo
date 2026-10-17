@@ -25,9 +25,9 @@ param sqlAdminGrupoNome string
 @allowed([ 'F1', 'B1', 'B2', 'B3', 'S1', 'P0v3', 'P1v3' ])
 param appServiceSku string = 'B1'
 
-@description('Plano do banco: S0/S1/S2 = DTU com custo fixo mensal (padrão S0); Serverless = vCore que pausa sem uso.')
+@description('Plano do banco: S0/S1/S2 = DTU com custo fixo mensal (padrão S1, 250 GB incluídos); Serverless = vCore que pausa sem uso.')
 @allowed([ 'S0', 'S1', 'S2', 'Serverless' ])
-param sqlPlano string = 'S0'
+param sqlPlano string = 'S1'
 
 @description('vCores máximos do SQL serverless (só vale com sqlPlano = Serverless).')
 param sqlMaxVCores int = 1
@@ -195,7 +195,7 @@ resource db 'Microsoft.Sql/servers/databases@2023-08-01-preview' = {
     ? { name: 'GP_S_Gen5', tier: 'GeneralPurpose', family: 'Gen5', capacity: sqlMaxVCores }
     : { name: sqlPlano, tier: 'Standard' }
   properties: union({
-    maxSizeBytes: 34359738368 // 32 GB
+    maxSizeBytes: sqlPlano == 'Serverless' ? 34359738368 : 268435456000 // serverless 32 GB; Standard 250 GB (incluído no preço)
     zoneRedundant: false
     requestedBackupStorageRedundancy: 'Local'
     collation: 'Latin1_General_100_CI_AI_SC_UTF8'

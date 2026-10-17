@@ -1,0 +1,26 @@
+SIGEO — como subir esta versão no Azure (Cloud Shell, Bash)
+=============================================================
+Envie as 3 partes pelo botão "Carregar" do Cloud Shell e rode, NESTA ORDEM:
+
+  cat sigeo-app.part0 sigeo-app.part1 sigeo-app.part2 > sigeo-app.zip
+  rm -rf sigeo && unzip -o sigeo-app.zip -d sigeo && cd sigeo
+
+1) bash criar-endereco-sigeo.sh
+   Cria https://sigeo.azurewebsites.net (mesmo plano, sem custo extra), copia configurações, permissões
+   e a conexão com o MESMO banco, e publica a versão nova.
+   Na etapa 6 ("redirecionar"), responda N se você vai apagar os sites antigos no passo 4.
+
+2) bash mudar-plano-banco.sh
+   Banco para DTU Standard S1 (20 DTU, 250 GB, custo fixo). Troca online, dados não mudam.
+
+3) Abra https://sigeo.azurewebsites.net, entre com seu login e confira obras, requisições e documentos.
+
+4) bash limpar-antigos.sh
+   Confere que o SIGEO está no ar e qual banco ele usa; depois, item por item (pergunta antes):
+   apaga sites antigos (qualyhub, groundkey, app-qualyhub-prd-…), bancos que o SIGEO não usa,
+   planos vazios e permissões que sobraram. O banco em uso NUNCA é apagado.
+
+5) (se usa GitHub Actions) bash configurar-github.sh  → passa a publicar no site "sigeo".
+
+O que continua com nome antigo (é só nome; trocar exigiria recriar e migrar tudo):
+grupo rg-qualyhub-prd, servidor e banco SQL, Key Vault, Storage, grupo QualyHub-DBA.

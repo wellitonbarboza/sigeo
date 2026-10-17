@@ -56,7 +56,7 @@ fi
 TIER=$(az sql db show -g "$RG" -s "$SQL" -n "$DB" --query sku.tier -o tsv)
 DBID=$(az sql db show -g "$RG" -s "$SQL" -n "$DB" --query id -o tsv)
 if [[ "$TIER" == "Standard" || "$TIER" == "Basic" ]]; then
-  echo "Uso de DTU do banco por hora nas últimas 24 h (média acima de ~70% com frequência → subir de S0 para S1):"
+  echo "Uso de DTU do banco por hora nas últimas 24 h (média acima de ~70% com frequência → subir de S1 para S2):"
   az monitor metrics list --resource "$DBID" --metric dtu_consumption_percent --interval PT1H --offset 1d \
     --query "value[0].timeseries[0].data[].{hora:timeStamp, media:average}" -o table || true
 else

@@ -152,8 +152,13 @@ Sigeo.Web (Blazor Server + API)  ──►  Sigeo.Application (casos de uso)  �
 - Nomes de recursos do Azure existentes não mudam (grupo `rg-qualyhub-prd`, banco, Key Vault, Storage, grupo `QualyHub-DBA`, papel `qualyhub_app`, modelos de WhatsApp aprovados).
 - Cookies passam a `sigeo` e `sigeo-fornecedor`: todos entram de novo uma vez.
 
-## Banco: DTU Standard S0 (16/10/2026)
-- Plano padrão do banco passa de vCore serverless (GP_S_Gen5, 0,5–1 vCore, pausa em 60 min) para **DTU Standard S0** (10 DTU, até 250 GB): custo fixo e previsível, sem o atraso de ~1 min para "acordar".
-- `infra/main.bicep`: parâmetro `sqlPlano` (S0 | S1 | S2 | Serverless; padrão S0). Ambiente existente: `infra/mudar-banco-s0.sh` (troca online, confirma antes; `PLANO=S1` ou `PLANO=Serverless` para outras opções).
+## Banco: DTU Standard S1 (16/10/2026)
+- Plano padrão do banco passa de vCore serverless (GP_S_Gen5, 0,5–1 vCore, pausa em 60 min) para **DTU Standard S1** (20 DTU, 250 GB incluídos): custo fixo e previsível, sem o atraso de ~1 min para "acordar".
+- `infra/main.bicep`: parâmetro `sqlPlano` (S0 | S1 | S2 | Serverless; padrão S1). Ambiente existente: `infra/mudar-plano-banco.sh` (troca online, confirma antes; `PLANO=S0`, `S2` ou `Serverless` para outras opções).
 - Nada muda no app nem nos dados: mesma conexão, Managed Identity, backups (14 dias) e colação UTF-8. Não há recursos exclusivos de vCore no esquema (sem columnstore/in-memory).
-- Acompanhar "DTU percentage": média acima de ~70% com frequência → S1.
+- Acompanhar "DTU percentage": média acima de ~70% com frequência → S2.
+
+## Limpeza final do que é antigo (16/10/2026)
+- `infra/limpar-antigos.sh` (rodar depois de `criar-endereco-sigeo.sh` e do teste de login): confere `/saude` do site `sigeo`, descobre pelo connection string qual banco ele usa e, só no grupo `rg-qualyhub-prd` e item por item com confirmação, apaga sites que não sejam o `sigeo`, bancos que o `sigeo` não usa (restauráveis por 7 dias), servidores SQL e planos que ficaram vazios e permissões das identidades apagadas. O banco em uso e o plano do `sigeo` nunca entram na lista.
+- Apagar os sites antigos faz os endereços qualyhub/groundkey pararem de responder (sem redirecionamento).
+- Ordem completa em `infra/LEIA-ME-SUBIR.txt`.

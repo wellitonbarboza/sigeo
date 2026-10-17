@@ -100,6 +100,7 @@ echo "  /saude → $c"
 echo "  Abra https://$NOVO.azurewebsites.net, entre com seu login e confira antes de seguir."
 
 titulo "6/7 Endereços antigos redirecionam para o novo"
+echo "  Se você vai APAGAR os sites antigos (bash limpar-antigos.sh), responda N aqui."
 if ok "Fazer $ANTIGOS redirecionar(em) para https://$NOVO.azurewebsites.net (links antigos continuam valendo)."; then
   for s in $ANTIGOS; do
     [[ "$s" == "$NOVO" ]] && continue
@@ -118,3 +119,4 @@ titulo "7/7 Publicação automática (GitHub)"
 echo "  Se usa o GitHub Actions, rode depois: bash configurar-github.sh  (passa a publicar no site '$NOVO')."
 echo
 echo "  Pronto: https://$NOVO.azurewebsites.net"
+echo "  Para deixar só o novo no Azure (apaga sites e bancos antigos, com confirmação): bash limpar-antigos.sh"

@@ -37,8 +37,8 @@ else sim "Configurar o envio de e-mail agora?" && bash configurar-comunicacao.sh
 passo "5/8 Publicar a nova versão do app (o banco é atualizado sozinho)"
 bash atualizar-app.sh || { echo "Publicação não concluída — os passos seguintes podem esperar."; }
 
-passo "6/8 Custos (plano do banco S0, parar o site antigo, teto de log, alertas)"
-sim "Mudar o banco para S0 (DTU, custo fixo)?" && bash mudar-banco-s0.sh
+passo "6/8 Custos (plano do banco S1, teto de log, alertas)"
+sim "Mudar o banco para S1 (DTU, custo fixo, 250 GB)?" && bash mudar-plano-banco.sh
 sim "Rodar a otimização de custos?" && bash otimizar-custos.sh
 
 passo "7/8 Publicação automática pelo GitHub"
