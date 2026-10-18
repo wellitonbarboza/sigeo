@@ -19,7 +19,8 @@
 # =====================================================================================
 set -euo pipefail
 RG="${RG:-rg-qualyhub-prd}"
-NOVO="${NOVO:-sigeo}"
+NOVO="${NOVO:-$(az webapp list -g "${RG:-rg-qualyhub-prd}" --query "([?starts_with(name,'sigeo')].name)[0]" -o tsv)}"
+[[ -n "$NOVO" ]] || { echo "  Nenhum site do SIGEO (sigeo…) em ${RG:-rg-qualyhub-prd}. Rode criar-endereco-sigeo.sh primeiro. Nada foi apagado."; exit 1; }
 GRUPO_DBA="QualyHub-DBA"
 confirmar() { read -r -p "  → $1 (s/N) " r; [[ "$r" =~ ^[sS]$ ]]; }
 titulo() { echo; echo "================ $1 ================"; }

@@ -7,7 +7,7 @@
 #    portal durante a retenção de backup (7 dias); se quiser guardar para sempre, responda "n" e exporte antes.
 set -euo pipefail
 RG="${RG:-rg-qualyhub-prd}"
-WEB="${WEB:-$(az webapp list -g "$RG" --query "([?name=='sigeo'].name)[0] || ([?name=='groundkey'].name)[0] || ([?name=='qualyhub'].name)[0]" -o tsv)}"
+WEB="${WEB:-$(az webapp list -g "$RG" --query "([?starts_with(name,'sigeo')].name)[0] || ([?name=='groundkey'].name)[0] || ([?name=='qualyhub'].name)[0]" -o tsv)}"
 confirmar() { read -r -p "$1 (s/N) " r; [[ "$r" =~ ^[sS]$ ]]; }
 
 echo "== Recursos da assinatura =="

@@ -12,7 +12,7 @@
 # Cada etapa pede confirmação. WhatsApp: veja as instruções no fim (exige conta WhatsApp Business/Meta).
 set -euo pipefail
 RG="${RG:-rg-qualyhub-prd}"
-WEB="${WEB:-$(az webapp list -g "$RG" --query "([?name=='sigeo'].name)[0] || ([?name=='groundkey'].name)[0] || ([?name=='qualyhub'].name)[0]" -o tsv)}"
+WEB="${WEB:-$(az webapp list -g "$RG" --query "([?starts_with(name,'sigeo')].name)[0] || ([?name=='groundkey'].name)[0] || ([?name=='qualyhub'].name)[0]" -o tsv)}"
 [[ -n "$WEB" ]] || WEB=$(az webapp list -g "$RG" --query "[0].name" -o tsv)
 ACS="${ACS:-acs-$WEB}"
 MAIL="${MAIL:-acsmail-$WEB}"

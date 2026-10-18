@@ -14,12 +14,14 @@ Ainda não fez? Siga 1 a 5 (o passo 1 já publica esta versão):
 1) bash criar-endereco-sigeo.sh
    Cria https://sigeo.azurewebsites.net (mesmo plano, sem custo extra), copia configurações, permissões
    e a conexão com o MESMO banco, e publica a versão nova.
+   Se o nome "sigeo" já for de outra conta no Azure ("não está disponível"), o script usa sozinho o primeiro
+   livre: sigeo-app, sigeo-obras, sigeo-gestao ou sigeo-hub. O endereço final aparece no fim do script.
    Na etapa 6 ("redirecionar"), responda N se você vai apagar os sites antigos no passo 4.
 
 2) bash mudar-plano-banco.sh
    Banco para DTU Standard S1 (20 DTU, 250 GB, custo fixo). Troca online, dados não mudam.
 
-3) Abra https://sigeo.azurewebsites.net, entre com seu login e confira obras, requisições e documentos.
+3) Abra o endereço que o passo 1 mostrou (https://sigeo….azurewebsites.net), entre com seu login e confira obras, requisições e documentos.
 
 4) bash limpar-antigos.sh
    Confere que o SIGEO está no ar e qual banco ele usa; depois, item por item (pergunta antes):

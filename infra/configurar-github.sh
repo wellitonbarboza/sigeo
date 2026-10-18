@@ -6,7 +6,7 @@
 # GitHub › Settings › Secrets and variables › Actions.
 set -euo pipefail
 RG="${RG:-rg-qualyhub-prd}"
-WEB="${WEB:-$(az webapp list -g "$RG" --query "([?name=='sigeo'].name)[0] || ([?name=='groundkey'].name)[0] || ([?name=='qualyhub'].name)[0]" -o tsv)}"
+WEB="${WEB:-$(az webapp list -g "$RG" --query "([?starts_with(name,'sigeo')].name)[0] || ([?name=='groundkey'].name)[0] || ([?name=='qualyhub'].name)[0]" -o tsv)}"
 REPO="${REPO:-}"
 [[ -n "$REPO" ]] || read -r -p "Repositório GitHub (usuario/repositorio): " REPO
 [[ "$REPO" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || { echo "Formato inválido."; exit 1; }

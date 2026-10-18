@@ -11,7 +11,7 @@
 set -euo pipefail
 RG="${RG:-rg-qualyhub-prd}"
 confirmar() { read -r -p "$1 (s/N) " r; [[ "$r" =~ ^[sS]$ ]]; }
-WEB="${WEB:-$(az webapp list -g "$RG" --query "([?name=='sigeo'].name)[0] || ([?name=='groundkey'].name)[0] || ([?name=='qualyhub'].name)[0]" -o tsv)}"
+WEB="${WEB:-$(az webapp list -g "$RG" --query "([?starts_with(name,'sigeo')].name)[0] || ([?name=='groundkey'].name)[0] || ([?name=='qualyhub'].name)[0]" -o tsv)}"
 PLANO=$(az appservice plan list -g "$RG" --query "[0].id" -o tsv)
 SQL=$(az sql server list -g "$RG" --query "[0].name" -o tsv)
 DB=$(az sql db list -g "$RG" -s "$SQL" --query "[?name!='master'] | [0].name" -o tsv)

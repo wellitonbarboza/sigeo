@@ -5,7 +5,7 @@
 set -uo pipefail
 cd "$(dirname "$0")"
 RG="${RG:-rg-qualyhub-prd}"; export RG
-WEB="${WEB:-$(az webapp list -g "$RG" --query "([?name=='sigeo'].name)[0] || ([?name=='groundkey'].name)[0] || ([?name=='qualyhub'].name)[0]" -o tsv)}"
+WEB="${WEB:-$(az webapp list -g "$RG" --query "([?starts_with(name,'sigeo')].name)[0] || ([?name=='groundkey'].name)[0] || ([?name=='qualyhub'].name)[0]" -o tsv)}"
 [[ -n "$WEB" ]] || WEB=$(az webapp list -g "$RG" --query "[0].name" -o tsv); export WEB
 KV=$(az keyvault list -g "$RG" --query '[0].name' -o tsv)
 sim() { read -r -p "$1 (s/N) " r; [[ "$r" =~ ^[sS]$ ]]; }

@@ -10,7 +10,7 @@ set -euo pipefail
 RG="${RG:-rg-qualyhub-prd}"
 LOCAL="${LOCAL:-brazilsouth}"
 confirmar() { read -r -p "$1 (s/N) " r; [[ "$r" =~ ^[sS]$ ]]; }
-WEB="${WEB:-$(az webapp list -g "$RG" --query "([?name=='sigeo'].name)[0] || ([?name=='groundkey'].name)[0] || ([?name=='qualyhub'].name)[0]" -o tsv)}"
+WEB="${WEB:-$(az webapp list -g "$RG" --query "([?starts_with(name,'sigeo')].name)[0] || ([?name=='groundkey'].name)[0] || ([?name=='qualyhub'].name)[0]" -o tsv)}"
 SUF=$(echo -n "$RG" | md5sum | cut -c1-6)
 OAI="${OAI:-oai-qualyhub-$SUF}"
 DOC="${DOC:-doc-qualyhub-$SUF}"

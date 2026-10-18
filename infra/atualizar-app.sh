@@ -6,7 +6,7 @@ set -euo pipefail
 cd "$(dirname "$0")"
 RG="${RG:-rg-qualyhub-prd}"
 # Prefere o site "sigeo" (criar-endereco-sigeo.sh); sem ele, "groundkey" ou o antigo "qualyhub".
-WEB="${WEB:-$(az webapp list -g "$RG" --query "([?name=='sigeo'].name)[0] || ([?name=='groundkey'].name)[0] || ([?name=='qualyhub'].name)[0]" -o tsv)}"
+WEB="${WEB:-$(az webapp list -g "$RG" --query "([?starts_with(name,'sigeo')].name)[0] || ([?name=='groundkey'].name)[0] || ([?name=='qualyhub'].name)[0]" -o tsv)}"
 [[ -n "$WEB" ]] || WEB=$(az webapp list -g "$RG" --query "[0].name" -o tsv)
 URL="https://$(az webapp show -g "$RG" -n "$WEB" --query defaultHostName -o tsv)"
 read -r -p "Publicar a nova versão em $WEB ($URL)? (s/N) " r; [[ "$r" =~ ^[sS]$ ]] || exit 1

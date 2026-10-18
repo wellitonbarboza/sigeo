@@ -15,11 +15,30 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 RG="${RG:-rg-qualyhub-prd}"
-NOVO="${NOVO:-sigeo}"
+# Nome do site novo. App Service tem nome único no MUNDO inteiro: se "sigeo" já for de outra pessoa,
+# o script escolhe o primeiro livre desta lista (ou use NOVO=<nome> bash criar-endereco-sigeo.sh).
+CANDIDATOS="${NOVO:-sigeo sigeo-app sigeo-obras sigeo-gestao sigeo-hub}"
 GRUPO_DBA="QualyHub-DBA"
 ok() { read -r -p "  → $1 Confirma? (s/N) " r; [[ "$r" =~ ^[sS]$ ]]; }
 titulo() { echo; echo "================ $1 ================"; }
 redireciona() { [[ -n "$(az webapp config appsettings list -g "$RG" -n "$1" --query "[?ends_with(name,'__RedirecionarPara')].value | [0]" -o tsv)" ]]; }
+
+livre() {  # 0 = nome disponível no Azure para App Service
+  local sub; sub=$(az account show --query id -o tsv)
+  [[ "$(az rest --method post --uri "https://management.azure.com/subscriptions/$sub/providers/Microsoft.Web/checknameavailability?api-version=2023-12-01" \
+        --body "{\"name\":\"$1\",\"type\":\"Microsoft.Web/sites\"}" --query nameAvailable -o tsv 2>/dev/null)" == "true" ]]
+}
+NOVO=""
+for n in $CANDIDATOS; do   # já criado neste grupo numa execução anterior? usa ele
+  az webapp show -g "$RG" -n "$n" -o none 2>/dev/null && { NOVO="$n"; break; }
+done
+if [[ -z "$NOVO" ]]; then
+  for n in $CANDIDATOS; do
+    if livre "$n"; then NOVO="$n"; break; fi
+    echo "  Nome '$n' já está em uso no Azure (por outra conta)."
+  done
+fi
+[[ -n "$NOVO" ]] || { echo "Nenhum nome livre em: $CANDIDATOS. Rode com NOVO=<outro-nome> bash criar-endereco-sigeo.sh"; exit 1; }
 
 titulo "1/7 Site atual"
 # Origem das configurações: o site que está atendendo hoje (groundkey, se já foi criado e não redireciona; senão qualyhub).
@@ -29,7 +48,7 @@ for s in groundkey qualyhub; do
   redireciona "$s" && continue
   ORIGEM="$s"; break
 done
-[[ -n "$ORIGEM" ]] || ORIGEM=$(az webapp list -g "$RG" --query "[?name!='$NOVO'] | [0].name" -o tsv)
+[[ -n "$ORIGEM" ]] || ORIGEM=$(az webapp list -g "$RG" --query "[?!starts_with(name,'sigeo')] | [0].name" -o tsv)
 [[ -n "$ORIGEM" ]] || { echo "Nenhum site encontrado em $RG."; exit 1; }
 ANTIGOS=$(for s in qualyhub groundkey "$ORIGEM"; do az webapp show -g "$RG" -n "$s" -o none 2>/dev/null && echo "$s"; done | sort -u | tr '\n' ' ')
 PLANO=$(az webapp show -g "$RG" -n "$ORIGEM" --query serverFarmId -o tsv)
@@ -42,7 +61,7 @@ if az webapp show -g "$RG" -n "$NOVO" -o none 2>/dev/null; then echo "  Já exis
 else
   ok "Criar o App Service '$NOVO' (mesmo plano, sem custo adicional)." || exit 1
   az webapp create -g "$RG" -p "$PLANO" -n "$NOVO" --runtime "DOTNETCORE:10.0" --assign-identity "[system]" -o none \
-    || { echo "  O nome '$NOVO' não está disponível no Azure. Rode com NOVO=sigeo-app bash criar-endereco-sigeo.sh"; exit 1; }
+    || { echo "  Não consegui criar '$NOVO'. Rode com NOVO=<outro-nome> bash criar-endereco-sigeo.sh"; exit 1; }
 fi
 
 titulo "3/7 Copiar configurações (com os nomes novos)"
