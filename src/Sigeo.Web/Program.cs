@@ -149,6 +149,8 @@ app.UseHttpsRedirection();
 app.UseAuthentication();
 Autenticacao.UsarTrocaObrigatoria(app);
 app.UseAuthorization();
+// Planning Lab: ferramenta privada em caminho escondido (não é módulo; desligada sem PlanningLab:Caminho).
+FerramentaPrivada.UsarPlanningLab(app);
 app.UseRateLimiter();
 app.UseAntiforgery();
 
