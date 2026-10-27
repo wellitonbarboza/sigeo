@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#2f6f5e">
+<link rel="manifest" href="manifest.webmanifest" crossorigin="use-credentials">
+<link rel="icon" type="image/svg+xml" href="icone.svg">
+<title>Simulador de Sequência</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+html { padding: env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px); } body { margin: 0; } [hidden] { display: none !important; }
+/* Layout: prancheta de obra — configuração à esquerda (equipes, etapas, torres), resultado à direita (linha de balanço, entradas, mão de obra). */
+:root {
+  --bg: #f3f4f1; --sheet: #ffffff; --ink: #1c2321; --ink2: #4d5753; --mut: #848d89;
+  --rule: #dde1dc; --rule2: #c6ccc6; --accent: #2f6f5e; --accent-soft: #e3efe9;
+  --bad: #b3261e; --ok: #2f7d43; --warn: #a86b00; --sel: #fff6dc;
+  --f-disp: "IBM Plex Sans Condensed", "Arial Narrow", sans-serif;
+  --f-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #151918; --sheet: #1d2221; --ink: #e6ebe8; --ink2: #b2bcb7; --mut: #7f8a85;
+  --rule: #2d3432; --rule2: #3d4643; --accent: #6cc2a6; --accent-soft: #23362f;
+  --bad: #ff8a80; --ok: #7fd18f; --warn: #f0b44c; --sel: #3a3420; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #151918; --sheet: #1d2221; --ink: #e6ebe8; --ink2: #b2bcb7; --mut: #7f8a85;
+  --rule: #2d3432; --rule2: #3d4643; --accent: #6cc2a6; --accent-soft: #23362f;
+  --bad: #ff8a80; --ok: #7fd18f; --warn: #f0b44c; --sel: #3a3420; color-scheme: dark }
+
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font: 13px/1.45 var(--f-body); }
+.wrap { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 16px 40px; max-width: 1680px; margin: 0 auto; }
+h1, h2, h3 { font-family: var(--f-disp); margin: 0; text-wrap: balance; }
+h1 { font-size: 22px; font-weight: 700; letter-spacing: .2px; }
+h2 { font-size: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: var(--ink2); }
+.mut { color: var(--mut); }
+.mono, .num, td.n { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+button { font: inherit; cursor: pointer; }
+input, select { font: inherit; color: var(--ink); background: var(--sheet); border: 1px solid var(--rule2); border-radius: 4px; padding: 3px 6px; }
+input[type=number] { width: 58px; text-align: right; font-family: var(--f-mono); }
+input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.top { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: baseline; margin-bottom: 12px; }
+.top p { margin: 0; color: var(--ink2); max-width: 760px; }
+.proto { font-family: var(--f-mono); font-size: 11px; color: var(--mut); border: 1px solid var(--rule2); border-radius: 3px; padding: 1px 6px; }
+.estudo { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.estudo select { min-width: 200px; font-weight: 600; }
+label.btn { display: inline-block; }
+
+/* alternativas */
+.alts { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; margin-bottom: 14px; }
+.alt { display: flex; flex-direction: column; gap: 2px; text-align: left; min-width: 170px; background: var(--sheet); border: 1px solid var(--rule2); border-radius: 6px; padding: 7px 12px; color: var(--ink); }
+.alt b { font-family: var(--f-disp); font-size: 14px; }
+.alt span { font-family: var(--f-mono); font-size: 11.5px; color: var(--ink2); }
+.alt.on { border-color: var(--accent); box-shadow: inset 0 -3px 0 var(--accent); }
+.d-pior { color: var(--bad); } .d-melhor { color: var(--ok); }
+.btn { border: 1px solid var(--rule2); background: var(--sheet); color: var(--ink); border-radius: 5px; padding: 5px 11px; }
+.btn.pri { background: var(--accent); border-color: var(--accent); color: var(--sheet); font-weight: 600; }
+.btn.sm { padding: 2px 8px; font-size: 12px; }
+.link { border: 0; background: none; color: var(--accent); padding: 0 2px; }
+.link:disabled { color: var(--rule2); cursor: default; }
+
+.grid { display: grid; grid-template-columns: minmax(0, 560px) minmax(0, 1fr); gap: 14px; align-items: start; }
+@media (max-width: 1100px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+.col { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.panel { background: var(--sheet); border: 1px solid var(--rule); border-radius: 8px; padding: 12px 14px; min-width: 0; }
+.panel > header { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
+.panel > header .mut { font-size: 12px; }
+.panel > header .btn { margin-left: auto; }
+.scroll { overflow-x: auto; }
+
+/* equipes */
+.equipes { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
+.eq { border: 1px solid var(--rule); border-radius: 6px; padding: 8px; display: flex; flex-direction: column; gap: 5px; }
+.eq-cab { display: flex; gap: 6px; align-items: center; }
+.eq-cab input { flex: 1; min-width: 0; font-weight: 600; border-color: transparent; padding-inline: 3px; }
+.eq-cab input:hover, .eq-cab input:focus { border-color: var(--rule2); }
+.sw { width: 12px; height: 12px; border-radius: 2px; flex: none; }
+.form-l { display: grid; grid-template-columns: 44px 1fr 18px; gap: 4px; align-items: center; }
+.form-l input[type=number] { width: 44px; }
+.form-l input[type=text] { min-width: 0; }
+.eq-tot { font-size: 11.5px; color: var(--mut); }
+
+/* etapas */
+.etapas { display: flex; flex-direction: column; gap: 6px; }
+.et { border: 1px solid var(--rule); border-radius: 6px; padding: 7px 8px; display: grid; grid-template-columns: 30px 1fr; gap: 4px 8px; }
+.et.gargalo { border-color: var(--warn); background: color-mix(in srgb, var(--warn) 7%, var(--sheet)); }
+.et .badge { grid-row: span 3; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.et .badge i { font-style: normal; font-family: var(--f-mono); font-weight: 600; font-size: 12px; width: 26px; height: 22px; border-radius: 3px; display: flex; align-items: center; justify-content: center; }
+.et .badge .link { font-size: 10px; line-height: 1; }
+.et .nome { display: flex; gap: 6px; align-items: center; }
+.et .nome input { flex: 1; min-width: 0; font-weight: 600; border-color: transparent; padding-inline: 3px; }
+.et .nome input:hover, .et .nome input:focus { border-color: var(--rule2); }
+.et .linha { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; color: var(--ink2); font-size: 12px; }
+.et .linha label { display: inline-flex; gap: 4px; align-items: center; }
+.seg { display: inline-flex; border: 1px solid var(--rule2); border-radius: 4px; overflow: hidden; }
+.seg button { border: 0; background: var(--sheet); color: var(--ink2); padding: 2px 8px; font-size: 12px; }
+.seg button + button { border-left: 1px solid var(--rule2); }
+.seg button.on { background: var(--accent); color: var(--sheet); }
+.et .regra { background: var(--accent-soft); border-radius: 4px; padding: 3px 6px; }
+.ritmo { font-family: var(--f-mono); font-size: 11.5px; color: var(--mut); }
+
+/* torres */
+.torre { display: grid; grid-template-columns: 1fr; gap: 6px; border: 1px solid var(--rule); border-radius: 6px; padding: 8px; }
+.torre + .torre { margin-top: 6px; }
+.torre .linha { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; color: var(--ink2); font-size: 12px; }
+.torre .linha label { display: inline-flex; gap: 4px; align-items: center; }
+.torre input.n { font-weight: 600; width: 140px; }
+
+/* resultado */
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0; border: 1px solid var(--rule); border-radius: 8px; background: var(--sheet); }
+.kpi { padding: 9px 12px; border-right: 1px solid var(--rule); }
+.kpi:last-child { border-right: 0; }
+.kpi span { display: block; font-size: 10.5px; text-transform: uppercase; letter-spacing: .7px; color: var(--mut); }
+.kpi b { font-family: var(--f-mono); font-size: 16px; font-weight: 500; }
+.kpi small { font-family: var(--f-mono); font-size: 11.5px; margin-left: 4px; }
+.aviso { border-left: 3px solid var(--warn); background: color-mix(in srgb, var(--warn) 9%, var(--sheet)); padding: 8px 12px; border-radius: 0 6px 6px 0; color: var(--ink); }
+
+.tabs { display: inline-flex; border: 1px solid var(--rule2); border-radius: 5px; overflow: hidden; margin-left: auto; }
+.tabs button { border: 0; background: var(--sheet); color: var(--ink2); padding: 4px 10px; font-size: 12px; }
+.tabs button + button { border-left: 1px solid var(--rule2); }
+.tabs button.on { background: var(--ink); color: var(--sheet); }
+svg text { font-family: var(--f-body); }
+.lob-wrap { overflow-x: auto; border: 1px solid var(--rule); border-radius: 6px; }
+#tip { position: fixed; pointer-events: none; z-index: 20; background: var(--ink); color: var(--sheet); font-size: 12px; padding: 6px 9px; border-radius: 5px; max-width: 320px; white-space: pre-line; }
+
+table.t { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+table.t th { text-align: left; font-size: 10.5px; text-transform: uppercase; letter-spacing: .6px; color: var(--mut); font-weight: 600; padding: 5px 8px; border-bottom: 1px solid var(--rule2); white-space: nowrap; }
+table.t td { padding: 5px 8px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+table.t td.n { white-space: nowrap; }
+table.t tr.sel td { background: var(--sel); }
+
+.quadro td.c { min-width: 30px; width: 30px; height: 22px; padding: 0; border: 1px solid var(--rule); }
+.quadro .cel { display: flex; height: 100%; }
+.quadro .cel div { display: flex; align-items: center; justify-content: center; font: 600 10px var(--f-mono); min-width: 0; overflow: hidden; }
+.quadro th.s { font: 500 9.5px var(--f-mono); color: var(--mut); padding: 2px 0; text-align: center; border-bottom: 1px solid var(--rule2); }
+.quadro td.l { white-space: nowrap; padding: 0 8px; font-size: 11.5px; position: sticky; left: 0; background: var(--sheet); }
+.leg { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 8px; font-size: 12px; color: var(--ink2); }
+.leg span { display: inline-flex; gap: 5px; align-items: center; }
+.leg i { font: normal 600 10.5px var(--f-mono); min-width: 20px; height: 15px; border-radius: 2px; display: inline-flex; align-items: center; justify-content: center; }
+@media (prefers-reduced-motion: no-preference) { .alt, .btn, .seg button { transition: background .12s, border-color .12s; } }
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <h1>Simulador de Sequência</h1>
+    <div class="estudo">
+      <label for="estudoSel" class="mut">Estudo</label>
+      <select id="estudoSel"></select>
+      <button class="btn sm" id="novoEst">Novo</button>
+      <button class="btn sm" id="dupEst">Duplicar</button>
+      <button class="btn sm" id="renEst">Renomear</button>
+      <button class="btn sm" id="expEst">Exportar</button>
+      <label class="btn sm" for="impEst">Importar</label><input type="file" id="impEst" accept=".json,application/json" hidden>
+      <button class="btn sm" id="delEst">Excluir</button>
+      <span class="proto" id="salvo">—</span>
+    </div>
+    <p>Monte as <b>equipes</b> (formação), diga em que <b>unidade</b> cada etapa é executada (apartamento, pavimento ou torre), quantas equipes trabalham juntas e <b>a partir de qual pavimento</b> da etapa anterior ela pode entrar. O gráfico mostra onde cada etapa entra e quando sai.</p>
+  </div>
+
+  <div class="alts" id="alts"></div>
+
+  <div class="grid">
+    <div class="col">
+      <section class="panel">
+        <header><h2>Equipes</h2><span class="mut">formação de cada equipe; a etapa escolhe a equipe e quantas trabalham juntas</span><button class="btn sm" id="addEq">+ Equipe</button></header>
+        <div class="equipes" id="equipes"></div>
+      </section>
+      <section class="panel">
+        <header><h2>Etapas</h2><span class="mut">na ordem de execução</span><button class="btn sm" id="addEt">+ Etapa</button></header>
+        <div class="etapas" id="etapas"></div>
+      </section>
+      <section class="panel">
+        <header><h2>Torres</h2><span class="mut">pavimentos, apartamentos e liberação da estrutura</span></header>
+        <div id="torres"></div>
+        <div style="margin-top:8px;display:flex;gap:14px;flex-wrap:wrap;color:var(--ink2);font-size:12px">
+          <label><input type="checkbox" id="sabado"> trabalha aos sábados</label>
+          <label><input type="checkbox" id="compart"> as torres dividem as mesmas equipes</label>
+        </div>
+      </section>
+    </div>
+
+    <div class="col">
+      <div class="kpis" id="kpis"></div>
+      <div id="avisos"></div>
+      <section class="panel">
+        <header>
+          <h2>Onde cada etapa entra</h2>
+          <span class="mut" id="vis-sub"></span>
+          <div class="tabs" id="vis">
+            <button data-v="lob" class="on">Linha de balanço</button>
+            <button data-v="quadro">Pavimento × semana</button>
+          </div>
+        </header>
+        <div id="grafico"></div>
+        <div class="leg" id="leg"></div>
+      </section>
+      <section class="panel">
+        <header><h2>Entrada e saída por etapa</h2><span class="mut">primeiro e último pavimento de cada torre</span></header>
+        <div class="scroll"><table class="t" id="entradas"></table></div>
+      </section>
+      <section class="panel">
+        <header><h2>Pessoas na obra por semana</h2><span class="mut">formação das equipes × equipes trabalhando</span></header>
+        <div id="mao"></div>
+      </section>
+      <section class="panel">
+        <header><h2>Comparação das alternativas</h2></header>
+        <div class="scroll"><table class="t" id="comp"></table></div>
+      </section>
+    </div>
+  </div>
+</div>
+<div id="tip" hidden></div>
+
+<script>
+"use strict";
+// ---------------------------------------------------------------- dados de exemplo
+const CORES = ["#4e79a7","#f28e2b","#59a14f","#e15759","#76b7b2","#edc948","#b07aa1","#ff9da7","#9c755f","#86bcb6","#d37295","#8cd17d","#499894","#f1ce63","#a0cbe8","#ffbe7d"];
+const id = () => Math.random().toString(36).slice(2, 10);
+function exemplo() {
+  const eq = (nome, cor, f) => ({ id: id(), nome, cor, formacao: f.map(([q, funcao]) => ({ qtd: q, funcao })) });
+  const E = {
+    hid: eq("Hidráulica", "#4e79a7", [[2, "Encanador"], [1, "Ajudante"]]),
+    dry: eq("Drywall e caixilhos", "#59a14f", [[2, "Montador"], [1, "Ajudante"]]),
+    cp:  eq("Contrapiso", "#76b7b2", [[2, "Pedreiro"], [2, "Servente"]]),
+    rev: eq("Revestimento", "#edc948", [[2, "Azulejista"], [1, "Servente"]]),
+    pin: eq("Pintura", "#ff9da7", [[3, "Pintor"]]),
+    ele: eq("Elétrica e louças", "#9c755f", [[2, "Eletricista"], [1, "Encanador"]]),
+    vin: eq("Piso vinílico", "#86bcb6", [[2, "Instalador"]]),
+    mar: eq("Marcenaria", "#b07aa1", [[2, "Montador"]]),
+    lim: eq("Limpeza", "#8cd17d", [[3, "Servente"]]),
+  };
+  const et = (nome, unidade, dias, equipe, qtd, regra = { tipo: "apos", pav: 1, espera: 0 }) =>
+    ({ id: id(), nome, unidade, dias, equipe: equipe.id, qtd, regra: { ...regra } });
+  const etapas = [
+    et("Prumadas, gás e firestop", "pav", 5, E.hid, 1),
+    et("Caixilhos, guarda-corpo e 1ª face drywall", "pav", 5, E.dry, 1),
+    et("Ramais e 2ª face drywall", "pav", 5, E.hid, 1),
+    et("Contrapiso sacada e banheiro", "apto", 0.5, E.cp, 1),
+    et("Cerâmica, forro e sanca", "apto", 1, E.rev, 2),
+    et("Porcelanato e soleiras", "apto", 1, E.rev, 2),
+    et("Porta de correr e 1ª demão", "pav", 5, E.pin, 1),
+    et("Louças, disjuntores e limpeza grossa", "pav", 5, E.ele, 1),
+    et("Piso vinílico", "apto", 0.5, E.vin, 1),
+    et("Pintura 2ª demão", "pav", 5, E.pin, 1),
+    et("Acabamentos elétricos e metais", "pav", 5, E.ele, 1),
+    et("Mobiliário e bancadas", "apto", 1, E.mar, 2, { tipo: "junto", pav: 1, espera: 0 }),
+    et("Limpeza fina", "pav", 3, E.lim, 1),
+  ];
+  etapas.forEach((e, i) => e.cor = CORES[i % CORES.length]);
+  const pavs = ["Térreo", ...Array.from({ length: 14 }, (_, i) => String(i + 1).padStart(2, "0") + "º"), ];
+  return {
+    id: id(), nome: "Base", equipes: Object.values(E), etapas,
+    torres: [
+      { id: id(), nome: "Torre B", pavimentos: pavs.slice(), aptos: 8, inicio: "2026-11-03", ciclo: 5 },
+      { id: id(), nome: "Torre A", pavimentos: pavs.slice(), aptos: 8, inicio: "2027-01-12", ciclo: 5 },
+    ],
+    sabado: false, compart: false,
+  };
+}
+const copia = o => JSON.parse(JSON.stringify(o));
+function exemploComAlternativas() {
+  const base = exemplo(), l = [base];
+  const a = copia(base); a.id = id(); a.nome = "Revestimento com 3 equipes";
+  a.etapas[4].qtd = 3; a.etapas[5].qtd = 3; l.push(a);
+  const b = copia(base); b.id = id(); b.nome = "Pintura entra 2 pav. depois";
+  b.etapas[6].regra.pav = 2; b.etapas[9].regra.pav = 2; b.etapas[2].qtd = 2; l.push(b);
+  return l;
+}
+let estudo = { id: id(), nome: "Exemplo (QC)", alts: exemploComAlternativas() };
+let alts = estudo.alts;
+let atual = 0, vis = "lob";
+
+// ---------------------------------------------------------------- calendário (dias úteis)
+const FERIADOS = new Set(["2026-11-15", "2026-11-20", "2026-12-25", "2027-01-01", "2027-02-08", "2027-02-09", "2027-04-02", "2027-04-21", "2027-05-01", "2027-06-03"]);
+function iso(d) { return d.toISOString().slice(0, 10); }
+function util(d, sab) { const w = d.getUTCDay(); return w !== 0 && (sab || w !== 6) && !FERIADOS.has(iso(d)); }
+function calendario(ini, sab, n = 1400) {
+  const dias = []; const d = new Date(ini + "T00:00:00Z");
+  while (dias.length < n) { if (util(d, sab)) dias.push(new Date(d)); d.setUTCDate(d.getUTCDate() + 1); }
+  return dias;
+}
+const fmt = d => d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit", timeZone: "UTC" });
+const fmtc = d => d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", timeZone: "UTC" });
+
+// ---------------------------------------------------------------- motor
+// Tudo em dias úteis contados a partir do início da primeira torre (inteiros e frações).
+function calcular(s) {
+  const ini0 = s.torres.map(t => t.inicio).sort()[0];
+  const cal = calendario(ini0, s.sabado);
+  const idx = new Map(cal.map((d, i) => [iso(d), i]));
+  const diaDe = str => { let d = new Date(str + "T00:00:00Z"); for (let k = 0; k < 10 && !idx.has(iso(d)); k++) d.setUTCDate(d.getUTCDate() + 1); return idx.get(iso(d)) ?? 0; };
+  const eqDe = Object.fromEntries(s.equipes.map(e => [e.id, e]));
+  const itens = []; // {t, p, e, ini, fim, unidades}
+  const livres = {}; // equipes por etapa (e torre)
+  const ordemT = s.torres.map((t, i) => i).sort((a, b) => s.torres[a].inicio.localeCompare(s.torres[b].inicio));
+  const fimPav = {}; // [t][e][p] = fim ; iniPav idem
+  const iniPav = {};
+  for (const ti of ordemT) {
+    const t = s.torres[ti], P = t.pavimentos.length;
+    const lib = t.pavimentos.map((_, p) => diaDe(t.inicio) + p * (t.ciclo || 0));
+    fimPav[ti] = []; iniPav[ti] = [];
+    s.etapas.forEach((et, ei) => {
+      const chave = s.compart ? "c" + ei : ti + ":" + ei;
+      const qtd = Math.max(1, et.qtd | 0);
+      if (!livres[chave] || livres[chave].length !== qtd) livres[chave] = Array(qtd).fill(-Infinity);
+      const eqs = livres[chave];
+      fimPav[ti][ei] = Array(P).fill(0); iniPav[ti][ei] = Array(P).fill(0);
+      const ant = ei > 0 ? ei - 1 : null;
+      if (et.unidade === "torre") {
+        // uma execução para a torre toda
+        let pronto = lib[0];
+        if (ant !== null) pronto = Math.max(pronto, liberacao(ti, ant, et, P - 1, P));
+        const k = eqs.indexOf(Math.min(...eqs));
+        const ini = Math.max(pronto, eqs[k]); const fim = ini + et.dias;
+        eqs[k] = fim;
+        for (let p = 0; p < P; p++) { iniPav[ti][ei][p] = ini; fimPav[ti][ei][p] = fim; }
+        itens.push({ t: ti, p: -1, e: ei, ini, fim, eq: k });
+        return;
+      }
+      for (let p = 0; p < P; p++) {
+        let pronto = lib[p];
+        if (ant !== null) pronto = Math.max(pronto, liberacao(ti, ant, et, p, P));
+        const unidades = et.unidade === "apto" ? Math.max(1, t.aptos | 0) : 1;
+        let ip = Infinity, fp = -Infinity;
+        for (let u = 0; u < unidades; u++) {
+          let k = 0; for (let j = 1; j < eqs.length; j++) if (eqs[j] < eqs[k]) k = j;
+          const ini = Math.max(pronto, eqs[k]); const fim = ini + et.dias;
+          eqs[k] = fim; ip = Math.min(ip, ini); fp = Math.max(fp, fim);
+          itens.push({ t: ti, p, e: ei, ini, fim, eq: k, u });
+        }
+        iniPav[ti][ei][p] = ip; fimPav[ti][ei][p] = fp;
+      }
+    });
+  }
+  // quando a etapa anterior libera o pavimento p para esta etapa
+  function liberacao(ti, ant, et, p, P) {
+    const r = et.regra || { tipo: "apos", pav: 1, espera: 0 };
+    const esp = +r.espera || 0;
+    if (r.tipo === "junto") return iniPav[ti][ant][p] + esp;
+    if (r.tipo === "torre") return Math.max(...fimPav[ti][ant]) + esp;
+    const n = Math.max(1, r.pav | 0);
+    const alvo = Math.min(p + n - 1, P - 1);
+    return Math.max(fimPav[ti][ant][p], fimPav[ti][ant][alvo]) + esp;
+  }
+  const data = x => cal[Math.max(0, Math.min(cal.length - 1, Math.floor(x + 1e-9)))];
+  const dataFim = x => cal[Math.max(0, Math.min(cal.length - 1, Math.ceil(x - 1e-9) - 1))];
+  const fimT = s.torres.map((_, ti) => Math.max(...itens.filter(i => i.t === ti).map(i => i.fim)));
+  const fim = Math.max(...fimT), ini = Math.min(...itens.map(i => i.ini));
+  // pessoas por semana (por função)
+  const semanas = Math.ceil(fim / (s.sabado ? 6 : 5)) + 1;
+  const funcoes = {}; const porDia = new Float64Array(Math.ceil(fim) + 1);
+  for (const it of itens) {
+    const eq = eqDe[s.etapas[it.e].equipe]; if (!eq) continue;
+    for (let d = Math.floor(it.ini); d < Math.ceil(it.fim); d++) {
+      const frac = Math.min(d + 1, it.fim) - Math.max(d, it.ini);
+      for (const f of eq.formacao) {
+        (funcoes[f.funcao] ??= new Float64Array(Math.ceil(fim) + 1))[d] += f.qtd * frac;
+      }
+    }
+  }
+  // ritmo de cada etapa (dias úteis por pavimento, com as equipes)
+  const ritmo = s.etapas.map(et => et.unidade === "torre" ? 0 : (et.unidade === "apto" ? et.dias * Math.max(1, s.torres[0].aptos) : et.dias) / Math.max(1, et.qtd));
+  const maxR = Math.max(...ritmo);
+  const gargalos = ritmo.map((r, i) => r >= maxR - 1e-9 ? i : -1).filter(i => i >= 0);
+  // pico de pavimentos abertos (com alguma etapa em andamento)
+  let picoPav = 0;
+  for (let d = 0; d < Math.ceil(fim); d++) {
+    const abertos = new Set(itens.filter(i => i.p >= 0 && i.ini <= d && i.fim > d).map(i => i.t + ":" + i.p));
+    if (abertos.size > picoPav) picoPav = abertos.size;
+  }
+  return { s, cal, itens, fimPav, iniPav, fimT, fim, ini, data, dataFim, funcoes, ritmo, gargalos: gargalos.length * 3 > s.etapas.length ? [] : gargalos, picoPav, diaDe };
+}
+
+// ---------------------------------------------------------------- tela
+const $ = s => document.querySelector(s);
+const el = (tag, attrs = {}, ...filhos) => { const e = document.createElement(tag); for (const [k, v] of Object.entries(attrs)) { if (k.startsWith("on")) e.addEventListener(k.slice(2), v); else if (k === "class") e.className = v; else if (v !== false && v != null) e.setAttribute(k, v === true ? "" : v); } for (const f of filhos.flat()) if (f != null) e.append(f.nodeType ? f : document.createTextNode(f)); return e; };
+const S = () => alts[atual];
+let res = [];
+function recalc() { res = alts.map(calcular); render(); agendarSalvar(); }
+
+function delta(a, b) { // dias corridos
+  const d = Math.round((a - b) / 864e5);
+  return d === 0 ? ["—", ""] : [(d > 0 ? "+" : "−") + Math.abs(d) + " d", d > 0 ? "d-pior" : "d-melhor"];
+}
+function textoCor(hex) { const n = parseInt(hex.slice(1), 16); return ((n >> 16) * .299 + ((n >> 8) & 255) * .587 + (n & 255) * .114) > 150 ? "#1a1a1a" : "#ffffff"; }
+
+function render() {
+  const s = S(), r = res[atual], rb = res[0];
+  // alternativas
+  const A = $("#alts"); A.replaceChildren();
+  alts.forEach((a, i) => {
+    const ra = res[i], [dt, cls] = delta(ra.dataFim(ra.fim), rb.dataFim(rb.fim));
+    A.append(el("button", { class: "alt" + (i === atual ? " on" : ""), onclick: () => { atual = i; render(); } },
+      el("b", {}, a.nome), el("span", {}, "término " + fmt(ra.dataFim(ra.fim)) + " ", i ? el("b", { class: cls }, dt) : "referência")));
+  });
+  A.append(el("button", { class: "btn pri", onclick: () => { const c = copia(s); c.id = id(); c.nome = "Alternativa " + alts.length; alts.push(c); atual = alts.length - 1; recalc(); } }, "+ Nova alternativa"));
+  if (alts.length > 1 && atual > 0) A.append(el("button", { class: "btn", onclick: () => { alts.splice(atual, 1); atual = 0; recalc(); } }, "Excluir"));
+  A.append(el("label", { class: "mut", style: "display:inline-flex;align-items:center;gap:6px;margin-left:auto" }, "nome ",
+    el("input", { id: "nomeAlt", value: s.nome, onchange: e => { s.nome = e.target.value || s.nome; render(); } })));
+
+  renderEquipes(s); renderEtapas(s, r); renderTorres(s);
+  renderKpis(s, r, rb); renderGrafico(s, r); renderEntradas(s, r); renderMao(s, r); renderComp();
+}
+
+function renderEquipes(s) {
+  const C = $("#equipes"); C.replaceChildren();
+  const usos = id => s.etapas.filter(e => e.equipe === id);
+  for (const eq of s.equipes) {
+    const pessoas = eq.formacao.reduce((a, f) => a + (+f.qtd || 0), 0);
+    C.append(el("div", { class: "eq" },
+      el("div", { class: "eq-cab" }, el("span", { class: "sw", style: `background:${eq.cor}` }),
+        el("input", { value: eq.nome, "aria-label": "Nome da equipe", onchange: e => { eq.nome = e.target.value; recalc(); } }),
+        usos(eq.id).length ? null : el("button", { class: "link", title: "Excluir equipe", onclick: () => { s.equipes.splice(s.equipes.indexOf(eq), 1); recalc(); } }, "✕")),
+      eq.formacao.map((f, k) => el("div", { class: "form-l" },
+        el("input", { type: "number", min: 0, step: 1, value: f.qtd, "aria-label": "Quantidade", onchange: e => { f.qtd = Math.max(0, +e.target.value || 0); recalc(); } }),
+        el("input", { type: "text", value: f.funcao, "aria-label": "Função", onchange: e => { f.funcao = e.target.value; recalc(); } }),
+        el("button", { class: "link", title: "Tirar função", onclick: () => { eq.formacao.splice(k, 1); recalc(); } }, "✕"))),
+      el("div", { style: "display:flex;justify-content:space-between;align-items:center" },
+        el("button", { class: "link", onclick: () => { eq.formacao.push({ qtd: 1, funcao: "Ajudante" }); recalc(); } }, "+ função"),
+        el("span", { class: "eq-tot" }, pessoas + " pessoas · " + (usos(eq.id).map(e => s.etapas.indexOf(e) + 1).join(", ") ? "etapas " + usos(eq.id).map(e => s.etapas.indexOf(e) + 1).join(", ") : "sem etapa")))));
+  }
+}
+
+const UNI = { apto: "apartamento", pav: "pavimento", torre: "torre" };
+function renderEtapas(s, r) {
+  const C = $("#etapas"); C.replaceChildren();
+  s.etapas.forEach((et, i) => {
+    const eq = s.equipes.find(e => e.id === et.equipe);
+    const mover = d => { const j = i + d; if (j < 0 || j >= s.etapas.length) return; [s.etapas[i], s.etapas[j]] = [s.etapas[j], s.etapas[i]]; recalc(); };
+    const seg = (opcoes, valor, set) => el("span", { class: "seg" }, opcoes.map(([v, t]) => el("button", { class: v === valor ? "on" : "", onclick: () => { set(v); recalc(); } }, t)));
+    const rg = et.regra;
+    const regra = i === 0 ? el("span", { class: "regra" }, "Entra quando o pavimento é liberado pela estrutura") : el("span", { class: "regra" },
+      "Entra ", el("select", { "aria-label": "Regra de entrada", onchange: e => { rg.tipo = e.target.value; recalc(); } },
+        el("option", { value: "apos", selected: rg.tipo === "apos" }, "depois que a etapa " + i + " concluir"),
+        el("option", { value: "junto", selected: rg.tipo === "junto" }, "junto com a etapa " + i),
+        el("option", { value: "torre", selected: rg.tipo === "torre" }, "depois que a etapa " + i + " concluir a torre")),
+      rg.tipo === "apos" ? [" ", el("input", { type: "number", min: 1, step: 1, value: rg.pav, "aria-label": "Pavimentos", onchange: e => { rg.pav = Math.max(1, +e.target.value | 0); recalc(); } }), rg.pav == 1 ? " pavimento" : " pavimentos"] : null,
+      " + ", el("input", { type: "number", step: 1, value: rg.espera, "aria-label": "Espera em dias", onchange: e => { rg.espera = +e.target.value || 0; recalc(); } }), " dias");
+    const porPav = et.unidade === "apto" ? et.dias * (s.torres[0]?.aptos || 1) / et.qtd : et.unidade === "pav" ? et.dias / et.qtd : null;
+    C.append(el("div", { class: "et" + (r.gargalos.includes(i) ? " gargalo" : "") },
+      el("div", { class: "badge" },
+        el("button", { class: "link", disabled: i === 0, title: "Subir", onclick: () => mover(-1) }, "▲"),
+        el("i", { style: `background:${et.cor};color:${textoCor(et.cor)}` }, i + 1),
+        el("button", { class: "link", disabled: i === s.etapas.length - 1, title: "Descer", onclick: () => mover(1) }, "▼")),
+      el("div", { class: "nome" }, el("input", { value: et.nome, "aria-label": "Nome da etapa", onchange: e => { et.nome = e.target.value; recalc(); } }),
+        el("button", { class: "link", title: "Tirar etapa", onclick: () => { s.etapas.splice(i, 1); recalc(); } }, "✕")),
+      el("div", { class: "linha" },
+        "Executa por", seg([["apto", "apartamento"], ["pav", "pavimento"], ["torre", "torre"]], et.unidade, v => et.unidade = v),
+        el("label", {}, el("input", { type: "number", min: 0, step: .5, value: et.dias, "aria-label": "Dias", onchange: e => { et.dias = Math.max(0, +e.target.value || 0); recalc(); } }), "dias por " + UNI[et.unidade])),
+      el("div", { class: "linha" },
+        el("label", {}, "Equipe", el("select", { "aria-label": "Equipe", onchange: e => { et.equipe = e.target.value; recalc(); } }, s.equipes.map(q => el("option", { value: q.id, selected: q.id === et.equipe }, q.nome)))),
+        el("label", { title: "Quantas equipes iguais trabalham ao mesmo tempo, cada uma num " + UNI[et.unidade] }, "×", el("input", { type: "number", min: 1, step: 1, value: et.qtd, "aria-label": "Quantidade de equipes", onchange: e => { et.qtd = Math.max(1, +e.target.value | 0); recalc(); } }), et.qtd == 1 ? "equipe" : "equipes juntas"),
+        eq ? el("span", { class: "ritmo" }, eq.formacao.reduce((a, f) => a + f.qtd, 0) * et.qtd + " pessoas" + (porPav ? " · " + (+porPav.toFixed(1)).toLocaleString("pt-BR") + " d/pav" : "")) : null),
+      el("div", { class: "linha", style: "grid-column:2" }, regra)));
+  });
+}
+
+function renderTorres(s) {
+  const C = $("#torres"); C.replaceChildren();
+  s.torres.forEach(t => C.append(el("div", { class: "torre" },
+    el("div", { class: "linha" },
+      el("input", { class: "n", value: t.nome, "aria-label": "Nome da torre", onchange: e => { t.nome = e.target.value; recalc(); } }),
+      el("label", {}, el("input", { type: "number", min: 1, value: t.pavimentos.length, "aria-label": "Pavimentos", onchange: e => { const n = Math.max(1, +e.target.value | 0); t.pavimentos = ["Térreo", ...Array.from({ length: n - 1 }, (_, i) => String(i + 1).padStart(2, "0") + "º")]; recalc(); } }), "pavimentos"),
+      el("label", {}, el("input", { type: "number", min: 1, value: t.aptos, "aria-label": "Apartamentos por pavimento", onchange: e => { t.aptos = Math.max(1, +e.target.value | 0); recalc(); } }), "aptos/pav")),
+    el("div", { class: "linha" },
+      el("label", {}, "1º pavimento liberado em", el("input", { type: "date", value: t.inicio, onchange: e => { if (e.target.value) { t.inicio = e.target.value; recalc(); } } })),
+      el("label", { title: "Ritmo da estrutura: a cada quantos dias úteis um novo pavimento fica livre" }, "um novo a cada", el("input", { type: "number", min: 0, value: t.ciclo, onchange: e => { t.ciclo = Math.max(0, +e.target.value || 0); recalc(); } }), "dias")))));
+  $("#sabado").checked = s.sabado; $("#compart").checked = s.compart;
+}
+
+function renderKpis(s, r, rb) {
+  const K = $("#kpis"); K.replaceChildren();
+  const kpi = (rot, val, d) => el("div", { class: "kpi" }, el("span", {}, rot), el("b", {}, val, d ? el("small", { class: d[1] }, d[0]) : null));
+  const fimR = r.dataFim(r.fim), fimB = rb.dataFim(rb.fim);
+  K.append(kpi("Término", fmt(fimR), atual ? delta(fimR, fimB) : null));
+  s.torres.forEach((t, i) => K.append(kpi(t.nome, fmt(r.dataFim(r.fimT[i])), atual && rb.fimT[i] != null ? delta(r.dataFim(r.fimT[i]), rb.dataFim(rb.fimT[i])) : null)));
+  const picoP = Math.max(0, ...Object.values(r.funcoes).length ? semanaPessoas(r).map(x => x.total) : [0]);
+  const picoB = Math.max(0, ...semanaPessoas(rb).map(x => x.total));
+  K.append(kpi("Pico de pessoas", Math.round(picoP), atual && Math.round(picoP) !== Math.round(picoB) ? [(picoP > picoB ? "+" : "−") + Math.abs(Math.round(picoP - picoB)), picoP > picoB ? "d-pior" : "d-melhor"] : null));
+  K.append(kpi("Pavimentos abertos", r.picoPav, atual && r.picoPav !== rb.picoPav ? [(r.picoPav > rb.picoPav ? "+" : "−") + Math.abs(r.picoPav - rb.picoPav), r.picoPav > rb.picoPav ? "d-pior" : "d-melhor"] : null));
+  const Av = $("#avisos"); Av.replaceChildren();
+  if (r.gargalos.length) {
+    const g = r.gargalos.map(i => (i + 1) + ". " + s.etapas[i].nome).join(", ");
+    Av.append(el("div", { class: "aviso" }, el("b", {}, "Etapa que segura o ritmo: "), g,
+      ` — ${(+r.ritmo[r.gargalos[0]].toFixed(1)).toLocaleString("pt-BR")} dias por pavimento. As etapas depois dela ficam esperando. Mais uma equipe nela, ou deixar a próxima entrar junto, encurta o prazo.`));
+  }
+}
+
+function semanaPessoas(r) {
+  const passo = r.s.sabado ? 6 : 5, n = Math.ceil(r.fim / passo);
+  const out = [];
+  for (let w = 0; w < n; w++) {
+    const por = {}; let total = 0;
+    for (const [f, arr] of Object.entries(r.funcoes)) {
+      let m = 0; for (let d = w * passo; d < (w + 1) * passo && d < arr.length; d++) m = Math.max(m, arr[d]);
+      por[f] = m; total += m;
+    }
+    out.push({ dia: w * passo, por, total });
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------- gráfico: linha de balanço
+const tip = $("#tip");
+function dica(e, texto) { if (!texto) { tip.hidden = true; return; } tip.textContent = texto; tip.hidden = false; const x = Math.min(e.clientX + 14, innerWidth - 330), y = e.clientY + 14; tip.style.left = x + "px"; tip.style.top = y + "px"; }
+function renderGrafico(s, r) {
+  document.querySelectorAll("#vis button").forEach(b => b.classList.toggle("on", b.dataset.v === vis));
+  $("#vis-sub").textContent = vis === "lob" ? "cada faixa é uma etapa subindo os pavimentos; o ponto preto marca onde ela entra" : "quadrados pintados com o número da etapa";
+  const G = $("#grafico"); G.replaceChildren();
+  const L = $("#leg"); L.replaceChildren(...s.etapas.map((e, i) => el("span", {}, el("i", { style: `background:${e.cor};color:${textoCor(e.cor)}` }, i + 1), e.nome)));
+  if (vis === "quadro") return renderQuadro(s, r, G);
+  const NS = "http://www.w3.org/2000/svg", sv = (t, a = {}) => { const e = document.createElementNS(NS, t); for (const [k, v] of Object.entries(a)) e.setAttribute(k, v); return e; };
+  const pxDia = 4.2, rowH = 15, padL = 64, padT = 26, gapT = 26;
+  const totalDias = Math.ceil(r.fim) + 5;
+  const blocos = s.torres.map(t => t.pavimentos.length * rowH);
+  const H = padT + blocos.reduce((a, b) => a + b, 0) + gapT * (s.torres.length - 1) + 24;
+  const W = padL + totalDias * pxDia + 20;
+  const svg = sv("svg", { width: W, height: H, viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "Linha de balanço" });
+  const cs = getComputedStyle(document.documentElement), cor = n => cs.getPropertyValue(n).trim();
+  // meses e semanas
+  let ultimoMes = -1;
+  for (let d = 0; d < totalDias; d++) {
+    const dt = r.cal[d]; if (!dt) break;
+    const x = padL + d * pxDia;
+    if (dt.getUTCDay() === 1 || d === 0) svg.append(sv("line", { x1: x, x2: x, y1: padT - 4, y2: H - 20, stroke: cor("--rule"), "stroke-width": 1 }));
+    if (dt.getUTCMonth() !== ultimoMes) {
+      ultimoMes = dt.getUTCMonth();
+      svg.append(sv("line", { x1: x, x2: x, y1: 4, y2: H - 20, stroke: cor("--rule2"), "stroke-width": 1 }));
+      const tx = sv("text", { x: x + 3, y: 14, "font-size": 11, fill: cor("--ink2") }); tx.textContent = dt.toLocaleDateString("pt-BR", { month: "short", year: "2-digit", timeZone: "UTC" }); svg.append(tx);
+    }
+  }
+  let y0 = padT;
+  s.torres.forEach((t, ti) => {
+    const P = t.pavimentos.length, base = y0 + P * rowH;
+    const tt = sv("text", { x: 4, y: y0 - 6, "font-size": 11.5, "font-weight": 600, fill: cor("--ink") }); tt.textContent = t.nome; svg.append(tt);
+    t.pavimentos.forEach((p, k) => {
+      const y = base - (k + 1) * rowH;
+      if (k % 2 === 0) svg.append(sv("rect", { x: padL, y, width: W - padL - 20, height: rowH, fill: cor("--bg"), opacity: .55 }));
+      const lb = sv("text", { x: padL - 6, y: y + rowH - 4, "font-size": 10, "text-anchor": "end", fill: cor("--mut") }); lb.textContent = p; svg.append(lb);
+    });
+    s.etapas.forEach((et, ei) => {
+      if (!r.iniPav[ti]?.[ei]) return;
+      const ip = r.iniPav[ti][ei], fp = r.fimPav[ti][ei];
+      // faixa: borda esquerda = entradas, borda direita = saídas
+      const pts = [];
+      for (let k = 0; k < P; k++) pts.push([padL + ip[k] * pxDia, base - k * rowH], [padL + ip[k] * pxDia, base - (k + 1) * rowH]);
+      for (let k = P - 1; k >= 0; k--) pts.push([padL + fp[k] * pxDia, base - (k + 1) * rowH], [padL + fp[k] * pxDia, base - k * rowH]);
+      const poly = sv("polygon", { points: pts.map(p => p.join(",")).join(" "), fill: et.cor, "fill-opacity": .78, stroke: et.cor, "stroke-width": .6 });
+      poly.addEventListener("mousemove", e => {
+        const k = Math.max(0, Math.min(P - 1, Math.floor((base - (e.offsetY)) / rowH)));
+        dica(e, `${ei + 1}. ${et.nome}\n${t.nome} · ${t.pavimentos[k]}\n${fmt(r.data(ip[k]))} a ${fmt(r.dataFim(fp[k]))}`);
+      });
+      poly.addEventListener("mouseleave", e => dica(e, null));
+      svg.append(poly);
+      // entrada marcada no primeiro pavimento; número no meio da faixa
+      svg.append(sv("circle", { cx: padL + ip[0] * pxDia, cy: base - rowH / 2, r: 3, fill: cor("--ink") }));
+      const km = Math.floor(P / 2), cx = padL + (ip[km] + fp[km]) / 2 * pxDia, cy = base - km * rowH - rowH / 2;
+      svg.append(sv("circle", { cx, cy, r: 7, fill: et.cor, stroke: cor("--sheet"), "stroke-width": 1.5 }));
+      const n = sv("text", { x: cx, y: cy + 3.5, "font-size": 9.5, "font-weight": 700, "text-anchor": "middle", fill: textoCor(et.cor), "pointer-events": "none" }); n.textContent = ei + 1; svg.append(n);
+    });
+    y0 = base + gapT;
+  });
+  const wrap = el("div", { class: "lob-wrap" }); wrap.append(svg); G.append(wrap);
+}
+
+function renderQuadro(s, r, G) {
+  const passo = s.sabado ? 6 : 5;
+  const semanas = Math.ceil(r.fim / passo) + 1;
+  s.torres.forEach((t, ti) => {
+    const tab = el("table", { class: "t quadro" });
+    const cab = el("tr", {}, el("th", {}, t.nome));
+    for (let w = 0; w < semanas; w++) { const d = r.cal[w * passo]; cab.append(el("th", { class: "s", title: "semana de " + fmt(d) }, String(d.getUTCDate()).padStart(2, "0"), el("br"), String(d.getUTCMonth() + 1).padStart(2, "0"))); }
+    tab.append(el("thead", {}, cab));
+    const tb = el("tbody");
+    for (let k = t.pavimentos.length - 1; k >= 0; k--) {
+      const tr = el("tr", {}, el("td", { class: "l" }, t.pavimentos[k]));
+      for (let w = 0; w < semanas; w++) {
+        const a = w * passo, b = a + passo;
+        const fat = [];
+        s.etapas.forEach((et, ei) => {
+          const ip = r.iniPav[ti][ei][k], fp = r.fimPav[ti][ei][k];
+          const ov = Math.min(b, fp) - Math.max(a, ip); if (ov > 0) fat.push([ei, ov]);
+        });
+        tr.append(el("td", { class: "c", title: fat.map(([ei]) => (ei + 1) + ". " + s.etapas[ei].nome).join("\n") },
+          fat.length ? el("div", { class: "cel" }, fat.map(([ei, ov]) => el("div", { style: `flex:${ov};background:${s.etapas[ei].cor};color:${textoCor(s.etapas[ei].cor)}` }, ov >= 2 || fat.length === 1 ? ei + 1 : ""))) : null));
+      }
+      tb.append(tr);
+    }
+    tab.append(tb);
+    G.append(el("div", { class: "scroll", style: "margin-bottom:10px" }, tab));
+  });
+}
+
+function renderEntradas(s, r) {
+  const T = $("#entradas"); T.replaceChildren();
+  const cab = el("tr", {}, el("th", {}, "Etapa"), el("th", {}, "Equipes"));
+  s.torres.forEach(t => cab.append(el("th", {}, t.nome + " · entra"), el("th", {}, "sai")));
+  cab.append(el("th", {}, "Pav./semana"));
+  T.append(el("thead", {}, cab));
+  const tb = el("tbody");
+  s.etapas.forEach((et, ei) => {
+    const eq = s.equipes.find(e => e.id === et.equipe);
+    const tr = el("tr", {}, el("td", {}, el("span", { class: "leg" }, el("i", { style: `background:${et.cor};color:${textoCor(et.cor)}` }, ei + 1)), " ", et.nome),
+      el("td", { class: "n" }, et.qtd + " × " + (eq?.nome ?? "—")));
+    s.torres.forEach((t, ti) => {
+      const ip = r.iniPav[ti][ei], fp = r.fimPav[ti][ei];
+      tr.append(el("td", { class: "n" }, fmt(r.data(Math.min(...ip))), el("br"), el("span", { class: "mut" }, t.pavimentos[ip.indexOf(Math.min(...ip))])),
+        el("td", { class: "n" }, fmt(r.dataFim(Math.max(...fp))), el("br"), el("span", { class: "mut" }, t.pavimentos[fp.indexOf(Math.max(...fp))])));
+    });
+    const passo = s.sabado ? 6 : 5;
+    tr.append(el("td", { class: "n" }, r.ritmo[ei] ? (passo / r.ritmo[ei]).toLocaleString("pt-BR", { maximumFractionDigits: 1 }) : "—"));
+    tb.append(tr);
+  });
+  T.append(tb);
+}
+
+function renderMao(s, r) {
+  const M = $("#mao"); M.replaceChildren();
+  const sem = semanaPessoas(r); if (!sem.length) return;
+  const funcs = Object.keys(r.funcoes);
+  const paleta = ["#2f6f5e", "#c9853a", "#5b7db1", "#b15b74", "#7a9a3a", "#8b6bb8", "#3a9a9a", "#a0784a", "#6d7f8a", "#c25b3a"];
+  const max = Math.max(...sem.map(x => x.total)), H = 150, bw = 9, W = 40 + sem.length * (bw + 2) + 10;
+  const NS = "http://www.w3.org/2000/svg", sv = (t, a = {}) => { const e = document.createElementNS(NS, t); for (const [k, v] of Object.entries(a)) e.setAttribute(k, v); return e; };
+  const cs = getComputedStyle(document.documentElement), cor = n => cs.getPropertyValue(n).trim();
+  const svg = sv("svg", { width: W, height: H + 34, viewBox: `0 0 ${W} ${H + 34}`, role: "img", "aria-label": "Pessoas por semana" });
+  const esc = v => H - (v / (max || 1)) * (H - 10);
+  for (let g = 0; g <= max; g += Math.max(5, Math.ceil(max / 4 / 5) * 5)) {
+    svg.append(sv("line", { x1: 36, x2: W - 6, y1: esc(g) + 4, y2: esc(g) + 4, stroke: cor("--rule"), "stroke-width": 1 }));
+    const t = sv("text", { x: 32, y: esc(g) + 8, "font-size": 10, "text-anchor": "end", fill: cor("--mut") }); t.textContent = g; svg.append(t);
+  }
+  let ultimoMes = -1;
+  sem.forEach((w, i) => {
+    let y = H + 4; const x = 40 + i * (bw + 2);
+    funcs.forEach((f, k) => {
+      const h = (w.por[f] / (max || 1)) * (H - 10); if (h <= 0) return;
+      y -= h;
+      const rct = sv("rect", { x, y, width: bw, height: h, fill: paleta[k % paleta.length] });
+      rct.addEventListener("mousemove", e => dica(e, `Semana de ${fmt(r.cal[w.dia])}\n` + funcs.filter(ff => w.por[ff] > 0).map(ff => `${ff}: ${Math.round(w.por[ff])}`).join("\n") + `\nTotal: ${Math.round(w.total)}`));
+      rct.addEventListener("mouseleave", e => dica(e, null));
+      svg.append(rct);
+    });
+    const dt = r.cal[w.dia];
+    if (dt && dt.getUTCMonth() !== ultimoMes) { ultimoMes = dt.getUTCMonth(); const t = sv("text", { x, y: H + 20, "font-size": 10, fill: cor("--mut") }); t.textContent = dt.toLocaleDateString("pt-BR", { month: "short", timeZone: "UTC" }); svg.append(t); }
+  });
+  M.append(el("div", { class: "scroll" }, svg));
+  M.append(el("div", { class: "leg" }, funcs.map((f, k) => el("span", {}, el("i", { style: `background:${paleta[k % paleta.length]}` }), f))));
+}
+
+function renderComp() {
+  const T = $("#comp"); T.replaceChildren();
+  const rb = res[0];
+  const cab = el("tr", {}, el("th", {}, "Alternativa"), el("th", {}, "Término"), el("th", {}, "Diferença"));
+  alts[0].torres.forEach(t => cab.append(el("th", {}, t.nome)));
+  cab.append(el("th", {}, "Pico de pessoas"), el("th", {}, "Pav. abertos"), el("th", {}, "O que muda"));
+  T.append(el("thead", {}, cab));
+  const tb = el("tbody");
+  alts.forEach((a, i) => {
+    const r = res[i], [dt, cls] = delta(r.dataFim(r.fim), rb.dataFim(rb.fim));
+    const tr = el("tr", { class: i === atual ? "sel" : "", style: "cursor:pointer", onclick: () => { atual = i; render(); } },
+      el("td", {}, a.nome), el("td", { class: "n" }, fmt(r.dataFim(r.fim))), el("td", { class: "n " + cls }, i ? dt : "referência"));
+    a.torres.forEach((t, ti) => tr.append(el("td", { class: "n" }, fmt(r.dataFim(r.fimT[ti])))));
+    tr.append(el("td", { class: "n" }, Math.round(Math.max(...semanaPessoas(r).map(x => x.total)))), el("td", { class: "n" }, r.picoPav), el("td", { class: "mut" }, diferencas(alts[0], a)));
+    tb.append(tr);
+  });
+  T.append(tb);
+}
+
+function diferencas(b, a) {
+  if (a === b) return "";
+  const l = [];
+  const ob = b.etapas.map(e => e.id).join(), oa = a.etapas.map(e => e.id).join();
+  if (ob !== oa) l.push("ordem das etapas");
+  for (const e of a.etapas) {
+    const o = b.etapas.find(x => x.id === e.id); if (!o) { l.push("+ " + e.nome); continue; }
+    const n = (a.etapas.indexOf(e) + 1) + ".";
+    if (o.qtd !== e.qtd) l.push(`${n} ${e.qtd} equipes`);
+    if (o.dias !== e.dias || o.unidade !== e.unidade) l.push(`${n} ${e.dias} d/${UNI[e.unidade]}`);
+    if (o.equipe !== e.equipe) l.push(`${n} outra equipe`);
+    if (JSON.stringify(o.regra) !== JSON.stringify(e.regra)) l.push(`${n} entra ${e.regra.tipo === "junto" ? "junto" : e.regra.tipo === "torre" ? "após a torre" : "após " + e.regra.pav + " pav."}${e.regra.espera ? " +" + e.regra.espera + "d" : ""}`);
+  }
+  if (JSON.stringify(b.equipes) !== JSON.stringify(a.equipes)) l.push("formação das equipes");
+  if (b.sabado !== a.sabado) l.push(a.sabado ? "sábado" : "sem sábado");
+  if (b.compart !== a.compart) l.push(a.compart ? "equipes divididas entre torres" : "equipes por torre");
+  return l.length ? l.join("; ") : "igual à base";
+}
+
+
+// ---------------------------------------------------------------- guardar (servidor do SIGEO, só para você; ou este navegador)
+const PREF = "simulador/";
+let servidor = false, lista = [], timer = null;
+const slug = t => (t || "estudo").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) || "estudo";
+const arquivo = e => PREF + slug(e.nome) + "-" + e.id + ".json";
+function lsGet(k) { try { return localStorage.getItem(k); } catch { return null; } }
+function lsSet(k, v) { try { localStorage.setItem(k, v); } catch { } }
+function lsDel(k) { try { localStorage.removeItem(k); } catch { } }
+async function verificar() {
+  try {
+    const r = await fetch("api/estado", { credentials: "same-origin", cache: "no-store" });
+    if (r.ok && (r.headers.get("content-type") || "").includes("json")) servidor = !!(await r.json()).ok;
+  } catch { servidor = false; }
+}
+async function listar() {
+  if (servidor) {
+    const r = await fetch("api/dados?prefixo=" + encodeURIComponent(PREF), { credentials: "same-origin", cache: "no-store" });
+    const itens = r.ok ? await r.json() : [];
+    lista = [];
+    for (const i of itens) {
+      const nome = i.nome || i.Nome;
+      if (!nome || !nome.endsWith(".json")) continue;
+      try { const j = await (await fetch("api/dados/" + nome, { credentials: "same-origin", cache: "no-store" })).json(); lista.push({ arq: nome, est: j }); } catch { }
+    }
+  } else {
+    lista = [];
+    try { for (let k = 0; k < localStorage.length; k++) { const key = localStorage.key(k); if (key.startsWith(PREF)) try { lista.push({ arq: key, est: JSON.parse(lsGet(key)) }); } catch { } } } catch { }
+  }
+  lista.sort((a, b) => (b.est.alterado || "").localeCompare(a.est.alterado || ""));
+}
+async function gravar(e) {
+  e.alterado = new Date().toISOString();
+  const nome = arquivo(e), json = JSON.stringify(e);
+  const antigo = lista.find(x => x.est.id === e.id && x.arq !== nome);   // renomeado: apaga o arquivo do nome anterior
+  if (servidor) {
+    const r = await fetch("api/dados/" + nome, { method: "PUT", body: json, credentials: "same-origin", headers: { "Content-Type": "application/json", "X-PlanningLab": "1" } });
+    if (!r.ok) throw new Error("o servidor recusou (" + r.status + ")");
+    if (antigo) await fetch("api/dados/" + antigo.arq, { method: "DELETE", credentials: "same-origin", headers: { "X-PlanningLab": "1" } });
+  } else {
+    lsSet(nome, json); if (antigo) lsDel(antigo.arq);
+  }
+  const l = lista.find(x => x.est.id === e.id);
+  if (l) { l.arq = nome; l.est = e; } else lista.unshift({ arq: nome, est: e });
+  lsSet("simulador:ultimo", e.id);
+}
+async function apagar(e) {
+  const l = lista.find(x => x.est.id === e.id); if (!l) return;
+  if (servidor) await fetch("api/dados/" + l.arq, { method: "DELETE", credentials: "same-origin", headers: { "X-PlanningLab": "1" } });
+  else lsDel(l.arq);
+  lista.splice(lista.indexOf(l), 1);
+}
+function status(t) { $("#salvo").textContent = t; }
+function agendarSalvar() {
+  if (!pronto) return;
+  status("salvando…");
+  clearTimeout(timer);
+  timer = setTimeout(async () => {
+    try { await gravar(estudo); status(servidor ? "salvo no servidor · " + new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "salvo neste navegador"); renderEstudos(); }
+    catch (err) { status("não salvou: " + err.message); }
+  }, 900);
+}
+function abrir(e) {
+  estudo = e; alts = e.alts; atual = 0;
+  res = alts.map(calcular); render(); renderEstudos();
+  lsSet("simulador:ultimo", e.id);
+}
+function renderEstudos() {
+  const sel = $("#estudoSel"); sel.replaceChildren();
+  if (!lista.some(x => x.est.id === estudo.id)) sel.append(el("option", { value: estudo.id, selected: true }, estudo.nome + " (não salvo)"));
+  for (const x of lista) sel.append(el("option", { value: x.est.id, selected: x.est.id === estudo.id }, x.est.nome));
+  $("#delEst").disabled = lista.length === 0;
+}
+let pronto = false;
+$("#estudoSel").onchange = e => { const x = lista.find(l => l.est.id === e.target.value); if (x) abrir(x.est); };
+$("#novoEst").onclick = () => { abrir({ id: id(), nome: "Novo estudo " + new Date().toLocaleDateString("pt-BR"), alts: [Object.assign(exemplo(), { nome: "Base" })] }); agendarSalvar(); };
+$("#dupEst").onclick = () => { const c = copia(estudo); c.id = id(); c.nome = estudo.nome + " (cópia)"; abrir(c); agendarSalvar(); };
+$("#renEst").onclick = () => {
+  const box = el("span", { class: "estudo" }, el("input", { id: "renNome", value: estudo.nome, style: "min-width:220px" }),
+    el("button", { class: "btn sm pri", onclick: () => { const v = $("#renNome").value.trim(); if (v) { estudo.nome = v; agendarSalvar(); } box.remove(); renderEstudos(); } }, "ok"));
+  $("#renEst").after(box); $("#renNome").focus();
+};
+$("#delEst").onclick = () => {
+  const box = el("span", { class: "estudo" }, "Excluir \"" + estudo.nome + "\"? ",
+    el("button", { class: "btn sm", onclick: async () => { await apagar(estudo); box.remove(); abrir(lista[0]?.est ?? { id: id(), nome: "Exemplo (QC)", alts: exemploComAlternativas() }); } }, "Excluir"),
+    el("button", { class: "btn sm", onclick: () => box.remove() }, "Cancelar"));
+  $("#delEst").after(box);
+};
+$("#expEst").onclick = () => {
+  const blob = new Blob([JSON.stringify(estudo, null, 2)], { type: "application/json" });
+  const a = el("a", { href: URL.createObjectURL(blob), download: slug(estudo.nome) + ".json" }); document.body.append(a); a.click(); a.remove();
+};
+$("#impEst").onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  try { const j = JSON.parse(await f.text()); if (!Array.isArray(j.alts)) throw new Error("arquivo sem alternativas"); j.id = id(); abrir(j); agendarSalvar(); }
+  catch (err) { status("não importou: " + err.message); }
+  e.target.value = "";
+};
+
+// ---------------------------------------------------------------- eventos gerais
+$("#addEq").onclick = () => { S().equipes.push({ id: id(), nome: "Nova equipe", cor: CORES[S().equipes.length % CORES.length], formacao: [{ qtd: 1, funcao: "Oficial" }, { qtd: 1, funcao: "Ajudante" }] }); recalc(); };
+$("#addEt").onclick = () => { const s = S(); s.etapas.push({ id: id(), nome: "Nova etapa", unidade: "pav", dias: 5, equipe: s.equipes[0]?.id, qtd: 1, cor: CORES[s.etapas.length % CORES.length], regra: { tipo: "apos", pav: 1, espera: 0 } }); recalc(); };
+$("#sabado").onchange = e => { S().sabado = e.target.checked; recalc(); };
+$("#compart").onchange = e => { S().compart = e.target.checked; recalc(); };
+document.querySelectorAll("#vis button").forEach(b => b.onclick = () => { vis = b.dataset.v; render(); });
+(async () => {
+  recalc();
+  await verificar();
+  try { await listar(); } catch { lista = []; }
+  const ult = lsGet("simulador:ultimo");
+  const x = lista.find(l => l.est.id === ult) ?? lista[0];
+  if (x) abrir(x.est); else renderEstudos();
+  status(servidor ? (x ? "salvo no servidor" : "servidor ligado · o exemplo ainda não foi salvo") : "sem servidor: salvo neste navegador");
+  pronto = true;
+})();
+</script>
+
+</body>
+</html>

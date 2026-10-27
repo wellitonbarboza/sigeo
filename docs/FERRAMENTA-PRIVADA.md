@@ -40,3 +40,13 @@ O histórico usa o mesmo caminho escondido e o mesmo bloqueio: só abre logado e
 | Configuração opcional | `PlanningLab__PrefixoDados` (padrão `planning-lab-dados`); em desenvolvimento, `PlanningLab__PastaDados` (padrão `App_Data/planning-lab-dados`) |
 
 **Código.** `src/Sigeo.Web/Seguranca/ApiDadosPrivados.cs`, com as regras de nome em `AcessoPrivado` (testadas).
+
+## Simulador de Sequência (27/10/2026)
+
+O mesmo caminho escondido pode servir o **Simulador de Sequência** (página única: `index.html`, `manifest.webmanifest`, `icone.svg`) no lugar do Planning Lab. Publicar com:
+
+```bash
+CAMINHO=/x/simulador bash publicar-planning-lab.sh simulador_publish.zip seu-email
+```
+
+Os estudos ficam no histórico privado (`planning-lab-dados/simulador/*.json`), pela mesma API (`api/dados`), visíveis só para o e-mail liberado. Sem servidor (arquivo aberto localmente), ficam no navegador.

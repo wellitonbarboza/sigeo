@@ -1,0 +1,1 @@
+{ "name": "Simulador de Sequência", "short_name": "Simulador", "start_url": "./", "scope": "./", "display": "standalone", "background_color": "#f3f4f1", "theme_color": "#2f6f5e", "icons": [{ "src": "icone.svg", "sizes": "any", "type": "image/svg+xml" }] }

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Planning Lab — publica a ferramenta privada num caminho escondido do endereço do SIGEO.
+# Ferramenta privada (Planning Lab ou Simulador de Sequência) num caminho escondido do endereço do SIGEO.
+# O que estiver no zip substitui o que estava publicado no caminho (os arquivos antigos são apagados).
 # Não é módulo: sem menu, sem banco. Só abre para quem estiver logado no SIGEO com e-mail liberado.
 # Os arquivos ficam no contêiner privado "ferramentas" (prefixo planning-lab/). Atualizar o Planning Lab
 # NÃO republica o SIGEO: rode este script de novo com o zip novo.
@@ -26,7 +27,7 @@ TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
 unzip -q "$ZIP" -d "$TMP"
 SRC="$TMP/wwwroot"; [[ -d "$SRC" ]] || SRC="$TMP"
 find "$SRC" \( -name '*.br' -o -name '*.gz' \) -delete   # o SIGEO entrega os arquivos sem compressão prévia
-[[ -f "$SRC/index.html" && -d "$SRC/_framework" ]] || { echo "Zip inválido: esperado wwwroot/index.html e wwwroot/_framework."; exit 1; }
+[[ -f "$SRC/index.html" ]] || { echo "Zip inválido: esperado index.html (na raiz ou em wwwroot/)."; exit 1; }
 QTD=$(find "$SRC" -type f | wc -l | tr -d ' ')
 
 # 2) Caminho escondido e e-mails liberados (mantém os atuais se já existirem)
