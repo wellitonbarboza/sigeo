@@ -45,4 +45,22 @@ public static class AcessoPrivado
     public static bool SempreRevalidar(string arquivo) =>
         arquivo is "index.html" or "service-worker.js" or "service-worker-assets.js" or "manifest.webmanifest"
         || arquivo.EndsWith("blazor.boot.json", StringComparison.Ordinal);
+
+    /// <summary>Nome válido para o histórico (mesmas regras de arquivo, sem cair no index.html).</summary>
+    public static string? NomeDado(string? resto)
+    {
+        var r = (resto ?? "").TrimStart('/');
+        return r.Length == 0 ? null : Arquivo(r);
+    }
+
+    /// <summary>Prefixo de listagem: vazio ou um caminho válido terminado em "/".</summary>
+    public static string? PrefixoDado(string? prefixo)
+    {
+        var p = (prefixo ?? "").Trim().TrimStart('/');
+        if (p.Length == 0) return "";
+        return Arquivo(p.TrimEnd('/')) is { } ok ? ok + "/" : null;
+    }
+
+    /// <summary>Versões enviadas são imutáveis: não podem ser regravadas nem apagadas.</summary>
+    public static bool Imutavel(string nome) => nome.Split('/').Contains("versoes");
 }

@@ -25,3 +25,18 @@ O Planning Lab é um produto independente: tem repositório e build próprios, e
 - `PlanningLab__Prefixo`: opcional, padrão `planning-lab`.
 
 **Desenvolvimento.** Sem `Sigeo:BlobUri`, os arquivos são lidos de `App_Data/planning-lab` (ou de `PlanningLab:PastaLocal`).
+
+## Histórico (obras, revisões, cenários, simulações e versões)
+
+O histórico usa o mesmo caminho escondido e o mesmo bloqueio: só abre logado e com e-mail em `PlanningLab:Emails`. Não cria tabela no banco do SIGEO.
+
+| | |
+|---|---|
+| API | `GET {caminho}/api/estado` · `GET {caminho}/api/dados?prefixo=` · `GET`/`PUT`/`DELETE {caminho}/api/dados/{nome}` |
+| Armazenamento | Contêiner privado `ferramentas`, prefixo `planning-lab-dados/`, lido e gravado pela Managed Identity do site |
+| Estrutura | `obras/{obra}/obra.json` · `rev/{rev}/cronograma.xml` e `cenarios.json` · `simulacoes/*.json` · `versoes/vNNN/` |
+| Escrita | Exige o cabeçalho `X-PlanningLab: 1`, o que bloqueia envio a partir de outro site. Limite de 40 MB por arquivo |
+| Versões | Pastas `versoes` são imutáveis: regravar devolve 409 e apagar devolve 403 |
+| Configuração opcional | `PlanningLab__PrefixoDados` (padrão `planning-lab-dados`); em desenvolvimento, `PlanningLab__PastaDados` (padrão `App_Data/planning-lab-dados`) |
+
+**Código.** `src/Sigeo.Web/Seguranca/ApiDadosPrivados.cs`, com as regras de nome em `AcessoPrivado` (testadas).

@@ -42,3 +42,27 @@ public class AcessoPrivadoTests
     public void Arquivo_seguro(string resto, string? esperado) =>
         Assert.Equal(esperado, AcessoPrivado.Arquivo(resto));
 }
+
+public class AcessoPrivadoDadosTests
+{
+    [Theory]
+    [InlineData("/obras/nest-cancelli/obra.json", "obras/nest-cancelli/obra.json")]
+    [InlineData("/", null)]
+    [InlineData("/obras/../segredo", null)]
+    [InlineData("/obras/Ç.json", null)]
+    public void Nome_de_dado(string resto, string? esperado) => Assert.Equal(esperado, AcessoPrivado.NomeDado(resto));
+
+    [Theory]
+    [InlineData("", "")]
+    [InlineData("obras/", "obras/")]
+    [InlineData("obras/x", "obras/x/")]
+    [InlineData("../", null)]
+    public void Prefixo(string p, string? esperado) => Assert.Equal(esperado, AcessoPrivado.PrefixoDado(p));
+
+    [Fact]
+    public void Versoes_sao_imutaveis()
+    {
+        Assert.True(AcessoPrivado.Imutavel("obras/x/versoes/v001/manifesto.json"));
+        Assert.False(AcessoPrivado.Imutavel("obras/x/obra.json"));
+    }
+}

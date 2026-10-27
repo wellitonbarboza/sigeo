@@ -35,6 +35,13 @@ public static class FerramentaPrivada
                 cfg["Prefixo"] is { Length: > 0 } p ? p.Trim('/') + "/" : "planning-lab/")
             : new FontePasta(cfg["PastaLocal"] is { Length: > 0 } pasta ? pasta
                 : Path.Combine(app.Environment.ContentRootPath, "App_Data", "planning-lab"));
+        // Histórico (obras, revisões, cenários, simulações, versões): mesmo contêiner privado, prefixo próprio
+        IArmazemDados dados = app.Configuration["Sigeo:BlobUri"] is { Length: > 0 } blobUri2
+            ? new ArmazemBlob(new BlobServiceClient(new Uri(blobUri2), new DefaultAzureCredential())
+                .GetBlobContainerClient(cfg["Conteiner"] is { Length: > 0 } c2 ? c2 : "ferramentas"),
+                cfg["PrefixoDados"] is { Length: > 0 } pd ? pd.Trim('/') + "/" : "planning-lab-dados/")
+            : new ArmazemPasta(cfg["PastaDados"] is { Length: > 0 } pastaD ? pastaD
+                : Path.Combine(app.Environment.ContentRootPath, "App_Data", "planning-lab-dados"));
 
         app.Use(async (ctx, next) =>
         {
@@ -43,19 +50,27 @@ public static class FerramentaPrivada
                 await next();
                 return;
             }
-            if (!HttpMethods.IsGet(ctx.Request.Method) && !HttpMethods.IsHead(ctx.Request.Method))
-            {
-                ctx.Response.StatusCode = StatusCodes.Status404NotFound;
-                return;
-            }
+            var ehApi = resto.StartsWithSegments("/api", out var restoApi);
             if (ctx.User.Identity?.IsAuthenticated != true)
             {
+                if (ehApi) { ctx.Response.StatusCode = StatusCodes.Status401Unauthorized; return; }
+                if (!HttpMethods.IsGet(ctx.Request.Method)) { ctx.Response.StatusCode = StatusCodes.Status404NotFound; return; }
                 ctx.Response.Redirect("/login?retorno=" + Uri.EscapeDataString(caminho + "/"));
                 return;
             }
             if (!AcessoPrivado.Liberado(ctx.User.FindFirstValue(ClaimTypes.Email), liberados))
             {
                 ctx.Response.StatusCode = StatusCodes.Status404NotFound; // não revela que existe
+                return;
+            }
+            if (ehApi)
+            {
+                await ApiDados.TratarAsync(ctx, restoApi, dados, ctx.User.FindFirstValue(ClaimTypes.Email)!);
+                return;
+            }
+            if (!HttpMethods.IsGet(ctx.Request.Method) && !HttpMethods.IsHead(ctx.Request.Method))
+            {
+                ctx.Response.StatusCode = StatusCodes.Status404NotFound;
                 return;
             }
             if (!resto.HasValue)
