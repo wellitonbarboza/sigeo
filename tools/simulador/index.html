@@ -49,6 +49,7 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
 .estudo { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .estudo select { min-width: 200px; font-weight: 600; }
 label.btn { display: inline-block; }
+.grupos { display: flex; flex-direction: column; gap: 4px; }
 
 /* alternativas */
 .alts { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; margin-bottom: 14px; }
@@ -155,14 +156,17 @@ table.t tr.sel td { background: var(--sel); }
       <button class="btn sm" id="novoEst">Novo</button>
       <button class="btn sm" id="dupEst">Duplicar</button>
       <button class="btn sm" id="renEst">Renomear</button>
-      <button class="btn sm" id="expEst">Exportar</button>
-      <label class="btn sm" for="impEst">Importar</label><input type="file" id="impEst" accept=".json,application/json" hidden>
+      <button class="btn sm" id="expEst" title="Estudo completo do simulador (.json)">Exportar .json</button>
+      <label class="btn sm" for="impEst" title="Estudo do simulador (.json)">Importar .json</label><input type="file" id="impEst" accept=".json,application/json" hidden>
+      <label class="btn sm pri" for="impXml" title="Monta a base a partir de um cronograma do MS Project">Importar do Project (.xml)</label><input type="file" id="impXml" accept=".xml,application/xml,text/xml" hidden>
+      <button class="btn sm" id="expXml" title="Cronograma da alternativa em exibição, para abrir no MS Project">Exportar para o Project (.xml)</button>
       <button class="btn sm" id="delEst">Excluir</button>
       <span class="proto" id="salvo">—</span>
     </div>
     <p>Monte as <b>equipes</b> (formação), diga em que <b>unidade</b> cada etapa é executada (apartamento, pavimento ou torre), quantas equipes trabalham juntas e <b>a partir de qual pavimento</b> da etapa anterior ela pode entrar. O gráfico mostra onde cada etapa entra e quando sai.</p>
   </div>
 
+  <section class="panel" id="painelXml" hidden style="margin-bottom:14px"></section>
   <div class="alts" id="alts"></div>
 
   <div class="grid">
@@ -277,12 +281,12 @@ let alts = estudo.alts;
 let atual = 0, vis = "lob";
 
 // ---------------------------------------------------------------- calendário (dias úteis)
-const FERIADOS = new Set(["2026-11-15", "2026-11-20", "2026-12-25", "2027-01-01", "2027-02-08", "2027-02-09", "2027-04-02", "2027-04-21", "2027-05-01", "2027-06-03"]);
+const FERIADOS_PADRAO = ["2026-11-15", "2026-11-20", "2026-12-25", "2027-01-01", "2027-02-08", "2027-02-09", "2027-04-02", "2027-04-21", "2027-05-01", "2027-06-03"];
 function iso(d) { return d.toISOString().slice(0, 10); }
-function util(d, sab) { const w = d.getUTCDay(); return w !== 0 && (sab || w !== 6) && !FERIADOS.has(iso(d)); }
-function calendario(ini, sab, n = 1400) {
+function util(d, sab, fer) { const w = d.getUTCDay(); return w !== 0 && (sab || w !== 6) && !fer.has(iso(d)); }
+function calendario(ini, sab, fer, n = 1600) {
   const dias = []; const d = new Date(ini + "T00:00:00Z");
-  while (dias.length < n) { if (util(d, sab)) dias.push(new Date(d)); d.setUTCDate(d.getUTCDate() + 1); }
+  while (dias.length < n) { if (util(d, sab, fer)) dias.push(new Date(d)); d.setUTCDate(d.getUTCDate() + 1); }
   return dias;
 }
 const fmt = d => d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit", timeZone: "UTC" });
@@ -291,8 +295,11 @@ const fmtc = d => d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digi
 // ---------------------------------------------------------------- motor
 // Tudo em dias úteis contados a partir do início da primeira torre (inteiros e frações).
 function calcular(s) {
-  const ini0 = s.torres.map(t => t.inicio).sort()[0];
-  const cal = calendario(ini0, s.sabado);
+  // começo do calendário: a data mais cedo entre torres, liberações e etapas já iniciadas
+  const datas = [...s.torres.map(t => t.inicio), ...s.torres.flatMap(t => t.lib || []).filter(Boolean), ...Object.values(s.fixas || {}).map(f => f[0])];
+  const ini0 = datas.sort()[0];
+  const fer = new Set(s.feriados || FERIADOS_PADRAO);
+  const cal = calendario(ini0, s.sabado, fer);
   const idx = new Map(cal.map((d, i) => [iso(d), i]));
   const diaDe = str => { let d = new Date(str + "T00:00:00Z"); for (let k = 0; k < 10 && !idx.has(iso(d)); k++) d.setUTCDate(d.getUTCDate() + 1); return idx.get(iso(d)) ?? 0; };
   const eqDe = Object.fromEntries(s.equipes.map(e => [e.id, e]));
@@ -303,7 +310,9 @@ function calcular(s) {
   const iniPav = {};
   for (const ti of ordemT) {
     const t = s.torres[ti], P = t.pavimentos.length;
-    const lib = t.pavimentos.map((_, p) => diaDe(t.inicio) + p * (t.ciclo || 0));
+    const lib = t.pavimentos.map((_, p) => t.lib?.[p] ? diaDe(t.lib[p]) : diaDe(t.inicio) + p * (t.ciclo || 0));
+    const aPartir = s.aPartirDe ? diaDe(s.aPartirDe) : -Infinity;
+    const diasDe = et => et.diasT?.[t.id] ?? et.dias;
     fimPav[ti] = []; iniPav[ti] = [];
     s.etapas.forEach((et, ei) => {
       const chave = s.compart ? "c" + ei : ti + ":" + ei;
@@ -314,23 +323,33 @@ function calcular(s) {
       const ant = ei > 0 ? ei - 1 : null;
       if (et.unidade === "torre") {
         // uma execução para a torre toda
-        let pronto = lib[0];
+        let pronto = Math.max(lib[0], aPartir);
         if (ant !== null) pronto = Math.max(pronto, liberacao(ti, ant, et, P - 1, P));
         const k = eqs.indexOf(Math.min(...eqs));
-        const ini = Math.max(pronto, eqs[k]); const fim = ini + et.dias;
+        const ini = Math.max(pronto, eqs[k]); const fim = ini + diasDe(et);
         eqs[k] = fim;
         for (let p = 0; p < P; p++) { iniPav[ti][ei][p] = ini; fimPav[ti][ei][p] = fim; }
         itens.push({ t: ti, p: -1, e: ei, ini, fim, eq: k });
         return;
       }
       for (let p = 0; p < P; p++) {
-        let pronto = lib[p];
+        const fx = s.fixas?.[t.id + "|" + p + "|" + et.id];
+        if (fx) {
+          // já iniciada no cronograma: fica com as datas dele e ocupa uma equipe
+          const ini = diaDe(fx[0]), fim = diaDe(fx[1]) + 1;
+          let k = 0; for (let j = 1; j < eqs.length; j++) if (eqs[j] < eqs[k]) k = j;
+          eqs[k] = Math.max(eqs[k], fim);
+          iniPav[ti][ei][p] = ini; fimPav[ti][ei][p] = fim;
+          itens.push({ t: ti, p, e: ei, ini, fim, eq: k, fixa: true, pct: fx[2] || 0 });
+          continue;
+        }
+        let pronto = Math.max(lib[p], aPartir);
         if (ant !== null) pronto = Math.max(pronto, liberacao(ti, ant, et, p, P));
         const unidades = et.unidade === "apto" ? Math.max(1, t.aptos | 0) : 1;
         let ip = Infinity, fp = -Infinity;
         for (let u = 0; u < unidades; u++) {
           let k = 0; for (let j = 1; j < eqs.length; j++) if (eqs[j] < eqs[k]) k = j;
-          const ini = Math.max(pronto, eqs[k]); const fim = ini + et.dias;
+          const ini = Math.max(pronto, eqs[k]); const fim = ini + diasDe(et);
           eqs[k] = fim; ip = Math.min(ip, ini); fp = Math.max(fp, fim);
           itens.push({ t: ti, p, e: ei, ini, fim, eq: k, u });
         }
@@ -365,7 +384,8 @@ function calcular(s) {
     }
   }
   // ritmo de cada etapa (dias úteis por pavimento, com as equipes)
-  const ritmo = s.etapas.map(et => et.unidade === "torre" ? 0 : (et.unidade === "apto" ? et.dias * Math.max(1, s.torres[0].aptos) : et.dias) / Math.max(1, et.qtd));
+  const diasMax = et => Math.max(et.dias, ...Object.values(et.diasT || {}));
+  const ritmo = s.etapas.map(et => et.unidade === "torre" ? 0 : (et.unidade === "apto" ? diasMax(et) * Math.max(1, s.torres[0].aptos) : diasMax(et)) / Math.max(1, et.qtd));
   const maxR = Math.max(...ritmo);
   const gargalos = ritmo.map((r, i) => r >= maxR - 1e-9 ? i : -1).filter(i => i >= 0);
   // pico de pavimentos abertos (com alguma etapa em andamento)
@@ -452,7 +472,9 @@ function renderEtapas(s, r) {
         el("button", { class: "link", title: "Tirar etapa", onclick: () => { s.etapas.splice(i, 1); recalc(); } }, "✕")),
       el("div", { class: "linha" },
         "Executa por", seg([["apto", "apartamento"], ["pav", "pavimento"], ["torre", "torre"]], et.unidade, v => et.unidade = v),
-        el("label", {}, el("input", { type: "number", min: 0, step: .5, value: et.dias, "aria-label": "Dias", onchange: e => { et.dias = Math.max(0, +e.target.value || 0); recalc(); } }), "dias por " + UNI[et.unidade])),
+        el("label", {}, el("input", { type: "number", min: 0, step: .5, value: et.dias, "aria-label": "Dias", onchange: e => { et.dias = Math.max(0, +e.target.value || 0); recalc(); } }), "dias por " + UNI[et.unidade]),
+        et.diasT && Object.keys(et.diasT).length ? s.torres.filter(t => et.diasT[t.id] != null).map(t => el("label", { title: "Duração própria nesta torre" }, t.nome + ":",
+          el("input", { type: "number", min: 0, step: .5, value: et.diasT[t.id], "aria-label": "Dias em " + t.nome, onchange: e => { const v = e.target.value; if (v === "") delete et.diasT[t.id]; else et.diasT[t.id] = Math.max(0, +v || 0); recalc(); } }))) : null),
       el("div", { class: "linha" },
         el("label", {}, "Equipe", el("select", { "aria-label": "Equipe", onchange: e => { et.equipe = e.target.value; recalc(); } }, s.equipes.map(q => el("option", { value: q.id, selected: q.id === et.equipe }, q.nome)))),
         el("label", { title: "Quantas equipes iguais trabalham ao mesmo tempo, cada uma num " + UNI[et.unidade] }, "×", el("input", { type: "number", min: 1, step: 1, value: et.qtd, "aria-label": "Quantidade de equipes", onchange: e => { et.qtd = Math.max(1, +e.target.value | 0); recalc(); } }), et.qtd == 1 ? "equipe" : "equipes juntas"),
@@ -468,9 +490,16 @@ function renderTorres(s) {
       el("input", { class: "n", value: t.nome, "aria-label": "Nome da torre", onchange: e => { t.nome = e.target.value; recalc(); } }),
       el("label", {}, el("input", { type: "number", min: 1, value: t.pavimentos.length, "aria-label": "Pavimentos", onchange: e => { const n = Math.max(1, +e.target.value | 0); t.pavimentos = ["Térreo", ...Array.from({ length: n - 1 }, (_, i) => String(i + 1).padStart(2, "0") + "º")]; recalc(); } }), "pavimentos"),
       el("label", {}, el("input", { type: "number", min: 1, value: t.aptos, "aria-label": "Apartamentos por pavimento", onchange: e => { t.aptos = Math.max(1, +e.target.value | 0); recalc(); } }), "aptos/pav")),
-    el("div", { class: "linha" },
+    t.lib ? el("div", { class: "linha" }, "Pavimentos liberados nas datas do cronograma (" + fmt(new Date(t.lib.filter(Boolean)[0] + "T00:00:00Z")) + " a " + fmt(new Date(t.lib.filter(Boolean).slice(-1)[0] + "T00:00:00Z")) + ")",
+      el("button", { class: "link", onclick: () => { delete t.lib; recalc(); } }, "usar ritmo fixo"))
+    : el("div", { class: "linha" },
       el("label", {}, "1º pavimento liberado em", el("input", { type: "date", value: t.inicio, onchange: e => { if (e.target.value) { t.inicio = e.target.value; recalc(); } } })),
       el("label", { title: "Ritmo da estrutura: a cada quantos dias úteis um novo pavimento fica livre" }, "um novo a cada", el("input", { type: "number", min: 0, value: t.ciclo, onchange: e => { t.ciclo = Math.max(0, +e.target.value || 0); recalc(); } }), "dias")))));
+  const fx = Object.keys(s.fixas || {}).length;
+  C.append(el("div", { class: "linha", style: "display:flex;gap:6px 12px;flex-wrap:wrap;align-items:center;margin-top:8px;color:var(--ink2);font-size:12px" },
+    el("label", { title: "Nada novo começa antes desta data (data de status do cronograma)" }, "Simular a partir de ", el("input", { type: "date", value: s.aPartirDe || "", onchange: e => { s.aPartirDe = e.target.value || null; recalc(); } })),
+    fx ? el("span", {}, fx + " etapas já iniciadas ficam com as datas do cronograma ", el("button", { class: "link", onclick: () => { s.fixas = {}; recalc(); } }, "simular tudo")) : null,
+    s.feriados ? el("span", { class: "mut" }, s.feriados.length + " feriados do calendário do cronograma") : null));
   $("#sabado").checked = s.sabado; $("#compart").checked = s.compart;
 }
 
@@ -787,6 +816,325 @@ $("#impEst").onchange = async e => {
   try { const j = JSON.parse(await f.text()); if (!Array.isArray(j.alts)) throw new Error("arquivo sem alternativas"); j.id = id(); abrir(j); agendarSalvar(); }
   catch (err) { status("não importou: " + err.message); }
   e.target.value = "";
+};
+
+// ---------------------------------------------------------------- MS Project (.xml): importar a base e exportar a alternativa
+const XNS = "http://schemas.microsoft.com/project";
+// Arquivos grandes: tira os blocos <TimephasedData> em fluxo (distribuição de trabalho por período, que o simulador não usa)
+async function textoSemPeriodo(arquivo) {
+  if (arquivo.size < 30e6) return await arquivo.text();
+  const ABRE = "<TimephasedData>", FECHA = "</TimephasedData>";
+  const leitor = arquivo.stream().pipeThrough(new TextDecoderStream()).getReader();
+  const saida = []; let resto = "", dentro = false;
+  const esp = c => c === " " || c === "\t" || c === "\r" || c === "\n";
+  for (;;) {
+    const { value, done } = await leitor.read(); if (done) break;
+    const s = resto + value; resto = ""; let pos = 0; const partes = [];
+    for (;;) {
+      if (!dentro) {
+        const i = s.indexOf(ABRE, pos);
+        if (i < 0) { let g = Math.max(pos, s.length - ABRE.length); while (g > pos && esp(s[g - 1])) g--; partes.push(s.slice(pos, g)); resto = s.slice(g); break; }
+        let j = i; while (j > pos && esp(s[j - 1])) j--; partes.push(s.slice(pos, j)); dentro = true; pos = i + ABRE.length;
+      } else {
+        const k = s.indexOf(FECHA, pos);
+        if (k < 0) { resto = s.slice(Math.max(pos, s.length - FECHA.length)); break; }
+        dentro = false; pos = k + FECHA.length;
+      }
+    }
+    saida.push(partes.join(""));
+  }
+  if (!dentro) saida.push(resto);
+  return saida.join("");
+}
+const filho = (el, nome) => { for (let c = el.firstElementChild; c; c = c.nextElementSibling) if (c.localName === nome) return c; return null; };
+const txt = (el, nome) => filho(el, nome)?.textContent ?? null;
+const dia = s => s ? s.slice(0, 10) : null;
+
+function lerProject(texto, nomeArquivo) {
+  const doc = new DOMParser().parseFromString(texto, "application/xml");
+  const raiz = doc.documentElement;
+  if (doc.getElementsByTagName("parsererror").length || raiz.localName !== "Project") throw new Error("o arquivo não é um .xml do MS Project");
+  const status = dia(txt(raiz, "StatusDate"));
+  const calUid = txt(raiz, "CalendarUID");
+  // feriados e sábado do calendário do projeto
+  const feriados = new Set(); let sabado = false;
+  for (const c of raiz.getElementsByTagNameNS("*", "Calendar")) {
+    if (txt(c, "UID") !== calUid) continue;
+    const wd = filho(c, "WeekDays");
+    if (wd) for (const w of wd.children) {
+      const tipo = txt(w, "DayType"), trab = txt(w, "DayWorking") === "1";
+      if (tipo === "7" && trab) sabado = true;
+      if (tipo === "0" && !trab) { const tp = filho(w, "TimePeriod"); if (tp) addPeriodo(dia(txt(tp, "FromDate")), dia(txt(tp, "ToDate"))); }
+    }
+    const ex = filho(c, "Exceptions");
+    if (ex) for (const e of ex.children) {
+      if (txt(e, "DayWorking") === "1") continue;
+      const tp = filho(e, "TimePeriod"); if (tp) addPeriodo(dia(txt(tp, "FromDate")), dia(txt(tp, "ToDate")));
+    }
+  }
+  function addPeriodo(a, b) {
+    if (!a || !b) return; const d = new Date(a + "T00:00:00Z"), f = new Date(b + "T00:00:00Z");
+    for (let n = 0; d <= f && n < 400; n++, d.setUTCDate(d.getUTCDate() + 1)) if (d.getUTCDay() !== 0 && d.getUTCDay() !== 6) feriados.add(iso(d));
+  }
+  // tarefas e hierarquia
+  const tarefas = [], porUid = new Map(), pilha = [];
+  const nos = filho(raiz, "Tasks");
+  if (nos) for (const t of nos.children) {
+    if (txt(t, "IsNull") === "1") continue;
+    const nivel = +(txt(t, "OutlineLevel") || 0);
+    const x = { uid: txt(t, "UID"), nome: (txt(t, "Name") || "").trim(), nivel, resumo: txt(t, "Summary") === "1", ini: dia(txt(t, "Start")), fim: dia(txt(t, "Finish")), pct: +(txt(t, "PercentComplete") || 0), ativo: txt(t, "Active") !== "0", filhos: [], pai: null };
+    while (pilha.length && pilha[pilha.length - 1].nivel >= nivel) pilha.pop();
+    if (pilha.length) { x.pai = pilha[pilha.length - 1]; x.pai.filhos.push(x); }
+    pilha.push(x); tarefas.push(x); porUid.set(x.uid, x);
+  }
+  // recursos por tarefa (para sugerir a formação das equipes)
+  const recursos = new Map();
+  const rs = filho(raiz, "Resources");
+  if (rs) for (const r of rs.children) { const n = (txt(r, "Name") || "").trim(); if (n) recursos.set(txt(r, "UID"), n); }
+  const recDaTarefa = new Map();
+  const as = filho(raiz, "Assignments");
+  if (as) for (const a of as.children) {
+    const n = recursos.get(txt(a, "ResourceUID")); if (!n) continue;
+    const u = txt(a, "TaskUID"); (recDaTarefa.get(u) ?? recDaTarefa.set(u, new Set()).get(u)).add(n);
+  }
+  return { nomeArquivo, titulo: txt(raiz, "Title") || txt(raiz, "Name") || nomeArquivo, status, feriados: [...feriados].sort(), sabado, tarefas, recDaTarefa };
+}
+
+// Grupos repetitivos (ex.: "Torre B › Apartamentos", um pavimento por linha) e os pacotes de cada linha
+const folha = t => !t.resumo && t.filhos.length === 0;
+const ativos = t => t.filhos.filter(f => f.ativo);
+function pacotesDe(t, out) { if (folha(t)) { out.push(t); return; } const fs = ativos(t); if (!fs.length) return; if (fs.every(folha)) { out.push(t); return; } fs.forEach(f => pacotesDe(f, out)); }
+const pacotesDaLinha = l => { const o = []; ativos(l).forEach(f => pacotesDe(f, o)); return o; };
+const chave = n => n.toLowerCase().replace(/\s+/g, " ").replace(/ ?\| ?/g, "|").trim();
+function gruposRepetitivos(p) {
+  const nivel1Unico = p.tarefas.filter(t => t.nivel === 1).length === 1;
+  const caminho = t => { const l = []; for (let x = t; x && x.nivel >= (nivel1Unico ? 2 : 1); x = x.pai) l.unshift(x.nome); return l.join(" › "); };
+  const r = [];
+  for (const t of p.tarefas) {
+    if (folha(t) || !t.ativo) continue;
+    const linhas = ativos(t).filter(f => !folha(f)); if (linhas.length < 3) continue;
+    const porLinha = linhas.map(l => new Set(pacotesDaLinha(l).map(x => chave(x.nome))));
+    if (porLinha.filter(s => s.size >= 2).length < 3) continue;
+    const cont = new Map(); porLinha.forEach(s => s.forEach(k => cont.set(k, (cont.get(k) || 0) + 1)));
+    const comuns = [...cont.values()].filter(v => v >= Math.max(2, Math.floor(linhas.length / 2))).length;
+    if (comuns < 2) continue;
+    r.push({ t, caminho: caminho(t), linhas: linhas.length, pacotes: comuns });
+  }
+  const ids = new Set(r.map(g => g.t));
+  return r.filter(g => { for (let x = g.t.pai; x; x = x.pai) if (ids.has(x)) return false; return true; });
+}
+
+// Monta o estudo: etapas que se repetem, durações típicas do que falta, equipes e liberação de cada pavimento
+function estudoDoProject(p, grupos) {
+  const fer = new Set(p.feriados);
+  const du = (a, b) => { if (!a || !b || b < a) return 0; let n = 0; const d = new Date(a + "T00:00:00Z"), f = new Date(b + "T00:00:00Z"); for (; d <= f; d.setUTCDate(d.getUTCDate() + 1)) if (util(d, p.sabado, fer)) n++; return n; };
+  const gap = (a, b) => b.ini > a.fim ? du(iso(new Date(Date.parse(a.fim + "T00:00:00Z") + 864e5)), b.ini) - 1 : -du(b.ini, a.fim);
+  const futuro = x => x.pct <= 0 && (!p.status || x.ini >= p.status);
+  const mediana = v => { const o = [...v].sort((a, b) => a - b); return o.length ? o[Math.floor(o.length / 2)] : 0; };
+  // linhas e pacotes
+  const blocos = grupos.map(g => ({ g, linhas: ativos(g.t).filter(f => !folha(f)).map(l => ({ l, pacs: pacotesDaLinha(l) })) }));
+  const pac = new Map(); // chave -> {nome, oc, pos[]}
+  for (const b of blocos) for (const { pacs } of b.linhas) pacs.forEach((x, i) => {
+    const k = chave(x.nome); const v = pac.get(k) ?? pac.set(k, { k, nome: x.nome, oc: 0, pos: [] }).get(k);
+    v.oc++; v.pos.push(pacs.length > 1 ? i / (pacs.length - 1) : 0);
+  });
+  const maxOc = Math.max(...[...pac.values()].map(v => v.oc));
+  let principais = [...pac.values()].filter(v => v.oc * 3 >= maxOc).sort((a, b) => a.pos.reduce((s, x) => s + x, 0) / a.pos.length - b.pos.reduce((s, x) => s + x, 0) / b.pos.length);
+  const item = (l, k) => l.pacs.find(x => chave(x.nome) === k);
+  const todasLinhas = blocos.flatMap(b => b.linhas);
+  // fases: um intervalo grande separa (ex.: estrutura → serviços internos); fica a fase com mais etapas
+  if (principais.length > 2) {
+    const cortes = [0];
+    for (let e = 1; e < principais.length; e++) {
+      const gs = todasLinhas.map(l => [item(l, principais[e - 1].k), item(l, principais[e].k)]).filter(([a, b]) => a && b).map(([a, b]) => gap(a, b));
+      if (gs.length && mediana(gs) > 15) cortes.push(e);
+    }
+    cortes.push(principais.length);
+    let melhor = [cortes[0], cortes[1]];
+    for (let i = 1; i < cortes.length - 1; i++) if (cortes[i + 1] - cortes[i] > melhor[1] - melhor[0]) melhor = [cortes[i], cortes[i + 1]];
+    principais = principais.slice(melhor[0], melhor[1]);
+  }
+  const torres = blocos.map((b, bi) => ({ id: id(), nome: b.g.caminho, aptos: 8, ciclo: 5, b }));
+  // equipes: pela lista de recursos do Project nas tarefas da etapa (ou uma equipe genérica)
+  const equipes = [], eqPorChave = new Map();
+  const etapas = principais.map((v, i) => {
+    const itens = todasLinhas.map(l => item(l, v.k)).filter(Boolean);
+    const fut = itens.filter(futuro);
+    const base = fut.length >= 3 ? fut : itens;
+    const durMed = ds => { const m = mediana(ds); const ok = ds.filter(x => x <= 2 * m + .01); return Math.max(1, Math.round(ok.reduce((a, x) => a + x, 0) / Math.max(1, ok.length))); };
+    const dias = durMed(base.map(x => du(x.ini, x.fim)));
+    const diasT = {};
+    torres.forEach(t => {
+      const its = t.b.linhas.map(l => item(l, v.k)).filter(Boolean); const f = its.filter(futuro);
+      const ds = (f.length >= 3 ? f : its).map(x => du(x.ini, x.fim)); if (!ds.length) return;
+      const d = durMed(ds); if (Math.abs(d - dias) >= 1) diasT[t.id] = d;
+    });
+    // equipes simultâneas: mediana de pavimentos da mesma torre com a etapa no mesmo dia
+    let qtd = 1;
+    torres.forEach(t => {
+      const cont = new Map();
+      t.b.linhas.map(l => item(l, v.k)).filter(x => x && (fut.length < 3 || futuro(x))).forEach(x => {
+        const d = new Date(x.ini + "T00:00:00Z"), f = new Date(x.fim + "T00:00:00Z");
+        for (; d <= f; d.setUTCDate(d.getUTCDate() + 1)) if (util(d, p.sabado, fer)) cont.set(iso(d), (cont.get(iso(d)) || 0) + 1);
+      });
+      if (cont.size) qtd = Math.max(qtd, mediana([...cont.values()]));
+    });
+    const recs = new Map();
+    for (const x of itens) { const fol = []; (function f(t) { if (folha(t)) fol.push(t); else t.filhos.forEach(f); })(x); fol.forEach(t => (p.recDaTarefa.get(t.uid) || []).forEach(r => recs.set(r, (recs.get(r) || 0) + 1))); }
+    const formacao = [...recs.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4).map(([r]) => ({ qtd: 1, funcao: r }));
+    // uma equipe por etapa, com o nome da etapa; a formação vem dos recursos do Project (ou oficial + ajudante)
+    const eq = { id: id(), nome: "Equipe " + v.nome.split("|")[0].trim().slice(0, 32), cor: CORES[i % CORES.length], formacao: formacao.length ? formacao : [{ qtd: 1, funcao: "Oficial" }, { qtd: 1, funcao: "Ajudante" }] };
+    equipes.push(eq);
+    return { id: id(), nome: v.nome, unidade: "pav", dias, diasT, equipe: eq.id, qtd, cor: CORES[i % CORES.length], regra: { tipo: "apos", pav: 1, espera: 0 }, k: v.k };
+  });
+  // regra de entrada: intervalo típico entre a etapa anterior e esta no mesmo pavimento
+  for (let e = 1; e < etapas.length; e++) {
+    const gs = todasLinhas.map(l => [item(l, etapas[e - 1].k), item(l, etapas[e].k)]).filter(([a, b]) => a && b && futuro(b)).map(([a, b]) => gap(a, b));
+    if (!gs.length) continue;
+    const g = mediana(gs);
+    etapas[e].regra = g < 0 ? { tipo: "junto", pav: 1, espera: Math.max(0, Math.round(etapas[e - 1].dias + g)) } : { tipo: "apos", pav: 1, espera: Math.round(g) };
+  }
+  // pavimentos na ordem de execução, liberação = início da primeira etapa; já iniciados ficam fixos
+  const fixas = {};
+  for (const t of torres) {
+    const linhas = t.b.linhas.map((l, n) => ({ l, n, ini: etapas.map(e => item(l, e.k)?.ini).filter(Boolean).sort()[0] })).filter(x => x.ini);
+    linhas.sort((a, b) => a.ini.localeCompare(b.ini) || b.n - a.n);
+    t.pavimentos = linhas.map(x => x.l.l.nome.replace(/\s+Pavimento\s*$/i, "").trim() || x.l.l.nome);
+    t.lib = linhas.map(x => item(x.l, etapas[0].k)?.ini ?? x.ini);
+    t.inicio = t.lib.filter(Boolean).sort()[0];
+    linhas.forEach((x, pi) => etapas.forEach(e => { const it = item(x.l, e.k); if (it && it.pct > 0) fixas[t.id + "|" + pi + "|" + e.id] = [it.ini, it.fim, it.pct]; }));
+    delete t.b;
+  }
+  etapas.forEach(e => delete e.k);
+  return {
+    id: id(), nome: "Base (cronograma)", equipes, etapas, torres, sabado: p.sabado, compart: false,
+    feriados: p.feriados, aPartirDe: p.status, fixas, origem: p.nomeArquivo
+  };
+}
+
+// Exporta a alternativa como cronograma do MS Project: torre › pavimento › etapa, com datas, vínculos e equipes como recursos
+function xmlDaAlternativa(s, r, titulo) {
+  const esc = v => String(v).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  const horas = d => `PT${Math.round(d * 8)}H0M0S`;
+  const ini = x => iso(r.data(x)) + "T08:00:00";
+  const fim = x => iso(r.dataFim(x)) + "T17:00:00";
+  const dur = (a, b) => Math.max(0, r.cal.indexOf(r.dataFim(b)) - r.cal.indexOf(r.data(a)) + 1);
+  const L = [];
+  let uid = 0, idn = 0;
+  const tarefas = []; // {uid, nome, nivel, wbs, a, b, resumo, preds:[{uid,tipo,lag}], eq, pct}
+  const add = o => { o.uid = ++uid; tarefas.push(o); return o; };
+  const geral = { uid: 0, nome: titulo, nivel: 0, wbs: "0", a: r.ini, b: r.fim, resumo: true, preds: [] };
+  const mapa = {}; // ti|p|ei -> tarefa
+  s.torres.forEach((t, ti) => {
+    const tt = add({ nome: t.nome, nivel: 1, wbs: `${ti + 1}`, resumo: true, preds: [], a: Infinity, b: -Infinity });
+    t.pavimentos.forEach((pv, p) => {
+      const tp = add({ nome: pv, nivel: 2, wbs: `${ti + 1}.${p + 1}`, resumo: true, preds: [], a: Infinity, b: -Infinity });
+      s.etapas.forEach((et, ei) => {
+        const a = r.iniPav[ti][ei][p], b = r.fimPav[ti][ei][p];
+        if (et.unidade === "torre" && p > 0) return;
+        const fx = s.fixas?.[t.id + "|" + p + "|" + et.id];
+        const tk = add({ nome: et.nome, nivel: 3, wbs: `${ti + 1}.${p + 1}.${ei + 1}`, resumo: false, preds: [], a, b, eq: et.equipe, pct: fx ? fx[2] : 0, notas: `${t.nome} · ${pv} · ${UNI[et.unidade]}` });
+        mapa[ti + "|" + p + "|" + ei] = tk;
+        tp.a = Math.min(tp.a, a); tp.b = Math.max(tp.b, b);
+      });
+      tt.a = Math.min(tt.a, tp.a); tt.b = Math.max(tt.b, tp.b);
+    });
+  });
+  // vínculos conforme a regra de entrada de cada etapa
+  s.torres.forEach((t, ti) => t.pavimentos.forEach((_, p) => s.etapas.forEach((et, ei) => {
+    const tk = mapa[ti + "|" + p + "|" + ei]; if (!tk || ei === 0) return;
+    const rg = et.regra || { tipo: "apos", pav: 1, espera: 0 }, lag = Math.round((+rg.espera || 0) * 480 * 10);
+    const P = t.pavimentos.length;
+    // só grava o vínculo que as datas respeitam (o que já começou no cronograma pode estar sobreposto)
+    const esp = +rg.espera || 0;
+    const ok = (a, tipo) => tipo === 3 ? a.a + esp <= tk.a + 1e-6 : a.b + esp <= tk.a + 1e-6;
+    const vinc = (a, tipo) => { if (a && ok(a, tipo)) tk.preds.push({ uid: a.uid, tipo, lag }); };
+    if (rg.tipo === "junto") vinc(mapa[ti + "|" + p + "|" + (ei - 1)], 3);
+    else if (rg.tipo === "torre") { const ult = s.torres[ti].pavimentos.map((_, k) => k).reduce((m, k) => r.fimPav[ti][ei - 1][k] > r.fimPav[ti][ei - 1][m] ? k : m, 0); vinc(mapa[ti + "|" + ult + "|" + (ei - 1)] || mapa[ti + "|0|" + (ei - 1)], 1); }
+    else {
+      vinc(mapa[ti + "|" + p + "|" + (ei - 1)], 1);
+      const alvo = Math.min(p + Math.max(1, rg.pav | 0) - 1, P - 1);
+      if (alvo !== p) vinc(mapa[ti + "|" + alvo + "|" + (ei - 1)], 1);
+    }
+  })));
+  const eqs = s.equipes.filter(e => s.etapas.some(et => et.equipe === e.id));
+  const ruid = Object.fromEntries(eqs.map((e, i) => [e.id, i + 1]));
+  L.push(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>`);
+  L.push(`<Project xmlns="${XNS}">`);
+  L.push(`<SaveVersion>14</SaveVersion><Name>${esc(titulo)}.xml</Name><Title>${esc(titulo)}</Title><ScheduleFromStart>1</ScheduleFromStart>`);
+  L.push(`<StartDate>${ini(r.ini)}</StartDate><FinishDate>${fim(r.fim)}</FinishDate><FYStartDate>1</FYStartDate><CriticalSlackLimit>0</CriticalSlackLimit><CurrencyDigits>2</CurrencyDigits><CurrencySymbol>R$</CurrencySymbol><CurrencyCode>BRL</CurrencyCode>`);
+  L.push(`<CalendarUID>1</CalendarUID><DefaultStartTime>08:00:00</DefaultStartTime><DefaultFinishTime>17:00:00</DefaultFinishTime><MinutesPerDay>480</MinutesPerDay><MinutesPerWeek>${s.sabado ? 2880 : 2400}</MinutesPerWeek><DaysPerMonth>${s.sabado ? 26 : 20}</DaysPerMonth>`);
+  L.push(`<DefaultTaskType>1</DefaultTaskType><DurationFormat>7</DurationFormat><WorkFormat>2</WorkFormat><NewTasksEffortDriven>0</NewTasksEffortDriven><HonorConstraints>0</HonorConstraints><NewTasksAreManual>0</NewTasksAreManual>`);
+  if (s.aPartirDe) L.push(`<StatusDate>${s.aPartirDe}T17:00:00</StatusDate>`);
+  // calendário
+  L.push(`<Calendars><Calendar><UID>1</UID><Name>Padrão</Name><IsBaseCalendar>1</IsBaseCalendar><BaseCalendarUID>-1</BaseCalendarUID><WeekDays>`);
+  for (let d = 1; d <= 7; d++) {
+    const trab = d >= 2 && d <= 6 || (d === 7 && s.sabado);
+    L.push(`<WeekDay><DayType>${d}</DayType><DayWorking>${trab ? 1 : 0}</DayWorking>${trab ? `<WorkingTimes><WorkingTime><FromTime>08:00:00</FromTime><ToTime>12:00:00</ToTime></WorkingTime><WorkingTime><FromTime>13:00:00</FromTime><ToTime>17:00:00</ToTime></WorkingTime></WorkingTimes>` : ""}</WeekDay>`);
+  }
+  for (const f of (s.feriados || FERIADOS_PADRAO)) L.push(`<WeekDay><DayType>0</DayType><DayWorking>0</DayWorking><TimePeriod><FromDate>${f}T00:00:00</FromDate><ToDate>${f}T23:59:00</ToDate></TimePeriod></WeekDay>`);
+  L.push(`</WeekDays></Calendar></Calendars>`);
+  // tarefas
+  L.push(`<Tasks>`);
+  const tarefa = t => {
+    const d = t.resumo ? dur(t.a, t.b) : Math.max(0, r.cal.indexOf(r.dataFim(t.b)) - r.cal.indexOf(r.data(t.a)) + 1);
+    let x = `<Task><UID>${t.uid}</UID><ID>${idn++}</ID><Name>${esc(t.nome)}</Name><Type>1</Type><IsNull>0</IsNull><WBS>${t.wbs}</WBS><OutlineNumber>${t.wbs}</OutlineNumber><OutlineLevel>${t.nivel}</OutlineLevel><Priority>500</Priority>`;
+    x += `<Start>${ini(t.a)}</Start><Finish>${fim(t.b)}</Finish><Duration>${horas(d)}</Duration><DurationFormat>7</DurationFormat><Work>PT0H0M0S</Work><ResumeValid>0</ResumeValid><EffortDriven>0</EffortDriven><Recurring>0</Recurring><OverAllocated>0</OverAllocated><Estimated>0</Estimated><Milestone>${!t.resumo && d === 0 ? 1 : 0}</Milestone><Summary>${t.resumo ? 1 : 0}</Summary>`;
+    x += `<PercentComplete>${t.pct || 0}</PercentComplete><Manual>0</Manual><CalendarUID>-1</CalendarUID>`;
+    if (!t.resumo && t.pct > 0) x += `<ActualStart>${ini(t.a)}</ActualStart>` + (t.pct >= 100 ? `<ActualFinish>${fim(t.b)}</ActualFinish>` : "");
+    if (!t.resumo) x += `<ConstraintType>4</ConstraintType><ConstraintDate>${ini(t.a)}</ConstraintDate>`; else x += `<ConstraintType>0</ConstraintType>`;
+    if (t.notas) x += `<Notes>${esc(t.notas)}</Notes>`;
+    for (const pr of t.preds) x += `<PredecessorLink><PredecessorUID>${pr.uid}</PredecessorUID><Type>${pr.tipo}</Type><CrossProject>0</CrossProject><LinkLag>${pr.lag}</LinkLag><LagFormat>7</LagFormat></PredecessorLink>`;
+    return x + `</Task>`;
+  };
+  L.push(tarefa(geral));
+  tarefas.forEach(t => L.push(tarefa(t)));
+  L.push(`</Tasks><Resources>`);
+  for (const e of eqs) L.push(`<Resource><UID>${ruid[e.id]}</UID><ID>${ruid[e.id]}</ID><Name>${esc(e.nome)}</Name><Type>1</Type><IsNull>0</IsNull><MaxUnits>${Math.max(...s.etapas.filter(et => et.equipe === e.id).map(et => et.qtd)).toFixed(2)}</MaxUnits><CalendarUID>-1</CalendarUID><Notes>${esc(e.formacao.map(f => f.qtd + " " + f.funcao).join(", "))}</Notes></Resource>`);
+  L.push(`</Resources><Assignments>`);
+  let au = 0;
+  for (const t of tarefas) if (!t.resumo && ruid[t.eq]) {
+    const d = Math.max(0, r.cal.indexOf(r.dataFim(t.b)) - r.cal.indexOf(r.data(t.a)) + 1);
+    L.push(`<Assignment><UID>${++au}</UID><TaskUID>${t.uid}</TaskUID><ResourceUID>${ruid[t.eq]}</ResourceUID><Units>1</Units><Work>${horas(d)}</Work><Start>${ini(t.a)}</Start><Finish>${fim(t.b)}</Finish></Assignment>`);
+  }
+  L.push(`</Assignments></Project>`);
+  return L.join("\r\n");
+}
+
+let importado = null;
+function baixar(nome, conteudo, tipo) {
+  const a = el("a", { href: URL.createObjectURL(new Blob([conteudo], { type: tipo })), download: nome });
+  document.body.append(a); a.click(); a.remove();
+}
+$("#impXml").onchange = async e => {
+  const f = e.target.files[0]; e.target.value = ""; if (!f) return;
+  const P = $("#painelXml"); P.hidden = false; P.replaceChildren(el("p", {}, "Lendo " + f.name + "…"));
+  try {
+    const p = lerProject(await textoSemPeriodo(f), f.name);
+    const gs = gruposRepetitivos(p);
+    if (!gs.length) throw new Error("não encontrei pavimentos com as mesmas etapas repetidas (um resumo com 3 ou mais pavimentos)");
+    const max = Math.max(...gs.map(g => g.pacotes * g.linhas));
+    const marcados = new Set(gs.filter(g => g.pacotes * g.linhas * 10 >= max * 9 && g.linhas >= 4).map(g => g.t.uid));
+    importado = { p, gs };
+    P.replaceChildren(
+      el("header", {}, el("h2", {}, "Montar a base a partir do cronograma"), el("span", { class: "mut" }, p.titulo + (p.status ? " · data de status " + fmt(new Date(p.status + "T00:00:00Z")) : ""))),
+      el("p", { class: "mut", style: "margin:4px 0 8px" }, "Escolha os conjuntos de pavimentos que viram torres no simulador. As etapas são as que se repetem em cada pavimento; o que já começou fica com as datas do cronograma."),
+      el("div", { class: "grupos" }, gs.map(g => el("label", {}, el("input", { type: "checkbox", value: g.t.uid, checked: marcados.has(g.t.uid) }), " " + g.caminho + " ", el("span", { class: "mut" }, `(${g.linhas} pavimentos, ${g.pacotes} etapas em comum)`)))),
+      el("div", { style: "display:flex;gap:8px;margin-top:10px;flex-wrap:wrap" },
+        el("button", { class: "btn pri", onclick: () => {
+          const sel = [...P.querySelectorAll(".grupos input:checked")].map(i => i.value);
+          const gsel = gs.filter(g => sel.includes(g.t.uid)); if (!gsel.length) return;
+          const base = estudoDoProject(p, gsel);
+          const nome = p.nomeArquivo.replace(/\.xml$/i, "").replace(/[_]+/g, " ");
+          abrir({ id: id(), nome, origem: p.nomeArquivo, alts: [base] }); P.hidden = true; importado = null; agendarSalvar();
+        } }, "Criar estudo"),
+        el("button", { class: "btn", onclick: () => { P.hidden = true; importado = null; } }, "Cancelar")));
+  } catch (err) { P.replaceChildren(el("p", {}, "Não foi possível ler: " + err.message), el("button", { class: "btn sm", onclick: () => P.hidden = true }, "fechar")); }
+};
+$("#expXml").onclick = () => {
+  const s = S(), r = res[atual];
+  const titulo = estudo.nome + " — " + s.nome;
+  baixar(slug(estudo.nome) + "_" + slug(s.nome) + ".xml", xmlDaAlternativa(s, r, titulo), "application/xml");
 };
 
 // ---------------------------------------------------------------- eventos gerais
