@@ -49,6 +49,10 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
 .estudo { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .estudo select { min-width: 200px; font-weight: 600; }
 label.btn { display: inline-block; }
+button.x { border: 1px solid transparent; background: none; color: var(--mut); border-radius: 4px; padding: 0 6px; font-size: 13px; line-height: 20px; }
+button.x:hover { color: var(--bad); border-color: var(--bad); }
+.confirma { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; background: color-mix(in srgb, var(--bad) 8%, var(--sheet)); border: 1px solid var(--bad); border-radius: 5px; padding: 6px 8px; font-size: 12px; }
+.btn.perigo { background: var(--bad); border-color: var(--bad); color: var(--sheet); }
 .grupos { display: flex; flex-direction: column; gap: 4px; }
 
 /* alternativas */
@@ -70,7 +74,7 @@ label.btn { display: inline-block; }
 .panel { background: var(--sheet); border: 1px solid var(--rule); border-radius: 8px; padding: 12px 14px; min-width: 0; }
 .panel > header { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
 .panel > header .mut { font-size: 12px; }
-.panel > header .btn { margin-left: auto; }
+.panel > header > .btn { margin-left: auto; }
 .scroll { overflow-x: auto; }
 
 /* equipes */
@@ -172,7 +176,7 @@ table.t tr.sel td { background: var(--sel); }
   <div class="grid">
     <div class="col">
       <section class="panel">
-        <header><h2>Equipes</h2><span class="mut">formação de cada equipe; a etapa escolhe a equipe e quantas trabalham juntas</span><button class="btn sm" id="addEq">+ Equipe</button></header>
+        <header><h2>Equipes</h2><span class="mut">formação de cada equipe; a etapa escolhe a equipe e quantas trabalham juntas</span><span style="margin-left:auto;display:flex;gap:6px"><button class="btn sm" id="limpaEq" title="Exclui as equipes que nenhuma etapa usa">Excluir sem uso</button><button class="btn sm" id="addEq">+ Equipe</button></span></header>
         <div class="equipes" id="equipes"></div>
       </section>
       <section class="panel">
@@ -428,6 +432,32 @@ function render() {
   renderKpis(s, r, rb); renderGrafico(s, r); renderEntradas(s, r); renderMao(s, r); renderComp();
 }
 
+// confirmação na própria tela (o navegador do app não mostra caixas de diálogo)
+function confirmar(alvo, texto, ok, extra) {
+  document.querySelectorAll(".confirma").forEach(x => x.remove());
+  const box = el("div", { class: "confirma" }, el("span", {}, texto), extra || null,
+    el("button", { class: "btn sm perigo", onclick: () => { box.remove(); ok(); } }, "Excluir"),
+    el("button", { class: "btn sm", onclick: () => box.remove() }, "Cancelar"));
+  (alvo.closest(".eq, .et") || alvo.parentElement).append(box);
+}
+function excluirEtapa(s, et) {
+  s.etapas.splice(s.etapas.indexOf(et), 1);
+  for (const k of Object.keys(s.fixas || {})) if (k.endsWith("|" + et.id)) delete s.fixas[k];
+  recalc();
+}
+function excluirEquipe(s, eq, alvo) {
+  const usos = s.etapas.filter(e => e.equipe === eq.id);
+  const outras = s.equipes.filter(e => e !== eq);
+  if (!usos.length) return confirmar(alvo, "Excluir a equipe \"" + eq.nome + "\"?", () => { s.equipes.splice(s.equipes.indexOf(eq), 1); recalc(); });
+  if (!outras.length) return confirmar(alvo, "Esta é a única equipe; crie outra antes de excluir.", () => {});
+  const sel = el("select", { "aria-label": "Equipe que assume as etapas" }, outras.map(o => el("option", { value: o.id }, o.nome)));
+  confirmar(alvo, `Usada em ${usos.length === 1 ? "1 etapa" : usos.length + " etapas"} (${usos.map(e => s.etapas.indexOf(e) + 1).join(", ")}). Passar para`, () => {
+    usos.forEach(e => e.equipe = sel.value);
+    s.equipes.splice(s.equipes.indexOf(eq), 1); recalc();
+  }, sel);
+}
+function excluirSemUso(s) { const n = s.equipes.length; s.equipes = s.equipes.filter(e => s.etapas.some(et => et.equipe === e.id)); if (s.equipes.length !== n) recalc(); }
+
 function renderEquipes(s) {
   const C = $("#equipes"); C.replaceChildren();
   const usos = id => s.etapas.filter(e => e.equipe === id);
@@ -436,7 +466,7 @@ function renderEquipes(s) {
     C.append(el("div", { class: "eq" },
       el("div", { class: "eq-cab" }, el("span", { class: "sw", style: `background:${eq.cor}` }),
         el("input", { value: eq.nome, "aria-label": "Nome da equipe", onchange: e => { eq.nome = e.target.value; recalc(); } }),
-        usos(eq.id).length ? null : el("button", { class: "link", title: "Excluir equipe", onclick: () => { s.equipes.splice(s.equipes.indexOf(eq), 1); recalc(); } }, "✕")),
+        el("button", { class: "x", title: "Excluir equipe", "aria-label": "Excluir equipe " + eq.nome, onclick: ev => excluirEquipe(s, eq, ev.currentTarget) }, "✕")),
       eq.formacao.map((f, k) => el("div", { class: "form-l" },
         el("input", { type: "number", min: 0, step: 1, value: f.qtd, "aria-label": "Quantidade", onchange: e => { f.qtd = Math.max(0, +e.target.value || 0); recalc(); } }),
         el("input", { type: "text", value: f.funcao, "aria-label": "Função", onchange: e => { f.funcao = e.target.value; recalc(); } }),
@@ -469,7 +499,7 @@ function renderEtapas(s, r) {
         el("i", { style: `background:${et.cor};color:${textoCor(et.cor)}` }, i + 1),
         el("button", { class: "link", disabled: i === s.etapas.length - 1, title: "Descer", onclick: () => mover(1) }, "▼")),
       el("div", { class: "nome" }, el("input", { value: et.nome, "aria-label": "Nome da etapa", onchange: e => { et.nome = e.target.value; recalc(); } }),
-        el("button", { class: "link", title: "Tirar etapa", onclick: () => { s.etapas.splice(i, 1); recalc(); } }, "✕")),
+        el("button", { class: "x", title: "Excluir etapa", "aria-label": "Excluir etapa " + et.nome, onclick: ev => confirmar(ev.currentTarget, "Excluir a etapa \"" + et.nome + "\"?", () => excluirEtapa(s, et)) }, "✕")),
       el("div", { class: "linha" },
         "Executa por", seg([["apto", "apartamento"], ["pav", "pavimento"], ["torre", "torre"]], et.unidade, v => et.unidade = v),
         el("label", {}, el("input", { type: "number", min: 0, step: .5, value: et.dias, "aria-label": "Dias", onchange: e => { et.dias = Math.max(0, +e.target.value || 0); recalc(); } }), "dias por " + UNI[et.unidade]),
@@ -1138,6 +1168,7 @@ $("#expXml").onclick = () => {
 };
 
 // ---------------------------------------------------------------- eventos gerais
+$("#limpaEq").onclick = () => excluirSemUso(S());
 $("#addEq").onclick = () => { S().equipes.push({ id: id(), nome: "Nova equipe", cor: CORES[S().equipes.length % CORES.length], formacao: [{ qtd: 1, funcao: "Oficial" }, { qtd: 1, funcao: "Ajudante" }] }); recalc(); };
 $("#addEt").onclick = () => { const s = S(); s.etapas.push({ id: id(), nome: "Nova etapa", unidade: "pav", dias: 5, equipe: s.equipes[0]?.id, qtd: 1, cor: CORES[s.etapas.length % CORES.length], regra: { tipo: "apos", pav: 1, espera: 0 } }); recalc(); };
 $("#sabado").onchange = e => { S().sabado = e.target.checked; recalc(); };
