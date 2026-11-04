@@ -54,3 +54,9 @@ Cada atividade recebe uma especialidade (inferida pelo nome) e um número de equ
   o resto vai para depois da data de status, e "não antecipar o planejado" segura o início do arquivo.
   A LB0 fica como referência. Aba Reprogramações compara as versões e lista as alterações.
 - Gantt com vínculos (escadinha), resumos com pontas, barra fantasma da LB0 ou do arquivo.
+- Alternativas (estudos): alterações em lote por versão — duração em %, atrasar início, iniciar após,
+  remover restrição, alterar/novo/remover vínculo (por EAP), paralisação, incerteza; premissas h/dia e sábado;
+  capacidade por especialidade com nivelamento. Caminho crítico e folga (passagem de volta pelos vínculos).
+- Reprogramações: quadro comparativo, grandes etapas por alternativa, curva S física (com LB0) e detalhe A × B.
+- Riscos: Monte Carlo (triangular por grupo de incerteza; padrão −10/0/+30% por especialidade),
+  P10/P50/P80/P90, chance de cumprir a LB0, tornado e índice de criticidade.

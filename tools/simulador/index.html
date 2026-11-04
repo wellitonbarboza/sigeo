@@ -221,6 +221,24 @@ table.mes tr.grp td { font: 700 11px var(--f-disp); text-transform: uppercase; l
 .g-bar.g-base { top: 18px; height: 3px; background: var(--rule2); border-radius: 0; }
 .g-dia { position: absolute; top: 6px; width: 10px; height: 10px; background: var(--ink); transform: rotate(45deg); }
 .g-status { position: absolute; top: 0; bottom: 0; border-left: 1.5px dashed var(--bad); opacity: .7; }
+
+.mini-gantt { position: relative; padding-bottom: 22px; }
+.mg-g { display: grid; grid-template-columns: 280px 1fr; align-items: center; border-bottom: 1px solid var(--rule); padding: 3px 0; }
+.mg-n { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 10px; font-size: 12px; }
+.mg-b { position: relative; }
+.mg-r { position: relative; height: 7px; margin: 2px 0; }
+.mg-bar { position: absolute; top: 0; height: 6px; border-radius: 2px; }
+.mg-lb { position: absolute; top: -2px; bottom: -2px; border-left: 2px solid var(--bad); }
+.mg-ax { position: relative; margin-left: 280px; height: 18px; border-top: 1px solid var(--rule2); }
+.mg-ax span { position: absolute; top: 3px; font-size: 10.5px; color: var(--mut); transform: translateX(-50%); white-space: nowrap; }
+.mc-h { display: flex; align-items: flex-end; gap: 2px; height: 180px; padding-bottom: 18px; overflow-x: auto; }
+.mc-c { flex: 1 0 14px; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; position: relative; }
+.mc-c div { background: var(--accent); border-radius: 2px 2px 0 0; min-height: 1px; }
+.mc-c span { position: absolute; bottom: -16px; left: 0; font: 9px var(--f-mono); color: var(--mut); white-space: nowrap; transform: rotate(-35deg); transform-origin: left top; }
+.tor { display: grid; grid-template-columns: 200px 1fr 44px; gap: 8px; align-items: center; font-size: 12px; padding: 2px 0; }
+.tor span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tor div { background: var(--rule); height: 10px; border-radius: 2px; } .tor i { display: block; height: 100%; background: var(--warn); border-radius: 2px; }
+.tor b { font: 500 11.5px var(--f-mono); text-align: right; }
 @media (prefers-reduced-motion: no-preference) { .alt, .btn, .seg button { transition: background .12s, border-color .12s; } }
 </style>
 
@@ -252,6 +270,7 @@ table.mes tr.grp td { font: 700 11px var(--f-disp); text-transform: uppercase; l
       <button data-a="gantt">Gantt</button>
       <button data-a="equipes">Equipes e composições</button>
       <button data-a="versoes">Reprogramações</button>
+      <button data-a="riscos">Riscos</button>
       <button data-a="meses">Recursos por mês</button>
       <button data-a="hist">Histograma</button>
       <span style="margin-left:auto;display:flex;gap:6px;align-items:center"><button class="btn sm" id="pCsv" title="Todas as atividades com a quantificação, para abrir no Excel">Baixar planilha (.csv)</button></span>
@@ -1402,82 +1421,186 @@ function versoesDe(P) {
 }
 const VA = P => versoesDe(P)[P.vAtual];
 const calCache = new Map();
-function calPlano(P) {
-  const k = (P.ini || P.t[0]?.i) + "|" + P.sabado + "|" + (P.feriados || []).length;
+// calendário de trabalho do estudo, com o sábado e as paralisações da versão
+function calPlano(P, V) {
+  const sab = V?.sabado ?? P.sabado, par = [];
+  for (const a of ativas(V)) if (a.tipo === "paralisacao" && a.d1 && a.d2) par.push(a.d1 + "~" + a.d2);
+  const k = (P.ini || P.t[0]?.i) + "|" + sab + "|" + (P.feriados || []).length + "|" + par.join(",");
   if (calCache.has(k)) return calCache.get(k);
-  const fer = new Set(P.feriados || []), dias = [], idx = new Map();
+  const fer = new Set(P.feriados || []);
+  for (const r of par) { const [a, b] = r.split("~"); for (const d = new Date(a + "T00:00:00Z"), f = new Date(b + "T00:00:00Z"); d <= f; d.setUTCDate(d.getUTCDate() + 1)) fer.add(iso(d)); }
+  const dias = [], idx = new Map();
   const d0 = new Date((P.ini || P.t[0]?.i) + "T00:00:00Z"); d0.setUTCDate(d0.getUTCDate() - 400);
   const d1 = new Date(d0); d1.setUTCFullYear(d1.getUTCFullYear() + 9);
-  for (const d = new Date(d0); d <= d1; d.setUTCDate(d.getUTCDate() + 1)) if (util(d, P.sabado, fer)) { idx.set(iso(d), dias.length); dias.push(iso(d)); }
-  const de = (s, depois = true) => { if (!s) return 0; const d = new Date(s + "T00:00:00Z"); for (let k = 0; k < 20; k++) { const j = idx.get(iso(d)); if (j != null) return j; d.setUTCDate(d.getUTCDate() + (depois ? 1 : -1)); } return 0; };
-  const c = { dias, idx, de, data: j => dias[Math.max(0, Math.min(dias.length - 1, j))] };
+  for (const d = new Date(d0); d <= d1; d.setUTCDate(d.getUTCDate() + 1)) if (util(d, sab, fer)) { idx.set(iso(d), dias.length); dias.push(iso(d)); }
+  const de = (s, depois = true) => { if (!s) return 0; const d = new Date(s + "T00:00:00Z"); for (let k = 0; k < 40; k++) { const j = idx.get(iso(d)); if (j != null) return j; d.setUTCDate(d.getUTCDate() + (depois ? 1 : -1)); } return 0; };
+  const c = { dias, idx, de, fer, sab, data: j => dias[Math.max(0, Math.min(dias.length - 1, j))] };
+  if (calCache.size > 30) calCache.clear();
   calCache.set(k, c); return c;
 }
-// dias úteis de a até b (inclusive)
-function diasEntre(P, a, b) { const c = calPlano(P); return Math.max(0, c.de(b, false) - c.de(a, true) + 1); }
-function somaDias(P, a, d) { const c = calPlano(P), j = c.de(a, true); return c.data(j + Math.max(0, Math.ceil(d) - 1)); }
+function diasEntre(P, a, b, V) { const c = calPlano(P, V); return Math.max(0, c.de(b, false) - c.de(a, true) + 1); }
+function somaDias(P, a, d, V) { const c = calPlano(P, V), j = c.de(a, true); return c.data(j + Math.max(0, Math.ceil(d) - 1)); }
+function ativas(V) { return (V?.alt || []).filter(a => a.on !== false); }
+
+// estrutura da EAP (pai, filhos, frente, texto para busca), guardada fora do estudo
+const estrCache = new WeakMap();
+function estrutura(P) {
+  if (estrCache.has(P.t)) return estrCache.get(P.t);
+  const T = P.t, n = T.length, pai = new Int32Array(n).fill(-1), filhos = T.map(() => []), pilha = [], frente = new Array(n).fill(""), texto = new Array(n).fill("");
+  T.forEach((o, k) => {
+    while (pilha.length && T[pilha[pilha.length - 1]].lv >= o.lv) pilha.pop();
+    if (pilha.length) { pai[k] = pilha[pilha.length - 1]; filhos[pai[k]].push(k); }
+    const n2 = o.lv === 2 ? o.n : pilha.map(j => T[j]).find(x => x.lv === 2)?.n;
+    frente[k] = n2 ? frenteDe(n2) : "";
+    texto[k] = (pilha.filter(j => T[j].lv >= 3).map(j => T[j].n).join(" › ") + " › " + o.n).toLowerCase();
+    pilha.push(k);
+  });
+  const folha = T.map((o, k) => !filhos[k].length);
+  const E = { n, pai, filhos, folha, frente, texto, porU: new Map(T.map((o, k) => [o.u, k])), porW: new Map(T.map((o, k) => [o.w, k])) };
+  estrCache.set(P.t, E); return E;
+}
+// atividades (folhas) que uma alteração em lote atinge
+function alvoIdx(P, a) {
+  const E = estrutura(P), q = (a.busca || "").toLowerCase(), out = [];
+  for (let k = 0; k < E.n; k++) {
+    if (!E.folha[k] || P.t[k].lv < 2) continue;
+    if (a.frente && E.frente[k] !== a.frente) continue;
+    if (a.esp && (a.esp === "-" ? !!P.t[k].esp : P.t[k].esp !== a.esp)) continue;
+    if (a.eap && !(P.t[k].w === a.eap || P.t[k].w.startsWith(a.eap + "."))) continue;
+    if (q && !E.texto[k].includes(q)) continue;
+    out.push(k);
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------- motor de reprogramação (caminho pelos vínculos)
+// Nós: folha k; F(s)=n+s (término do resumo s); S(s)=2n+s (início do resumo s).
+function compilar(P, V, T, cal) {
+  const E = estrutura(P), n = E.n, st = cal.de(V.status || P.status || iso(new Date()), true);
+  const lagD = l => l[3] === 19 || l[3] === 20 ? 0 : l[2] / 10 / P.mpd;
+  const links = T.map(o => (o.pr || []).map(l => [l[0], l[1], lagD(l)]));
+  const dmul = new Float64Array(n).fill(1), snet = new Float64Array(n).fill(-Infinity), livre = new Uint8Array(n);
+  for (const a of ativas(V)) {
+    if (a.tipo === "vinc_novo" || a.tipo === "vinc_alt" || a.tipo === "vinc_rem") {
+      const s = E.porW.get(a.succ), p = E.porW.get(a.pred); if (s == null || p == null) continue;
+      const L = links[s], j = L.findIndex(l => l[0] === T[p].u);
+      if (a.tipo === "vinc_rem") { if (j >= 0) L.splice(j, 1); }
+      else { const nl = [T[p].u, +a.tv, +a.lag || 0]; if (j >= 0) L[j] = nl; else L.push(nl); }
+    } else if (a.tipo === "dur_pct" || a.tipo === "atrasar" || a.tipo === "iniciar_apos" || a.tipo === "livre") {
+      for (const k of alvoIdx(P, a)) {
+        if (a.tipo === "dur_pct") dmul[k] *= Math.max(0, 1 + (+a.v || 0) / 100);
+        else if (a.tipo === "atrasar") snet[k] = Math.max(snet[k], cal.de(P.t[k].i, true) + (+a.v || 0));
+        else if (a.tipo === "iniciar_apos") snet[k] = Math.max(snet[k], cal.de(a.d1, true));
+        else livre[k] = 1;
+      }
+    }
+  }
+  // arestas de entrada de cada folha: [nó de origem, usa término?, tipo, latência, conta a duração própria?]
+  const ent = Array.from({ length: n }, () => []), deps = Array.from({ length: 3 * n }, () => []);
+  for (let k = 0; k < n; k++) {
+    if (!E.folha[k]) {
+      for (const c of E.filhos[k]) { deps[n + k].push(E.folha[c] ? c : n + c); deps[2 * n + k].push(E.folha[c] ? c : 2 * n + c); }
+      continue;
+    }
+    for (let a = k; a >= 0; a = E.pai[a]) for (const [pu, tp, lag] of links[a]) {
+      const p = E.porU.get(pu); if (p == null || p === k) continue;
+      let pai = false; for (let x = E.pai[k]; x >= 0; x = E.pai[x]) if (x === p) { pai = true; break; } if (pai) continue;
+      const usaFim = tp === 1 || tp === 0, no = E.folha[p] ? p : (usaFim ? n + p : 2 * n + p);
+      ent[k].push([no, usaFim, tp, lag, a === k]); deps[k].push(no);
+    }
+  }
+  // ordem topológica
+  const existe = i => i < n ? E.folha[i] : !E.folha[i % n];
+  const grau = new Int32Array(3 * n), suc = Array.from({ length: 3 * n }, () => []);
+  for (let i = 0; i < 3 * n; i++) if (existe(i)) for (const d of deps[i]) { grau[i]++; suc[d].push(i); }
+  const ordem = [], fila = []; for (let i = 0; i < 3 * n; i++) if (existe(i) && !grau[i]) fila.push(i);
+  for (let h = 0; h < fila.length; h++) { const i = fila[h]; ordem.push(i); for (const s of suc[i]) if (--grau[s] === 0) fila.push(s); }
+  const ciclo = []; if (ordem.length < [...Array(3 * n).keys()].filter(existe).length) { const vis = new Set(ordem); for (let i = 0; i < 3 * n; i++) if (existe(i) && !vis.has(i)) { ordem.push(i); ciclo.push(i); } }
+  const ed = V.ed || {}, i0 = new Float64Array(n), f0 = new Float64Array(n);
+  for (let k = 0; k < n; k++) { i0[k] = cal.de(P.t[k].i, true); f0[k] = cal.de(P.t[k].f, false); }
+  const durBase = new Float64Array(n); for (let k = 0; k < n; k++) durBase[k] = (+T[k].d || 0) * dmul[k];
+  const fixoK = T.map(o => o.pct >= 100 ? 2 : o.pct > 0 ? 1 : 0);
+  // executar: durs = durações (dias úteis); nivelar = capacidade por especialidade
+  function rodar(durs, opc = {}) {
+    const ES = new Float64Array(n), EF = new Float64Array(n), VAL = new Float64Array(3 * n);
+    for (let k = 0; k < n; k++) { ES[k] = i0[k]; EF[k] = f0[k] + 1; }
+    const cap = opc.nivelar ? (V.cap || {}) : {}, uso = new Map();
+    const usoDe = e => uso.get(e) || (uso.set(e, new Float32Array(cal.dias.length)), uso.get(e));
+    const reserva = (e, a, b, q) => { const u = usoDe(e); for (let j = Math.max(0, Math.floor(a)); j < Math.ceil(b) && j < u.length; j++) u[j] += q; };
+    for (const no of ordem) {
+      if (no >= n) { const s = no % n, F = no < 2 * n; let v = F ? -Infinity : Infinity; for (const c of E.filhos[s]) { const x = E.folha[c] ? (F ? EF[c] : ES[c]) : VAL[(F ? n : 2 * n) + c]; if (F ? x > v : x < v) v = x; } VAL[no] = v; continue; }
+      const k = no, o = T[k], d = durs[k], esp = P.t[k].esp, ne = +P.t[k].ne || 1, lim = cap[esp];
+      if (fixoK[k] === 2) { ES[k] = cal.de(o.ri || o.i, true); EF[k] = d > 0 ? Math.max(ES[k] + 0.01, cal.de(o.rf || o.f, false) + 1) : ES[k]; continue; }
+      if (fixoK[k] === 1) { ES[k] = cal.de(o.ri || o.i, true); const ini = Math.max(st, ES[k]); EF[k] = ini + d * (1 - o.pct / 100); if (lim) reserva(esp, ini, EF[k], ne); continue; }
+      let r = -Infinity;
+      for (const [fr, usaFim, tp, lag, prop] of ent[k]) {
+        const v = fr < n ? (usaFim ? EF[fr] : ES[fr]) : VAL[fr];
+        const c = v + lag - (prop && (tp === 0 || tp === 2) ? d : 0); if (c > r) r = c;
+      }
+      const e0 = ed[o.u] || {};
+      if (r === -Infinity && i0[k] < st && f0[k] >= st && !e0.i && !e0.d && dmul[k] === 1 && snet[k] === -Infinity) { ES[k] = i0[k]; EF[k] = f0[k] + 1; continue; }
+      let es = Math.max(st, r, V.manter !== false && !livre[k] ? i0[k] : -Infinity, snet[k], e0.i ? cal.de(e0.i, true) : -Infinity);
+      es = Math.ceil(es - 1e-9);
+      if (lim && ne <= lim && d > 0) { const u = usoDe(esp), L = Math.ceil(d); for (let g = 0; g < 5000; g++) { let cf = -1; for (let j = es; j < es + L; j++) if (u[j] + ne > lim + 1e-6) { cf = j; break; } if (cf < 0) break; es = cf + 1; } reserva(esp, es, es + d, ne); }
+      ES[k] = es; EF[k] = es + d;
+    }
+    return { ES, EF, VAL };
+  }
+  // folgas: passagem de volta pelos mesmos vínculos
+  function folgas(ES, EF, durs) {
+    let fim = -Infinity; for (let k = 0; k < n; k++) if (E.folha[k] && EF[k] > fim) fim = EF[k];
+    const LF = new Float64Array(n).fill(fim), LV = new Float64Array(3 * n).fill(Infinity);
+    for (let h = ordem.length - 1; h >= 0; h--) {
+      const no = ordem[h];
+      if (no >= n) { const s = no % n, F = no < 2 * n, b = LV[no]; if (b === Infinity) continue; for (const c of E.filhos[s]) { if (E.folha[c]) LF[c] = Math.min(LF[c], F ? b : b + (EF[c] - ES[c])); else { const x = (F ? n : 2 * n) + c; LV[x] = Math.min(LV[x], b); } } continue; }
+      const k = no, d = EF[k] - ES[k], LS = LF[k] - d;
+      for (const [fr, usaFim, tp, lag, prop] of ent[k]) {
+        const B = LS - lag + (prop && (tp === 0 || tp === 2) ? d : 0);
+        if (fr < n) LF[fr] = Math.min(LF[fr], usaFim ? B : B + (EF[fr] - ES[fr])); else LV[fr] = Math.min(LV[fr], B);
+      }
+    }
+    const TF = new Float64Array(n); for (let k = 0; k < n; k++) TF[k] = LF[k] - EF[k];
+    return { TF, fim };
+  }
+  return { E, n, st, ordem, ciclo, durBase, dmul, fixoK, rodar, folgas };
+}
 
 function vistaDaVersao(P, V) {
-  const c = calPlano(P), ed = V.ed || {}, mpd = P.mpd;
+  const cal = calPlano(P, V), ed = V.ed || {};
   const T = P.t.map(o => {
     const e = ed[o.u], x = Object.assign({}, o);
     if (e) { for (const k of ["pct", "d", "i", "f", "ri", "rf"]) if (e[k] != null && e[k] !== "") x[k] = e[k]; x.alt = 1; }
-    if (e && !V.cpm) { if (e.f == null && (e.i != null || e.d != null)) x.f = x.d > 0 ? somaDias(P, x.i, x.d) : x.i; else if (e.f != null) x.d = diasEntre(P, x.i, x.f); }
+    if (e && !V.cpm) { if (e.f == null && (e.i != null || e.d != null)) x.f = x.d > 0 ? somaDias(P, x.i, x.d, V) : x.i; else if (e.f != null) x.d = diasEntre(P, x.i, x.f, V); }
     if (x.pct >= 100 && e?.pct != null && o.pct < 100) { x.rf ??= x.f; x.ri ??= x.i; }
     if (x.pct > 0 && e?.pct != null && o.pct === 0) x.ri ??= x.i;
     return x;
   });
-  const n = T.length, filhos = T.map(() => []), pai = new Array(n).fill(-1), pilha = [];
-  T.forEach((o, k) => { while (pilha.length && T[pilha[pilha.length - 1]].lv >= o.lv) pilha.pop(); if (pilha.length) { pai[k] = pilha[pilha.length - 1]; filhos[pai[k]].push(k); } pilha.push(k); });
-  const folha = T.map((o, k) => !filhos[k].length);
+  const M = compilar(P, V, T, cal), E = M.E, n = E.n;
+  let ES, EF;
   if (V.cpm) {
-    const st = c.de(V.status || P.status || iso(new Date()), true), porU = new Map(T.map((o, k) => [o.u, k]));
-    const ES = new Float64Array(n), EF = new Float64Array(n);
-    T.forEach((o, k) => { ES[k] = c.de(o.i, true); EF[k] = o.d > 0 ? ES[k] + o.d : ES[k]; });
-    const lag = l => l[3] === 7 || l[3] === 8 || l[3] === 5 || l[3] === 6 ? l[2] / 10 / mpd : l[2] / 10 / mpd;
-    const restr = k => { // pelo vínculo da própria tarefa e dos resumos acima dela
-      let m = -Infinity;
-      for (let a = k; a >= 0; a = pai[a]) for (const l of T[a].pr || []) {
-        const p = porU.get(l[0]); if (p == null) continue;
-        const dur = a === k ? (+T[k].d || 0) : 0, lg = lag(l);
-        const v = l[1] === 1 ? EF[p] + lg : l[1] === 3 ? ES[p] + lg : l[1] === 0 ? EF[p] + lg - dur : ES[p] + lg - dur;
-        if (v > m) m = v;
-      }
-      return m;
-    };
-    for (let it = 0; it < 40; it++) {
-      let mudou = false;
-      for (let k = 0; k < n; k++) {
-        if (!folha[k]) continue;
-        const o = T[k], ed0 = ed[o.u] || {}, d = +o.d || 0;
-        let es, ef;
-        if (o.pct >= 100) { es = c.de(o.ri || o.i, true); ef = Math.max(es, c.de(o.rf || o.f, false) + 1); if (!(d > 0)) ef = es; }
-        else if (o.pct > 0) { es = c.de(o.ri || o.i, true); const r = d * (1 - o.pct / 100); ef = Math.max(st, es) + r; }
-        else {
-          const r0 = restr(k), i0 = c.de(P.t[k].i, true), f0 = c.de(P.t[k].f, false);
-          // sem vínculo e atravessando a data de status (administração, canteiro): é contínua, fica como está
-          if (r0 === -Infinity && i0 < st && f0 >= st && !ed0.i && !ed0.d) { es = i0; ef = f0 + 1; }
-          else { es = Math.max(st, r0);
-          if (V.manter !== false) es = Math.max(es, c.de(P.t[k].i, true));
-          if (ed0.i) es = Math.max(es, c.de(ed0.i, true));
-          es = Math.ceil(es - 1e-9); ef = es + d; }
-        }
-        if (Math.abs(es - ES[k]) > 1e-6 || Math.abs(ef - EF[k]) > 1e-6) { ES[k] = es; EF[k] = ef; mudou = true; }
-      }
-      for (let k = n - 1; k >= 0; k--) if (!folha[k]) { let a = Infinity, b = -Infinity; for (const f of filhos[k]) { if (ES[f] < a) a = ES[f]; if (EF[f] > b) b = EF[f]; } if (a < Infinity) { ES[k] = a; EF[k] = b; } }
-      if (!mudou) break;
+    ({ ES, EF } = M.rodar(M.durBase, { nivelar: !!V.nivelar }));
+    for (let k = 0; k < n; k++) {
+      if (!E.folha[k]) continue; const o = T[k];
+      o.dw = M.durBase[k];
+      o.i = cal.data(Math.floor(ES[k])); o.f = EF[k] > ES[k] + 1e-9 ? cal.data(Math.ceil(EF[k] - 1e-9) - 1) : o.i;
+      o.d = o.pct > 0 && o.pct < 100 ? Math.round((EF[k] - ES[k]) * 100) / 100 : Math.round(M.durBase[k] * 100) / 100;
     }
-    T.forEach((o, k) => { if (!folha[k]) return; o.i = c.data(Math.floor(ES[k])); o.f = EF[k] > ES[k] ? c.data(Math.ceil(EF[k] - 1e-9) - 1) : o.i; if (o.pct > 0 && o.pct < 100) o.dw = o.d, o.d = Math.round((EF[k] - ES[k]) * 100) / 100; });
+  } else {
+    ES = new Float64Array(n); EF = new Float64Array(n);
+    for (let k = 0; k < n; k++) { const o = T[k]; ES[k] = cal.de(o.i, true); EF[k] = o.m || !(o.d > 0) ? ES[k] : cal.de(o.f, false) + 1; }
   }
-  // resumos: datas, duração e % pela soma das folhas
+  const { TF } = M.folgas(ES, EF);
+  for (let k = 0; k < n; k++) if (E.folha[k]) { const o = T[k]; o.tf = Math.round(TF[k] * 10) / 10; if (o.pct < 100 && TF[k] < 0.5) o.cr = 1; }
   for (let k = n - 1; k >= 0; k--) {
-    if (folha[k]) continue;
-    let a = null, b = null, sd = 0, sp = 0;
-    for (const f of filhos[k]) { const x = T[f]; if (!a || x.i < a) a = x.i; if (!b || x.f > b) b = x.f; const w = Math.max(+x.d || 0, 0.01); sd += w; sp += w * x.pct; }
-    const o = T[k]; if (a) { o.i = a; o.f = b; o.d = diasEntre(P, a, b); } o.pct = sd ? Math.round(sp / sd) : o.pct;
+    if (E.folha[k]) continue;
+    let a = null, b = null, sd = 0, sp = 0, cr = 0;
+    for (const f of E.filhos[k]) { const x = T[f]; if (!a || x.i < a) a = x.i; if (!b || x.f > b) b = x.f; const w = Math.max(+(x.dw ?? x.d) || 0, 0.01); sd += w; sp += w * x.pct; if (x.cr) cr = 1; }
+    const o = T[k]; if (a) { o.i = a; o.f = b; o.d = diasEntre(P, a, b, V); } o.pct = sd ? Math.round(sp / sd) : o.pct; if (cr) o.cr = 1;
   }
+  T.ciclos = M.ciclo.length;
   return T;
 }
+
 function fimDe(T) { let f = ""; for (const o of T) if (o.lv >= 1 && o.f > f) f = o.f; return f; }
 
 function editar(P, u, campos) {
@@ -1487,57 +1610,254 @@ function editar(P, u, campos) {
   if (!Object.keys(e).length) delete V.ed[u];
   recalcPlano();
 }
+const CORV = ["#55606b", "#2f6f5e", "#c9853a", "#5b7db1", "#b15b74", "#7a9a3a", "#8b6bb8", "#3a9a9a", "#a0784a", "#c25b3a"];
 function renderVersoes(P, R) {
   const vs = versoesDe(P), A = el("div", { class: "alts", style: "margin:0" });
-  const base = R.versoesFim || [];
   vs.forEach((V, i) => {
-    const f = base[i], b0 = R.fimLB0, d = f && b0 ? ddias(f, b0) : null;
-    A.append(el("button", { class: "alt" + (i === P.vAtual ? " on" : ""), onclick: () => { P.vAtual = i; plUI.sel = null; recalcPlano(false); agendarSalvar(); } },
+    const f = R.versoesFim[i], d = f && R.fimLB0 ? ddias(f, R.fimLB0) : null;
+    A.append(el("button", { class: "alt" + (i === P.vAtual ? " on" : ""), style: `border-left:4px solid ${CORV[i % CORV.length]}`, onclick: () => { P.vAtual = i; plUI.sel = null; recalcPlano(false); agendarSalvar(); } },
       el("b", {}, V.nome), el("span", {}, "término " + fd(f) + " ", d ? el("b", { class: d > 0 ? "d-pior" : "d-melhor" }, (d > 0 ? "+" : "−") + Math.abs(d) + " d x LB0") : "= LB0"),
-      el("span", {}, (V.cpm ? "reprogramada pelos vínculos" : "datas do arquivo") + " · " + Object.keys(V.ed).length + " alterações")));
+      el("span", {}, (V.cpm ? "pelos vínculos" : "datas do arquivo") + " · " + Object.keys(V.ed).length + " ativ. alteradas" + (V.alt?.length ? " · " + V.alt.length + " em lote" : ""))));
   });
   const V = VA(P);
   A.append(el("button", { class: "btn pri", title: "Copia a versão em exibição, com as alterações, e recalcula as datas pelos vínculos a partir da data de status", onclick: () => {
-    const c = copia(V); c.id = id(); c.nome = "Reprogramação " + vs.length; c.cpm = true; c.manter ??= true; vs.push(c); P.vAtual = vs.length - 1; recalcPlano();
-  } }, "+ Gerar reprogramação"));
+    const c = copia(V); c.id = id(); c.nome = (P.vAtual ? V.nome + " (cópia)" : "Reprogramação " + vs.length); c.cpm = true; c.manter ??= true; c.alt ??= []; vs.push(c); P.vAtual = vs.length - 1; recalcPlano();
+  } }, P.vAtual ? "+ Nova alternativa a partir desta" : "+ Gerar reprogramação"));
   if (P.vAtual > 0) A.append(el("button", { class: "btn", onclick: ev => confirmar(ev.currentTarget, `Excluir a versão "${V.nome}"?`, () => { vs.splice(P.vAtual, 1); P.vAtual = 0; recalcPlano(); }) }, "Excluir"));
   const cfg = el("div", { class: "cfg" },
     el("label", {}, "Nome", el("input", { value: V.nome, style: "width:200px", onchange: e => { V.nome = e.target.value || V.nome; recalcPlano(); } })),
-    el("label", { title: "Recalcula as datas pelos vínculos do cronograma (caminho), empurrando o que ficou para trás da data de status" }, el("input", { type: "checkbox", checked: !!V.cpm, onchange: e => { V.cpm = e.target.checked; recalcPlano(); } }), "reprogramar pelos vínculos"),
+    el("label", { title: "Recalcula as datas pelos vínculos do cronograma (caminho), empurrando o que ficou para trás da data de status" }, el("input", { type: "checkbox", checked: !!V.cpm, onchange: e => { V.cpm = e.target.checked; V.alt ??= []; recalcPlano(); } }), "reprogramar pelos vínculos"),
     V.cpm ? el("label", {}, "a partir de", el("input", { type: "date", value: V.status || P.status || "", style: "width:auto", onchange: e => { V.status = e.target.value || null; recalcPlano(); } })) : null,
-    V.cpm ? el("label", { title: "Uma atividade não começa antes da data em que estava planejada no arquivo; desmarque para puxar tudo o que puder ser antecipado" }, el("input", { type: "checkbox", checked: V.manter !== false, onchange: e => { V.manter = e.target.checked; recalcPlano(); } }), "não antecipar o planejado") : null,
-    el("span", { class: "mut" }, "A LB0 fica como referência em todas as versões."));
-  return el("section", { class: "panel", style: "display:flex;flex-direction:column;gap:8px" }, el("header", { style: "margin:0" }, el("h2", {}, "Versões e reprogramações"),
-    el("span", { class: "mut" }, "dê avanço, mude datas e durações; gere reprogramações para comparar")), A, cfg);
+    V.cpm ? el("label", { title: "Uma atividade não começa antes da data em que estava planejada no arquivo; use a alteração \"Remover restrição\" para liberar só um grupo" }, el("input", { type: "checkbox", checked: V.manter !== false, onchange: e => { V.manter = e.target.checked; recalcPlano(); } }), "não antecipar o planejado") : null,
+    el("label", { title: "Premissa desta versão: horas de trabalho por dia (homem-hora e horas-máquina)" }, "h/dia", el("input", { type: "number", min: 1, step: .1, value: V.hdia ?? P.hdia, onchange: e => { const x = +e.target.value; V.hdia = x && x !== P.hdia ? x : undefined; recalcPlano(); } })),
+    el("label", { title: "Premissa desta versão: trabalha aos sábados (muda o calendário da reprogramação)" }, el("input", { type: "checkbox", checked: !!(V.sabado ?? P.sabado), onchange: e => { V.sabado = e.target.checked === !!P.sabado ? undefined : e.target.checked; recalcPlano(); } }), "sábado"),
+    R.ciclos ? el("span", { class: "d-pior" }, R.ciclos + " vínculos em ciclo (ficaram com as datas do arquivo)") : null,
+    el("span", { class: "mut" }, "LB0 = referência em todas as versões."));
+  return el("section", { class: "panel", style: "display:flex;flex-direction:column;gap:8px" }, el("header", { style: "margin:0" }, el("h2", {}, "Versões e alternativas"),
+    el("span", { class: "mut" }, "cada alternativa guarda o avanço, as datas e as alterações em lote dela; compare na aba Reprogramações")), A, cfg);
 }
+
+// ---------------------------------------------------------------- alterações em lote
+const TIPOS_ALT = [
+  ["dur_pct", "Duração em % (produtividade)"], ["atrasar", "Atrasar o início (dias úteis)"], ["iniciar_apos", "Iniciar após uma data"], ["livre", "Remover restrição (pode antecipar)"],
+  ["vinc_alt", "Alterar vínculo"], ["vinc_novo", "Novo vínculo"], ["vinc_rem", "Remover vínculo"], ["paralisacao", "Paralisação (dias sem trabalho)"], ["incerteza", "Incerteza (Monte Carlo)"]];
+const TV = [[1, "TI (término → início)"], [3, "II (início → início)"], [0, "TT (término → término)"], [2, "IT (início → término)"]];
+const nomeTipo = t => TIPOS_ALT.find(x => x[0] === t)?.[1] || t;
+function descAlvo(a) { const p = []; if (a.frente) p.push(a.frente); if (a.esp) p.push(a.esp === "-" ? "sem especialidade" : a.esp); if (a.eap) p.push("EAP " + a.eap); if (a.busca) p.push("\"" + a.busca + "\""); return p.length ? p.join(" · ") : "todas as atividades"; }
+function descAlt(P, a) {
+  const nm = w => { const k = estrutura(P).porW.get(w); return k == null ? w + " (não encontrada)" : w + " " + P.t[k].n; };
+  const tv = TV.find(x => x[0] === +a.tv)?.[1].slice(0, 2);
+  switch (a.tipo) {
+    case "dur_pct": return `${(+a.v > 0 ? "+" : "") + a.v}% na duração · ${descAlvo(a)}`;
+    case "atrasar": return `início ${a.v} dias úteis depois do planejado · ${descAlvo(a)}`;
+    case "iniciar_apos": return `não iniciar antes de ${fd(a.d1)} · ${descAlvo(a)}`;
+    case "livre": return `pode antecipar (sem a trava do planejado) · ${descAlvo(a)}`;
+    case "vinc_alt": case "vinc_novo": return `${nm(a.pred)} → ${nm(a.succ)} · ${tv}${+a.lag ? (+a.lag > 0 ? " +" : " ") + a.lag + " d" : ""}`;
+    case "vinc_rem": return `sem vínculo ${nm(a.pred)} → ${nm(a.succ)}`;
+    case "paralisacao": return `sem trabalho de ${fd(a.d1)} a ${fd(a.d2)}${a.texto ? " · " + a.texto : ""}`;
+    case "incerteza": return `duração entre ${a.v1}% / ${a.v2}% / ${a.v3}% (otimista / provável / pessimista) · ${descAlvo(a)}`;
+  }
+  return a.tipo;
+}
+const novaAlt = { tipo: "dur_pct", v: -15, frente: "", esp: "", eap: "", busca: "", tv: 1, lag: 0, v1: -10, v2: 0, v3: 25 };
+function painelAlteracoes(P, R) {
+  const V = VA(P), box = el("section", { class: "panel" }, el("header", {}, el("h2", {}, "Alterações em lote · " + V.nome),
+    el("span", { class: "mut" }, "valem só nesta alternativa; ligue e desligue para testar")));
+  if (!V.cpm) { box.append(el("p", { class: "mut" }, "A versão do arquivo não recalcula datas. Gere uma reprogramação (botão acima) para usar alterações em lote, vínculos, paralisações e capacidade.")); return box; }
+  const a = novaAlt, frentes = [...new Set(estrutura(P).frente.filter(Boolean))], esps = Object.keys(P.especialidades).sort();
+  const re = () => { const b = painelAlteracoes(P, R); box.replaceWith(b); };
+  const inp = (campo, tipo = "number", w = "70px", extra = {}) => el("input", Object.assign({ type: tipo, value: a[campo] ?? "", style: `width:${w}`, onchange: e => { a[campo] = tipo === "number" ? +e.target.value : e.target.value; re(); } }, extra));
+  const ehTarefa = ["dur_pct", "atrasar", "iniciar_apos", "livre", "incerteza"].includes(a.tipo), ehVinc = a.tipo.startsWith("vinc");
+  const nAlvo = ehTarefa ? alvoIdx(P, a).length : 0;
+  const nomeEap = w => { const k = estrutura(P).porW.get(w); return el("span", { class: k == null ? "d-pior" : "mut" }, w ? (k == null ? "não encontrada" : P.t[k].n) : ""); };
+  const form = el("div", { class: "cfg", style: "background:var(--accent-soft);padding:8px;border-radius:6px" },
+    el("label", {}, "Tipo", el("select", { onchange: e => { a.tipo = e.target.value; re(); } }, TIPOS_ALT.map(([v, t]) => el("option", { value: v, selected: a.tipo === v }, t)))),
+    a.tipo === "dur_pct" ? el("label", { title: "+20 = 20% mais longo; −15 = 15% mais rápido" }, "variação", inp("v"), "%") : null,
+    a.tipo === "atrasar" ? el("label", {}, inp("v"), "dias úteis") : null,
+    a.tipo === "iniciar_apos" ? el("label", {}, "não antes de", inp("d1", "date", "auto")) : null,
+    a.tipo === "incerteza" ? [el("label", {}, "otimista", inp("v1", "number", "58px"), "%"), el("label", {}, "provável", inp("v2", "number", "58px"), "%"), el("label", {}, "pessimista", inp("v3", "number", "58px"), "%")] : null,
+    a.tipo === "paralisacao" ? [el("label", {}, "de", inp("d1", "date", "auto")), el("label", {}, "até", inp("d2", "date", "auto")), el("label", {}, "motivo", inp("texto", "text", "160px"))] : null,
+    ehVinc ? [el("label", {}, "predecessora (EAP)", inp("pred", "text", "110px"), nomeEap(a.pred)), el("label", {}, "sucessora (EAP)", inp("succ", "text", "110px"), nomeEap(a.succ)),
+      a.tipo !== "vinc_rem" ? [el("label", {}, "tipo", el("select", { onchange: e => { a.tv = +e.target.value; } }, TV.map(([v, t]) => el("option", { value: v, selected: +a.tv === v }, t)))), el("label", {}, "latência", inp("lag", "number", "58px"), "dias")] : null] : null,
+    ehTarefa ? el("span", { style: "flex-basis:100%;display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center" }, el("b", {}, "Em quais atividades:"),
+      el("label", {}, "frente", el("select", { onchange: e => { a.frente = e.target.value; re(); } }, el("option", { value: "" }, "todas"), frentes.map(f => el("option", { value: f, selected: a.frente === f }, f)))),
+      el("label", {}, "especialidade", el("select", { onchange: e => { a.esp = e.target.value; re(); } }, el("option", { value: "" }, "todas"), esps.map(s => el("option", { value: s, selected: a.esp === s }, s)))),
+      el("label", { title: "Código da EAP; pega o item e tudo o que está abaixo dele" }, "EAP", inp("eap", "text", "90px")),
+      el("label", { title: "Procura no nome da atividade e dos níveis acima (pavimento, pacote)" }, "contém", inp("busca", "text", "150px")),
+      el("b", { class: nAlvo ? "" : "d-pior" }, nAlvo + " atividades")) : null,
+    el("button", { class: "btn sm pri", onclick: () => {
+      if (ehTarefa && !nAlvo) return; if (ehVinc && (!estrutura(P).porW.has(a.pred) || !estrutura(P).porW.has(a.succ))) return; if (a.tipo === "paralisacao" && !(a.d1 && a.d2)) return; if (a.tipo === "iniciar_apos" && !a.d1) return;
+      const x = { id: id(), on: true, tipo: a.tipo };
+      for (const k of ehTarefa ? ["frente", "esp", "eap", "busca"] : []) if (a[k]) x[k] = a[k];
+      for (const k of { dur_pct: ["v"], atrasar: ["v"], iniciar_apos: ["d1"], incerteza: ["v1", "v2", "v3"], paralisacao: ["d1", "d2", "texto"], vinc_alt: ["pred", "succ", "tv", "lag"], vinc_novo: ["pred", "succ", "tv", "lag"], vinc_rem: ["pred", "succ"] }[a.tipo] || []) x[k] = a[k];
+      (V.alt ??= []).push(x); recalcPlano();
+    } }, "Adicionar"));
+  box.append(form);
+  if (V.alt?.length) box.append(el("table", { class: "t", style: "margin-top:8px" }, el("tbody", {}, V.alt.map((x, j) => el("tr", { style: x.on === false ? "opacity:.5" : "" },
+    el("td", { style: "width:24px" }, el("input", { type: "checkbox", checked: x.on !== false, title: "Ligar/desligar", onchange: e => { x.on = e.target.checked; recalcPlano(); } })),
+    el("td", { class: "mut", style: "white-space:nowrap" }, nomeTipo(x.tipo)), el("td", {}, descAlt(P, x)),
+    el("td", { class: "n r mut" }, ["dur_pct", "atrasar", "iniciar_apos", "livre", "incerteza"].includes(x.tipo) ? alvoIdx(P, x).length + " ativ." : ""),
+    el("td", { style: "white-space:nowrap" }, el("button", { class: "link", disabled: !j, title: "Subir", onclick: () => { [V.alt[j - 1], V.alt[j]] = [V.alt[j], V.alt[j - 1]]; recalcPlano(); } }, "▲"),
+      el("button", { class: "link", onclick: () => { V.alt.splice(j, 1); recalcPlano(); } }, "excluir")))))));
+  // capacidade (nivelamento)
+  const usadas = Object.keys(R.porEsp).sort();
+  V.cap ??= {};
+  box.append(el("div", { style: "margin-top:12px" },
+    el("div", { class: "cfg" }, el("b", {}, "Capacidade por especialidade (nivelamento)"),
+      el("label", { title: "Quando ligado, uma atividade só começa se houver equipe livre da especialidade; senão espera" }, el("input", { type: "checkbox", checked: !!V.nivelar, onchange: e => { V.nivelar = e.target.checked; recalcPlano(); } }), "nivelar nesta alternativa"),
+      el("span", { class: "mut" }, "máximo de equipes trabalhando ao mesmo tempo; em branco = sem limite. Entre parênteses, o pico atual.")),
+    el("div", { class: "equipes", style: "grid-template-columns:repeat(auto-fill,minmax(210px,1fr));margin-top:6px" }, usadas.map(e => el("label", { class: "cfg", style: "justify-content:space-between;border:1px solid var(--rule);border-radius:5px;padding:3px 8px" },
+      el("span", {}, e, el("span", { class: "mut" }, " (" + nf(R.porEsp[e].picoEq) + ")")),
+      el("input", { type: "number", min: 1, step: 1, value: V.cap[e] ?? "", style: "width:54px" + (V.cap[e] ? ";border-color:var(--accent);font-weight:600" : ""), onchange: ev => { const x = +ev.target.value | 0; if (x > 0) V.cap[e] = x; else delete V.cap[e]; recalcPlano(); } }))))));
+  return box;
+}
+
+// ---------------------------------------------------------------- comparação
 function renderComparaVersoes(P, R, C) {
-  const vs = versoesDe(P);
-  const T = el("table", { class: "t" }, el("thead", {}, el("tr", {}, ["Versão", "Modo", "Alterações", "Término", "x LB0", "x arquivo", ...["Torre B", "Torre A", "Condomínio"].map(f => "Término " + f), "Atividades atrasadas"].map((h, j) => el("th", { class: j > 1 ? "r" : "" }, h)))));
+  C.append(painelAlteracoes(P, R));
+  const vs = versoesDe(P), frs = ["Torre B", "Torre A", "Condomínio", "Geral e entrega"];
+  const T = el("table", { class: "t" }, el("thead", {}, el("tr", {}, ["Versão", "Modo", "Alterações", "Término", "x LB0", "x arquivo", ...frs.map(f => f), "Atrasadas", "Críticas"].map((h, j) => el("th", { class: j > 1 ? "r" : "" }, h)))));
   const tb = el("tbody"), f0 = R.versoesFim[0];
   vs.forEach((V, i) => {
-    const X = R.versoesInfo[i]; const d0 = ddias(X.fim, R.fimLB0), d1 = ddias(X.fim, f0);
+    const X = R.versoesInfo[i], d0 = ddias(X.fim, R.fimLB0), d1 = ddias(X.fim, f0);
     const dd = d => el("td", { class: "n r " + (d > 0 ? "d-pior" : d < 0 ? "d-melhor" : "") }, d ? (d > 0 ? "+" : "") + d + " d" : "—");
     tb.append(el("tr", { class: i === P.vAtual ? "sel" : "", style: "cursor:pointer", onclick: () => { P.vAtual = i; recalcPlano(false); } },
-      el("td", {}, V.nome), el("td", { class: "mut" }, V.cpm ? "pelos vínculos, a partir de " + fd(V.status || P.status) : "datas do arquivo"), el("td", { class: "n r" }, Object.keys(V.ed).length),
-      el("td", { class: "n r" }, fd(X.fim)), dd(d0), i ? dd(d1) : el("td", { class: "n r mut" }, "referência"),
-      ["Torre B", "Torre A", "Condomínio"].map(f => el("td", { class: "n r" }, fd(X.frentes[f]))), el("td", { class: "n r" }, nf(X.atras))));
+      el("td", {}, el("span", { class: "sw", style: `background:${CORV[i % CORV.length]};display:inline-block;margin-right:6px` }), V.nome),
+      el("td", { class: "mut" }, V.cpm ? "vínculos desde " + fd(V.status || P.status) + (V.nivelar ? " · nivelada" : "") : "datas do arquivo"),
+      el("td", { class: "n r" }, Object.keys(V.ed).length + (V.alt?.length ? " + " + V.alt.filter(a => a.on !== false).length + " lote" : "")),
+      el("td", { class: "n r" }, fd(X.fim)), dd(d0), i ? dd(d1) : el("td", { class: "n r mut" }, "ref."),
+      frs.map(f => el("td", { class: "n r" }, fd(X.frentes[f]))), el("td", { class: "n r" }, nf(X.atras)), el("td", { class: "n r" }, nf(X.crit))));
   });
   T.append(tb);
-  C.append(el("section", { class: "panel" }, el("header", {}, el("h2", {}, "Comparação das versões")), el("div", { class: "scroll" }, T)));
-  // alterações da versão em exibição
+  C.append(el("section", { class: "panel", style: "margin-top:12px" }, el("header", {}, el("h2", {}, "Quadro comparativo")), el("div", { class: "scroll" }, T)));
+  C.append(miniGantt(P, R), curvaS(P, R), detalheDuas(P, R));
+  // alterações por atividade
   const V = VA(P), ed = Object.entries(V.ed);
-  const T2 = el("table", { class: "t" }, el("thead", {}, el("tr", {}, ["EAP", "Atividade", "O que mudou", ""].map(h => el("th", {}, h)))));
-  const tb2 = el("tbody");
-  const rot = { pct: "%", d: "duração", i: "início", f: "término", ri: "início real", rf: "término real" };
-  for (const [u, e] of ed) {
-    const L = R.porUid.get(+u); if (!L) continue;
-    const o0 = P.t[L.k];
-    tb2.append(el("tr", {}, el("td", { class: "n mut" }, L.o.w), el("td", {}, L.o.n),
-      el("td", {}, Object.entries(e).map(([k, v]) => `${rot[k] || k}: ${k === "pct" ? o0.pct + "% → " + v + "%" : k === "d" ? nf(o0.d, 1) + " → " + nf(v, 1) + " d" : (o0[k] ? fd(o0[k]) + " → " : "") + fd(v)}`).join(" · ")),
-      el("td", {}, el("button", { class: "link", onclick: () => { delete V.ed[u]; recalcPlano(); } }, "desfazer"))));
+  if (ed.length) {
+    const rot = { pct: "%", d: "duração", i: "início", f: "término", ri: "início real", rf: "término real" };
+    const T2 = el("table", { class: "t" }, el("thead", {}, el("tr", {}, ["EAP", "Atividade", "O que mudou", ""].map(h => el("th", {}, h)))), el("tbody", {}, ed.map(([u, e]) => {
+      const L = R.porUid.get(+u); if (!L) return null; const o0 = P.t[L.k];
+      return el("tr", {}, el("td", { class: "n mut" }, L.o.w), el("td", {}, L.o.n),
+        el("td", {}, Object.entries(e).map(([k, v]) => `${rot[k] || k}: ${k === "pct" ? o0.pct + "% → " + v + "%" : k === "d" ? nf(o0.d, 1) + " → " + nf(v, 1) + " d" : (o0[k] ? fd(o0[k]) + " → " : "") + fd(v)}`).join(" · ")),
+        el("td", {}, el("button", { class: "link", onclick: () => { delete V.ed[u]; recalcPlano(); } }, "desfazer")));
+    })));
+    C.append(el("section", { class: "panel", style: "margin-top:12px" }, el("header", {}, el("h2", {}, "Atividades alteradas em \"" + V.nome + "\""), el("span", { class: "mut" }, ed.length + " atividades")), el("div", { class: "scroll" }, T2)));
   }
-  T2.append(tb2);
-  C.append(el("section", { class: "panel", style: "margin-top:12px" }, el("header", {}, el("h2", {}, "Alterações em \"" + V.nome + "\""), el("span", { class: "mut" }, ed.length ? ed.length + " atividades" : "nenhuma alteração ainda")), ed.length ? el("div", { class: "scroll" }, T2) : null));
+}
+function grandesEtapas(P) { const E = estrutura(P), out = []; P.t.forEach((o, k) => { if (E.folha[k]) return; if (o.lv === 2 && !/^torre/i.test(o.n)) out.push(k); if (o.lv === 3 && /^torre/i.test(P.t[E.pai[k]].n)) out.push(k); }); return out; }
+function miniGantt(P, R) {
+  const ks = grandesEtapas(P), E = estrutura(P), vs = R.vistas;
+  let a = "9999", b = ""; for (const V of vs) for (const k of ks) { if (V[k].i < a) a = V[k].i; if (V[k].f > b) b = V[k].f; }
+  const t0 = new Date(a + "T00:00:00Z"), t1 = new Date(b + "T00:00:00Z"), W = 900, X = s => (new Date(s + "T00:00:00Z") - t0) / (t1 - t0) * W;
+  const linhas = ks.map(k => el("div", { class: "mg-g" }, el("div", { class: "mg-n", title: P.t[k].n }, (P.t[k].lv === 3 ? P.t[E.pai[k]].n + " › " : "") + P.t[k].n),
+    el("div", { class: "mg-b" }, vs.map((V, i) => el("div", { class: "mg-r" }, el("div", { class: "mg-bar", style: `left:${X(V[k].i) / W * 100}%;width:${Math.max(0.3, (X(V[k].f) - X(V[k].i)) / W * 100)}%;background:${CORV[i % CORV.length]}`, title: `${versoesDe(P)[i].nome}: ${fd(V[k].i)} → ${fd(V[k].f)}` }))),
+      P.t[k].b0f ? el("div", { class: "mg-lb", style: `left:${X(P.t[k].b0f) / W * 100}%`, title: "término LB0 " + fd(P.t[k].b0f) }) : null)));
+  const marcas = []; for (const d = new Date(t0); d <= t1; d.setUTCMonth(d.getUTCMonth() + 3, 1)) marcas.push(el("span", { style: `left:${X(iso(d)) / W * 100}%` }, ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"][d.getUTCMonth()] + "/" + String(d.getUTCFullYear()).slice(2)));
+  return el("section", { class: "panel", style: "margin-top:12px" }, el("header", {}, el("h2", {}, "Grandes etapas por alternativa"), el("span", { class: "mut" }, "uma barra por versão, na cor do quadro; o traço vermelho é o término na LB0")),
+    el("div", { class: "mini-gantt" }, linhas, el("div", { class: "mg-ax" }, marcas)));
+}
+function curvaSDe(P, T, cal, campoI, campoF) {
+  const E = estrutura(P), N = cal.dias.length, a = new Float64Array(N); let tot = 0;
+  T.forEach((o, k) => { if (!E.folha[k] || o.m) return; const i = o[campoI], f = o[campoF]; if (!i || !f) return; const w = +(P.t[k].d) || 0; if (!(w > 0)) return; const x = cal.de(i, true), y = Math.max(x, cal.de(f, false)); for (let j = x; j <= y; j++) a[j] += w / (y - x + 1); tot += w; });
+  let s = 0; for (let j = 0; j < N; j++) { s += a[j]; a[j] = tot ? s / tot : 0; } return a;
+}
+function curvaS(P, R) {
+  const cal = calPlano(P), vs = R.vistas, curvas = vs.map(T => curvaSDe(P, T, cal, "i", "f")), lb = curvaSDe(P, P.t, cal, "b0i", "b0f");
+  let a = cal.de(P.ini || P.t[0].i, true), b = 0; for (const c of [...curvas, lb]) { const j = c.findIndex(v => v >= 0.9999); if (j > b) b = j; }
+  b = Math.min(cal.dias.length - 1, b + 10);
+  const W = 900, H = 240, x = j => 40 + (j - a) / (b - a) * (W - 50), y = v => H - 20 - v * (H - 40);
+  const NS = "http://www.w3.org/2000/svg", sv = (t, at = {}) => { const e = document.createElementNS(NS, t); for (const [k, v] of Object.entries(at)) e.setAttribute(k, v); return e; };
+  const cs = getComputedStyle(document.documentElement), cor = n => cs.getPropertyValue(n).trim();
+  const svg = sv("svg", { viewBox: `0 0 ${W} ${H}`, width: "100%", style: "max-width:1100px", role: "img", "aria-label": "Curva S" });
+  for (let g = 0; g <= 1.0001; g += .25) { svg.append(sv("line", { x1: 40, x2: W - 10, y1: y(g), y2: y(g), stroke: cor("--rule") })); const t = sv("text", { x: 34, y: y(g) + 4, "font-size": 10, "text-anchor": "end", fill: cor("--mut") }); t.textContent = Math.round(g * 100) + "%"; svg.append(t); }
+  let ult = -1; for (let j = a; j <= b; j++) { const d = new Date(cal.dias[j] + "T00:00:00Z"); if (d.getUTCMonth() % 3 === 0 && d.getUTCMonth() !== ult) { ult = d.getUTCMonth(); const t = sv("text", { x: x(j), y: H - 4, "font-size": 10, fill: cor("--mut") }); t.textContent = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"][ult] + "/" + String(d.getUTCFullYear()).slice(2); svg.append(t); } else if (d.getUTCMonth() % 3) ult = -1; }
+  const linha = (c, st, w, dash) => { let d = ""; for (let j = a; j <= b; j += 2) d += (d ? "L" : "M") + x(j).toFixed(1) + " " + y(c[j]).toFixed(1); svg.append(sv("path", { d, fill: "none", stroke: st, "stroke-width": w, "stroke-dasharray": dash || "" })); };
+  linha(lb, cor("--mut"), 1.5, "5 4");
+  curvas.forEach((c, i) => linha(c, CORV[i % CORV.length], i === P.vAtual ? 2.5 : 1.5));
+  const sx = x(cal.de(R.st, true)); svg.append(sv("line", { x1: sx, x2: sx, y1: 10, y2: H - 20, stroke: cor("--bad"), "stroke-dasharray": "3 3" }));
+  return el("section", { class: "panel", style: "margin-top:12px" }, el("header", {}, el("h2", {}, "Curva S física (% acumulado)"), el("span", { class: "mut" }, "ponderada pela duração das atividades; tracejado = LB0, vermelho = data de status")),
+    svg, el("div", { class: "leg" }, el("span", {}, el("i", { style: `background:${cor("--mut")}` }), "LB0"), versoesDe(P).map((V, i) => el("span", {}, el("i", { style: `background:${CORV[i % CORV.length]}` }), V.nome))));
+}
+function detalheDuas(P, R) {
+  const vs = versoesDe(P); plUI.cA ??= 0; plUI.cB ??= Math.min(vs.length - 1, P.vAtual || vs.length - 1);
+  if (plUI.cA >= vs.length) plUI.cA = 0; if (plUI.cB >= vs.length) plUI.cB = vs.length - 1;
+  const A = R.vistas[plUI.cA], B = R.vistas[plUI.cB], E = estrutura(P);
+  const box = el("section", { class: "panel", style: "margin-top:12px" });
+  const sel = (k) => el("select", { onchange: e => { plUI[k] = +e.target.value; box.replaceWith(detalheDuas(P, R)); } }, vs.map((V, i) => el("option", { value: i, selected: plUI[k] === i }, V.nome)));
+  const dif = []; let adi = 0, ant = 0;
+  P.t.forEach((o, k) => { if (!E.folha[k]) return; const d = ddias(B[k].f, A[k].f); if (d > 0) adi++; if (d < 0) ant++; if (d) dif.push([Math.abs(d), d, k]); });
+  dif.sort((x, y) => y[0] - x[0]);
+  const fa = fimDe(A), fb = fimDe(B), dt = ddias(fb, fa);
+  box.append(el("header", {}, el("h2", {}, "Detalhe entre duas alternativas"), el("span", { class: "cfg" }, sel("cA"), "×", sel("cB"))),
+    el("p", { style: "margin:4px 0 8px" }, `Término ${fd(fa)} → ${fd(fb)} `, el("b", { class: dt > 0 ? "d-pior" : dt < 0 ? "d-melhor" : "" }, dt ? (dt > 0 ? "+" : "") + dt + " dias corridos" : "igual"), ` · ${nf(adi)} atividades terminam depois, ${nf(ant)} antes`),
+    dif.length ? el("div", { class: "scroll" }, el("table", { class: "t" }, el("thead", {}, el("tr", {}, ["EAP", "Atividade", "Local", "Término A", "Término B", "Diferença"].map((h, j) => el("th", { class: j > 2 ? "r" : "" }, h)))),
+      el("tbody", {}, dif.slice(0, 30).map(([, d, k]) => el("tr", {}, el("td", { class: "n mut" }, P.t[k].w), el("td", {}, P.t[k].n), el("td", { class: "mut" }, E.texto[k].split(" › ").slice(0, -1).slice(-2).join(" › ")),
+        el("td", { class: "n r" }, fd(A[k].f)), el("td", { class: "n r" }, fd(B[k].f)), el("td", { class: "n r " + (d > 0 ? "d-pior" : "d-melhor") }, (d > 0 ? "+" : "") + d + " d")))))) : el("p", { class: "mut" }, "Nenhuma diferença de datas."));
+  return box;
+}
+
+// ---------------------------------------------------------------- riscos (Monte Carlo)
+function triangular(a, m, b) { if (b <= a) return m; const u = Math.random(), c = (m - a) / (b - a); return u < c ? a + Math.sqrt(u * (b - a) * (m - a)) : b - Math.sqrt((1 - u) * (b - a) * (b - m)); }
+function gruposIncerteza(P, V) {
+  const g = ativas(V).filter(a => a.tipo === "incerteza").map(a => ({ nome: descAlvo(a), ks: alvoIdx(P, a), o: +a.v1, m: +a.v2, p: +a.v3 }));
+  if (g.length) return { g, padrao: false };
+  const por = {}; P.t.forEach((o, k) => { if (o.esp && estrutura(P).folha[k] && o.pct < 100) (por[o.esp] ||= []).push(k); });
+  return { g: Object.entries(por).map(([e, ks]) => ({ nome: e, ks, o: -10, m: 0, p: 30 })), padrao: true };
+}
+function renderRiscos(P, R, C) {
+  const V = VA(P);
+  if (!V.cpm) { C.append(el("p", {}, "A simulação de Monte Carlo usa o recálculo pelos vínculos. Gere uma reprogramação (botão acima) e rode a simulação nela.")); return; }
+  const { g, padrao } = gruposIncerteza(P, V);
+  plUI.mcN ??= 500;
+  const res = plUI.mc && plUI.mc.vid === V.id ? plUI.mc : null;
+  C.append(el("div", { class: "cfg", style: "margin-bottom:8px" },
+    el("label", {}, "Iterações", el("input", { type: "number", min: 50, step: 50, value: plUI.mcN, onchange: e => plUI.mcN = Math.max(50, +e.target.value | 0) })),
+    el("button", { class: "btn sm pri", id: "mcRodar", onclick: () => rodarMC(P, V, g) }, "Rodar simulação"), el("span", { id: "mcProg", class: "mut" }),
+    el("span", { class: "mut" }, padrao ? "Sem alterações de incerteza nesta alternativa: usando −10% / 0% / +30% por especialidade (crie alterações \"Incerteza\" na aba Reprogramações para ajustar)." : g.length + " grupos de incerteza desta alternativa.")));
+  if (!res) { C.append(el("p", { class: "mut" }, "Cada iteração sorteia a duração de cada grupo (distribuição triangular) e recalcula o caminho pelos vínculos. O resultado mostra a chance de terminar em cada data, o que mais mexe no prazo e as atividades que mais vezes ficam no caminho crítico.")); return; }
+  const cal = calPlano(P, V), Fs = res.fins.slice().sort((a, b) => a - b), q = p => cal.data(Math.ceil(Fs[Math.min(Fs.length - 1, Math.floor(p * Fs.length))]) - 1);
+  const det = R.fim, lb = R.fimLB0, pLB = res.fins.filter(f => cal.data(Math.ceil(f) - 1) <= lb).length / res.fins.length, pDet = res.fins.filter(f => cal.data(Math.ceil(f) - 1) <= det).length / res.fins.length;
+  const K = el("div", { class: "kpis", style: "margin-bottom:12px" }, [["Determinístico", fd(det), "chance " + Math.round(pDet * 100) + "%"], ["P10", fd(q(.1))], ["P50", fd(q(.5))], ["P80", fd(q(.8))], ["P90", fd(q(.9))], ["Término LB0", fd(lb), "chance " + Math.round(pLB * 100) + "%"]]
+    .map(([r, v, s]) => el("div", { class: "kpi" }, el("span", {}, r), el("b", {}, v, s ? el("small", { class: "mut" }, s) : null))));
+  C.append(K);
+  // histograma por semana
+  const sem = new Map(); for (const f of res.fins) { const d = new Date(cal.data(Math.ceil(f) - 1) + "T00:00:00Z"); d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7)); const k = iso(d); sem.set(k, (sem.get(k) || 0) + 1); }
+  const ks = [...sem.keys()].sort(), mx = Math.max(...sem.values());
+  let ac = 0;
+  const hist = el("div", { class: "mc-h" }, ks.map(k => { ac += sem.get(k); return el("div", { class: "mc-c", title: `semana de ${fd(k)}: ${sem.get(k)} iterações · acumulado ${Math.round(ac / res.fins.length * 100)}%` }, el("div", { style: `height:${sem.get(k) / mx * 100}%` }), el("span", {}, fd(k).slice(0, 5))); }));
+  C.append(el("section", { class: "panel" }, el("header", {}, el("h2", {}, "Distribuição do término"), el("span", { class: "mut" }, `${res.fins.length} iterações · ${Math.round(res.ms)} ms`)), hist));
+  const tor = res.tornado.slice(0, 12), mt = Math.max(0.01, ...tor.map(t => Math.abs(t.r)));
+  C.append(el("div", { style: "display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:12px;margin-top:12px" },
+    el("section", { class: "panel" }, el("header", {}, el("h2", {}, "Tornado: o que mais move o prazo"), el("span", { class: "mut" }, "correlação entre a duração sorteada do grupo e o término")),
+      el("div", {}, tor.map(t => el("div", { class: "tor" }, el("span", { title: t.nome }, t.nome), el("div", {}, el("i", { style: `width:${Math.abs(t.r) / mt * 100}%` })), el("b", {}, t.r.toFixed(2)))))),
+    el("section", { class: "panel" }, el("header", {}, el("h2", {}, "Índice de criticidade"), el("span", { class: "mut" }, "% das iterações em que a atividade ficou no caminho crítico")),
+      el("table", { class: "t" }, el("tbody", {}, res.crit.slice(0, 20).map(([k, c]) => el("tr", {}, el("td", { class: "n mut" }, P.t[k].w), el("td", {}, P.t[k].n), el("td", { class: "mut" }, estrutura(P).texto[k].split(" › ").slice(0, -1).slice(-2).join(" › ")), el("td", { class: "n r" }, Math.round(c * 100) + "%"))))))));
+}
+function rodarMC(P, V, g) {
+  const t0 = performance.now(), N = plUI.mcN, cal = calPlano(P, V);
+  const Tb = P.t.map((o, k) => Object.assign({}, o, V.ed[o.u] || {}));
+  const M = compilar(P, V, Tb, cal), E = M.E, n = E.n;
+  const fins = [], fatores = g.map(() => []), critCont = new Float64Array(n), durs = new Float64Array(n);
+  let it = 0;
+  const prog = $("#mcProg"), bt = $("#mcRodar"); if (bt) bt.disabled = true;
+  const passo = () => {
+    const lim = Math.min(N, it + 25);
+    for (; it < lim; it++) {
+      durs.set(M.durBase);
+      g.forEach((gr, j) => { const f = 1 + triangular(gr.o, gr.m, gr.p) / 100; fatores[j].push(f); for (const k of gr.ks) durs[k] *= f; });
+      const { ES, EF } = M.rodar(durs, { nivelar: !!V.nivelar });
+      const { TF, fim } = M.folgas(ES, EF); fins.push(fim);
+      for (let k = 0; k < n; k++) if (E.folha[k] && M.fixoK[k] < 2 && TF[k] < 0.5) critCont[k]++;
+    }
+    if (prog) prog.textContent = it + " / " + N;
+    if (it < N) return setTimeout(passo, 0);
+    const corr = (x, y) => { const m = a => a.reduce((s, v) => s + v, 0) / a.length, mx = m(x), my = m(y); let a = 0, b = 0, c = 0; for (let i = 0; i < x.length; i++) { a += (x[i] - mx) * (y[i] - my); b += (x[i] - mx) ** 2; c += (y[i] - my) ** 2; } return b && c ? a / Math.sqrt(b * c) : 0; };
+    const tornado = g.map((gr, j) => ({ nome: gr.nome, r: corr(fatores[j], fins) })).sort((a, b) => Math.abs(b.r) - Math.abs(a.r));
+    const crit = []; for (let k = 0; k < n; k++) if (critCont[k]) crit.push([k, critCont[k] / N]); crit.sort((a, b) => b[1] - a[1]);
+    plUI.mc = { vid: V.id, fins, tornado, crit, ms: performance.now() - t0 };
+    renderPlano();
+  };
+  passo();
 }
 
 // ---------------------------------------------------------------- cálculo
@@ -1556,10 +1876,10 @@ function situacaoDe(o, st) {
 const SIT_COR = { "Concluída": "var(--ok)", "Em andamento": "var(--warn)", "Em andamento – atrasada": "#d9730d", "Não iniciada – atrasada": "var(--bad)", "A iniciar": "var(--mut)" };
 
 function calcularPlano(P) {
-  const vs = versoesDe(P), T = vistaDaVersao(P, VA(P)), fimV = fimDe(T);
-  const fer = new Set(P.feriados || []), dias = [], idx = new Map();
+  const vs = versoesDe(P), V = VA(P), T = vistaDaVersao(P, V), fimV = fimDe(T), hd = V.hdia ?? P.hdia, sab = V.sabado ?? P.sabado;
+  const fer = calPlano(P, V).fer, dias = [], idx = new Map();
   const d0 = new Date((P.ini || P.t[0]?.i) + "T00:00:00Z"), dfim = new Date((fimV > P.fim ? fimV : P.fim) + "T00:00:00Z"); dfim.setUTCDate(dfim.getUTCDate() + 400);
-  for (const d = new Date(d0); d <= dfim; d.setUTCDate(d.getUTCDate() + 1)) if (util(d, P.sabado, fer)) { idx.set(iso(d), dias.length); dias.push(new Date(d)); }
+  for (const d = new Date(d0); d <= dfim; d.setUTCDate(d.getUTCDate() + 1)) if (util(d, sab, fer)) { idx.set(iso(d), dias.length); dias.push(new Date(d)); }
   const N = dias.length;
   const ateDia = (s, depois) => { if (!s) return 0; let d = new Date(s + "T00:00:00Z"); for (let k = 0; k < 15; k++) { const j = idx.get(iso(d)); if (j != null) return j; d.setUTCDate(d.getUTCDate() + (depois ? 1 : -1)); } return depois ? 0 : N - 1; };
   const st = P.status || iso(new Date()), sIdx = ateDia(st, true);
@@ -1582,8 +1902,8 @@ function calcularPlano(P) {
     if (!L.folha || !o.esp) continue;
     const { mo, eq } = compDe(P, o), ne = Math.max(0, +o.ne || 0), dur = +(o.dw ?? o.d) || 0;
     const pesEq = mo.reduce((a, f) => a + (+f.qtd || 0), 0);
-    L.pes = pesEq * ne; L.hh = L.pes * dur * P.hdia; L.hhr = L.hh * (1 - o.pct / 100);
-    L.hm = eq.reduce((a, e) => a + (+e.qtd || 0) * ne * dur * (+e.h || P.hdia), 0);
+    L.pes = pesEq * ne; L.hh = L.pes * dur * hd; L.hhr = L.hh * (1 - o.pct / 100);
+    L.hm = eq.reduce((a, e) => a + (+e.qtd || 0) * ne * dur * (+e.h || hd), 0);
     L.formacao = mo.filter(f => f.qtd > 0).map(f => f.qtd + " " + f.funcao).join(" + ");
     L.equip = eq.filter(e => e.qtd > 0).map(e => e.qtd + " " + e.nome).join(" + ");
     L.propria = !!(L.src.mo || L.src.eq);
@@ -1597,16 +1917,16 @@ function calcularPlano(P) {
     if (fr > 0) { if (b < sIdx) { ra = sIdx; rb = Math.min(N - 1, sIdx + Math.max(1, Math.ceil(dur * fr)) - 1); } else ra = Math.max(a, sIdx); }
     const nr = rb - ra + 1;
     const EP = arr(pesEsp, o.esp), EPr = arr(pesEspR, o.esp), EN = arr(eqsEsp, o.esp);
-    for (let j = a; j <= b && j < N; j++) { EP[j] += L.hh / n / P.hdia; EN[j] += ne; }
-    if (fr > 0) for (let j = ra; j <= rb && j < N; j++) EPr[j] += L.hhr / nr / P.hdia;
+    for (let j = a; j <= b && j < N; j++) { EP[j] += L.hh / n / hd; EN[j] += ne; }
+    if (fr > 0) for (let j = ra; j <= rb && j < N; j++) EPr[j] += L.hhr / nr / hd;
     for (const f of mo) {
-      const h = (+f.qtd || 0) * ne * dur * P.hdia; if (!h) continue;
+      const h = (+f.qtd || 0) * ne * dur * hd; if (!h) continue;
       const A = arr(porFun, f.funcao), R = arr(porFunR, f.funcao);
       for (let j = a; j <= b && j < N; j++) A[j] += h / n;
       if (fr > 0) for (let j = ra; j <= rb && j < N; j++) R[j] += h * fr / nr;
     }
     for (const e of eq) {
-      const h = (+e.qtd || 0) * ne * dur * (+e.h || P.hdia); if (!h) continue;
+      const h = (+e.qtd || 0) * ne * dur * (+e.h || hd); if (!h) continue;
       const A = arr(porEq, e.nome), R = arr(porEqR, e.nome);
       for (let j = a; j <= b && j < N; j++) A[j] += h / n;
       if (fr > 0) for (let j = ra; j <= rb && j < N; j++) R[j] += h * fr / nr;
@@ -1619,14 +1939,14 @@ function calcularPlano(P) {
     S.picoEq = Math.max(0, ...(eqsEsp[e] || [0])); S.picoPes = Math.max(0, ...(pesEsp[e] || [0]));
   }
   // resumo de cada versão (término geral, por frente e atrasadas) para comparar
-  const info = TT => { const fr = {}; let atras = 0; const pil = [];
+  const info = TT => { const fr = {}; let atras = 0, crit = 0; const pil = [];
     TT.forEach((o, k) => { while (pil.length && pil[pil.length - 1].lv >= o.lv) pil.pop(); const n2 = o.lv === 2 ? o.n : pil.find(x => x.lv === 2)?.n; if (n2) { const f = frenteDe(n2); if (!fr[f] || o.f > fr[f]) fr[f] = o.f; }
-      const fo = !(TT[k + 1] && TT[k + 1].lv > o.lv); if (fo && o.lv >= 2 && !o.m && situacaoDe(o, st).includes("atrasada")) atras++; pil.push(o); });
-    return { fim: fimDe(TT), frentes: fr, atras }; };
+      const fo = !(TT[k + 1] && TT[k + 1].lv > o.lv); if (fo && o.lv >= 2 && !o.m && situacaoDe(o, st).includes("atrasada")) atras++; if (fo && o.cr && o.lv >= 2) crit++; pil.push(o); });
+    return { fim: fimDe(TT), frentes: fr, atras, crit }; };
   const vistas = vs.map((V, i) => i === P.vAtual ? T : vistaDaVersao(P, V));
   const versoesInfo = vistas.map(info);
   let fimLB0 = ""; for (const o of P.t) if (o.b0f > fimLB0) fimLB0 = o.b0f;
-  return { vista0: P.vAtual ? vistas[0] : null, fim: fimV, fimLB0, versoesInfo, versoesFim: versoesInfo.map(x => x.fim), dias, idx, N, sIdx, st, linhas, porEsp, porFun, porEq, porFunR, porEqR, pesEsp, pesEspR, porUid: new Map(linhas.map(L => [L.o.u, L])) };
+  return { hdia: hd, vistas, ciclos: T.ciclos, vista0: P.vAtual ? vistas[0] : null, fim: fimV, fimLB0, versoesInfo, versoesFim: versoesInfo.map(x => x.fim), dias, idx, N, sIdx, st, linhas, porEsp, porFun, porEq, porFunR, porEqR, pesEsp, pesEspR, porUid: new Map(linhas.map(L => [L.o.u, L])) };
 }
 
 // ---------------------------------------------------------------- tela
@@ -1665,6 +1985,7 @@ function renderPlano() {
   $("#pVersoes").replaceChildren(renderVersoes(P, R));
   const C = $("#pConteudo"); C.replaceChildren();
   if (plUI.aba === "versoes") renderComparaVersoes(P, R, C);
+  else if (plUI.aba === "riscos") renderRiscos(P, R, C);
   else if (plUI.aba === "crono") renderCrono(P, R, C);
   else if (plUI.aba === "equipes") renderComposicoes(P, R, C);
   else if (plUI.aba === "gantt") renderGantt(P, R, C);
@@ -1754,8 +2075,8 @@ function renderCrono(P, R, C) {
       } }, "Aplicar")));
   }
   if (plUI.sel != null) C.append(editorAtividade(P, R, R.linhas[plUI.sel]));
-  const LIM = 1500, cab = ["EAP", "Atividade", "Dur.", "Início", "Término", "%", "Situação", "Térm. LB0", "Desvio", "Especialidade", "Equipes", "Formação por equipe", "Pessoas", "HH", "HH a exec.", "Equipamentos", "H-máq."];
-  const T = el("table", { class: "t plano" }, el("thead", {}, el("tr", {}, cab.map((h, j) => el("th", { class: j >= 12 || j === 2 || j === 5 || j === 8 || j === 10 ? "r" : "" }, h)))));
+  const LIM = 1500, cab = ["EAP", "Atividade", "Dur.", "Início", "Término", "%", "Situação", "Folga", "Térm. LB0", "Desvio", "Especialidade", "Equipes", "Formação por equipe", "Pessoas", "HH", "HH a exec.", "Equipamentos", "H-máq."];
+  const T = el("table", { class: "t plano" }, el("thead", {}, el("tr", {}, cab.map((h, j) => el("th", { class: j >= 13 || j === 2 || j === 5 || j === 7 || j === 9 || j === 11 ? "r" : "" }, h)))));
   const tb = el("tbody");
   for (const L of vis.slice(0, LIM)) {
     const o = L.o, desv = ddias(o.f, o.b0f), aberto = estaAberto(L);
@@ -1765,6 +2086,7 @@ function renderCrono(P, R, C) {
       el("td", { style: `padding-left:${8 + (o.lv - 2) * 14}px` }, el("span", { class: "nm" }, tog, o.n, L.propria ? el("span", { class: "tag", title: "Formação própria nesta atividade" }, "própria") : null, o.alt ? el("span", { class: "tag alt", title: "Avanço, data ou duração alterados nesta versão" }, "alterada") : null)),
       el("td", { class: "n r" }, nf(o.d, o.d % 1 ? 1 : 0)), el("td", { class: "n" }, fd(o.i)), el("td", { class: "n" }, fd(o.f)), el("td", { class: "n r" }, o.pct + "%"),
       el("td", {}, L.folha || o.pct > 0 ? el("span", { class: "sit", style: `--c:${SIT_COR[L.sit]}` }, L.sit) : ""),
+      el("td", { class: "n r" + (o.cr ? " d-pior" : "") , title: o.cr ? "no caminho crítico" : "" }, L.folha && o.pct < 100 && o.tf != null ? (o.cr ? "crítica" : nf(o.tf, o.tf % 1 ? 1 : 0)) : ""),
       el("td", { class: "n" }, fd(o.b0f)), el("td", { class: "n r " + (desv > 0 ? "d-pior" : desv < 0 ? "d-melhor" : "") }, desv ? (desv > 0 ? "+" : "") + desv : ""),
       el("td", {}, L.folha ? (o.esp || (o.m || !o.d ? "" : el("span", { class: "mut" }, "definir"))) : ""),
       el("td", { class: "n r" }, L.folha && o.esp ? o.ne : ""),
@@ -1776,7 +2098,7 @@ function renderCrono(P, R, C) {
   T.append(tb);
   C.append(el("div", { class: "scroll", style: "max-height:72vh;overflow:auto" }, T));
   C.append(el("p", { class: "mut", style: "margin:6px 0 0;font-size:12px" }, vis.length > LIM ? `Mostrando ${LIM} de ${nf(vis.length)} linhas; recolha ou filtre para ver o resto.` : `${nf(vis.length)} linhas.`,
-    " HH = pessoas por equipe × equipes × duração × " + nf(P.hdia, 1) + " h/dia. Clique numa atividade para mudar a equipe."));
+    " HH = pessoas por equipe × equipes × duração × " + nf(R.hdia, 1) + " h/dia. Clique numa atividade para mudar a equipe."));
 }
 
 function avancoAtividade(P, R, L) {
@@ -1892,8 +2214,8 @@ function renderMeses(P, R, C) {
     }
     tb.append(el("tr", { class: "tot" }, el("td", {}, "Total " + rot.toLowerCase()), el("td", { class: "n r" }, nf(somaT)), somaM.map((v, i) => el("td", { class: "n r" }, nf(plUI.mes === "pes" ? v / (M[i].n * hdia) : v)))));
   };
-  linhas(A[0], "Mão de obra (" + (plUI.mes === "pes" ? "pessoas médias" : "homem-hora") + ")", P.hdia);
-  linhas(A[1], "Equipamentos (" + (plUI.mes === "pes" ? "máquinas médias" : "horas-máquina") + ")", P.hdia);
+  linhas(A[0], "Mão de obra (" + (plUI.mes === "pes" ? "pessoas médias" : "homem-hora") + ")", R.hdia);
+  linhas(A[1], "Equipamentos (" + (plUI.mes === "pes" ? "máquinas médias" : "horas-máquina") + ")", R.hdia);
   T.append(tb);
   C.append(el("div", { class: "scroll", style: "max-height:72vh;overflow:auto" }, T));
 }
@@ -1948,13 +2270,13 @@ function ganttEscala(P, R) {
   const semanas = []; if (plUI.gz === "semana") { const d = new Date(ini); d.setUTCDate(d.getUTCDate() + ((8 - d.getUTCDay()) % 7)); for (; d < fim; d.setUTCDate(d.getUTCDate() + 7)) semanas.push(iso(d)); }
   return { ini, fim, px, X, W, meses, semanas };
 }
-function corBarra(P, L) { return plUI.gcor === "sit" ? SIT_COR[L.sit] : plUI.gcor === "esp" ? (P.especialidades[L.o.esp]?.cor || "#5b7db1") : (L.o.b0f && L.o.f > L.o.b0f ? "#c0392b" : "#5b7db1"); }
+function corBarra(P, L) { return plUI.gcor === "sit" ? SIT_COR[L.sit] : plUI.gcor === "esp" ? (P.especialidades[L.o.esp]?.cor || "#5b7db1") : plUI.gcor === "lb0" ? (L.o.b0f && L.o.f > L.o.b0f ? "#c0392b" : "#5b7db1") : (L.o.cr ? "#c0392b" : "#5b7db1"); }
 function renderGantt(P, R, C) {
   C.append(filtrosPlano(P, R));
   const G = ganttEscala(P, R);
   C.append(el("div", { class: "cfg", style: "margin:-2px 0 8px" }, controlesArvore(R),
     el("span", { class: "seg" }, [["semana", "Semana"], ["mes", "Mês"], ["tri", "Trimestre"]].map(([v, t]) => el("button", { class: plUI.gz === v ? "on" : "", onclick: () => { plUI.gz = v; renderPlano(); } }, t))),
-    el("label", {}, "Cor", el("select", { onchange: e => { plUI.gcor = e.target.value; renderPlano(); } }, [["padrao", "padrão (vermelho = atrasa x LB0)"], ["esp", "por especialidade"], ["sit", "por situação"]].map(([v, t]) => el("option", { value: v, selected: plUI.gcor === v }, t)))),
+    el("label", {}, "Cor", el("select", { onchange: e => { plUI.gcor = e.target.value; renderPlano(); } }, [["padrao", "padrão (vermelho = crítica)"], ["lb0", "vermelho = termina depois da LB0"], ["esp", "por especialidade"], ["sit", "por situação"]].map(([v, t]) => el("option", { value: v, selected: plUI.gcor === v }, t)))),
     el("label", {}, "Barra fantasma", el("select", { onchange: e => { plUI.gbase = e.target.value; renderPlano(); } }, [["b0", "linha de base original (LB0)"], ["arq", "cronograma do arquivo"], ["", "nenhuma"]].map(([v, t]) => el("option", { value: v, selected: plUI.gbase === v }, t)))),
     el("label", {}, el("input", { type: "checkbox", checked: plUI.glinks, onchange: e => { plUI.glinks = e.target.checked; renderPlano(); } }), "vínculos"),
     el("button", { class: "btn sm", title: "Gantt das linhas abertas, para imprimir ou mandar", onclick: () => baixar(slug(estudo.nome) + "_gantt.svg", svgGantt(P, R), "image/svg+xml") }, "Baixar Gantt (.svg)")));
@@ -1984,7 +2306,7 @@ function renderGantt(P, R, C) {
     if (stX >= 0) tr.append(el("div", { class: "g-status", style: `left:${stX}px` }));
     const row = el("div", { class: "g-row" + (L.folha ? "" : " g-resumo lv" + Math.min(o.lv, 4)) + (plUI.sel === L.k ? " sel" : ""), style: `top:${y}px;width:${TW}px`,
       onclick: L.folha ? () => { plUI.sel = plUI.sel === L.k ? null : L.k; renderPlano(); } : () => alternarLinha(L),
-      onmousemove: e => dica(e, `${o.w} ${o.n}\n${[...L.caminho].join(" › ")}\n${fd(o.i)} → ${fd(o.f)} · ${nf(o.d, 1)} d · ${o.pct}%` + (o.b0f ? `\nLB0: ${fd(o.b0i)} → ${fd(o.b0f)}` : "") + (L.folha && o.esp ? `\n${o.esp} × ${o.ne} · ${nf(L.pes)} pessoas · ${nf(L.hh)} HH` : "") + (L.folha ? "\n" + L.sit : "")),
+      onmousemove: e => dica(e, `${o.w} ${o.n}\n${[...L.caminho].join(" › ")}\n${fd(o.i)} → ${fd(o.f)} · ${nf(o.d, 1)} d · ${o.pct}%` + (o.b0f ? `\nLB0: ${fd(o.b0i)} → ${fd(o.b0f)}` : "") + (L.folha && o.esp ? `\n${o.esp} × ${o.ne} · ${nf(L.pes)} pessoas · ${nf(L.hh)} HH` : "") + (L.folha ? "\n" + L.sit + (o.pct < 100 && o.tf != null ? (o.cr ? " · crítica" : " · folga " + nf(o.tf, 1) + " d") : "") : "")),
       onmouseleave: e => dica(e, null) },
       el("div", { class: "g-cells" }, el("div", { class: "g-c g-w", style: `width:${GCOL[0][2]}px` }, o.w), nome,
         el("div", { class: "g-c g-d", style: `width:${GCOL[2][2]}px` }, nf(o.d, o.d % 1 ? 1 : 0)), el("div", { class: "g-c g-i", style: `width:${GCOL[3][2]}px` }, fd(o.i)),
@@ -2078,8 +2400,8 @@ function xmlDoPlano(P, R) {
     x.push(`</Task>`); L.push(x.join(""));
     if (Lh.folha && o.esp && o.ne > 0 && o.d > 0) {
       const { mo, eq } = compDe(P, o);
-      for (const f of mo) if (f.qtd > 0) asg.push({ t: o.u, r: rec(f.funcao, "Mão de obra"), un: f.qtd * o.ne, h: f.qtd * o.ne * o.d * P.hdia, pct: o.pct });
-      for (const e of eq) if (e.qtd > 0) asg.push({ t: o.u, r: rec(e.nome, "Equipamento"), un: e.qtd * o.ne, h: e.qtd * o.ne * o.d * (+e.h || P.hdia), pct: o.pct });
+      for (const f of mo) if (f.qtd > 0) asg.push({ t: o.u, r: rec(f.funcao, "Mão de obra"), un: f.qtd * o.ne, h: f.qtd * o.ne * (o.dw ?? o.d) * R.hdia, pct: o.pct });
+      for (const e of eq) if (e.qtd > 0) asg.push({ t: o.u, r: rec(e.nome, "Equipamento"), un: e.qtd * o.ne, h: e.qtd * o.ne * (o.dw ?? o.d) * (+e.h || R.hdia), pct: o.pct });
     }
   });
   L.push(`</Tasks><Resources>`);
