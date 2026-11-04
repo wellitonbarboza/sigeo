@@ -48,3 +48,9 @@ Cada atividade recebe uma especialidade (inferida pelo nome) e um número de equ
 - Exportar para o Project gera tarefas, vínculos, recursos (mão de obra e equipamentos) e atribuições com o trabalho.
 - "Baixar planilha (.csv)" tira todas as linhas com a quantificação.
 - As datas não são recalculadas: é o cronograma como está, quantificado.
+- Versões e reprogramações: a versão 0 é o cronograma do arquivo; cada versão guarda só as alterações
+  (% concluído, situação, duração, início/término, datas reais). "Gerar reprogramação" liga o recálculo
+  pelos vínculos (FS/SS/FF/SF com lag) a partir da data de status; o que já começou mantém o início real,
+  o resto vai para depois da data de status, e "não antecipar o planejado" segura o início do arquivo.
+  A LB0 fica como referência. Aba Reprogramações compara as versões e lista as alterações.
+- Gantt com vínculos (escadinha), resumos com pontas, barra fantasma da LB0 ou do arquivo.
