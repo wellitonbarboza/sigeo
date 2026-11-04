@@ -18,7 +18,7 @@ Abrir `index.html` no navegador (sem servidor os estudos ficam no navegador). Co
 ## Modelo de dados (estudo = várias alternativas)
 - `estudo = { id, nome, origem?, alts: [Simulacao] }`
 - `Simulacao`:
-  - `equipes[]`: `{ id, nome, cor, formacao: [{ qtd, funcao, unit, bonus }] }` (unit/bonus em R$/dia ou R$/mês conforme `custo.base`)
+  - `equipes[]`: `{ id, nome, cor, formacao: [{ qtd, funcao }] }`
   - `etapas[]` na ordem de execução: `{ id, nome, unidade: apto|pav|torre, dias, diasT?: {torreId: dias}, equipe, qtd,
     regra: { tipo: apos|junto|torre, pav, espera }, modo: propria|terc, terc (R$ por unidade), cor }`
   - `torres[]`: `{ id, nome, pavimentos[], aptos, inicio, ciclo, lib?: [data por pavimento] }`
@@ -37,3 +37,4 @@ Abrir `index.html` no navegador (sem servidor os estudos ficam no navegador). Co
 - 27/10: protótipo → link separado → substitui o Planning Lab no mesmo caminho; importar/exportar .xml do Project
   (QC R34: Torre B 10/05/27 igual ao cronograma; .xml exportado 100% coerente no motor do Planning Lab)
 - 28/10: excluir etapas/equipes; custo (unitário + bônus por função), aba Custo, própria × terceirizada
+- 03/11: custo retirado; o foco é dimensionar equipes (formação × quantidade) e o prazo; tabela "Equipes e prazo por etapa" com pessoas e dias

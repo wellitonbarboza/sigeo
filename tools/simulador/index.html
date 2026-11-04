@@ -57,12 +57,12 @@ button.x:hover { color: var(--bad); border-color: var(--bad); }
 .abas { display: flex; gap: 0; border-bottom: 2px solid var(--rule2); }
 .abas button { border: 0; background: none; color: var(--ink2); padding: 7px 16px; font: 600 14px var(--f-disp); letter-spacing: .3px; border-bottom: 3px solid transparent; margin-bottom: -2px; }
 .abas button.on { color: var(--ink); border-bottom-color: var(--accent); }
-.form-l { grid-template-columns: 40px minmax(70px, 1fr) 66px 58px 66px 18px !important; }
+.form-l { grid-template-columns: 44px minmax(70px, 1fr) 18px !important; }
 .form-l input[type=number] { width: 100% !important; }
 .form-l .tot { font: 500 11.5px var(--f-mono); text-align: right; color: var(--ink); }
-.form-h { display: grid; grid-template-columns: 40px minmax(70px, 1fr) 66px 58px 66px 18px; gap: 4px; font-size: 10px; text-transform: uppercase; letter-spacing: .5px; color: var(--mut); }
+.form-h { display: grid; grid-template-columns: 44px minmax(70px, 1fr) 18px; gap: 4px; font-size: 10px; text-transform: uppercase; letter-spacing: .5px; color: var(--mut); }
 .form-h span:nth-child(n+3) { text-align: right; }
-.equipes { grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)) !important; }
+.equipes { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)) !important; }
 .modo .seg button.on.terc { background: var(--warn); }
 .cfg { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; color: var(--ink2); font-size: 12px; }
 .cfg label { display: inline-flex; gap: 5px; align-items: center; }
@@ -209,11 +209,6 @@ table.t tr.sel td { background: var(--sel); }
     </div>
 
     <div class="col">
-      <div class="abas" role="tablist">
-        <button role="tab" id="tabPrazo" class="on" aria-selected="true">Prazo e sequência</button>
-        <button role="tab" id="tabCusto" aria-selected="false">Custo</button>
-      </div>
-      <div id="abaCusto" class="col" hidden></div>
       <div id="abaPrazo" class="col">
       <div class="kpis" id="kpis"></div>
       <div id="avisos"></div>
@@ -230,7 +225,7 @@ table.t tr.sel td { background: var(--sel); }
         <div class="leg" id="leg"></div>
       </section>
       <section class="panel">
-        <header><h2>Entrada e saída por etapa</h2><span class="mut">primeiro e último pavimento de cada torre</span></header>
+        <header><h2>Equipes e prazo por etapa</h2><span class="mut">dimensionamento, entrada no primeiro pavimento e saída do último</span></header>
         <div class="scroll"><table class="t" id="entradas"></table></div>
       </section>
       <section class="panel">
@@ -456,10 +451,7 @@ function render() {
 
   renderEquipes(s); renderEtapas(s, r); renderTorres(s);
   renderKpis(s, r, rb); renderGrafico(s, r); renderEntradas(s, r); renderMao(s, r); renderComp();
-  $("#abaPrazo").hidden = aba !== "prazo"; $("#abaCusto").hidden = aba !== "custo";
-  $("#tabPrazo").classList.toggle("on", aba === "prazo"); $("#tabCusto").classList.toggle("on", aba === "custo");
-  $("#tabPrazo").setAttribute("aria-selected", aba === "prazo"); $("#tabCusto").setAttribute("aria-selected", aba === "custo");
-  if (aba === "custo") renderCusto(s, r);
+
 }
 
 // confirmação na própria tela (o navegador do app não mostra caixas de diálogo)
@@ -497,17 +489,14 @@ function renderEquipes(s) {
       el("div", { class: "eq-cab" }, el("span", { class: "sw", style: `background:${eq.cor}` }),
         el("input", { value: eq.nome, "aria-label": "Nome da equipe", onchange: e => { eq.nome = e.target.value; recalc(); } }),
         el("button", { class: "x", title: "Excluir equipe", "aria-label": "Excluir equipe " + eq.nome, onclick: ev => excluirEquipe(s, eq, ev.currentTarget) }, "✕")),
-      el("div", { class: "form-h" }, el("span", {}, "qtd"), el("span", {}, "função"), el("span", {}, "unitário"), el("span", {}, "bônus"), el("span", {}, "total"), el("span")),
+      el("div", { class: "form-h" }, el("span", {}, "qtd"), el("span", {}, "função"), el("span")),
       eq.formacao.map((f, k) => el("div", { class: "form-l" },
         el("input", { type: "number", min: 0, step: 1, value: f.qtd, "aria-label": "Quantidade", onchange: e => { f.qtd = Math.max(0, +e.target.value || 0); recalc(); } }),
         el("input", { type: "text", value: f.funcao, "aria-label": "Função", onchange: e => { f.funcao = e.target.value; recalc(); } }),
-        el("input", { type: "number", min: 0, step: 10, value: f.unit ?? 0, "aria-label": "Valor unitário de " + f.funcao + " (" + baseTxt(s) + ")", title: "Valor unitário " + baseTxt(s), onchange: e => { f.unit = Math.max(0, +e.target.value || 0); recalc(); } }),
-        el("input", { type: "number", min: 0, step: 10, value: f.bonus ?? 0, "aria-label": "Bônus de " + f.funcao + " (" + baseTxt(s) + ")", title: "Bônus " + baseTxt(s), onchange: e => { f.bonus = Math.max(0, +e.target.value || 0); recalc(); } }),
-        el("span", { class: "tot", title: "Unitário + bônus, por pessoa, " + baseTxt(s) }, brl((+f.unit || 0) + (+f.bonus || 0))),
         el("button", { class: "link", title: "Tirar função", onclick: () => { eq.formacao.splice(k, 1); recalc(); } }, "✕"))),
       el("div", { style: "display:flex;justify-content:space-between;align-items:center" },
-        el("button", { class: "link", onclick: () => { eq.formacao.push({ qtd: 1, funcao: "Ajudante", unit: 0, bonus: 0 }); recalc(); } }, "+ função"),
-        el("span", { class: "eq-tot" }, pessoas + " pessoas · " + brl(diaEquipe(s, eq)) + "/dia · " + (usos(eq.id).map(e => s.etapas.indexOf(e) + 1).join(", ") ? "etapas " + usos(eq.id).map(e => s.etapas.indexOf(e) + 1).join(", ") : "sem etapa")))));
+        el("button", { class: "link", onclick: () => { eq.formacao.push({ qtd: 1, funcao: "Ajudante" }); recalc(); } }, "+ função"),
+        el("span", { class: "eq-tot" }, pessoas + " pessoas por equipe · " + (usos(eq.id).map(e => s.etapas.indexOf(e) + 1).join(", ") ? "etapas " + usos(eq.id).map(e => s.etapas.indexOf(e) + 1).join(", ") : "sem etapa")))));
   }
 }
 
@@ -543,10 +532,7 @@ function renderEtapas(s, r) {
         el("label", {}, "Equipe", el("select", { "aria-label": "Equipe", onchange: e => { et.equipe = e.target.value; recalc(); } }, s.equipes.map(q => el("option", { value: q.id, selected: q.id === et.equipe }, q.nome)))),
         el("label", { title: "Quantas equipes iguais trabalham ao mesmo tempo, cada uma num " + UNI[et.unidade] }, "×", el("input", { type: "number", min: 1, step: 1, value: et.qtd, "aria-label": "Quantidade de equipes", onchange: e => { et.qtd = Math.max(1, +e.target.value | 0); recalc(); } }), et.qtd == 1 ? "equipe" : "equipes juntas"),
         eq ? el("span", { class: "ritmo" }, eq.formacao.reduce((a, f) => a + f.qtd, 0) * et.qtd + " pessoas" + (porPav ? " · " + (+porPav.toFixed(1)).toLocaleString("pt-BR") + " d/pav" : "")) : null),
-      el("div", { class: "linha", style: "grid-column:2" }, regra),
-      el("div", { class: "linha modo", style: "grid-column:2" }, "Contratação",
-        el("span", { class: "seg" }, [["propria", "própria"], ["terc", "terceirizada"]].map(([v, t]) => el("button", { class: ((et.modo || "propria") === v ? "on " : "") + v, onclick: () => { et.modo = v; recalc(); } }, t))),
-        el("label", { title: "Preço do terceirizado por " + UNI[et.unidade] }, "terceirizado R$", el("input", { type: "number", min: 0, step: 100, value: et.terc ?? 0, style: "width:84px", "aria-label": "Preço terceirizado por " + UNI[et.unidade], onchange: e => { et.terc = Math.max(0, +e.target.value || 0); recalc(); } }), "por " + UNI[et.unidade]))));
+      el("div", { class: "linha", style: "grid-column:2" }, regra)));
   });
 }
 
@@ -695,19 +681,21 @@ function renderQuadro(s, r, G) {
 
 function renderEntradas(s, r) {
   const T = $("#entradas"); T.replaceChildren();
-  const cab = el("tr", {}, el("th", {}, "Etapa"), el("th", {}, "Equipes"));
-  s.torres.forEach(t => cab.append(el("th", {}, t.nome + " · entra"), el("th", {}, "sai")));
+  const cab = el("tr", {}, el("th", {}, "Etapa"), el("th", {}, "Equipes"), el("th", { class: "r" }, "Pessoas"));
+  s.torres.forEach(t => cab.append(el("th", {}, t.nome + " · entra"), el("th", {}, "sai"), el("th", { class: "r", title: "dias úteis da entrada no primeiro pavimento à saída do último" }, "dias")));
   cab.append(el("th", {}, "Pav./semana"));
   T.append(el("thead", {}, cab));
   const tb = el("tbody");
   s.etapas.forEach((et, ei) => {
     const eq = s.equipes.find(e => e.id === et.equipe);
     const tr = el("tr", {}, el("td", {}, el("span", { class: "leg" }, el("i", { style: `background:${et.cor};color:${textoCor(et.cor)}` }, ei + 1)), " ", et.nome),
-      el("td", { class: "n" }, et.qtd + " × " + (eq?.nome ?? "—")));
+      el("td", { class: "n" }, et.qtd + " × " + (eq?.nome ?? "—")),
+      el("td", { class: "n r", title: "pessoas por equipe × equipes" }, eq ? (eq.formacao.reduce((a, f) => a + (+f.qtd || 0), 0)) + " × " + et.qtd + " = " + eq.formacao.reduce((a, f) => a + (+f.qtd || 0), 0) * et.qtd : "—"));
     s.torres.forEach((t, ti) => {
       const ip = r.iniPav[ti][ei], fp = r.fimPav[ti][ei];
       tr.append(el("td", { class: "n" }, fmt(r.data(Math.min(...ip))), el("br"), el("span", { class: "mut" }, t.pavimentos[ip.indexOf(Math.min(...ip))])),
-        el("td", { class: "n" }, fmt(r.dataFim(Math.max(...fp))), el("br"), el("span", { class: "mut" }, t.pavimentos[fp.indexOf(Math.max(...fp))])));
+        el("td", { class: "n" }, fmt(r.dataFim(Math.max(...fp))), el("br"), el("span", { class: "mut" }, t.pavimentos[fp.indexOf(Math.max(...fp))])),
+        el("td", { class: "n r" }, Math.round(Math.max(...fp) - Math.min(...ip))));
     });
     const passo = s.sabado ? 6 : 5;
     tr.append(el("td", { class: "n" }, r.ritmo[ei] ? (passo / r.ritmo[ei]).toLocaleString("pt-BR", { maximumFractionDigits: 1 }) : "—"));
@@ -753,7 +741,7 @@ function renderComp() {
   const rb = res[0];
   const cab = el("tr", {}, el("th", {}, "Alternativa"), el("th", {}, "Término"), el("th", {}, "Diferença"));
   alts[0].torres.forEach(t => cab.append(el("th", {}, t.nome)));
-  cab.append(el("th", {}, "Pico de pessoas"), el("th", {}, "Pav. abertos"), el("th", { class: "r" }, "Custo previsto"), el("th", {}, "O que muda"));
+  cab.append(el("th", {}, "Pico de pessoas"), el("th", {}, "Pav. abertos"), el("th", {}, "O que muda"));
   T.append(el("thead", {}, cab));
   const tb = el("tbody");
   alts.forEach((a, i) => {
@@ -761,7 +749,7 @@ function renderComp() {
     const tr = el("tr", { class: i === atual ? "sel" : "", style: "cursor:pointer", onclick: () => { atual = i; render(); } },
       el("td", {}, a.nome), el("td", { class: "n" }, fmt(r.dataFim(r.fim))), el("td", { class: "n " + cls }, i ? dt : "referência"));
     a.torres.forEach((t, ti) => tr.append(el("td", { class: "n" }, fmt(r.dataFim(r.fimT[ti])))));
-    tr.append(el("td", { class: "n" }, Math.round(Math.max(...semanaPessoas(r).map(x => x.total)))), el("td", { class: "n" }, r.picoPav), el("td", { class: "n r" }, brl(calcCusto(a, r).tot.escolhido)), el("td", { class: "mut" }, diferencas(alts[0], a)));
+    tr.append(el("td", { class: "n" }, Math.round(Math.max(...semanaPessoas(r).map(x => x.total)))), el("td", { class: "n" }, r.picoPav), el("td", { class: "mut" }, diferencas(alts[0], a)));
     tb.append(tr);
   });
   T.append(tb);
@@ -778,12 +766,9 @@ function diferencas(b, a) {
     if (o.qtd !== e.qtd) l.push(`${n} ${e.qtd} equipes`);
     if (o.dias !== e.dias || o.unidade !== e.unidade) l.push(`${n} ${e.dias} d/${UNI[e.unidade]}`);
     if (o.equipe !== e.equipe) l.push(`${n} outra equipe`);
-    if ((o.modo || "propria") !== (e.modo || "propria")) l.push(`${n} ${e.modo === "terc" ? "terceirizada" : "própria"}`);
-    if ((o.terc || 0) !== (e.terc || 0)) l.push(`${n} preço terceirizado`);
     if (JSON.stringify(o.regra) !== JSON.stringify(e.regra)) l.push(`${n} entra ${e.regra.tipo === "junto" ? "junto" : e.regra.tipo === "torre" ? "após a torre" : "após " + e.regra.pav + " pav."}${e.regra.espera ? " +" + e.regra.espera + "d" : ""}`);
   }
-  if (JSON.stringify(b.equipes) !== JSON.stringify(a.equipes)) l.push("equipes (formação ou valores)");
-  if (JSON.stringify(b.custo || {}) !== JSON.stringify(a.custo || {})) l.push("premissas de custo");
+  if (JSON.stringify(b.equipes) !== JSON.stringify(a.equipes)) l.push("formação das equipes");
   if (b.sabado !== a.sabado) l.push(a.sabado ? "sábado" : "sem sábado");
   if (b.compart !== a.compart) l.push(a.compart ? "equipes divididas entre torres" : "equipes por torre");
   return l.length ? l.join("; ") : "igual à base";
@@ -887,166 +872,6 @@ $("#impEst").onchange = async e => {
   catch (err) { status("não importou: " + err.message); }
   e.target.value = "";
 };
-
-// ---------------------------------------------------------------- custo (própria x terceirizada)
-const cfgC = s => (s.custo ??= { base: "dia", diasMes: 22, encargos: 0, ociosidade: true });
-const baseTxt = s => cfgC(s).base === "mes" ? "R$/mês" : "R$/dia";
-const brl = v => (+v || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
-const mil = v => (v / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 0 }) + " mil";
-function diaFuncao(s, f) {
-  const c = cfgC(s), v = ((+f.unit || 0) + (+f.bonus || 0)) * (1 + (+c.encargos || 0) / 100);
-  return c.base === "mes" ? v / (+c.diasMes || 22) : v;
-}
-const diaEquipe = (s, eq) => eq ? eq.formacao.reduce((a, f) => a + (+f.qtd || 0) * diaFuncao(s, f), 0) : 0;
-
-function calcCusto(s, r) {
-  const c = cfgC(s), N = Math.ceil(r.fim) + 2, E = s.etapas.length;
-  const prop = s.etapas.map(() => new Float64Array(N)), terc = s.etapas.map(() => new Float64Array(N));
-  const pe = s.etapas.map(() => ({ prod: 0, ocio: 0, terc: 0, unidades: 0, diasEq: 0 }));
-  const funcoes = {};
-  const espalha = (arr, a, b, total) => {
-    const d = b - a;
-    if (d <= 1e-9) { arr[Math.max(0, Math.floor(a))] += total; return; }
-    for (let k = Math.floor(a); k < Math.ceil(b); k++) { const fr = Math.min(k + 1, b) - Math.max(k, a); if (fr > 0) arr[k] += total * fr / d; }
-  };
-  const grupos = new Map();
-  for (const it of r.itens) {
-    const et = s.etapas[it.e], eq = s.equipes.find(q => q.id === et.equipe), x = pe[it.e];
-    const d = Math.max(0, it.fim - it.ini), cd = diaEquipe(s, eq);
-    const unid = et.unidade === "apto" && it.u == null ? Math.max(1, s.torres[it.t].aptos | 0) : 1;
-    x.unidades += unid; x.diasEq += d; x.prod += d * cd; x.terc += unid * (+et.terc || 0);
-    espalha(prop[it.e], it.ini, it.fim, d * cd);
-    espalha(terc[it.e], it.ini, it.fim, unid * (+et.terc || 0));
-    if (eq) for (const f of eq.formacao) {
-      const k = f.funcao || "—"; const v = funcoes[k] ??= { pd: 0, custo: 0 };
-      v.pd += d * (+f.qtd || 0); v.custo += d * (+f.qtd || 0) * diaFuncao(s, f);
-    }
-    const g = (s.compart ? "c" : it.t) + ":" + it.e + ":" + it.eq;
-    (grupos.get(g) ?? grupos.set(g, []).get(g)).push(it);
-  }
-  // equipe própria mobilizada: os dias parados entre um serviço e o próximo também são pagos
-  if (c.ociosidade) for (const [, l] of grupos) {
-    l.sort((a, b) => a.ini - b.ini);
-    const et = s.etapas[l[0].e], cd = diaEquipe(s, s.equipes.find(q => q.id === et.equipe));
-    let fimAnt = l[0].fim;
-    for (const it of l.slice(1)) {
-      if (it.ini > fimAnt + 1e-9) { const v = (it.ini - fimAnt) * cd; pe[it.e].ocio += v; espalha(prop[it.e], fimAnt, it.ini, v); }
-      fimAnt = Math.max(fimAnt, it.fim);
-    }
-  }
-  const esc = s.etapas.map((et, i) => (et.modo || "propria") === "terc" ? terc[i] : prop[i]);
-  const soma = arrs => { const o = new Float64Array(N); arrs.forEach(a => a.forEach((v, k) => o[k] += v)); return o; };
-  const dia = { propria: soma(prop), terc: soma(terc), escolhido: soma(esc) };
-  const total = a => a.reduce((x, v) => x + v, 0);
-  const aPartir = s.aPartirDe ? Math.max(0, r.cal.findIndex(d => iso(d) >= s.aPartirDe)) : 0;
-  const desde = a => a.reduce((x, v, k) => k >= aPartir ? x + v : x, 0);
-  return {
-    pe, funcoes, dia, aPartir,
-    tot: { propria: total(dia.propria), terc: total(dia.terc), escolhido: total(dia.escolhido), ocio: pe.reduce((a, x) => a + x.ocio, 0), aExecutar: desde(dia.escolhido) },
-    etapaPropria: i => pe[i].prod + pe[i].ocio, etapaTerc: i => pe[i].terc,
-  };
-}
-
-function renderCusto(s, r) {
-  const C = $("#abaCusto"); C.replaceChildren();
-  const c = cfgC(s), k = calcCusto(s, r), kb = calcCusto(alts[0], res[0]);
-  // premissas
-  C.append(el("section", { class: "panel" },
-    el("header", {}, el("h2", {}, "Premissas de custo"), el("span", { class: "mut" }, "valem para esta alternativa")),
-    el("div", { class: "cfg" },
-      el("label", {}, "Unitário e bônus das funções em", el("span", { class: "seg" }, [["dia", "R$ por dia"], ["mes", "R$ por mês"]].map(([v, t]) => el("button", { class: c.base === v ? "on" : "", onclick: () => { c.base = v; recalc(); } }, t)))),
-      c.base === "mes" ? el("label", {}, el("input", { type: "number", min: 1, value: c.diasMes, "aria-label": "Dias úteis no mês", onchange: e => { c.diasMes = Math.max(1, +e.target.value || 22); recalc(); } }), "dias úteis no mês") : null,
-      el("label", { title: "Some aqui os encargos se o unitário for só o salário" }, "Encargos sobre o unitário e bônus", el("input", { type: "number", min: 0, step: 1, value: c.encargos, "aria-label": "Encargos em %", onchange: e => { c.encargos = Math.max(0, +e.target.value || 0); recalc(); } }), "%"),
-      el("label", { title: "Equipe própria fica paga nos dias em que espera o próximo pavimento" }, el("input", { type: "checkbox", checked: c.ociosidade, onchange: e => { c.ociosidade = e.target.checked; recalc(); } }), "contar os dias parados da equipe própria")),
-    el("div", { class: "cfg", style: "margin-top:8px" }, "Contratação de todas as etapas:",
-      el("button", { class: "btn sm", onclick: () => { s.etapas.forEach(e => e.modo = "propria"); recalc(); } }, "tudo própria"),
-      el("button", { class: "btn sm", onclick: () => { s.etapas.forEach(e => e.modo = "terc"); recalc(); } }, "tudo terceirizado"),
-      el("button", { class: "btn sm pri", onclick: () => { s.etapas.forEach((e, i) => e.modo = k.etapaTerc(i) > 0 && k.etapaTerc(i) < k.etapaPropria(i) ? "terc" : "propria"); recalc(); } }, "a mais barata em cada etapa"))));
-  // indicadores
-  const kpi = (rot, val, d, title) => el("div", { class: "kpi", title: title || "" }, el("span", {}, rot), el("b", {}, val, d ? el("small", { class: d[1] }, d[0]) : null));
-  const dv = (a, b) => { const d = a - b; return Math.abs(d) < 1 ? null : [(d > 0 ? "+" : "−") + mil(Math.abs(d)), d > 0 ? "d-pior" : "d-melhor"]; };
-  C.append(el("div", { class: "kpis" },
-    kpi("Custo previsto", brl(k.tot.escolhido), atual ? dv(k.tot.escolhido, kb.tot.escolhido) : null, "Com a contratação escolhida em cada etapa"),
-    s.aPartirDe ? kpi("A executar", brl(k.tot.aExecutar), null, "A partir de " + fmt(new Date(s.aPartirDe + "T00:00:00Z"))) : null,
-    kpi("Tudo próprio", brl(k.tot.propria)), kpi("Tudo terceirizado", brl(k.tot.terc)),
-    kpi("Dias parados (própria)", brl(k.tot.ocio), null, "Equipe própria paga esperando o próximo pavimento")));
-  // por etapa
-  const tab = el("table", { class: "t" });
-  tab.append(el("thead", {}, el("tr", {}, ["#", "Etapa", "Unidades", "Dias de equipe", "Própria", "dias parados", "por unidade", "Terceirizada", "por unidade", "Diferença", "Contratação"].map((h, i) => el("th", { class: i >= 2 && i <= 9 ? "r" : "" }, h)))));
-  const tb = el("tbody");
-  s.etapas.forEach((et, i) => {
-    const x = k.pe[i], p = k.etapaPropria(i), t = k.etapaTerc(i), u = Math.max(1, x.unidades);
-    const melhor = t > 0 && t < p ? "terc" : "propria";
-    tb.append(el("tr", {},
-      el("td", {}, el("span", { class: "leg" }, el("i", { style: `background:${et.cor};color:${textoCor(et.cor)}` }, i + 1))),
-      el("td", {}, et.nome),
-      el("td", { class: "n r" }, x.unidades + " " + (et.unidade === "apto" ? "aptos" : et.unidade === "pav" ? "pav." : "torre")),
-      el("td", { class: "n r" }, (+x.diasEq.toFixed(0)).toLocaleString("pt-BR")),
-      el("td", { class: "n r" + (melhor === "propria" ? " melhor-op" : "") }, brl(p)),
-      el("td", { class: "n r mut" }, x.ocio ? brl(x.ocio) : "—"),
-      el("td", { class: "n r mut" }, brl(p / u)),
-      el("td", { class: "n r" + (melhor === "terc" ? " melhor-op" : "") }, t ? brl(t) : "sem preço"),
-      el("td", { class: "n r mut" }, t ? brl(t / u) : "—"),
-      el("td", { class: "n r " + (t && t - p > 0 ? "d-pior" : t ? "d-melhor" : "") }, t ? (t - p > 0 ? "+" : "−") + brl(Math.abs(t - p)) : "—"),
-      el("td", {}, el("span", { class: "seg" }, [["propria", "própria"], ["terc", "terceir."]].map(([v, tx]) => el("button", { class: ((et.modo || "propria") === v ? "on " : "") + v, onclick: () => { et.modo = v; recalc(); } }, tx))))));
-  });
-  tb.append(el("tr", { class: "tot" }, el("td"), el("td", {}, "Total"), el("td"), el("td", { class: "n r" }, (+k.pe.reduce((a, x) => a + x.diasEq, 0).toFixed(0)).toLocaleString("pt-BR")),
-    el("td", { class: "n r" }, brl(k.tot.propria)), el("td", { class: "n r mut" }, brl(k.tot.ocio)), el("td"),
-    el("td", { class: "n r" }, brl(k.tot.terc)), el("td"), el("td", { class: "n r" }, (k.tot.terc - k.tot.propria > 0 ? "+" : "−") + brl(Math.abs(k.tot.terc - k.tot.propria))),
-    el("td", { class: "n" }, brl(k.tot.escolhido))));
-  tab.append(tb);
-  C.append(el("section", { class: "panel" }, el("header", {}, el("h2", {}, "Própria × terceirizada por etapa"), el("span", { class: "mut" }, "em verde a opção mais barata; a contratação escolhida forma o custo previsto")), el("div", { class: "scroll" }, tab)));
-  // projeção mensal
-  C.append(el("section", { class: "panel" }, el("header", {}, el("h2", {}, "Projeção do custo"), el("span", { class: "mut" }, "barras: custo do mês com a contratação escolhida · linhas: acumulado")), graficoCusto(s, r, k)));
-  // por função
-  const fs = Object.entries(k.funcoes).sort((a, b) => b[1].custo - a[1].custo);
-  const tf = el("table", { class: "t" }, el("thead", {}, el("tr", {}, el("th", {}, "Função"), el("th", { class: "r" }, "Pessoas × dia"), el("th", { class: "r" }, "Custo produtivo (se própria)"))),
-    el("tbody", {}, fs.map(([f, v]) => el("tr", {}, el("td", {}, f), el("td", { class: "n r" }, (+v.pd.toFixed(0)).toLocaleString("pt-BR")), el("td", { class: "n r" }, brl(v.custo))))));
-  C.append(el("section", { class: "panel" }, el("header", {}, el("h2", {}, "Mão de obra própria por função"), el("span", { class: "mut" }, "sem os dias parados")), el("div", { class: "scroll" }, tf)));
-}
-
-function graficoCusto(s, r, k) {
-  // agrupa por mês
-  const meses = []; const idx = new Map();
-  const mesDe = d => r.cal[Math.min(d, r.cal.length - 1)];
-  for (let d = 0; d < k.dia.escolhido.length; d++) {
-    const dt = mesDe(d); const key = dt.getUTCFullYear() * 12 + dt.getUTCMonth();
-    if (!idx.has(key)) { idx.set(key, meses.length); meses.push({ dt, propria: 0, terc: 0, escolhido: 0 }); }
-    const m = meses[idx.get(key)];
-    m.propria += k.dia.propria[d]; m.terc += k.dia.terc[d]; m.escolhido += k.dia.escolhido[d];
-  }
-  let ap = 0, at = 0, ae = 0;
-  meses.forEach(m => { m.ap = ap += m.propria; m.at = at += m.terc; m.ae = ae += m.escolhido; });
-  const NS = "http://www.w3.org/2000/svg", sv = (t, a = {}) => { const e = document.createElementNS(NS, t); for (const [kk, v] of Object.entries(a)) e.setAttribute(kk, v); return e; };
-  const cs = getComputedStyle(document.documentElement), cor = n => cs.getPropertyValue(n).trim();
-  const W = Math.max(520, 70 + meses.length * 34, ($("#abaCusto").clientWidth || 0) - 34), H = 260, padL = 62, padB = 30, padT = 12;
-  const maxAc = Math.max(ap, at, ae, 1), maxM = Math.max(...meses.map(m => m.escolhido), 1);
-  const y = v => padT + (H - padT - padB) * (1 - v / maxAc);
-  const yb = v => (H - padB) - (H - padT - padB) * 0.45 * (v / maxM);
-  const svg = sv("svg", { width: W, height: H, viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "Projeção mensal do custo" });
-  for (let g = 0; g <= 4; g++) {
-    const v = maxAc * g / 4;
-    svg.append(sv("line", { x1: padL, x2: W - 8, y1: y(v), y2: y(v), stroke: cor("--rule"), "stroke-width": 1 }));
-    const t = sv("text", { x: padL - 6, y: y(v) + 4, "font-size": 10, "text-anchor": "end", fill: cor("--mut") }); t.textContent = (v / 1e6).toLocaleString("pt-BR", { maximumFractionDigits: 1 }) + " mi"; svg.append(t);
-  }
-  const bw = Math.min(24, (W - padL - 10) / meses.length - 6);
-  meses.forEach((m, i) => {
-    const x = padL + 6 + i * ((W - padL - 14) / meses.length);
-    const r0 = sv("rect", { x, y: yb(m.escolhido), width: bw, height: (H - padB) - yb(m.escolhido), fill: cor("--accent"), opacity: .35 });
-    r0.addEventListener("mousemove", e => dica(e, m.dt.toLocaleDateString("pt-BR", { month: "long", year: "numeric", timeZone: "UTC" }) + `\nNo mês: ${brl(m.escolhido)}\nAcumulado: ${brl(m.ae)}\nTudo próprio acum.: ${brl(m.ap)}\nTudo terceirizado acum.: ${brl(m.at)}`));
-    r0.addEventListener("mouseleave", e => dica(e, null));
-    svg.append(r0);
-    if (i % Math.ceil(meses.length / 14) === 0) { const t = sv("text", { x: x + bw / 2, y: H - 12, "font-size": 10, "text-anchor": "middle", fill: cor("--mut") }); t.textContent = m.dt.toLocaleDateString("pt-BR", { month: "short", year: "2-digit", timeZone: "UTC" }); svg.append(t); }
-  });
-  const linha = (campo, c, dash) => {
-    const pts = meses.map((m, i) => `${padL + 6 + i * ((W - padL - 14) / meses.length) + bw / 2},${y(m[campo])}`).join(" ");
-    svg.append(sv("polyline", { points: pts, fill: "none", stroke: c, "stroke-width": 2, "stroke-dasharray": dash || "" }));
-  };
-  linha("ap", "#5b7db1", "5 4"); linha("at", "#c9853a", "5 4"); linha("ae", cor("--ink"));
-  const box = el("div", {}, el("div", { class: "scroll" }, svg),
-    el("div", { class: "leg" }, el("span", {}, el("i", { style: "background:var(--ink)" }), "acumulado previsto (contratação escolhida)"), el("span", {}, el("i", { style: "background:#5b7db1" }), "acumulado se tudo próprio"), el("span", {}, el("i", { style: "background:#c9853a" }), "acumulado se tudo terceirizado")));
-  return box;
-}
 
 // ---------------------------------------------------------------- MS Project (.xml): importar a base e exportar a alternativa
 const XNS = "http://schemas.microsoft.com/project";
@@ -1369,8 +1194,7 @@ $("#expXml").onclick = () => {
 
 // ---------------------------------------------------------------- eventos gerais
 $("#limpaEq").onclick = () => excluirSemUso(S());
-$("#tabPrazo").onclick = () => { aba = "prazo"; render(); };
-$("#tabCusto").onclick = () => { aba = "custo"; render(); };
+
 $("#addEq").onclick = () => { S().equipes.push({ id: id(), nome: "Nova equipe", cor: CORES[S().equipes.length % CORES.length], formacao: [{ qtd: 1, funcao: "Oficial" }, { qtd: 1, funcao: "Ajudante" }] }); recalc(); };
 $("#addEt").onclick = () => { const s = S(); s.etapas.push({ id: id(), nome: "Nova etapa", unidade: "pav", dias: 5, equipe: s.equipes[0]?.id, qtd: 1, cor: CORES[s.etapas.length % CORES.length], regra: { tipo: "apos", pav: 1, espera: 0 } }); recalc(); };
 $("#sabado").onchange = e => { S().sabado = e.target.checked; recalc(); };
