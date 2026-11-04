@@ -38,3 +38,13 @@ Abrir `index.html` no navegador (sem servidor os estudos ficam no navegador). Co
   (QC R34: Torre B 10/05/27 igual ao cronograma; .xml exportado 100% coerente no motor do Planning Lab)
 - 28/10: excluir etapas/equipes; custo (unitário + bônus por função), aba Custo, própria × terceirizada
 - 03/11: custo retirado; o foco é dimensionar equipes (formação × quantidade) e o prazo; tabela "Equipes e prazo por etapa" com pessoas e dias
+
+## Planejamento completo (estudo tipo `plano`)
+Em "Importar do Project (.xml)", o botão **"Criar planejamento completo (todas as atividades)"** cria um estudo com
+todas as atividades do cronograma (EAP, durações, datas, % concluído, datas reais, linhas de base 0 e 10, vínculos).
+Cada atividade recebe uma especialidade (inferida pelo nome) e um número de equipes; a composição por especialidade
+(funções por equipe e equipamentos com h/dia) gera homem-hora, horas-máquina, histograma e recursos por mês.
+- Abas: Cronograma (árvore da EAP com filtros e edição em lote), Equipes e composições, Recursos por mês, Histograma.
+- Exportar para o Project gera tarefas, vínculos, recursos (mão de obra e equipamentos) e atribuições com o trabalho.
+- "Baixar planilha (.csv)" tira todas as linhas com a quantificação.
+- As datas não são recalculadas: é o cronograma como está, quantificado.

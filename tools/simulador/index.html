@@ -161,6 +161,30 @@ table.t tr.sel td { background: var(--sel); }
 .leg { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 8px; font-size: 12px; color: var(--ink2); }
 .leg span { display: inline-flex; gap: 5px; align-items: center; }
 .leg i { font: normal 600 10.5px var(--f-mono); min-width: 20px; height: 15px; border-radius: 2px; display: inline-flex; align-items: center; justify-content: center; }
+
+/* planejamento completo */
+#plano { display: flex; flex-direction: column; gap: 12px; }
+#plano .abas { margin-bottom: 0; }
+table.plano { font-size: 12px; }
+table.plano th { position: sticky; top: 0; background: var(--sheet); z-index: 1; }
+table.plano td { padding: 3px 7px; white-space: nowrap; }
+table.plano tr.folha { cursor: pointer; }
+table.plano tr.folha:hover td { background: var(--accent-soft); }
+table.plano tr.resumo td { font-weight: 600; background: color-mix(in srgb, var(--ink) 4%, var(--sheet)); }
+table.plano tr.resumo.lv2 td { background: color-mix(in srgb, var(--accent) 16%, var(--sheet)); }
+table.plano tr.resumo.lv3 td { background: color-mix(in srgb, var(--accent) 9%, var(--sheet)); }
+table.plano .nm { display: inline-flex; gap: 4px; align-items: center; }
+table.plano .tg { display: inline-block; width: 14px; text-align: center; padding: 0; }
+table.plano td.mut { white-space: normal; min-width: 150px; font-size: 11.5px; }
+.sit { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; }
+.sit::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--c); }
+.tag { font: 500 10px var(--f-mono); color: var(--accent); border: 1px solid var(--accent); border-radius: 3px; padding: 0 4px; }
+.form-p { display: flex; gap: 4px; align-items: center; }
+.form-p input[type=text] { min-width: 0; flex: 1; }
+.form-h2 { font-size: 10px; text-transform: uppercase; letter-spacing: .5px; color: var(--mut); margin-top: 4px; }
+table.mes td, table.mes th { padding: 3px 6px; white-space: nowrap; }
+table.mes td:first-child { position: sticky; left: 0; background: var(--sheet); }
+table.mes tr.grp td { font: 700 11px var(--f-disp); text-transform: uppercase; letter-spacing: .6px; color: var(--ink2); padding-top: 10px; }
 @media (prefers-reduced-motion: no-preference) { .alt, .btn, .seg button { transition: background .12s, border-color .12s; } }
 </style>
 
@@ -168,7 +192,7 @@ table.t tr.sel td { background: var(--sel); }
 <body>
 <div class="wrap">
   <div class="top">
-    <h1>Planning Lab <span class="mut" style="font-weight:500">· simulador de sequência</span></h1>
+    <h1>Planning Lab <span class="mut" style="font-weight:500" id="tituloModo">· simulador de sequência</span></h1>
     <div class="estudo">
       <label for="estudoSel" class="mut">Estudo</label>
       <select id="estudoSel"></select>
@@ -186,6 +210,17 @@ table.t tr.sel td { background: var(--sel); }
   </div>
 
   <section class="panel" id="painelXml" hidden style="margin-bottom:14px"></section>
+  <section id="plano" hidden>
+    <div class="abas" id="pAbas">
+      <button data-a="crono" class="on">Cronograma</button>
+      <button data-a="equipes">Equipes e composições</button>
+      <button data-a="meses">Recursos por mês</button>
+      <button data-a="hist">Histograma</button>
+      <span style="margin-left:auto;display:flex;gap:6px;align-items:center"><button class="btn sm" id="pCsv" title="Todas as atividades com a quantificação, para abrir no Excel">Baixar planilha (.csv)</button></span>
+    </div>
+    <div class="kpis" id="pKpis"></div>
+    <section class="panel" id="pConteudo"></section>
+  </section>
   <div class="alts" id="alts"></div>
 
   <div class="grid">
@@ -837,6 +872,8 @@ function agendarSalvar() {
   }, 900);
 }
 function abrir(e) {
+  if (e.tipo === "plano") return abrirPlano(e);
+  modoPlano(false);
   estudo = e; alts = e.alts; atual = 0;
   res = alts.map(calcular); render(); renderEstudos();
   lsSet("simulador:ultimo", e.id);
@@ -868,7 +905,7 @@ $("#expEst").onclick = () => {
 };
 $("#impEst").onchange = async e => {
   const f = e.target.files[0]; if (!f) return;
-  try { const j = JSON.parse(await f.text()); if (!Array.isArray(j.alts)) throw new Error("arquivo sem alternativas"); j.id = id(); abrir(j); agendarSalvar(); }
+  try { const j = JSON.parse(await f.text()); if (j.tipo !== "plano" && !Array.isArray(j.alts)) throw new Error("arquivo sem alternativas"); j.id = id(); abrir(j); agendarSalvar(); }
   catch (err) { status("não importou: " + err.message); }
   e.target.value = "";
 };
@@ -1165,9 +1202,9 @@ $("#impXml").onchange = async e => {
   const f = e.target.files[0]; e.target.value = ""; if (!f) return;
   const P = $("#painelXml"); P.hidden = false; P.replaceChildren(el("p", {}, "Lendo " + f.name + "…"));
   try {
-    const p = lerProject(await textoSemPeriodo(f), f.name);
+    const texto = await textoSemPeriodo(f);
+    const p = lerProject(texto, f.name);
     const gs = gruposRepetitivos(p);
-    if (!gs.length) throw new Error("não encontrei pavimentos com as mesmas etapas repetidas (um resumo com 3 ou mais pavimentos)");
     const max = Math.max(...gs.map(g => g.pacotes * g.linhas));
     const marcados = new Set(gs.filter(g => g.pacotes * g.linhas * 10 >= max * 9 && g.linhas >= 4).map(g => g.t.uid));
     importado = { p, gs };
@@ -1183,14 +1220,525 @@ $("#impXml").onchange = async e => {
           const nome = p.nomeArquivo.replace(/\.xml$/i, "").replace(/[_]+/g, " ");
           abrir({ id: id(), nome, origem: p.nomeArquivo, alts: [base] }); P.hidden = true; importado = null; agendarSalvar();
         } }, "Criar estudo"),
+        el("button", { class: "btn", title: "Todas as atividades do cronograma, com equipe, homem-hora e horas-máquina", onclick: () => {
+          const pl = planoDoProject(texto, p); abrir(pl); P.hidden = true; importado = null; agendarSalvar();
+        } }, "Criar planejamento completo (todas as atividades)"),
         el("button", { class: "btn", onclick: () => { P.hidden = true; importado = null; } }, "Cancelar")));
   } catch (err) { P.replaceChildren(el("p", {}, "Não foi possível ler: " + err.message), el("button", { class: "btn sm", onclick: () => P.hidden = true }, "fechar")); }
 };
 $("#expXml").onclick = () => {
+  if (estudo.tipo === "plano") return baixar(slug(estudo.nome) + ".xml", xmlDoPlano(estudo, PL), "application/xml");
   const s = S(), r = res[atual];
   const titulo = estudo.nome + " — " + s.nome;
   baixar(slug(estudo.nome) + "_" + slug(s.nome) + ".xml", xmlDaAlternativa(s, r, titulo), "application/xml");
 };
+
+// ================================================================ PLANEJAMENTO COMPLETO (estudo tipo "plano")
+// Todas as atividades do cronograma do Project, com a equipe de cada uma (especialidade × nº de equipes),
+// homem-hora por função e horas-máquina por equipamento. Não mexe nas datas: é o cronograma como está,
+// quantificado. As composições por especialidade são o ponto de partida; cada atividade pode ter a sua.
+
+const PLANO_COMPOS = {
+  "Ecoparque estrutura": { mo: [[1, "Encarregado de montagem"], [4, "Montador de pré-moldado"], [1, "Sinaleiro"], [1, "Operador de grua"]], eq: [[1, "Grua torre"]] },
+  "Ecoparque contenções": { mo: [[1, "Encarregado"], [2, "Pedreiro"], [3, "Servente"], [1, "Operador de máquina"]], eq: [[1, "Retroescavadeira"]] },
+  "Fundação": { mo: [[1, "Operador de perfuratriz"], [2, "Armador"], [3, "Servente"]], eq: [[1, "Perfuratriz (hélice contínua)"], [1, "Retroescavadeira"]] },
+  "Grua": { mo: [[3, "Montador de grua"], [1, "Operador de grua"]], eq: [[1, "Autoguindaste"]] },
+  "Cremalheira": { mo: [[2, "Montador de cremalheira"], [1, "Ajudante"]], eq: [] },
+  "Elevador": { mo: [[2, "Montador de elevador"]], eq: [] },
+  "Esquadrias": { mo: [[2, "Montador de esquadria"]], eq: [] },
+  "Metálicas": { mo: [[1, "Serralheiro"], [1, "Ajudante"]], eq: [[1, "Máquina de solda"]] },
+  "Impermeabilização": { mo: [[1, "Impermeabilizador"], [1, "Ajudante"]], eq: [] },
+  "Contrapiso": { mo: [[2, "Pedreiro"], [2, "Servente"]], eq: [[1, "Bomba de argamassa"]] },
+  "Drywall e gesso": { mo: [[2, "Montador de drywall"], [1, "Ajudante"]], eq: [] },
+  "PPCI": { mo: [[1, "Instalador PPCI"], [1, "Ajudante"]], eq: [] },
+  "Gás": { mo: [[1, "Instalador de gás"], [1, "Ajudante"]], eq: [] },
+  "Climatização": { mo: [[1, "Técnico de refrigeração"], [1, "Ajudante"]], eq: [] },
+  "SPDA": { mo: [[1, "Eletricista"], [1, "Ajudante"]], eq: [] },
+  "Elétrica": { mo: [[1, "Eletricista"], [1, "Ajudante"]], eq: [] },
+  "Hidráulica": { mo: [[1, "Encanador"], [1, "Ajudante"]], eq: [] },
+  "Elétrica e hidráulica": { mo: [[1, "Eletricista"], [1, "Encanador"], [1, "Ajudante"]], eq: [] },
+  "Louças e metais": { mo: [[1, "Encanador"], [1, "Ajudante"]], eq: [] },
+  "Louças": { mo: [[1, "Encanador"], [1, "Ajudante"]], eq: [] },
+  "Metais": { mo: [[1, "Encanador"]], eq: [] },
+  "Revestimento cerâmico/porcelanato": { mo: [[2, "Azulejista"], [1, "Servente"]], eq: [] },
+  "Vinílico": { mo: [[2, "Instalador de piso vinílico"]], eq: [] },
+  "Pintura interna": { mo: [[2, "Pintor"], [1, "Ajudante"]], eq: [] },
+  "Pintura externa": { mo: [[2, "Pintor"], [1, "Ajudante"]], eq: [[1, "Balancim"]] },
+  "Portas madeira": { mo: [[1, "Carpinteiro"], [1, "Ajudante"]], eq: [] },
+  "Marcenaria": { mo: [[2, "Montador de marcenaria"]], eq: [] },
+  "Granito": { mo: [[2, "Marmorista"]], eq: [] },
+  "Eletrodomésticos": { mo: [[2, "Montador"]], eq: [] },
+  "Vidro": { mo: [[2, "Vidraceiro"]], eq: [] },
+  "Mobiliário": { mo: [[2, "Montador"]], eq: [] },
+  "Limpeza": { mo: [[3, "Servente de limpeza"]], eq: [] },
+  "Churrasqueira": { mo: [[1, "Pedreiro"], [1, "Servente"]], eq: [] },
+  "Cobertura": { mo: [[2, "Telhadista"], [1, "Ajudante"]], eq: [] },
+  "Piso monolítico": { mo: [[2, "Pedreiro"], [2, "Servente"]], eq: [[1, "Acabadora de piso"]] },
+  "Paisagismo": { mo: [[2, "Jardineiro"], [1, "Ajudante"]], eq: [] },
+  "Pavimentação": { mo: [[1, "Encarregado"], [2, "Operador de máquina"], [4, "Servente"]], eq: [[1, "Motoniveladora"], [1, "Rolo compactador"], [1, "Caminhão basculante"]] },
+  "Infra (redes)": { mo: [[1, "Encanador"], [2, "Servente"], [1, "Operador de máquina"]], eq: [[1, "Retroescavadeira"]] },
+};
+// especialidade pelo nome da atividade (o cronograma traz tudo em "Equipe padrão"); a ordem importa
+const PLANO_ESP = [
+  [/^trecho/, "Infra (redes)"], [/estrutura (telhado|barrilete)|ganchos de ancoragem/, "Cobertura"],
+  [/acabamentos elétricos e hidráulicos|instalações infra|infra embutida/, "Elétrica e hidráulica"],
+  [/bancos|lixeiras|suporte bicicletas|brinquedos|playground|equipamentos esportivos|comunicação visual/, "Mobiliário"],
+  [/cremalheira/, "Cremalheira"], [/\bgrua/, "Grua"], [/balancim|textura fachada|molduras eps almofada|^textura$/, "Pintura externa"],
+  [/armação|capeamento lajes|grauteamento|eps horizontal|montagem (painel|lajes|patamares)|tratamento de juntas|túnel|pré-moldad|^instalações \| 50%/, "Ecoparque estrutura"],
+  [/contenç/, "Ecoparque contenções"], [/fundação|blocos e vigas|reaterro|poço dos|duto de ventila|radier|estacas/, "Fundação"],
+  [/elevador/, "Elevador"], [/caixilho|esquadria|porta de correr/, "Esquadrias"], [/guarda-corpo|corrimão|gradis|alçapõ|metálica|pergolado/, "Metálicas"],
+  [/impermeabiliz/, "Impermeabilização"], [/autonivelante|contrapiso|piso de concreto/, "Contrapiso"],
+  [/drywall|forro|sanca|rodateto/, "Drywall e gesso"], [/firestop|ppci|incêndio|corta-fogo|emergência/, "PPCI"],
+  [/gás/, "Gás"], [/frigorígena|dreno ar/, "Climatização"], [/spda/, "SPDA"],
+  [/elétric|disjuntor|interruptor|luminária|iluminação|dados|cabeamento/, "Elétrica"],
+  [/água fria|esgoto|pluvial|hidráulic|reservatório|barrilete|poço artesiano|\bete\b/, "Hidráulica"],
+  [/louças e metais/, "Louças e metais"], [/louças/, "Louças"], [/metais/, "Metais"],
+  [/cerâmica|porcelanato|soleira|rodapé \| rejunte|bit box/, "Revestimento cerâmico/porcelanato"],
+  [/vinílico|primer|rodapé poliestireno/, "Vinílico"], [/emassamento|demão|pintura|textura|selador/, "Pintura interna"],
+  [/kit porta|portas? madeira/, "Portas madeira"], [/marcenaria/, "Marcenaria"], [/bancada|granito/, "Granito"],
+  [/eletrodom/, "Eletrodomésticos"], [/\bbox\b/, "Vidro"], [/mobiliário|móveis/, "Mobiliário"], [/limpeza/, "Limpeza"],
+  [/churrasqueira|forno/, "Churrasqueira"], [/cobertura|telhamento|telhado|calhas|rufos|platibanda/, "Cobertura"],
+  [/piso monolítico/, "Piso monolítico"], [/grama|mudas|paisag/, "Paisagismo"],
+  [/pavimenta|^base$|^capeamento$|calçad|guias e sarjetas|piso tátil|sinalização viária/, "Pavimentação"], [/drenagem/, "Infra (redes)"],
+];
+const PLANO_GENERICO = /^(execução|segunda demão|primeira demão|montagem|pintura|cobertura|fundação|trecho \d+)$/i;
+function especialidadeDe(nome, pai) {
+  let n = nome.toLowerCase().trim();
+  if (PLANO_GENERICO.test(n) && pai) n += " " + pai.toLowerCase();
+  for (const [rx, e] of PLANO_ESP) if (rx.test(n)) return e;
+  return "";
+}
+
+// ---------------------------------------------------------------- leitura do Project
+function horasPT(s) { const m = /PT(\d+(?:\.\d+)?)H(\d+(?:\.\d+)?)M(\d+(?:\.\d+)?)S/.exec(s || ""); return m ? +m[1] + m[2] / 60 + m[3] / 3600 : 0; }
+function planoDoProject(texto, p) {
+  const doc = new DOMParser().parseFromString(texto, "application/xml"), raiz = doc.documentElement;
+  const mpd = +(txt(raiz, "MinutesPerDay") || 480);
+  const cal = /<Calendars>[\s\S]*?<\/Calendars>/.exec(texto);
+  const t = [], pilha = [];
+  const nos = filho(raiz, "Tasks");
+  if (nos) for (const x of nos.children) {
+    if (txt(x, "IsNull") === "1") continue;
+    const lv = +(txt(x, "OutlineLevel") || 0); if (lv < 1) continue;
+    const o = { u: +txt(x, "UID"), w: txt(x, "OutlineNumber") || "", lv, n: (txt(x, "Name") || "").trim(),
+      d: Math.round(horasPT(txt(x, "Duration")) * 60 / mpd * 100) / 100, i: dia(txt(x, "Start")), f: dia(txt(x, "Finish")), pct: +(txt(x, "PercentComplete") || 0) };
+    if (txt(x, "Summary") === "1") o.r = 1;
+    if (txt(x, "Milestone") === "1") o.m = 1;
+    if (txt(x, "Active") === "0") o.off = 1;
+    const ri = dia(txt(x, "ActualStart")), rf = dia(txt(x, "ActualFinish")); if (ri) o.ri = ri; if (rf) o.rf = rf;
+    for (const b of x.children) if (b.localName === "Baseline") {
+      const nb = txt(b, "Number");
+      if (nb === "0") { o.b0i = dia(txt(b, "Start")); o.b0f = dia(txt(b, "Finish")); }
+      if (nb === "10") o.b10f = dia(txt(b, "Finish"));
+    }
+    const pr = [];
+    for (const l of x.children) if (l.localName === "PredecessorLink") pr.push([+txt(l, "PredecessorUID"), +(txt(l, "Type") || 1), +(txt(l, "LinkLag") || 0), +(txt(l, "LagFormat") || 7)]);
+    if (pr.length) o.pr = pr;
+    while (pilha.length && pilha[pilha.length - 1].lv >= lv) pilha.pop();
+    const pai = pilha[pilha.length - 1];
+    pilha.push(o); t.push(o);
+    o._pai = pai ? pai.n : "";
+  }
+  // folhas: especialidade sugerida e 1 equipe
+  t.forEach((o, k) => {
+    const folha = !o.r && !(t[k + 1] && t[k + 1].lv > o.lv);
+    if (folha && !o.m && o.d > 0 && o.d < 300) { const e = especialidadeDe(o.n, o._pai); if (e) { o.esp = e; o.ne = 1; } }
+    delete o._pai;
+  });
+  const esp = {};
+  Object.entries(PLANO_COMPOS).forEach(([nome, c], k) => esp[nome] = { cor: CORES[k % CORES.length], mo: c.mo.map(([qtd, funcao]) => ({ qtd, funcao })), eq: c.eq.map(([qtd, nome]) => ({ qtd, nome, h: mpd / 60 })) });
+  return { id: id(), tipo: "plano", nome: (p.nomeArquivo || "Cronograma").replace(/\.xml$/i, "").replace(/_+/g, " ") + " · planejamento completo",
+    origem: p.nomeArquivo, titulo: p.titulo, status: p.status, ini: dia(txt(raiz, "StartDate")), fim: dia(txt(raiz, "FinishDate")),
+    mpd, hdia: mpd / 60, hIni: txt(raiz, "DefaultStartTime") || "08:00:00", hFim: txt(raiz, "DefaultFinishTime") || "17:00:00", calUid: txt(raiz, "CalendarUID") || "1",
+    sabado: p.sabado, feriados: p.feriados, calendarios: cal ? cal[0] : "", especialidades: esp, t };
+}
+
+// ---------------------------------------------------------------- cálculo
+let PL = null;                       // estado da tela do plano (não salvo)
+const plUI = { aba: "crono", frente: "", sit: "", esp: "", busca: "", nivel: 4, aberto: new Set(), fechado: new Set(), sel: null, vis: "total", mes: "hh" };
+function frenteDe(nome) { return /^torre/i.test(nome) ? nome : /condom|extern/i.test(nome) ? "Condomínio" : "Geral e entrega"; }
+function compDe(P, o) {
+  const c = P.especialidades[o.esp];
+  return { mo: o.mo || c?.mo || [], eq: o.eq || c?.eq || [] };
+}
+function situacaoDe(o, st) {
+  if (o.pct >= 100) return "Concluída";
+  if (o.pct > 0) return o.f < st ? "Em andamento – atrasada" : "Em andamento";
+  return o.i < st ? "Não iniciada – atrasada" : "A iniciar";
+}
+const SIT_COR = { "Concluída": "var(--ok)", "Em andamento": "var(--warn)", "Em andamento – atrasada": "#d9730d", "Não iniciada – atrasada": "var(--bad)", "A iniciar": "var(--mut)" };
+
+function calcularPlano(P) {
+  const fer = new Set(P.feriados || []), dias = [], idx = new Map();
+  const d0 = new Date((P.ini || P.t[0]?.i) + "T00:00:00Z"), dfim = new Date(P.fim + "T00:00:00Z"); dfim.setUTCDate(dfim.getUTCDate() + 400);
+  for (const d = new Date(d0); d <= dfim; d.setUTCDate(d.getUTCDate() + 1)) if (util(d, P.sabado, fer)) { idx.set(iso(d), dias.length); dias.push(new Date(d)); }
+  const N = dias.length;
+  const ateDia = (s, depois) => { if (!s) return 0; let d = new Date(s + "T00:00:00Z"); for (let k = 0; k < 15; k++) { const j = idx.get(iso(d)); if (j != null) return j; d.setUTCDate(d.getUTCDate() + (depois ? 1 : -1)); } return depois ? 0 : N - 1; };
+  const st = P.status || iso(new Date()), sIdx = ateDia(st, true);
+  const linhas = P.t.map((o, k) => ({ o, k, pai: -1, folha: false, frente: "", hh: 0, hhr: 0, hm: 0, pes: 0, sit: "" }));
+  const pilha = [];
+  linhas.forEach((L, k) => {
+    while (pilha.length && pilha[pilha.length - 1].o.lv >= L.o.lv) pilha.pop();
+    L.pai = pilha.length ? pilha[pilha.length - 1].k : -1;
+    const n2 = L.o.lv === 2 ? L.o.n : (pilha.find(x => x.o.lv === 2)?.o.n ?? "");
+    L.frente = L.o.lv < 2 ? "" : frenteDe(n2);
+    L.caminho = pilha.filter(x => x.o.lv >= 3).map(x => x.o.n);
+    pilha.push(L);
+  });
+  linhas.forEach((L, k) => { L.folha = !L.o.r && !(linhas[k + 1] && linhas[k + 1].o.lv > L.o.lv); });
+  const porEsp = {}, porFun = {}, porEq = {}, porFunR = {}, porEqR = {}, pesEsp = {}, pesEspR = {}, eqsEsp = {};
+  const arr = (m, k) => m[k] || (m[k] = new Float32Array(N));
+  for (const L of linhas) {
+    const o = L.o;
+    L.sit = situacaoDe(o, st);
+    if (!L.folha || !o.esp) continue;
+    const { mo, eq } = compDe(P, o), ne = Math.max(0, +o.ne || 0), dur = +o.d || 0;
+    const pesEq = mo.reduce((a, f) => a + (+f.qtd || 0), 0);
+    L.pes = pesEq * ne; L.hh = L.pes * dur * P.hdia; L.hhr = L.hh * (1 - o.pct / 100);
+    L.hm = eq.reduce((a, e) => a + (+e.qtd || 0) * ne * dur * (+e.h || P.hdia), 0);
+    L.formacao = mo.filter(f => f.qtd > 0).map(f => f.qtd + " " + f.funcao).join(" + ");
+    L.equip = eq.filter(e => e.qtd > 0).map(e => e.qtd + " " + e.nome).join(" + ");
+    L.propria = !!(o.mo || o.eq);
+    const S = porEsp[o.esp] || (porEsp[o.esp] = { ativ: 0, exec: 0, hh: 0, hhr: 0, hm: 0, ini: o.i, fim: o.f, pesEq, durs: [] });
+    S.ativ++; if (o.pct < 100) S.exec++; S.hh += L.hh; S.hhr += L.hhr; S.hm += L.hm; if (o.i < S.ini) S.ini = o.i; if (o.f > S.fim) S.fim = o.f; S.durs.push(dur);
+    if (!(dur > 0) || !(ne > 0)) continue;
+    // distribuição no tempo: plano inteiro e só o que falta a partir da data de status
+    const a = ateDia(o.i, true), b = Math.max(a, ateDia(o.f, false)), n = b - a + 1;
+    const fr = 1 - o.pct / 100;
+    let ra = a, rb = b;
+    if (fr > 0) { if (b < sIdx) { ra = sIdx; rb = Math.min(N - 1, sIdx + Math.max(1, Math.ceil(dur * fr)) - 1); } else ra = Math.max(a, sIdx); }
+    const nr = rb - ra + 1;
+    const EP = arr(pesEsp, o.esp), EPr = arr(pesEspR, o.esp), EN = arr(eqsEsp, o.esp);
+    for (let j = a; j <= b && j < N; j++) { EP[j] += L.hh / n / P.hdia; EN[j] += ne; }
+    if (fr > 0) for (let j = ra; j <= rb && j < N; j++) EPr[j] += L.hhr / nr / P.hdia;
+    for (const f of mo) {
+      const h = (+f.qtd || 0) * ne * dur * P.hdia; if (!h) continue;
+      const A = arr(porFun, f.funcao), R = arr(porFunR, f.funcao);
+      for (let j = a; j <= b && j < N; j++) A[j] += h / n;
+      if (fr > 0) for (let j = ra; j <= rb && j < N; j++) R[j] += h * fr / nr;
+    }
+    for (const e of eq) {
+      const h = (+e.qtd || 0) * ne * dur * (+e.h || P.hdia); if (!h) continue;
+      const A = arr(porEq, e.nome), R = arr(porEqR, e.nome);
+      for (let j = a; j <= b && j < N; j++) A[j] += h / n;
+      if (fr > 0) for (let j = ra; j <= rb && j < N; j++) R[j] += h * fr / nr;
+    }
+  }
+  // soma nos resumos
+  for (let k = linhas.length - 1; k >= 0; k--) { const L = linhas[k]; if (L.pai >= 0) { const Pa = linhas[L.pai]; Pa.hh += L.hh; Pa.hhr += L.hhr; Pa.hm += L.hm; } }
+  for (const [e, S] of Object.entries(porEsp)) {
+    S.durs.sort((x, y) => x - y); S.durTip = S.durs[Math.floor(S.durs.length / 2)] || 0;
+    S.picoEq = Math.max(0, ...(eqsEsp[e] || [0])); S.picoPes = Math.max(0, ...(pesEsp[e] || [0]));
+  }
+  return { dias, idx, N, sIdx, st, linhas, porEsp, porFun, porEq, porFunR, porEqR, pesEsp, pesEspR, porUid: new Map(linhas.map(L => [L.o.u, L])) };
+}
+
+// ---------------------------------------------------------------- tela
+const nf = (v, c = 0) => (v || 0).toLocaleString("pt-BR", { maximumFractionDigits: c, minimumFractionDigits: c });
+const fd = s => s ? fmt(new Date(s + "T00:00:00Z")) : "";
+const ddias = (a, b) => a && b ? Math.round((new Date(a) - new Date(b)) / 864e5) : null;
+function modoPlano(on) {
+  $("#plano").hidden = !on;
+  document.querySelector(".wrap > .grid").hidden = on; $("#alts").hidden = on;
+  document.querySelector(".top > p").hidden = on;
+  $("#tituloModo").textContent = on ? "· planejamento completo" : "· simulador de sequência";
+}
+function abrirPlano(e) {
+  estudo = e; plUI.sel = null; plUI.aberto.clear(); plUI.fechado.clear();
+  modoPlano(true); recalcPlano(false); renderEstudos();
+  lsSet("simulador:ultimo", e.id);
+}
+function recalcPlano(salvar = true) { PL = calcularPlano(estudo); renderPlano(); if (salvar) agendarSalvar(); }
+
+function renderPlano() {
+  const P = estudo, R = PL;
+  document.querySelectorAll("#pAbas button").forEach(b => b.classList.toggle("on", b.dataset.a === plUI.aba));
+  // indicadores
+  const K = $("#pKpis"); K.replaceChildren();
+  const kpi = (rot, val, sub) => el("div", { class: "kpi" }, el("span", {}, rot), el("b", {}, val, sub ? el("small", { class: "mut" }, sub) : null));
+  const fol = R.linhas.filter(L => L.folha && L.o.lv >= 2 && !L.o.m);
+  const cont = s => fol.filter(L => L.sit === s).length;
+  const hh = fol.reduce((a, L) => a + L.hh, 0), hhr = fol.reduce((a, L) => a + L.hhr, 0), hm = fol.reduce((a, L) => a + L.hm, 0);
+  const pesTot = new Float32Array(R.N); Object.values(R.pesEsp).forEach(a => a.forEach((v, j) => pesTot[j] += v));
+  let pico = 0, picoD = 0; pesTot.forEach((v, j) => { if (v > pico) { pico = v; picoD = j; } });
+  K.append(kpi("Término", fd(P.fim)), kpi("Data de status", fd(R.st)),
+    kpi("Atividades", nf(fol.length), `${nf(cont("Concluída"))} concl. · ${nf(cont("Em andamento") + cont("Em andamento – atrasada"))} and.`),
+    kpi("Atrasadas", nf(cont("Em andamento – atrasada") + cont("Não iniciada – atrasada"))),
+    kpi("Homem-hora", nf(hh), nf(hhr) + " a executar"), kpi("Pico de pessoas", nf(pico), R.dias[picoD] ? "em " + fmt(R.dias[picoD]) : ""),
+    kpi("Horas-máquina", nf(hm)));
+  const C = $("#pConteudo"); C.replaceChildren();
+  if (plUI.aba === "crono") renderCrono(P, R, C);
+  else if (plUI.aba === "equipes") renderComposicoes(P, R, C);
+  else if (plUI.aba === "meses") renderMeses(P, R, C);
+  else renderHistograma(P, R, C);
+}
+
+function filtrosPlano(P, R, extra) {
+  const frentes = [...new Set(R.linhas.map(L => L.frente).filter(Boolean))];
+  const esps = Object.keys(P.especialidades).sort((a, b) => a.localeCompare(b, "pt-BR"));
+  const seg = el("span", { class: "seg" }, [["", "Todas"], ...frentes.map(f => [f, f])].map(([v, t]) => el("button", { class: plUI.frente === v ? "on" : "", onclick: () => { plUI.frente = v; renderPlano(); } }, t)));
+  return el("div", { class: "cfg", style: "margin-bottom:8px" }, seg,
+    el("label", {}, "Situação", el("select", { onchange: e => { plUI.sit = e.target.value; renderPlano(); } },
+      ["", "Concluída", "Em andamento", "Em andamento – atrasada", "Não iniciada – atrasada", "A iniciar", "atrasadas", "a executar"].map(s => el("option", { value: s, selected: plUI.sit === s }, s || "todas")))),
+    el("label", {}, "Especialidade", el("select", { onchange: e => { plUI.esp = e.target.value; renderPlano(); } },
+      el("option", { value: "" }, "todas"), el("option", { value: "-", selected: plUI.esp === "-" }, "(sem especialidade)"), esps.map(s => el("option", { value: s, selected: plUI.esp === s }, s)))),
+    el("label", {}, "Buscar", el("input", { type: "search", value: plUI.busca, placeholder: "atividade ou pavimento", style: "width:170px", onchange: e => { plUI.busca = e.target.value.trim(); renderPlano(); } })),
+    extra || null);
+}
+function passaFiltro(L) {
+  const o = L.o;
+  if (plUI.frente && L.frente !== plUI.frente) return false;
+  const temFiltro = plUI.sit || plUI.esp || plUI.busca;
+  if (!temFiltro) return true;
+  if (!L.folha) return false;
+  if (plUI.sit === "atrasadas" ? !L.sit.includes("atrasada") : plUI.sit === "a executar" ? o.pct >= 100 : plUI.sit && L.sit !== plUI.sit) return false;
+  if (plUI.esp && (plUI.esp === "-" ? !!o.esp : o.esp !== plUI.esp)) return false;
+  if (plUI.busca) { const q = plUI.busca.toLowerCase(); if (!(o.n.toLowerCase().includes(q) || L.caminho.some(c => c.toLowerCase().includes(q)) || o.w.startsWith(q))) return false; }
+  return true;
+}
+
+function renderCrono(P, R, C) {
+  const temFiltro = plUI.sit || plUI.esp || plUI.busca;
+  const nivelSel = el("label", { title: "Até que nível da EAP a tabela abre" }, "Abrir até", el("select", { onchange: e => { plUI.nivel = +e.target.value; plUI.aberto.clear(); plUI.fechado.clear(); renderPlano(); } },
+    [[2, "frente"], [3, "bloco"], [4, "pavimento / local"], [5, "pacote"], [99, "todas as atividades"]].map(([v, t]) => el("option", { value: v, selected: plUI.nivel === v }, t))));
+  C.append(filtrosPlano(P, R, nivelSel));
+  // linhas visíveis
+  const vis = [];
+  if (temFiltro) {
+    const marca = new Set();
+    R.linhas.forEach(L => { if (passaFiltro(L)) { marca.add(L.k); for (let p = L.pai; p >= 0 && !marca.has(p); p = R.linhas[p].pai) marca.add(p); } });
+    R.linhas.forEach(L => { if (marca.has(L.k) && L.o.lv >= 2) vis.push(L); });
+  } else {
+    const aberto = L => plUI.fechado.has(L.k) ? false : plUI.aberto.has(L.k) || L.o.lv < plUI.nivel;
+    for (const L of R.linhas) {
+      if (L.o.lv < 2 || !passaFiltro(L)) continue;
+      let ok = true; for (let p = L.pai; p >= 0; p = R.linhas[p].pai) if (R.linhas[p].o.lv >= 2 && !aberto(R.linhas[p])) { ok = false; break; }
+      if (ok) vis.push(L);
+    }
+  }
+  // edição em lote das folhas filtradas
+  const folhasVis = vis.filter(L => L.folha && !L.o.m && L.o.d > 0);
+  if (temFiltro && folhasVis.length) {
+    const sEsp = el("select", {}, el("option", { value: "" }, "(manter)"), el("option", { value: "-" }, "(sem especialidade)"), Object.keys(P.especialidades).sort().map(s => el("option", { value: s }, s)));
+    const iNe = el("input", { type: "number", min: 0, step: 1, placeholder: "—", style: "width:58px" });
+    C.append(el("div", { class: "aviso", style: "margin-bottom:8px;display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center" },
+      el("b", {}, folhasVis.length + " atividades filtradas:"), el("label", {}, "especialidade ", sEsp), el("label", {}, "equipes ", iNe),
+      el("button", { class: "btn sm pri", onclick: () => {
+        for (const L of folhasVis) { if (sEsp.value === "-") { delete L.o.esp; delete L.o.ne; } else if (sEsp.value) { L.o.esp = sEsp.value; L.o.ne ??= 1; } if (iNe.value !== "" && L.o.esp) L.o.ne = Math.max(0, +iNe.value | 0); }
+        recalcPlano();
+      } }, "Aplicar")));
+  }
+  if (plUI.sel != null) C.append(editorAtividade(P, R, R.linhas[plUI.sel]));
+  const LIM = 1500, cab = ["EAP", "Atividade", "Dur.", "Início", "Término", "%", "Situação", "Térm. LB0", "Desvio", "Especialidade", "Equipes", "Formação por equipe", "Pessoas", "HH", "HH a exec.", "Equipamentos", "H-máq."];
+  const T = el("table", { class: "t plano" }, el("thead", {}, el("tr", {}, cab.map((h, j) => el("th", { class: j >= 12 || j === 2 || j === 5 || j === 8 || j === 10 ? "r" : "" }, h)))));
+  const tb = el("tbody");
+  for (const L of vis.slice(0, LIM)) {
+    const o = L.o, desv = ddias(o.f, o.b0f), aberto = plUI.fechado.has(L.k) ? false : plUI.aberto.has(L.k) || o.lv < plUI.nivel;
+    const tog = L.folha ? el("span", { class: "tg" }) : el("button", { class: "tg link", "aria-label": aberto ? "Recolher" : "Abrir", onclick: ev => { ev.stopPropagation(); if (aberto) { plUI.fechado.add(L.k); plUI.aberto.delete(L.k); } else { plUI.aberto.add(L.k); plUI.fechado.delete(L.k); } renderPlano(); } }, temFiltro ? "▾" : aberto ? "▾" : "▸");
+    const tr = el("tr", { class: (L.folha ? "folha" : "resumo lv" + Math.min(o.lv, 5)) + (plUI.sel === L.k ? " sel" : ""), onclick: L.folha ? () => { plUI.sel = plUI.sel === L.k ? null : L.k; renderPlano(); } : null },
+      el("td", { class: "n mut" }, o.w),
+      el("td", { style: `padding-left:${8 + (o.lv - 2) * 14}px` }, el("span", { class: "nm" }, tog, o.n, L.propria ? el("span", { class: "tag", title: "Formação própria nesta atividade" }, "própria") : null)),
+      el("td", { class: "n r" }, nf(o.d, o.d % 1 ? 1 : 0)), el("td", { class: "n" }, fd(o.i)), el("td", { class: "n" }, fd(o.f)), el("td", { class: "n r" }, o.pct + "%"),
+      el("td", {}, L.folha || o.pct > 0 ? el("span", { class: "sit", style: `--c:${SIT_COR[L.sit]}` }, L.sit) : ""),
+      el("td", { class: "n" }, fd(o.b0f)), el("td", { class: "n r " + (desv > 0 ? "d-pior" : desv < 0 ? "d-melhor" : "") }, desv ? (desv > 0 ? "+" : "") + desv : ""),
+      el("td", {}, L.folha ? (o.esp || (o.m || !o.d ? "" : el("span", { class: "mut" }, "definir"))) : ""),
+      el("td", { class: "n r" }, L.folha && o.esp ? o.ne : ""),
+      el("td", { class: "mut" }, L.formacao || ""), el("td", { class: "n r" }, L.pes ? nf(L.pes) : ""),
+      el("td", { class: "n r" }, L.hh ? nf(L.hh) : ""), el("td", { class: "n r" }, L.hhr ? nf(L.hhr) : (L.hh ? "0" : "")),
+      el("td", { class: "mut" }, L.equip || ""), el("td", { class: "n r" }, L.hm ? nf(L.hm) : ""));
+    tb.append(tr);
+  }
+  T.append(tb);
+  C.append(el("div", { class: "scroll", style: "max-height:72vh;overflow:auto" }, T));
+  C.append(el("p", { class: "mut", style: "margin:6px 0 0;font-size:12px" }, vis.length > LIM ? `Mostrando ${LIM} de ${nf(vis.length)} linhas; recolha ou filtre para ver o resto.` : `${nf(vis.length)} linhas.`,
+    " HH = pessoas por equipe × equipes × duração × " + nf(P.hdia, 1) + " h/dia. Clique numa atividade para mudar a equipe."));
+}
+
+function linhasForm(lista, campos, mudou) {
+  return el("div", { class: "grupos" }, lista.map((f, k) => el("div", { class: "form-p" },
+    campos.map(([c, tipo, w, rot]) => el("input", { type: tipo, value: f[c], step: tipo === "number" ? (c === "h" ? .1 : 1) : null, min: tipo === "number" ? 0 : null, style: `width:${w}`, "aria-label": rot, title: rot, onchange: e => { f[c] = tipo === "number" ? Math.max(0, +e.target.value || 0) : e.target.value; mudou(); } })),
+    el("button", { class: "link", title: "Tirar", onclick: () => { lista.splice(k, 1); mudou(); } }, "✕"))));
+}
+function editorAtividade(P, R, L) {
+  const o = L.o, propria = !!(o.mo || o.eq), c = compDe(P, o);
+  const mudou = () => recalcPlano();
+  const box = el("section", { class: "panel", style: "margin-bottom:8px;border-color:var(--accent)" },
+    el("header", {}, el("h2", {}, o.n), el("span", { class: "mut" }, [o.w, ...L.caminho].join(" · ") + ` · ${nf(o.d, 1)} dias · ${fd(o.i)} a ${fd(o.f)} · ${o.pct}%`),
+      el("button", { class: "btn sm", onclick: () => { plUI.sel = null; renderPlano(); } }, "fechar")),
+    el("div", { class: "cfg" },
+      el("label", {}, "Especialidade", el("select", { onchange: e => { if (e.target.value) { o.esp = e.target.value; o.ne ??= 1; } else { delete o.esp; delete o.ne; delete o.mo; delete o.eq; } mudou(); } },
+        el("option", { value: "" }, "(sem equipe)"), Object.keys(P.especialidades).sort().map(s => el("option", { value: s, selected: o.esp === s }, s)))),
+      o.esp ? el("label", { title: "Equipes iguais trabalhando juntas nesta atividade" }, "Equipes", el("input", { type: "number", min: 0, step: 1, value: o.ne, onchange: e => { o.ne = Math.max(0, +e.target.value | 0); mudou(); } })) : null,
+      o.esp ? el("label", {}, el("input", { type: "checkbox", checked: propria, onchange: e => { if (e.target.checked) { o.mo = copia(c.mo); o.eq = copia(c.eq); } else { delete o.mo; delete o.eq; } mudou(); } }), "formação própria nesta atividade") : null,
+      el("span", { class: "ritmo" }, `${nf(L.pes)} pessoas · ${nf(L.hh)} HH · ${nf(L.hm)} h-máq.`)));
+  if (o.esp && propria) box.append(el("div", { style: "display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px;margin-top:8px" },
+    el("div", {}, el("div", { class: "form-h2" }, "Mão de obra por equipe (qtd · função)"), linhasForm(o.mo, [["qtd", "number", "54px", "Quantidade"], ["funcao", "text", "190px", "Função"]], mudou),
+      el("button", { class: "link", onclick: () => { o.mo.push({ qtd: 1, funcao: "Ajudante" }); mudou(); } }, "+ função")),
+    el("div", {}, el("div", { class: "form-h2" }, "Equipamentos por equipe (qtd · equipamento · h/dia)"), linhasForm(o.eq, [["qtd", "number", "54px", "Quantidade"], ["nome", "text", "170px", "Equipamento"], ["h", "number", "58px", "Horas por dia"]], mudou),
+      el("button", { class: "link", onclick: () => { o.eq.push({ qtd: 1, nome: "Equipamento", h: P.hdia }); mudou(); } }, "+ equipamento"))));
+  return box;
+}
+
+function renderComposicoes(P, R, C) {
+  const mudou = () => recalcPlano();
+  C.append(el("div", { class: "cfg", style: "margin-bottom:10px" },
+    el("label", {}, "Horas de trabalho por dia", el("input", { type: "number", min: 1, step: .1, value: P.hdia, onchange: e => { P.hdia = Math.max(1, +e.target.value || 8); mudou(); } })),
+    el("label", {}, "Data de status", el("input", { type: "date", value: P.status || "", style: "width:auto", onchange: e => { P.status = e.target.value || null; mudou(); } })),
+    el("label", {}, el("input", { type: "checkbox", checked: !!P.sabado, onchange: e => { P.sabado = e.target.checked; mudou(); } }), "trabalha aos sábados"),
+    el("span", { class: "mut" }, "As datas são as do cronograma; aqui só se quantifica a equipe.")));
+  // tabela por especialidade
+  const esps = Object.keys(P.especialidades).filter(e => R.porEsp[e]).sort((a, b) => R.porEsp[a].ini.localeCompare(R.porEsp[b].ini));
+  const T = el("table", { class: "t" }, el("thead", {}, el("tr", {}, ["Especialidade", "Atividades", "A executar", "Início", "Término", "Duração típica (d)", "Equipes simultâneas no pico", "Pessoas por equipe", "Pico de pessoas", "HH", "HH a executar", "Horas-máquina"].map((h, j) => el("th", { class: j ? "r" : "" }, h)))));
+  const tb = el("tbody");
+  let tot = [0, 0, 0, 0, 0];
+  for (const e of esps) {
+    const S = R.porEsp[e], c = P.especialidades[e];
+    tot = [tot[0] + S.ativ, tot[1] + S.exec, tot[2] + S.hh, tot[3] + S.hhr, tot[4] + S.hm];
+    tb.append(el("tr", { style: "cursor:pointer", onclick: () => { plUI.aba = "crono"; plUI.esp = e; plUI.frente = ""; renderPlano(); }, title: "Ver as atividades" },
+      el("td", {}, el("span", { class: "sw", style: `background:${c.cor};display:inline-block;margin-right:6px` }), e),
+      el("td", { class: "n r" }, nf(S.ativ)), el("td", { class: "n r" }, nf(S.exec)), el("td", { class: "n r" }, fd(S.ini)), el("td", { class: "n r" }, fd(S.fim)),
+      el("td", { class: "n r" }, nf(S.durTip, 1)), el("td", { class: "n r" }, nf(S.picoEq)), el("td", { class: "n r" }, nf(c.mo.reduce((a, f) => a + f.qtd, 0))),
+      el("td", { class: "n r" }, nf(S.picoPes)), el("td", { class: "n r" }, nf(S.hh)), el("td", { class: "n r" }, nf(S.hhr)), el("td", { class: "n r" }, nf(S.hm))));
+  }
+  tb.append(el("tr", { class: "tot" }, el("td", {}, "Total"), el("td", { class: "n r" }, nf(tot[0])), el("td", { class: "n r" }, nf(tot[1])), el("td"), el("td"), el("td"), el("td"), el("td"), el("td"),
+    el("td", { class: "n r" }, nf(tot[2])), el("td", { class: "n r" }, nf(tot[3])), el("td", { class: "n r" }, nf(tot[4]))));
+  T.append(tb);
+  C.append(el("section", { class: "panel" }, el("header", {}, el("h2", {}, "Equipes por especialidade"), el("span", { class: "mut" }, "equipes simultâneas no pico = maior soma de equipes trabalhando no mesmo dia; clique para ver as atividades")), el("div", { class: "scroll" }, T)));
+  // composições editáveis
+  const sem = Object.keys(P.especialidades).filter(e => !R.porEsp[e]);
+  const cards = el("div", { class: "equipes", style: "grid-template-columns:repeat(auto-fill,minmax(300px,1fr))" });
+  for (const e of [...esps, ...sem]) {
+    const c = P.especialidades[e];
+    cards.append(el("div", { class: "eq" },
+      el("div", { class: "eq-cab" }, el("span", { class: "sw", style: `background:${c.cor}` }), el("b", { style: "flex:1" }, e),
+        R.porEsp[e] ? el("span", { class: "eq-tot" }, nf(R.porEsp[e].ativ) + " ativ.") : el("button", { class: "x", title: "Excluir especialidade sem uso", onclick: () => { delete P.especialidades[e]; mudou(); } }, "✕")),
+      el("div", { class: "form-h2" }, "Mão de obra por equipe"), linhasForm(c.mo, [["qtd", "number", "54px", "Quantidade"], ["funcao", "text", "200px", "Função"]], mudou),
+      el("button", { class: "link", style: "align-self:start", onclick: () => { c.mo.push({ qtd: 1, funcao: "Ajudante" }); mudou(); } }, "+ função"),
+      el("div", { class: "form-h2" }, "Equipamentos por equipe · h/dia"), linhasForm(c.eq, [["qtd", "number", "54px", "Quantidade"], ["nome", "text", "150px", "Equipamento"], ["h", "number", "58px", "Horas por dia"]], mudou),
+      el("button", { class: "link", style: "align-self:start", onclick: () => { c.eq.push({ qtd: 1, nome: "Equipamento", h: P.hdia }); mudou(); } }, "+ equipamento")));
+  }
+  const nova = el("input", { placeholder: "nova especialidade", style: "width:200px" });
+  C.append(el("section", { class: "panel", style: "margin-top:12px" }, el("header", {}, el("h2", {}, "Composição de cada equipe"),
+    el("span", { class: "mut" }, "vale para todas as atividades da especialidade, menos as que têm formação própria"),
+    el("span", { style: "margin-left:auto;display:flex;gap:6px" }, nova, el("button", { class: "btn sm", onclick: () => { const v = nova.value.trim(); if (v && !P.especialidades[v]) { P.especialidades[v] = { cor: CORES[Object.keys(P.especialidades).length % CORES.length], mo: [{ qtd: 1, funcao: "Oficial" }, { qtd: 1, funcao: "Ajudante" }], eq: [] }; mudou(); } } }, "+ Especialidade"))), cards));
+}
+
+function meses(R) { const m = []; let ult = ""; R.dias.forEach((d, j) => { const k = iso(d).slice(0, 7); if (k !== ult) { m.push({ k, a: j, n: 0 }); ult = k; } m[m.length - 1].n++; }); return m; }
+function renderMeses(P, R, C) {
+  const resto = plUI.vis === "resto";
+  const ctl = el("div", { class: "cfg", style: "margin-bottom:8px" },
+    el("span", { class: "seg" }, [["total", "plano inteiro"], ["resto", "a executar (após a data de status)"]].map(([v, t]) => el("button", { class: plUI.vis === v ? "on" : "", onclick: () => { plUI.vis = v; renderPlano(); } }, t))),
+    el("span", { class: "seg" }, [["hh", "horas"], ["pes", "pessoas / máquinas médias no mês"]].map(([v, t]) => el("button", { class: plUI.mes === v ? "on" : "", onclick: () => { plUI.mes = v; renderPlano(); } }, t))),
+    el("button", { class: "btn sm", onclick: () => baixar(slug(estudo.nome) + "_recursos-por-mes.csv", csvMeses(P, R), "text/csv;charset=utf-8") }, "Baixar .csv"));
+  C.append(ctl);
+  const M = meses(R).filter(m => R.dias[m.a] <= new Date(P.fim + "T00:00:00Z") || false);
+  const A = resto ? [R.porFunR, R.porEqR] : [R.porFun, R.porEq];
+  const T = el("table", { class: "t mes" });
+  T.append(el("thead", {}, el("tr", {}, el("th", {}, "Recurso"), el("th", { class: "r" }, "Total"), M.map(m => el("th", { class: "r" }, new Date(m.k + "-01T00:00:00Z").toLocaleDateString("pt-BR", { month: "short", year: "2-digit", timeZone: "UTC" }))))));
+  const tb = el("tbody");
+  const linhas = (mapa, rot, hdia) => {
+    const nomes = Object.keys(mapa).sort((a, b) => mapa[b].reduce((x, y) => x + y, 0) - mapa[a].reduce((x, y) => x + y, 0));
+    if (!nomes.length) return;
+    tb.append(el("tr", { class: "grp" }, el("td", { colspan: M.length + 2 }, rot)));
+    const somaM = M.map(() => 0); let somaT = 0;
+    for (const n of nomes) {
+      const a = mapa[n], tot = a.reduce((x, y) => x + y, 0); if (tot < .5) continue; somaT += tot;
+      tb.append(el("tr", {}, el("td", {}, n), el("td", { class: "n r" }, nf(tot)), M.map((m, i) => { let v = 0; for (let j = m.a; j < m.a + m.n; j++) v += a[j]; somaM[i] += v; const x = plUI.mes === "pes" ? v / (m.n * hdia) : v; return el("td", { class: "n r" + (x ? "" : " mut") }, x ? nf(x, plUI.mes === "pes" && x < 10 ? 1 : 0) : "·"); })));
+    }
+    tb.append(el("tr", { class: "tot" }, el("td", {}, "Total " + rot.toLowerCase()), el("td", { class: "n r" }, nf(somaT)), somaM.map((v, i) => el("td", { class: "n r" }, nf(plUI.mes === "pes" ? v / (M[i].n * hdia) : v)))));
+  };
+  linhas(A[0], "Mão de obra (" + (plUI.mes === "pes" ? "pessoas médias" : "homem-hora") + ")", P.hdia);
+  linhas(A[1], "Equipamentos (" + (plUI.mes === "pes" ? "máquinas médias" : "horas-máquina") + ")", P.hdia);
+  T.append(tb);
+  C.append(el("div", { class: "scroll", style: "max-height:72vh;overflow:auto" }, T));
+}
+function csvMeses(P, R) {
+  const M = meses(R), q = v => '"' + String(v).replace(/"/g, '""') + '"', num = v => (Math.round(v * 10) / 10).toString().replace(".", ",");
+  const L = [["Tipo", "Recurso", "Unidade", ...M.map(m => m.k)].map(q).join(";")];
+  for (const [mapa, tipo, un] of [[R.porFun, "Mão de obra", "HH"], [R.porEq, "Equipamento", "h-máq"], [R.porFunR, "Mão de obra a executar", "HH"], [R.porEqR, "Equipamento a executar", "h-máq"]])
+    for (const [n, a] of Object.entries(mapa)) L.push([q(tipo), q(n), q(un), ...M.map(m => { let v = 0; for (let j = m.a; j < m.a + m.n; j++) v += a[j]; return num(v); })].join(";"));
+  return "﻿" + L.join("\r\n");
+}
+
+function renderHistograma(P, R, C) {
+  const resto = plUI.vis === "resto";
+  C.append(el("div", { class: "cfg", style: "margin-bottom:8px" }, el("span", { class: "seg" }, [["total", "plano inteiro"], ["resto", "a executar"]].map(([v, t]) => el("button", { class: plUI.vis === v ? "on" : "", onclick: () => { plUI.vis = v; renderPlano(); } }, t))),
+    el("span", { class: "mut" }, "pessoas na obra por semana (média dos dias úteis), por especialidade; a linha vermelha é a data de status")));
+  const fonte = resto ? R.pesEspR : R.pesEsp;
+  const esps = Object.keys(fonte).sort((a, b) => R.porEsp[a].ini.localeCompare(R.porEsp[b].ini));
+  const sem = []; let w = -1, ultSeg = "";
+  R.dias.forEach((d, j) => { const seg = new Date(d); seg.setUTCDate(seg.getUTCDate() - ((seg.getUTCDay() + 6) % 7)); const k = iso(seg); if (k !== ultSeg) { sem.push({ k, a: j, n: 0, d }); ultSeg = k; } sem[sem.length - 1].n++; });
+  const fimIdx = R.idx.get(P.fim) ?? R.N - 1;
+  const S = sem.filter(s => s.a <= fimIdx).map(s => { const por = {}; let tot = 0; for (const e of esps) { let v = 0; for (let j = s.a; j < s.a + s.n; j++) v += fonte[e][j]; por[e] = v / s.n; tot += por[e]; } return { ...s, por, tot }; });
+  const max = Math.max(1, ...S.map(s => s.tot)), H = 260, bw = 7, W = 50 + S.length * (bw + 1) + 10;
+  const NS = "http://www.w3.org/2000/svg", sv = (t, a = {}) => { const e = document.createElementNS(NS, t); for (const [k, v] of Object.entries(a)) e.setAttribute(k, v); return e; };
+  const cs = getComputedStyle(document.documentElement), cor = n => cs.getPropertyValue(n).trim();
+  const svg = sv("svg", { width: W, height: H + 34, viewBox: `0 0 ${W} ${H + 34}`, role: "img", "aria-label": "Pessoas por semana" });
+  const y = v => H - v / max * (H - 10);
+  const passo = Math.max(10, Math.ceil(max / 5 / 10) * 10);
+  for (let g = 0; g <= max; g += passo) { svg.append(sv("line", { x1: 44, x2: W - 6, y1: y(g) + 4, y2: y(g) + 4, stroke: cor("--rule") })); const t = sv("text", { x: 40, y: y(g) + 8, "font-size": 10, "text-anchor": "end", fill: cor("--mut") }); t.textContent = g; svg.append(t); }
+  let ultMes = -1;
+  S.forEach((s, i) => {
+    const x = 50 + i * (bw + 1); let yy = H + 4;
+    for (const e of esps) { const h = s.por[e] / max * (H - 10); if (h <= 0.05) continue; yy -= h;
+      const r = sv("rect", { x, y: yy, width: bw, height: h, fill: P.especialidades[e]?.cor || "#999" });
+      r.addEventListener("mousemove", ev => dica(ev, `Semana de ${fmt(s.d)}\n` + esps.filter(k => s.por[k] >= .5).sort((a, b) => s.por[b] - s.por[a]).map(k => `${k}: ${nf(s.por[k])}`).join("\n") + `\nTotal: ${nf(s.tot)}`));
+      r.addEventListener("mouseleave", ev => dica(ev, null)); svg.append(r); }
+    if (s.d.getUTCMonth() !== ultMes) { ultMes = s.d.getUTCMonth(); const t = sv("text", { x, y: H + 20, "font-size": 9.5, fill: cor("--mut") }); t.textContent = s.d.toLocaleDateString("pt-BR", { month: "short", timeZone: "UTC" }) + (s.d.getUTCMonth() === 0 ? " " + s.d.getUTCFullYear() % 100 : ""); svg.append(t); }
+    if (R.sIdx >= s.a && R.sIdx < s.a + s.n) svg.append(sv("line", { x1: x, x2: x, y1: 4, y2: H + 4, stroke: cor("--bad"), "stroke-width": 1.5 }));
+  });
+  C.append(el("div", { class: "lob-wrap" }, svg));
+  C.append(el("div", { class: "leg" }, esps.map(e => el("span", {}, el("i", { style: `background:${P.especialidades[e].cor}` }), e))));
+}
+
+// ---------------------------------------------------------------- exportar
+function xmlDoPlano(P, R) {
+  const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const pt = h => { const m = Math.round(h * 60); return `PT${Math.floor(m / 60)}H${m % 60}M0S`; };
+  const L = [`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>`, `<Project xmlns="http://schemas.microsoft.com/project">`,
+    `<SaveVersion>14</SaveVersion><Name>${esc(P.nome)}.xml</Name><Title>${esc(P.titulo || P.nome)}</Title><ScheduleFromStart>1</ScheduleFromStart>`,
+    `<StartDate>${P.ini}T${P.hIni}</StartDate><FinishDate>${P.fim}T${P.hFim}</FinishDate><CalendarUID>${P.calUid}</CalendarUID>`,
+    `<DefaultStartTime>${P.hIni}</DefaultStartTime><DefaultFinishTime>${P.hFim}</DefaultFinishTime><MinutesPerDay>${P.mpd}</MinutesPerDay><MinutesPerWeek>${P.mpd * (P.sabado ? 6 : 5)}</MinutesPerWeek><DaysPerMonth>20</DaysPerMonth>`,
+    `<DurationFormat>7</DurationFormat><WorkFormat>2</WorkFormat><HonorConstraints>0</HonorConstraints>${P.status ? `<StatusDate>${P.status}T${P.hFim}</StatusDate>` : ""}`,
+    P.calendarios || "", `<Tasks>`];
+  const recs = new Map(); const rec = (nome, grupo) => { const k = grupo + "|" + nome; if (!recs.has(k)) recs.set(k, { uid: recs.size + 1, nome, grupo }); return recs.get(k).uid; };
+  const asg = [];
+  const temUid = new Set(P.t.map(o => o.u));
+  R.linhas.forEach((Lh, k) => {
+    const o = Lh.o, hd = P.mpd / 60;
+    const x = [`<Task><UID>${o.u}</UID><ID>${k + 1}</ID><Name>${esc(o.n)}</Name><Type>${Lh.folha && o.esp ? 1 : 0}</Type><OutlineNumber>${o.w}</OutlineNumber><OutlineLevel>${o.lv}</OutlineLevel>`,
+      `<Start>${o.i}T${P.hIni}</Start><Finish>${o.f}T${P.hFim}</Finish><Duration>${pt(o.d * hd)}</Duration><DurationFormat>7</DurationFormat>`,
+      `<Summary>${o.r ? 1 : 0}</Summary><Milestone>${o.m ? 1 : 0}</Milestone><PercentComplete>${o.pct}</PercentComplete>`, o.off ? `<Active>0</Active>` : ""];
+    if (o.ri) x.push(`<ActualStart>${o.ri}T${P.hIni}</ActualStart>`);
+    if (o.rf) x.push(`<ActualFinish>${o.rf}T${P.hFim}</ActualFinish>`);
+    if (Lh.folha) x.push(`<ConstraintType>4</ConstraintType><ConstraintDate>${o.i}T${P.hIni}</ConstraintDate>`);
+    for (const [u, tp, lag, lf] of o.pr || []) if (temUid.has(u)) x.push(`<PredecessorLink><PredecessorUID>${u}</PredecessorUID><Type>${tp}</Type><CrossProject>0</CrossProject><LinkLag>${lag}</LinkLag><LagFormat>${lf}</LagFormat></PredecessorLink>`);
+    if (o.b0i && o.b0f) x.push(`<Baseline><Number>0</Number><Start>${o.b0i}T${P.hIni}</Start><Finish>${o.b0f}T${P.hFim}</Finish></Baseline>`);
+    x.push(`</Task>`); L.push(x.join(""));
+    if (Lh.folha && o.esp && o.ne > 0 && o.d > 0) {
+      const { mo, eq } = compDe(P, o);
+      for (const f of mo) if (f.qtd > 0) asg.push({ t: o.u, r: rec(f.funcao, "Mão de obra"), un: f.qtd * o.ne, h: f.qtd * o.ne * o.d * P.hdia, pct: o.pct });
+      for (const e of eq) if (e.qtd > 0) asg.push({ t: o.u, r: rec(e.nome, "Equipamento"), un: e.qtd * o.ne, h: e.qtd * o.ne * o.d * (+e.h || P.hdia), pct: o.pct });
+    }
+  });
+  L.push(`</Tasks><Resources>`);
+  for (const r of recs.values()) L.push(`<Resource><UID>${r.uid}</UID><ID>${r.uid}</ID><Name>${esc(r.nome)}</Name><Type>1</Type><Group>${r.grupo}</Group><MaxUnits>99</MaxUnits></Resource>`);
+  L.push(`</Resources><Assignments>`);
+  asg.forEach((a, k) => L.push(`<Assignment><UID>${k + 1}</UID><TaskUID>${a.t}</TaskUID><ResourceUID>${a.r}</ResourceUID><Units>${+a.un.toFixed(2)}</Units><Work>${pt(a.h)}</Work><RemainingWork>${pt(a.h * (1 - a.pct / 100))}</RemainingWork><PercentWorkComplete>${a.pct}</PercentWorkComplete></Assignment>`));
+  L.push(`</Assignments></Project>`);
+  return L.join("\r\n");
+}
+function csvDoPlano(P, R) {
+  const q = v => '"' + String(v ?? "").replace(/"/g, '""') + '"', num = (v, c = 1) => v == null || v === "" ? "" : (Math.round(v * 10 ** c) / 10 ** c).toString().replace(".", ",");
+  const L = [["EAP", "Nível", "Frente", "Caminho", "Atividade", "Resumo", "Duração (d)", "Início", "Término", "% concluído", "Início real", "Término real", "Início LB0", "Término LB0", "Término LB10", "Situação", "Desvio x LB0 (d)", "Especialidade", "Equipes", "Formação por equipe", "Pessoas", "HH", "HH a executar", "Equipamentos", "Horas-máquina"].map(q).join(";")];
+  for (const Lh of R.linhas) { const o = Lh.o; if (o.lv < 2) continue;
+    L.push([q(o.w), o.lv, q(Lh.frente), q(Lh.caminho.join(" › ")), q(o.n), o.r ? "sim" : "", num(o.d), o.i, o.f, o.pct, o.ri || "", o.rf || "", o.b0i || "", o.b0f || "", o.b10f || "", q(Lh.folha ? Lh.sit : ""), ddias(o.f, o.b0f) ?? "",
+      q(o.esp || ""), Lh.folha && o.esp ? o.ne : "", q(Lh.formacao || ""), Lh.pes || "", num(Lh.hh, 0), num(Lh.hhr, 0), q(Lh.equip || ""), num(Lh.hm, 0)].join(";")); }
+  return "﻿" + L.join("\r\n");
+}
+
+$("#pCsv").onclick = () => baixar(slug(estudo.nome) + ".csv", csvDoPlano(estudo, PL), "text/csv;charset=utf-8");
+document.querySelectorAll("#pAbas button[data-a]").forEach(b => b.onclick = () => { plUI.aba = b.dataset.a; renderPlano(); });
 
 // ---------------------------------------------------------------- eventos gerais
 $("#limpaEq").onclick = () => excluirSemUso(S());
