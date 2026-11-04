@@ -185,6 +185,36 @@ table.plano td.mut { white-space: normal; min-width: 150px; font-size: 11.5px; }
 table.mes td, table.mes th { padding: 3px 6px; white-space: nowrap; }
 table.mes td:first-child { position: sticky; left: 0; background: var(--sheet); }
 table.mes tr.grp td { font: 700 11px var(--f-disp); text-transform: uppercase; letter-spacing: .6px; color: var(--ink2); padding-top: 10px; }
+
+.gantt { position: relative; overflow: auto; max-height: 74vh; border: 1px solid var(--rule); border-radius: 6px; background: var(--sheet); }
+.g-row { position: absolute; left: 0; display: flex; height: 24px; border-bottom: 1px solid var(--rule); font-size: 12px; cursor: pointer; }
+.g-row.g-head { position: sticky; top: 0; z-index: 4; height: 30px; background: var(--bg); }
+.g-row:hover .g-cells, .g-row:hover .g-track { background-color: var(--accent-soft); }
+.g-row.sel .g-cells, .g-row.sel .g-track { background-color: var(--sel) !important; }
+.g-cells { position: sticky; left: 0; z-index: 2; display: flex; flex: none; background: var(--sheet); border-right: 1px solid var(--rule2); }
+.g-head .g-cells { background: var(--bg); font-size: 10.5px; text-transform: uppercase; letter-spacing: .5px; color: var(--mut); font-weight: 600; }
+.g-resumo .g-cells { font-weight: 600; background: color-mix(in srgb, var(--ink) 4%, var(--sheet)); }
+.g-resumo.lv2 .g-cells { background: color-mix(in srgb, var(--accent) 16%, var(--sheet)); }
+.g-resumo.lv3 .g-cells { background: color-mix(in srgb, var(--accent) 9%, var(--sheet)); }
+.g-c { flex: none; padding: 0 5px; display: flex; align-items: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-right: 1px solid var(--rule); font-variant-numeric: tabular-nums; }
+.g-c.g-n { display: block; line-height: 24px; }
+.g-head .g-c.g-n { line-height: 30px; }
+.g-w { font: 11px var(--f-mono); color: var(--mut); }
+.g-d, .g-p { justify-content: flex-end; font-family: var(--f-mono); font-size: 11.5px; }
+.g-i, .g-f { font-family: var(--f-mono); font-size: 11.5px; }
+.g-e { color: var(--ink2); font-size: 11.5px; }
+.g-c .tg { display: inline-block; width: 14px; text-align: center; padding: 0; }
+.g-track { position: relative; flex: none; }
+.g-scale { background: var(--bg); }
+.g-mes { position: absolute; top: 0; height: 16px; border-left: 1px solid var(--rule2); padding: 0 4px; font-size: 11px; color: var(--ink2); white-space: nowrap; overflow: hidden; text-transform: capitalize; }
+.g-sem { position: absolute; top: 16px; height: 14px; border-left: 1px solid var(--rule); padding-left: 2px; font: 9px var(--f-mono); color: var(--mut); }
+.g-bar { position: absolute; top: 5px; height: 12px; border-radius: 2px; overflow: hidden; }
+.g-bar.g-sum { top: 8px; height: 6px; background: var(--ink); border-radius: 0; overflow: visible; }
+.g-bar.g-sum .g-prog { background: var(--accent); height: 100%; }
+.g-prog { position: absolute; left: 0; top: 4px; height: 4px; background: rgba(0,0,0,.45); }
+.g-bar.g-base { top: 18px; height: 3px; background: var(--rule2); border-radius: 0; }
+.g-dia { position: absolute; top: 6px; width: 10px; height: 10px; background: var(--ink); transform: rotate(45deg); }
+.g-status { position: absolute; top: 0; bottom: 0; border-left: 1.5px dashed var(--bad); opacity: .7; }
 @media (prefers-reduced-motion: no-preference) { .alt, .btn, .seg button { transition: background .12s, border-color .12s; } }
 </style>
 
@@ -213,6 +243,7 @@ table.mes tr.grp td { font: 700 11px var(--f-disp); text-transform: uppercase; l
   <section id="plano" hidden>
     <div class="abas" id="pAbas">
       <button data-a="crono" class="on">Cronograma</button>
+      <button data-a="gantt">Gantt</button>
       <button data-a="equipes">Equipes e composições</button>
       <button data-a="meses">Recursos por mês</button>
       <button data-a="hist">Histograma</button>
@@ -1355,7 +1386,7 @@ function planoDoProject(texto, p) {
 
 // ---------------------------------------------------------------- cálculo
 let PL = null;                       // estado da tela do plano (não salvo)
-const plUI = { aba: "crono", frente: "", sit: "", esp: "", busca: "", nivel: 4, aberto: new Set(), fechado: new Set(), sel: null, vis: "total", mes: "hh" };
+const plUI = { gz: "mes", gcor: "esp", gbase: "b0", aba: "crono", frente: "", sit: "", esp: "", busca: "", nivel: 4, aberto: new Set(), fechado: new Set(), sel: null, vis: "total", mes: "hh" };
 function frenteDe(nome) { return /^torre/i.test(nome) ? nome : /condom|extern/i.test(nome) ? "Condomínio" : "Geral e entrega"; }
 function compDe(P, o) {
   const c = P.especialidades[o.esp];
@@ -1469,6 +1500,7 @@ function renderPlano() {
   const C = $("#pConteudo"); C.replaceChildren();
   if (plUI.aba === "crono") renderCrono(P, R, C);
   else if (plUI.aba === "equipes") renderComposicoes(P, R, C);
+  else if (plUI.aba === "gantt") renderGantt(P, R, C);
   else if (plUI.aba === "meses") renderMeses(P, R, C);
   else renderHistograma(P, R, C);
 }
@@ -1497,25 +1529,49 @@ function passaFiltro(L) {
   return true;
 }
 
-function renderCrono(P, R, C) {
-  const temFiltro = plUI.sit || plUI.esp || plUI.busca;
-  const nivelSel = el("label", { title: "Até que nível da EAP a tabela abre" }, "Abrir até", el("select", { onchange: e => { plUI.nivel = +e.target.value; plUI.aberto.clear(); plUI.fechado.clear(); renderPlano(); } },
-    [[2, "frente"], [3, "bloco"], [4, "pavimento / local"], [5, "pacote"], [99, "todas as atividades"]].map(([v, t]) => el("option", { value: v, selected: plUI.nivel === v }, t))));
-  C.append(filtrosPlano(P, R, nivelSel));
-  // linhas visíveis
-  const vis = [];
-  if (temFiltro) {
-    const marca = new Set();
-    R.linhas.forEach(L => { if (passaFiltro(L)) { marca.add(L.k); for (let p = L.pai; p >= 0 && !marca.has(p); p = R.linhas[p].pai) marca.add(p); } });
-    R.linhas.forEach(L => { if (marca.has(L.k) && L.o.lv >= 2) vis.push(L); });
-  } else {
-    const aberto = L => plUI.fechado.has(L.k) ? false : plUI.aberto.has(L.k) || L.o.lv < plUI.nivel;
-    for (const L of R.linhas) {
-      if (L.o.lv < 2 || !passaFiltro(L)) continue;
-      let ok = true; for (let p = L.pai; p >= 0; p = R.linhas[p].pai) if (R.linhas[p].o.lv >= 2 && !aberto(R.linhas[p])) { ok = false; break; }
-      if (ok) vis.push(L);
-    }
+// árvore: o que está aberto e quais linhas aparecem (cronograma e Gantt usam o mesmo estado)
+const NIVEIS = [[2, "frentes"], [3, "blocos"], [4, "pavimentos / locais"], [5, "pacotes"], [6, "nível 6"], [7, "nível 7"], [99, "tudo"]];
+function temFiltroPlano() { return !!(plUI.sit || plUI.esp || plUI.busca); }
+function estaAberto(L) { return plUI.fechado.has(L.k) ? false : plUI.aberto.has(L.k) || temFiltroPlano() || L.o.lv < plUI.nivel; }
+function linhasVisiveis(R) {
+  const vis = [], filtro = temFiltroPlano();
+  let marca = null;
+  if (filtro) { marca = new Set(); R.linhas.forEach(L => { if (passaFiltro(L)) { marca.add(L.k); for (let p = L.pai; p >= 0 && !marca.has(p); p = R.linhas[p].pai) marca.add(p); } }); }
+  for (const L of R.linhas) {
+    if (L.o.lv < 2) continue;
+    if (filtro ? !marca.has(L.k) : !passaFiltro(L)) continue;
+    let ok = true; for (let p = L.pai; p >= 0; p = R.linhas[p].pai) if (R.linhas[p].o.lv >= 2 && !estaAberto(R.linhas[p])) { ok = false; break; }
+    if (ok) vis.push(L);
   }
+  return vis;
+}
+function nivelMax(R) { return Math.max(2, ...R.linhas.map(L => L.o.lv)); }
+function controlesArvore(R) {
+  const max = nivelMax(R);
+  const ir = n => { plUI.nivel = n; plUI.aberto.clear(); plUI.fechado.clear(); renderPlano(); };
+  const atual = Math.min(plUI.nivel, max + 1);
+  return el("span", { class: "cfg", style: "gap:4px 6px" },
+    el("label", { title: "Mostra a EAP aberta até este nível" }, "Expandir até", el("select", { onchange: e => ir(+e.target.value) },
+      NIVEIS.filter(([v]) => v === 99 || v <= max).map(([v, t]) => el("option", { value: v, selected: plUI.nivel === v }, (v === 99 ? "" : "nível " + v + " · ") + t)))),
+    el("button", { class: "btn sm", title: "Abre mais um nível", disabled: atual > max, onclick: () => ir(atual >= max ? 99 : atual + 1) }, "+ nível"),
+    el("button", { class: "btn sm", title: "Fecha o último nível aberto", disabled: atual <= 2, onclick: () => ir(Math.max(2, Math.min(atual, max) - 1)) }, "− nível"),
+    el("button", { class: "btn sm", onclick: () => ir(99) }, "Expandir tudo"),
+    el("button", { class: "btn sm", onclick: () => ir(2) }, "Recolher tudo"));
+}
+function alternarLinha(L) {
+  if (estaAberto(L)) { plUI.fechado.add(L.k); plUI.aberto.delete(L.k); }
+  else {
+    plUI.aberto.add(L.k); plUI.fechado.delete(L.k);
+    for (let p = L.pai; p >= 0; p = PL.linhas[p].pai) { plUI.fechado.delete(p); if (!estaAberto(PL.linhas[p])) plUI.aberto.add(p); }
+  }
+  renderPlano();
+}
+
+function renderCrono(P, R, C) {
+  const temFiltro = temFiltroPlano();
+  C.append(filtrosPlano(P, R));
+  C.append(el("div", { style: "margin:-2px 0 8px" }, controlesArvore(R)));
+  const vis = linhasVisiveis(R);
   // edição em lote das folhas filtradas
   const folhasVis = vis.filter(L => L.folha && !L.o.m && L.o.d > 0);
   if (temFiltro && folhasVis.length) {
@@ -1533,8 +1589,8 @@ function renderCrono(P, R, C) {
   const T = el("table", { class: "t plano" }, el("thead", {}, el("tr", {}, cab.map((h, j) => el("th", { class: j >= 12 || j === 2 || j === 5 || j === 8 || j === 10 ? "r" : "" }, h)))));
   const tb = el("tbody");
   for (const L of vis.slice(0, LIM)) {
-    const o = L.o, desv = ddias(o.f, o.b0f), aberto = plUI.fechado.has(L.k) ? false : plUI.aberto.has(L.k) || o.lv < plUI.nivel;
-    const tog = L.folha ? el("span", { class: "tg" }) : el("button", { class: "tg link", "aria-label": aberto ? "Recolher" : "Abrir", onclick: ev => { ev.stopPropagation(); if (aberto) { plUI.fechado.add(L.k); plUI.aberto.delete(L.k); } else { plUI.aberto.add(L.k); plUI.fechado.delete(L.k); } renderPlano(); } }, temFiltro ? "▾" : aberto ? "▾" : "▸");
+    const o = L.o, desv = ddias(o.f, o.b0f), aberto = estaAberto(L);
+    const tog = L.folha ? el("span", { class: "tg" }) : el("button", { class: "tg link", "aria-label": aberto ? "Recolher" : "Abrir", onclick: ev => { ev.stopPropagation(); alternarLinha(L); } }, aberto ? "▾" : "▸");
     const tr = el("tr", { class: (L.folha ? "folha" : "resumo lv" + Math.min(o.lv, 5)) + (plUI.sel === L.k ? " sel" : ""), onclick: L.folha ? () => { plUI.sel = plUI.sel === L.k ? null : L.k; renderPlano(); } : null },
       el("td", { class: "n mut" }, o.w),
       el("td", { style: `padding-left:${8 + (o.lv - 2) * 14}px` }, el("span", { class: "nm" }, tog, o.n, L.propria ? el("span", { class: "tag", title: "Formação própria nesta atividade" }, "própria") : null)),
@@ -1689,6 +1745,101 @@ function renderHistograma(P, R, C) {
   });
   C.append(el("div", { class: "lob-wrap" }, svg));
   C.append(el("div", { class: "leg" }, esps.map(e => el("span", {}, el("i", { style: `background:${P.especialidades[e].cor}` }), e))));
+}
+
+// ---------------------------------------------------------------- Gantt
+const GZ = { semana: 16, mes: 4.5, tri: 1.6 };
+const GCOL = [["w", "EAP", 100], ["n", "Atividade", 330], ["d", "Dur.", 46], ["i", "Início", 66], ["f", "Término", 66], ["p", "%", 40], ["e", "Especialidade", 130]];
+function ganttEscala(P, R) {
+  const ini = new Date((P.ini || R.linhas[0].o.i) + "T00:00:00Z"); ini.setUTCDate(1);
+  const fim = new Date(P.fim + "T00:00:00Z"); fim.setUTCMonth(fim.getUTCMonth() + 1, 1);
+  const px = GZ[plUI.gz] || 4.5, X = s => (new Date(s + "T00:00:00Z") - ini) / 864e5 * px;
+  const W = Math.ceil((fim - ini) / 864e5 * px);
+  const meses = []; for (const d = new Date(ini); d < fim; d.setUTCMonth(d.getUTCMonth() + 1)) { const a = iso(d), n = new Date(d); n.setUTCMonth(n.getUTCMonth() + 1); meses.push({ a, b: iso(n), rot: (plUI.gz === "tri" ? "JFMAMJJASOND"[d.getUTCMonth()] : ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"][d.getUTCMonth()] + "/" + String(d.getUTCFullYear()).slice(2)) }); }
+  const semanas = []; if (plUI.gz === "semana") { const d = new Date(ini); d.setUTCDate(d.getUTCDate() + ((8 - d.getUTCDay()) % 7)); for (; d < fim; d.setUTCDate(d.getUTCDate() + 7)) semanas.push(iso(d)); }
+  return { ini, fim, px, X, W, meses, semanas };
+}
+function corBarra(P, L) { return plUI.gcor === "sit" ? SIT_COR[L.sit] : (P.especialidades[L.o.esp]?.cor || "#5b7db1"); }
+function renderGantt(P, R, C) {
+  C.append(filtrosPlano(P, R));
+  const G = ganttEscala(P, R);
+  C.append(el("div", { class: "cfg", style: "margin:-2px 0 8px" }, controlesArvore(R),
+    el("span", { class: "seg" }, [["semana", "Semana"], ["mes", "Mês"], ["tri", "Trimestre"]].map(([v, t]) => el("button", { class: plUI.gz === v ? "on" : "", onclick: () => { plUI.gz = v; renderPlano(); } }, t))),
+    el("label", {}, "Cor", el("select", { onchange: e => { plUI.gcor = e.target.value; renderPlano(); } }, [["esp", "por especialidade"], ["sit", "por situação"]].map(([v, t]) => el("option", { value: v, selected: plUI.gcor === v }, t)))),
+    el("label", {}, "Barra fantasma", el("select", { onchange: e => { plUI.gbase = e.target.value; renderPlano(); } }, [["b0", "linha de base original (LB0)"], ["", "nenhuma"]].map(([v, t]) => el("option", { value: v, selected: plUI.gbase === v }, t)))),
+    el("button", { class: "btn sm", title: "Gantt das linhas abertas, para imprimir ou mandar", onclick: () => baixar(slug(estudo.nome) + "_gantt.svg", svgGantt(P, R), "image/svg+xml") }, "Baixar Gantt (.svg)")));
+  if (plUI.sel != null) C.append(editorAtividade(P, R, R.linhas[plUI.sel]));
+  const vis = linhasVisiveis(R), RH = 24, GW = GCOL.reduce((a, c) => a + c[2], 0), TW = GW + G.W;
+  const stX = G.X(R.st);
+  const sc = el("div", { class: "gantt", style: `--gw:${GW}px` });
+  // cabeçalho
+  const cab = el("div", { class: "g-row g-head", style: `width:${TW}px` },
+    el("div", { class: "g-cells" }, GCOL.map(([k, t, w]) => el("div", { class: "g-c g-" + k, style: `width:${w}px` }, t))),
+    el("div", { class: "g-track g-scale", style: `width:${G.W}px` }, G.meses.map(m => el("div", { class: "g-mes", style: `left:${G.X(m.a)}px;width:${G.X(m.b) - G.X(m.a)}px` }, m.rot)),
+      G.semanas.map(s => el("div", { class: "g-sem", style: `left:${G.X(s)}px` }, fmtc(new Date(s + "T00:00:00Z"))))));
+  const corpo = el("div", { style: `position:relative;height:${vis.length * RH}px;width:${TW}px` });
+  sc.append(cab, corpo);
+  const fundo = `repeating-linear-gradient(to right, transparent 0, transparent ${G.px * 7 - 1}px, var(--rule) ${G.px * 7 - 1}px, var(--rule) ${G.px * 7}px)`;
+  const linha = (L, y) => {
+    const o = L.o, aberto = estaAberto(L);
+    const nome = el("div", { class: "g-c g-n", style: `width:${GCOL[1][2]}px;padding-left:${4 + (o.lv - 2) * 12}px`, title: [o.n, ...L.caminho.slice().reverse()].join(" · ") },
+      L.folha ? el("span", { class: "tg" }) : el("button", { class: "tg link", onclick: ev => { ev.stopPropagation(); alternarLinha(L); } }, aberto ? "▾" : "▸"), o.m ? "◆ " : "", o.n);
+    const tr = el("div", { class: "g-track", style: `width:${G.W}px;background-image:${plUI.gz === "tri" ? "none" : fundo}` });
+    if (plUI.gbase === "b0" && o.b0i && o.b0f) tr.append(el("div", { class: "g-bar g-base", style: `left:${G.X(o.b0i)}px;width:${Math.max(2, G.X(o.b0f) - G.X(o.b0i) + G.px)}px` }));
+    const x = G.X(o.i), w = Math.max(2, G.X(o.f) - x + G.px);
+    if (o.m || (!o.d && L.folha)) tr.append(el("div", { class: "g-dia", style: `left:${x - 5}px` }));
+    else if (!L.folha) tr.append(el("div", { class: "g-bar g-sum", style: `left:${x}px;width:${w}px` }, el("div", { class: "g-prog", style: `width:${o.pct}%` })));
+    else tr.append(el("div", { class: "g-bar", style: `left:${x}px;width:${w}px;background:${corBarra(P, L)}` }, o.pct ? el("div", { class: "g-prog", style: `width:${o.pct}%` }) : null));
+    if (stX >= 0) tr.append(el("div", { class: "g-status", style: `left:${stX}px` }));
+    const row = el("div", { class: "g-row" + (L.folha ? "" : " g-resumo lv" + Math.min(o.lv, 4)) + (plUI.sel === L.k ? " sel" : ""), style: `top:${y}px;width:${TW}px`,
+      onclick: L.folha ? () => { plUI.sel = plUI.sel === L.k ? null : L.k; renderPlano(); } : () => alternarLinha(L),
+      onmousemove: e => dica(e, `${o.w} ${o.n}\n${[...L.caminho].join(" › ")}\n${fd(o.i)} → ${fd(o.f)} · ${nf(o.d, 1)} d · ${o.pct}%` + (o.b0f ? `\nLB0: ${fd(o.b0i)} → ${fd(o.b0f)}` : "") + (L.folha && o.esp ? `\n${o.esp} × ${o.ne} · ${nf(L.pes)} pessoas · ${nf(L.hh)} HH` : "") + (L.folha ? "\n" + L.sit : "")),
+      onmouseleave: e => dica(e, null) },
+      el("div", { class: "g-cells" }, el("div", { class: "g-c g-w", style: `width:${GCOL[0][2]}px` }, o.w), nome,
+        el("div", { class: "g-c g-d", style: `width:${GCOL[2][2]}px` }, nf(o.d, o.d % 1 ? 1 : 0)), el("div", { class: "g-c g-i", style: `width:${GCOL[3][2]}px` }, fd(o.i)),
+        el("div", { class: "g-c g-f", style: `width:${GCOL[4][2]}px` }, fd(o.f)), el("div", { class: "g-c g-p", style: `width:${GCOL[5][2]}px` }, o.pct ? o.pct + "%" : ""),
+        el("div", { class: "g-c g-e", style: `width:${GCOL[6][2]}px` }, L.folha && o.esp ? (o.ne > 1 ? o.esp + " ×" + o.ne : o.esp) : "")), tr);
+    return row;
+  };
+  let desenhado = "";
+  const desenhar = () => {
+    const a = Math.max(0, Math.floor(sc.scrollTop / RH) - 20), b = Math.min(vis.length, a + Math.ceil(sc.clientHeight / RH) + 40), k = a + ":" + b;
+    if (k === desenhado) return; desenhado = k;
+    corpo.replaceChildren(...vis.slice(a, b).map((L, j) => linha(L, (a + j) * RH)));
+  };
+  sc.addEventListener("scroll", () => requestAnimationFrame(desenhar));
+  C.append(sc);
+  C.append(el("div", { class: "leg" }, plUI.gcor === "sit" ? Object.entries(SIT_COR).map(([s, c]) => el("span", {}, el("i", { style: `background:${c}` }), s))
+    : Object.keys(P.especialidades).filter(e => R.porEsp[e]).map(e => el("span", {}, el("i", { style: `background:${P.especialidades[e].cor}` }), e)),
+    el("span", {}, el("i", { style: "background:var(--rule2);height:5px" }), "linha de base"), el("span", {}, el("i", { style: "background:var(--bad);width:2px;min-width:2px" }), "data de status " + fd(R.st))));
+  // posição inicial: perto da data de status
+  requestAnimationFrame(() => { if (plUI.gScroll == null) sc.scrollLeft = Math.max(0, GW + stX - sc.clientWidth / 2); else { sc.scrollLeft = plUI.gScroll[0] * G.px; sc.scrollTop = plUI.gScroll[1]; } desenhar(); });
+  sc.addEventListener("scroll", () => plUI.gScroll = [sc.scrollLeft / G.px, sc.scrollTop]);
+  desenhar();
+}
+function svgGantt(P, R) {
+  const G = ganttEscala(P, R), vis = linhasVisiveis(R), RH = 18, GW = 74 + 360 + 46 + 66 + 66 + 40, H0 = 40, W = GW + G.W + 10, H = H0 + vis.length * RH + 30;
+  const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+  const cs = getComputedStyle(document.documentElement), v = n => cs.getPropertyValue(n).trim() || "#999";
+  const cor = L => plUI.gcor === "sit" ? ({ "Concluída": "#2f7d43", "Em andamento": "#a86b00", "Em andamento – atrasada": "#d9730d", "Não iniciada – atrasada": "#b3261e", "A iniciar": "#848d89" })[L.sit] : (P.especialidades[L.o.esp]?.cor || "#5b7db1");
+  const o = [`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" font-family="Arial, sans-serif" font-size="10">`,
+    `<rect width="${W}" height="${H}" fill="#fff"/>`, `<text x="6" y="14" font-size="13" font-weight="bold">${esc(P.nome)}</text>`,
+    `<text x="6" y="30" fill="#555">Data de status ${fd(R.st)} · ${vis.length} linhas</text>`];
+  G.meses.forEach(m => { const x = GW + G.X(m.a); o.push(`<line x1="${x}" y1="${H0 - 12}" x2="${x}" y2="${H - 30}" stroke="#e3e3e3"/><text x="${x + 3}" y="${H0 - 3}" fill="#555">${esc(m.rot)}</text>`); });
+  [["EAP", 6], ["Atividade", 80], ["Dur.", 440], ["Início", 486], ["Término", 552], ["%", 618]].forEach(([t, x]) => o.push(`<text x="${x}" y="${H0 - 3}" font-weight="bold" fill="#555">${t}</text>`));
+  vis.forEach((L, j) => {
+    const y = H0 + j * RH, x = GW + G.X(L.o.i), w = Math.max(2, G.X(L.o.f) - G.X(L.o.i) + G.px), b = !L.folha;
+    if (j % 2) o.push(`<rect x="0" y="${y}" width="${W}" height="${RH}" fill="#f7f7f5"/>`);
+    o.push(`<text x="6" y="${y + 12}" fill="#777">${esc(L.o.w)}</text><text x="${80 + (L.o.lv - 2) * 10}" y="${y + 12}"${b ? ' font-weight="bold"' : ""}>${esc(L.o.n.length > 60 ? L.o.n.slice(0, 58) + "…" : L.o.n)}</text>`,
+      `<text x="472" y="${y + 12}" text-anchor="end">${nf(L.o.d, L.o.d % 1 ? 1 : 0)}</text><text x="486" y="${y + 12}">${fd(L.o.i)}</text><text x="552" y="${y + 12}">${fd(L.o.f)}</text><text x="640" y="${y + 12}" text-anchor="end">${L.o.pct}%</text>`);
+    if (plUI.gbase === "b0" && L.o.b0i && L.o.b0f) o.push(`<rect x="${GW + G.X(L.o.b0i)}" y="${y + 13}" width="${Math.max(2, G.X(L.o.b0f) - G.X(L.o.b0i) + G.px)}" height="3" fill="#b9bdb9"/>`);
+    if (L.o.m) o.push(`<rect x="${x - 4}" y="${y + 5}" width="8" height="8" transform="rotate(45 ${x} ${y + 9})" fill="#222"/>`);
+    else if (b) o.push(`<rect x="${x}" y="${y + 6}" width="${w}" height="5" fill="#222"/>`);
+    else o.push(`<rect x="${x}" y="${y + 3}" width="${w}" height="9" rx="1.5" fill="${cor(L)}"/>` + (L.o.pct ? `<rect x="${x}" y="${y + 6}" width="${w * L.o.pct / 100}" height="3" fill="rgba(0,0,0,.45)"/>` : ""));
+  });
+  const sx = GW + G.X(R.st); o.push(`<line x1="${sx}" y1="${H0 - 12}" x2="${sx}" y2="${H - 30}" stroke="#b3261e" stroke-width="1.5"/>`);
+  o.push(`<line x1="${GW - 4}" y1="${H0 - 14}" x2="${GW - 4}" y2="${H - 30}" stroke="#ccc"/></svg>`);
+  return o.join("");
 }
 
 // ---------------------------------------------------------------- exportar

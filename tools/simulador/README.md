@@ -44,7 +44,7 @@ Em "Importar do Project (.xml)", o botão **"Criar planejamento completo (todas 
 todas as atividades do cronograma (EAP, durações, datas, % concluído, datas reais, linhas de base 0 e 10, vínculos).
 Cada atividade recebe uma especialidade (inferida pelo nome) e um número de equipes; a composição por especialidade
 (funções por equipe e equipamentos com h/dia) gera homem-hora, horas-máquina, histograma e recursos por mês.
-- Abas: Cronograma (árvore da EAP com filtros e edição em lote), Equipes e composições, Recursos por mês, Histograma.
+- Abas: Cronograma (árvore da EAP com filtros, expandir até o nível N, +/− nível, expandir/recolher tudo e edição em lote), Gantt (semana/mês/trimestre, linha de base, data de status, cor por especialidade ou situação, download .svg), Equipes e composições, Recursos por mês, Histograma.
 - Exportar para o Project gera tarefas, vínculos, recursos (mão de obra e equipamentos) e atribuições com o trabalho.
 - "Baixar planilha (.csv)" tira todas as linhas com a quantificação.
 - As datas não são recalculadas: é o cronograma como está, quantificado.
