@@ -53,7 +53,7 @@ Cada atividade recebe uma especialidade (inferida pelo nome) e um número de equ
   pelos vínculos (FS/SS/FF/SF com lag) a partir da data de status; o que já começou mantém o início real,
   o resto vai para depois da data de status, e "não antecipar o planejado" segura o início do arquivo.
   A LB0 fica como referência. Aba Reprogramações compara as versões e lista as alterações.
-- Gantt com vínculos (escadinha), resumos com pontas, barra fantasma da LB0 ou do arquivo.
+- Linha de balanço e quadro pavimento × semana (mesmo gráfico do simulador), montados com os pacotes que se repetem nos pavimentos de cada torre. Edição da estrutura: nome, subir/descer, recuar/avançar nível, mover para outra EAP, incluir atividade ou subatividade, excluir, desfazer.
 - Alternativas (estudos): alterações em lote por versão — duração em %, atrasar início, iniciar após,
   remover restrição, alterar/novo/remover vínculo (por EAP), paralisação, incerteza; premissas h/dia e sábado;
   capacidade por especialidade com nivelamento. Caminho crítico e folga (passagem de volta pelos vínculos).
