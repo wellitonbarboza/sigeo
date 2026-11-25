@@ -433,6 +433,7 @@ function calcular(s) {
     const lib = t.pavimentos.map((_, p) => t.lib?.[p] ? diaDe(t.lib[p]) : diaDe(t.inicio) + p * (t.ciclo || 0));
     const aPartir = s.aPartirDe ? diaDe(s.aPartirDe) : -Infinity;
     const diasDe = et => et.diasT?.[t.id] ?? et.dias;
+    const cob = t.cobertura ? diaDe(t.cobertura) + 1 : -Infinity;   // etapas marcadas só entram com a cobertura concluída
     fimPav[ti] = []; iniPav[ti] = [];
     s.etapas.forEach((et, ei) => {
       const chave = s.compart ? "c" + ei : ti + ":" + ei;
@@ -443,7 +444,7 @@ function calcular(s) {
       const ant = ei > 0 ? ei - 1 : null;
       if (et.unidade === "torre") {
         // uma execução para a torre toda
-        let pronto = Math.max(lib[0], aPartir);
+        let pronto = Math.max(lib[0], aPartir, et.aposCobertura ? cob : -Infinity);
         if (ant !== null) pronto = Math.max(pronto, liberacao(ti, ant, et, P - 1, P));
         const k = eqs.indexOf(Math.min(...eqs));
         const ini = Math.max(pronto, eqs[k]); const fim = ini + diasDe(et);
@@ -463,7 +464,7 @@ function calcular(s) {
           itens.push({ t: ti, p, e: ei, ini, fim, eq: k, fixa: true, pct: fx[2] || 0 });
           continue;
         }
-        let pronto = Math.max(lib[p], aPartir);
+        let pronto = Math.max(lib[p], aPartir, et.aposCobertura ? cob : -Infinity);
         if (ant !== null) pronto = Math.max(pronto, liberacao(ti, ant, et, p, P));
         const unidades = et.unidade === "apto" ? Math.max(1, t.aptos | 0) : 1;
         let ip = Infinity, fp = -Infinity;
@@ -629,7 +630,8 @@ function renderEtapas(s, r) {
         el("label", {}, "Equipe", el("select", { "aria-label": "Equipe", onchange: e => { et.equipe = e.target.value; recalc(); } }, s.equipes.map(q => el("option", { value: q.id, selected: q.id === et.equipe }, q.nome)))),
         el("label", { title: "Quantas equipes iguais trabalham ao mesmo tempo, cada uma num " + UNI[et.unidade] }, "×", el("input", { type: "number", min: 1, step: 1, value: et.qtd, "aria-label": "Quantidade de equipes", onchange: e => { et.qtd = Math.max(1, +e.target.value | 0); recalc(); } }), et.qtd == 1 ? "equipe" : "equipes juntas"),
         eq ? el("span", { class: "ritmo" }, eq.formacao.reduce((a, f) => a + f.qtd, 0) * et.qtd + " pessoas" + (porPav ? " · " + (+porPav.toFixed(1)).toLocaleString("pt-BR") + " d/pav" : "")) : null),
-      el("div", { class: "linha", style: "grid-column:2" }, regra)));
+      el("div", { class: "linha", style: "grid-column:2" }, regra,
+        el("label", { title: "Só começa depois da data de cobertura concluída de cada torre (painel Torres)" }, el("input", { type: "checkbox", checked: !!et.aposCobertura, onchange: e => { et.aposCobertura = e.target.checked || undefined; recalc(); } }), "só após a cobertura"))));
   });
 }
 
@@ -639,7 +641,8 @@ function renderTorres(s) {
     el("div", { class: "linha" },
       el("input", { class: "n", value: t.nome, "aria-label": "Nome da torre", onchange: e => { t.nome = e.target.value; recalc(); } }),
       el("label", {}, el("input", { type: "number", min: 1, value: t.pavimentos.length, "aria-label": "Pavimentos", onchange: e => { const n = Math.max(1, +e.target.value | 0); t.pavimentos = ["Térreo", ...Array.from({ length: n - 1 }, (_, i) => String(i + 1).padStart(2, "0") + "º")]; recalc(); } }), "pavimentos"),
-      el("label", {}, el("input", { type: "number", min: 1, value: t.aptos, "aria-label": "Apartamentos por pavimento", onchange: e => { t.aptos = Math.max(1, +e.target.value | 0); recalc(); } }), "aptos/pav")),
+      el("label", {}, el("input", { type: "number", min: 1, value: t.aptos, "aria-label": "Apartamentos por pavimento", onchange: e => { t.aptos = Math.max(1, +e.target.value | 0); recalc(); } }), "aptos/pav"),
+      el("label", { title: "Data em que a cobertura fica pronta; vale para as etapas marcadas \"só após a cobertura\"" }, "cobertura concluída em", el("input", { type: "date", value: t.cobertura || "", onchange: e => { t.cobertura = e.target.value || undefined; recalc(); } }))),
     t.lib ? el("div", { class: "linha" }, "Pavimentos liberados nas datas do cronograma (" + fmt(new Date(t.lib.filter(Boolean)[0] + "T00:00:00Z")) + " a " + fmt(new Date(t.lib.filter(Boolean).slice(-1)[0] + "T00:00:00Z")) + ")",
       el("button", { class: "link", onclick: () => { delete t.lib; recalc(); } }, "usar ritmo fixo"))
     : el("div", { class: "linha" },
@@ -866,6 +869,7 @@ function diferencas(b, a) {
     if (o.qtd !== e.qtd) l.push(`${n} ${e.qtd} equipes`);
     if (o.dias !== e.dias || o.unidade !== e.unidade) l.push(`${n} ${e.dias} d/${UNI[e.unidade]}`);
     if (o.equipe !== e.equipe) l.push(`${n} outra equipe`);
+    if (!!o.aposCobertura !== !!e.aposCobertura) l.push(`${n} ${e.aposCobertura ? "só após a cobertura" : "sem esperar a cobertura"}`);
     if (JSON.stringify(o.regra) !== JSON.stringify(e.regra)) l.push(`${n} entra ${e.regra.tipo === "junto" ? "junto" : e.regra.tipo === "torre" ? "após a torre" : "após " + e.regra.pav + " pav."}${e.regra.espera ? " +" + e.regra.espera + "d" : ""}`);
   }
   if (JSON.stringify(b.equipes) !== JSON.stringify(a.equipes)) l.push("formação das equipes");
@@ -2434,6 +2438,15 @@ document.querySelectorAll("#vis button").forEach(b => b.onclick = () => { vis = 
   recalc();
   await verificar();
   try { await listar(); } catch { lista = []; }
+  // estudos que vieram no pacote (sementes.json): entram uma vez e abrem na primeira vez
+  try {
+    const r = await fetch("sementes.json", { cache: "no-store" });
+    if (r.ok) for (const arq of await r.json()) {
+      const j = await (await fetch(arq, { cache: "no-store" })).json();
+      if (!j?.id || lista.some(l => l.est.id === j.id) || lsGet("simulador:semente:" + j.id)) continue;
+      await gravar(j); lsSet("simulador:semente:" + j.id, "1"); lsSet("simulador:ultimo", j.id);
+    }
+  } catch { }
   const ult = lsGet("simulador:ultimo");
   const x = lista.find(l => l.est.id === ult) ?? lista[0];
   if (x) abrir(x.est); else renderEstudos();

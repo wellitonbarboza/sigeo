@@ -60,3 +60,11 @@ Cada atividade recebe uma especialidade (inferida pelo nome) e um número de equ
 - Reprogramações: quadro comparativo, grandes etapas por alternativa, curva S física (com LB0) e detalhe A × B.
 - Riscos: Monte Carlo (triangular por grupo de incerteza; padrão −10/0/+30% por especialidade),
   P10/P50/P80/P90, chance de cumprir a LB0, tornado e índice de criticidade.
+
+## 25/11 — Base novo Ecoparque
+- Etapas que entram "junto" formam um grupo: a etapa seguinte espera o grupo inteiro terminar.
+- Torre: "cobertura concluída em" (data); etapa: "só após a cobertura".
+- `sementes.json` lista estudos que vêm no pacote; cada um entra uma vez no servidor e abre na primeira vez.
+- Estudo `Ecoparque_Base_novo_R01_simulador.json` (de Cronograma R00/R01): Base R01 (liberação = estrutura do
+  pavimento + 5 acima, do R34; da pintura em diante só após a cobertura) e Cenário 1 (terceiros da pintura em
+  diante com 2 equipes).
