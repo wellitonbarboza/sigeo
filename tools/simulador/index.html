@@ -2491,8 +2491,11 @@ document.querySelectorAll("#vis button").forEach(b => b.onclick = () => { vis = 
     const r = await fetch("sementes.json", { cache: "no-store" });
     if (r.ok) for (const arq of await r.json()) {
       const j = await (await fetch(arq, { cache: "no-store" })).json();
-      if (!j?.id || lista.some(l => l.est.id === j.id) || lsGet("simulador:semente:" + j.id)) continue;
-      await gravar(j); lsSet("simulador:semente:" + j.id, "1"); lsSet("simulador:ultimo", j.id);
+      if (!j?.id) continue;
+      const ja = lista.find(l => l.est.id === j.id)?.est;
+      // nova revisão da semente (campo "semente") substitui a anterior; sem revisão nova, entra uma vez só
+      if (ja ? (ja.semente || "") >= (j.semente || "") : lsGet("simulador:semente:" + j.id + ":" + (j.semente || ""))) continue;
+      await gravar(j); lsSet("simulador:semente:" + j.id + ":" + (j.semente || ""), "1"); lsSet("simulador:ultimo", j.id);
     }
   } catch { }
   const ult = lsGet("simulador:ultimo");

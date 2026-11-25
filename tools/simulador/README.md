@@ -64,7 +64,7 @@ Cada atividade recebe uma especialidade (inferida pelo nome) e um número de equ
 ## 25/11 — Base novo Ecoparque
 - Etapas que entram "junto" formam um grupo: a etapa seguinte espera o grupo inteiro terminar.
 - Torre: "cobertura concluída em" (data); etapa: "só após a cobertura".
-- `sementes.json` lista estudos que vêm no pacote; cada um entra uma vez no servidor e abre na primeira vez.
+- `sementes.json` lista estudos que vêm no pacote; cada um entra uma vez no servidor e abre na primeira vez. Com o campo `semente` (revisão) maior, a nova versão substitui a que está no servidor.
 - Estudo `Ecoparque_Base_novo_R01_simulador.json` (de Cronograma R00/R01): Base R01 (liberação = estrutura do
   pavimento + 5 acima, do R34; da pintura em diante só após a cobertura) e Cenário 1 (terceiros da pintura em
   diante com 2 equipes).
