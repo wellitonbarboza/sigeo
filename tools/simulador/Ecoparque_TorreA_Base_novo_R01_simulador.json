@@ -1,0 +1,3256 @@
+{
+ "id": "ecoparque-torre-a-base-novo-r01",
+ "nome": "Ecoparque · Torre A · Base novo R01",
+ "origem": "Cronograma R00.xlsx / R01 - para importacao.xlsx; estrutura, fundação e cobertura do R34",
+ "alts": [
+  {
+   "id": "bncffd2m",
+   "nome": "Base R01 (estrutura +5 pav. e cobertura)",
+   "equipes": [
+    {
+     "id": "y0gb4tux",
+     "nome": "Fundação (terc.)",
+     "cor": "#6d7f8a",
+     "formacao": [
+      {
+       "qtd": 1,
+       "funcao": "Operador de perfuratriz"
+      },
+      {
+       "qtd": 2,
+       "funcao": "Armador"
+      },
+      {
+       "qtd": 3,
+       "funcao": "Servente"
+      }
+     ]
+    },
+    {
+     "id": "xe4qf2iy",
+     "nome": "Montagem pré-moldado (terc.)",
+     "cor": "#55606b",
+     "formacao": [
+      {
+       "qtd": 1,
+       "funcao": "Encarregado de montagem"
+      },
+      {
+       "qtd": 4,
+       "funcao": "Montador de pré-moldado"
+      },
+      {
+       "qtd": 1,
+       "funcao": "Sinaleiro"
+      },
+      {
+       "qtd": 1,
+       "funcao": "Operador de grua"
+      }
+     ]
+    },
+    {
+     "id": "mm27j37y",
+     "nome": "3 Pedreiros + 1 Ajudante (própria)",
+     "cor": "#4e79a7",
+     "formacao": [
+      {
+       "qtd": 3,
+       "funcao": "Pedreiro"
+      },
+      {
+       "qtd": 1,
+       "funcao": "Ajudante"
+      }
+     ]
+    },
+    {
+     "id": "olpdn72x",
+     "nome": "2 Serralheiros (terc.)",
+     "cor": "#f28e2b",
+     "formacao": [
+      {
+       "qtd": 2,
+       "funcao": "Serralheiro"
+      }
+     ]
+    },
+    {
+     "id": "rrzowz4v",
+     "nome": "1 Serralheiro (terc.)",
+     "cor": "#59a14f",
+     "formacao": [
+      {
+       "qtd": 1,
+       "funcao": "Serralheiro"
+      }
+     ]
+    },
+    {
+     "id": "itbe1a5d",
+     "nome": "4 Gesseiros (terc.)",
+     "cor": "#e15759",
+     "formacao": [
+      {
+       "qtd": 4,
+       "funcao": "Gesseiro"
+      }
+     ]
+    },
+    {
+     "id": "4y2kx8bo",
+     "nome": "2 Instalador de Esquadrias (terc.)",
+     "cor": "#76b7b2",
+     "formacao": [
+      {
+       "qtd": 2,
+       "funcao": "Instalador de Esquadrias"
+      }
+     ]
+    },
+    {
+     "id": "52ja3neo",
+     "nome": "3 Encanadores + 1 Ajudante (terc.)",
+     "cor": "#edc948",
+     "formacao": [
+      {
+       "qtd": 3,
+       "funcao": "Encanador"
+      },
+      {
+       "qtd": 1,
+       "funcao": "Ajudante"
+      }
+     ]
+    },
+    {
+     "id": "tmtt7bb0",
+     "nome": "1 Eletricista (terc.)",
+     "cor": "#b07aa1",
+     "formacao": [
+      {
+       "qtd": 1,
+       "funcao": "Eletricista"
+      }
+     ]
+    },
+    {
+     "id": "78s541gi",
+     "nome": "2 Instalador Ar Condicionado (terc.)",
+     "cor": "#ff9da7",
+     "formacao": [
+      {
+       "qtd": 2,
+       "funcao": "Instalador Ar Condicionado"
+      }
+     ]
+    },
+    {
+     "id": "rrnkwr8u",
+     "nome": "1 Encanador (terc.)",
+     "cor": "#9c755f",
+     "formacao": [
+      {
+       "qtd": 1,
+       "funcao": "Encanador"
+      }
+     ]
+    },
+    {
+     "id": "ruaaq1bh",
+     "nome": "6 Pedreiros (terc.)",
+     "cor": "#86bcb6",
+     "formacao": [
+      {
+       "qtd": 6,
+       "funcao": "Pedreiro"
+      }
+     ]
+    },
+    {
+     "id": "vo4jrdlp",
+     "nome": "2 Pedreiros (própria)",
+     "cor": "#d37295",
+     "formacao": [
+      {
+       "qtd": 2,
+       "funcao": "Pedreiro"
+      }
+     ]
+    },
+    {
+     "id": "wd8pxvef",
+     "nome": "2 Pedreiros (terc.)",
+     "cor": "#8cd17d",
+     "formacao": [
+      {
+       "qtd": 2,
+       "funcao": "Pedreiro"
+      }
+     ]
+    },
+    {
+     "id": "g2bs7f1x",
+     "nome": "4 Azulejistas + 4 Ajudantes (terc.)",
+     "cor": "#499894",
+     "formacao": [
+      {
+       "qtd": 4,
+       "funcao": "Azulejista"
+      },
+      {
+       "qtd": 4,
+       "funcao": "Ajudante"
+      }
+     ]
+    },
+    {
+     "id": "xkvl88zh",
+     "nome": "5 Pintores (terc.)",
+     "cor": "#f1ce63",
+     "formacao": [
+      {
+       "qtd": 5,
+       "funcao": "Pintor"
+      }
+     ]
+    },
+    {
+     "id": "uli9m1ej",
+     "nome": "2 Instalador Box (terc.)",
+     "cor": "#a0cbe8",
+     "formacao": [
+      {
+       "qtd": 2,
+       "funcao": "Instalador Box"
+      }
+     ]
+    },
+    {
+     "id": "rk80dz3w",
+     "nome": "4 Ajudantes (própria)",
+     "cor": "#ffbe7d",
+     "formacao": [
+      {
+       "qtd": 4,
+       "funcao": "Ajudante"
+      }
+     ]
+    },
+    {
+     "id": "a44yhi99",
+     "nome": "3 Instalador de Piso (terc.)",
+     "cor": "#4e79a7",
+     "formacao": [
+      {
+       "qtd": 3,
+       "funcao": "Instalador de Piso"
+      }
+     ]
+    },
+    {
+     "id": "if7ckckf",
+     "nome": "8 Montador de Móveis (própria)",
+     "cor": "#f28e2b",
+     "formacao": [
+      {
+       "qtd": 8,
+       "funcao": "Montador de Móveis"
+      }
+     ]
+    },
+    {
+     "id": "6or1md7c",
+     "nome": "2 Instalador de Portas (terc.)",
+     "cor": "#59a14f",
+     "formacao": [
+      {
+       "qtd": 2,
+       "funcao": "Instalador de Portas"
+      }
+     ]
+    },
+    {
+     "id": "xoz71li3",
+     "nome": "1 Pintor + 2 Encanadores (terc.)",
+     "cor": "#e15759",
+     "formacao": [
+      {
+       "qtd": 1,
+       "funcao": "Pintor"
+      },
+      {
+       "qtd": 2,
+       "funcao": "Encanador"
+      }
+     ]
+    },
+    {
+     "id": "hiv0n3by",
+     "nome": "2 Instalador de Eletro (própria)",
+     "cor": "#76b7b2",
+     "formacao": [
+      {
+       "qtd": 2,
+       "funcao": "Instalador de Eletro"
+      }
+     ]
+    },
+    {
+     "id": "037ux5ji",
+     "nome": "3 Auxiliar de Limpeza (própria)",
+     "cor": "#edc948",
+     "formacao": [
+      {
+       "qtd": 3,
+       "funcao": "Auxiliar de Limpeza"
+      }
+     ]
+    }
+   ],
+   "etapas": [
+    {
+     "id": "fund",
+     "nome": "Fundação",
+     "unidade": "torre",
+     "dias": 152,
+     "equipe": "y0gb4tux",
+     "qtd": 1,
+     "regra": {
+      "tipo": "apos",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#9aa5ad",
+     "macro": "Fundação",
+     "fixaT": {
+      "torre-a": [
+       "2025-09-18",
+       "2026-04-17"
+      ]
+     }
+    },
+    {
+     "id": "estr",
+     "nome": "Estrutura (painel e laje)",
+     "unidade": "pav",
+     "dias": 10,
+     "equipe": "xe4qf2iy",
+     "qtd": 1,
+     "regra": {
+      "tipo": "apos",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#55606b",
+     "macro": "Estrutura"
+    },
+    {
+     "id": "whbtg3en",
+     "nome": "Preparação do Vão para Esquadria de Alumínio (Lixar e Impermeabilizar)",
+     "unidade": "pav",
+     "dias": 5,
+     "equipe": "mm27j37y",
+     "qtd": 1,
+     "regra": {
+      "tipo": "apos",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "propria",
+     "terc": 0,
+     "cor": "#4e79a7",
+     "item": 1,
+     "grupo": 1,
+     "macro": "Instalações e cinza"
+    },
+    {
+     "id": "e1xoxqva",
+     "nome": "Instalação de Guarda-corpo",
+     "unidade": "pav",
+     "dias": 2,
+     "equipe": "olpdn72x",
+     "qtd": 1,
+     "regra": {
+      "tipo": "junto",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#f28e2b",
+     "item": 2,
+     "grupo": 1,
+     "macro": "Instalações e cinza"
+    },
+    {
+     "id": "27je2imx",
+     "nome": "Instalação do duto da churrasqueira",
+     "unidade": "pav",
+     "dias": 2,
+     "equipe": "rrzowz4v",
+     "qtd": 1,
+     "regra": {
+      "tipo": "junto",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#59a14f",
+     "item": 3,
+     "grupo": 1,
+     "macro": "Instalações e cinza"
+    },
+    {
+     "id": "1b40gbxz",
+     "nome": "Drywall - Estrutura e primeira placa",
+     "unidade": "pav",
+     "dias": 5,
+     "equipe": "itbe1a5d",
+     "qtd": 1,
+     "regra": {
+      "tipo": "apos",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#e15759",
+     "item": 4,
+     "grupo": 2,
+     "macro": "Instalações e cinza"
+    },
+    {
+     "id": "6odd8g32",
+     "nome": "Instalação de Janelas",
+     "unidade": "pav",
+     "dias": 2,
+     "equipe": "4y2kx8bo",
+     "qtd": 1,
+     "regra": {
+      "tipo": "junto",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#76b7b2",
+     "item": 5,
+     "grupo": 2,
+     "macro": "Instalações e cinza"
+    },
+    {
+     "id": "so34zmaw",
+     "nome": "Prumada de Esgoto (Cozinha e Banheiro); Ramais de Água Fria e Esgoto; Dreno Ar Condicionado; Fita Intumescente",
+     "unidade": "pav",
+     "dias": 5,
+     "equipe": "52ja3neo",
+     "qtd": 1,
+     "regra": {
+      "tipo": "apos",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#edc948",
+     "item": 6,
+     "grupo": 3,
+     "macro": "Instalações e cinza"
+    },
+    {
+     "id": "lzeq9pne",
+     "nome": "Elétrica Chuveiro",
+     "unidade": "pav",
+     "dias": 5,
+     "equipe": "tmtt7bb0",
+     "qtd": 1,
+     "regra": {
+      "tipo": "junto",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#b07aa1",
+     "item": 7,
+     "grupo": 3,
+     "macro": "Instalações e cinza"
+    },
+    {
+     "id": "caoirs5y",
+     "nome": "Rede Frigorígena",
+     "unidade": "pav",
+     "dias": 5,
+     "equipe": "78s541gi",
+     "qtd": 1,
+     "regra": {
+      "tipo": "junto",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#ff9da7",
+     "item": 8,
+     "grupo": 3,
+     "macro": "Instalações e cinza"
+    },
+    {
+     "id": "gkjiuxh0",
+     "nome": "Teste de estanqueidade",
+     "unidade": "pav",
+     "dias": 1,
+     "equipe": "rrnkwr8u",
+     "qtd": 1,
+     "regra": {
+      "tipo": "apos",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#9c755f",
+     "item": 9,
+     "grupo": 4,
+     "macro": "Instalações e cinza"
+    },
+    {
+     "id": "3x0jjo2k",
+     "nome": "Contrapiso Autonivelante",
+     "unidade": "pav",
+     "dias": 5,
+     "equipe": "ruaaq1bh",
+     "qtd": 1,
+     "regra": {
+      "tipo": "apos",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#86bcb6",
+     "item": 10,
+     "grupo": 5,
+     "macro": "Instalações e cinza",
+     "descendo": true
+    },
+    {
+     "id": "kr3tyor8",
+     "nome": "Fechamento de DryWall (Segunda Placa)",
+     "unidade": "pav",
+     "dias": 2,
+     "equipe": "itbe1a5d",
+     "qtd": 1,
+     "regra": {
+      "tipo": "apos",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#d37295",
+     "item": 11,
+     "grupo": 6,
+     "macro": "Instalações e cinza"
+    },
+    {
+     "id": "1z1he5fe",
+     "nome": "Sanca",
+     "unidade": "pav",
+     "dias": 4,
+     "equipe": "vo4jrdlp",
+     "qtd": 1,
+     "regra": {
+      "tipo": "apos",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "propria",
+     "terc": 0,
+     "cor": "#8cd17d",
+     "item": 12,
+     "grupo": 7,
+     "macro": "Instalações e cinza"
+    },
+    {
+     "id": "01qkvoax",
+     "nome": "Forro",
+     "unidade": "pav",
+     "dias": 4,
+     "equipe": "itbe1a5d",
+     "qtd": 1,
+     "regra": {
+      "tipo": "junto",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#499894",
+     "item": 13,
+     "grupo": 7,
+     "macro": "Instalações e cinza"
+    },
+    {
+     "id": "erbg8ugy",
+     "nome": "Impermeabilização do banheiro e sacada",
+     "unidade": "pav",
+     "dias": 2,
+     "equipe": "vo4jrdlp",
+     "qtd": 1,
+     "regra": {
+      "tipo": "apos",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "propria",
+     "terc": 0,
+     "cor": "#f1ce63",
+     "item": 14,
+     "grupo": 8,
+     "macro": "Instalações e cinza"
+    },
+    {
+     "id": "y4oipjya",
+     "nome": "Contrapiso Banheiros",
+     "unidade": "pav",
+     "dias": 2,
+     "equipe": "wd8pxvef",
+     "qtd": 1,
+     "regra": {
+      "tipo": "apos",
+      "pav": 1,
+      "espera": 3
+     },
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#a0cbe8",
+     "item": 16,
+     "grupo": 10,
+     "macro": "Instalações e cinza"
+    },
+    {
+     "id": "56gnfpma",
+     "nome": "Contrapiso Sacada",
+     "unidade": "pav",
+     "dias": 5,
+     "equipe": "vo4jrdlp",
+     "qtd": 1,
+     "regra": {
+      "tipo": "junto",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "propria",
+     "terc": 0,
+     "cor": "#ffbe7d",
+     "item": 17,
+     "grupo": 10,
+     "macro": "Instalações e cinza"
+    },
+    {
+     "id": "2ysjqb7a",
+     "nome": "Soleiras (Banheiro, Sacada e Porta de Entrada)",
+     "unidade": "pav",
+     "dias": 3,
+     "equipe": "vo4jrdlp",
+     "qtd": 1,
+     "regra": {
+      "tipo": "apos",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "propria",
+     "terc": 0,
+     "cor": "#4e79a7",
+     "item": 18,
+     "grupo": 11,
+     "macro": "Instalações e cinza"
+    },
+    {
+     "id": "2ujwqi96",
+     "nome": "Revestimento Cerâmico (Banheiro; Cozinha; Sacada com Rodapé); Rejunte",
+     "unidade": "pav",
+     "dias": 5,
+     "equipe": "g2bs7f1x",
+     "qtd": 1,
+     "regra": {
+      "tipo": "apos",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#f28e2b",
+     "item": 19,
+     "grupo": 12,
+     "macro": "Instalações e cinza"
+    },
+    {
+     "id": "r8cyatp9",
+     "nome": "Instalação Porta da Sacada e Lavanderia",
+     "unidade": "pav",
+     "dias": 5,
+     "equipe": "4y2kx8bo",
+     "qtd": 1,
+     "regra": {
+      "tipo": "apos",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#59a14f",
+     "item": 20,
+     "grupo": 13,
+     "macro": "Instalações e cinza"
+    },
+    {
+     "id": "0w50s9lz",
+     "nome": "Preparação; Emassamento; Pintura 2 demãos",
+     "unidade": "pav",
+     "dias": 5,
+     "equipe": "xkvl88zh",
+     "qtd": 1,
+     "regra": {
+      "tipo": "apos",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#e15759",
+     "item": 21,
+     "grupo": 14,
+     "macro": "Acabamentos",
+     "descendo": true,
+     "aposCobertura": true
+    },
+    {
+     "id": "kk8a9be0",
+     "nome": "Instalação do Box do banheiro",
+     "unidade": "pav",
+     "dias": 3,
+     "equipe": "uli9m1ej",
+     "qtd": 1,
+     "regra": {
+      "tipo": "apos",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#76b7b2",
+     "item": 22,
+     "grupo": 15,
+     "macro": "Acabamentos",
+     "descendo": true,
+     "aposCobertura": true
+    },
+    {
+     "id": "t53egioa",
+     "nome": "Desengrosso",
+     "unidade": "pav",
+     "dias": 2,
+     "equipe": "rk80dz3w",
+     "qtd": 1,
+     "regra": {
+      "tipo": "apos",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "propria",
+     "terc": 0,
+     "cor": "#edc948",
+     "item": 23,
+     "grupo": 16,
+     "macro": "Acabamentos",
+     "descendo": true,
+     "aposCobertura": true
+    },
+    {
+     "id": "l7om49ce",
+     "nome": "Piso Vinílico",
+     "unidade": "pav",
+     "dias": 5,
+     "equipe": "a44yhi99",
+     "qtd": 1,
+     "regra": {
+      "tipo": "apos",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#b07aa1",
+     "item": 24,
+     "grupo": 17,
+     "macro": "Acabamentos",
+     "descendo": true,
+     "aposCobertura": true
+    },
+    {
+     "id": "uyjnujuw",
+     "nome": "Módulos de tomadas e interruptores; Luminárias; Quadro elétrico; Campainha",
+     "unidade": "pav",
+     "dias": 5,
+     "equipe": "tmtt7bb0",
+     "qtd": 1,
+     "regra": {
+      "tipo": "apos",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#ff9da7",
+     "item": 25,
+     "grupo": 18,
+     "macro": "Acabamentos",
+     "descendo": true,
+     "aposCobertura": true
+    },
+    {
+     "id": "y3j1pw35",
+     "nome": "Mobiliário",
+     "unidade": "pav",
+     "dias": 5,
+     "equipe": "if7ckckf",
+     "qtd": 1,
+     "regra": {
+      "tipo": "apos",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "propria",
+     "terc": 0,
+     "cor": "#9c755f",
+     "item": 26,
+     "grupo": 19,
+     "macro": "Acabamentos",
+     "descendo": true,
+     "aposCobertura": true
+    },
+    {
+     "id": "6jqrwd5j",
+     "nome": "Instalação de Esquadria de Madeira",
+     "unidade": "pav",
+     "dias": 5,
+     "equipe": "6or1md7c",
+     "qtd": 1,
+     "regra": {
+      "tipo": "apos",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#86bcb6",
+     "item": 27,
+     "grupo": 20,
+     "macro": "Acabamentos",
+     "descendo": true,
+     "aposCobertura": true
+    },
+    {
+     "id": "2woywii4",
+     "nome": "Retoques Final Pintura; Instalação de Louças, Metais e Acessórios",
+     "unidade": "pav",
+     "dias": 5,
+     "equipe": "xoz71li3",
+     "qtd": 1,
+     "regra": {
+      "tipo": "apos",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#d37295",
+     "item": 28,
+     "grupo": 21,
+     "macro": "Acabamentos",
+     "descendo": true,
+     "aposCobertura": true
+    },
+    {
+     "id": "ok4027bd",
+     "nome": "Eletrodomésticos",
+     "unidade": "pav",
+     "dias": 5,
+     "equipe": "hiv0n3by",
+     "qtd": 1,
+     "regra": {
+      "tipo": "junto",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "propria",
+     "terc": 0,
+     "cor": "#8cd17d",
+     "item": 29,
+     "grupo": 21,
+     "macro": "Acabamentos",
+     "descendo": true,
+     "aposCobertura": true
+    },
+    {
+     "id": "co2gzqgs",
+     "nome": "Limpeza final",
+     "unidade": "pav",
+     "dias": 5,
+     "equipe": "037ux5ji",
+     "qtd": 1,
+     "regra": {
+      "tipo": "apos",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "propria",
+     "terc": 0,
+     "cor": "#499894",
+     "item": 30,
+     "grupo": 22,
+     "macro": "Acabamentos",
+     "descendo": true,
+     "aposCobertura": true
+    }
+   ],
+   "torres": [
+    {
+     "id": "torre-a",
+     "nome": "Torre A",
+     "pavimentos": [
+      "Térreo",
+      "01º",
+      "02º",
+      "03º",
+      "04º",
+      "05º",
+      "06º",
+      "07º",
+      "08º",
+      "09º",
+      "10º",
+      "11º",
+      "12º",
+      "13º",
+      "14º"
+     ],
+     "aptos": 8,
+     "inicio": "2026-08-03",
+     "ciclo": 10,
+     "lib": [
+      "2026-08-03",
+      "2026-08-14",
+      "2026-08-25",
+      "2026-09-04",
+      "2026-09-17",
+      "2026-09-28",
+      "2026-10-07",
+      "2026-10-22",
+      "2026-11-10",
+      "2026-11-25",
+      "2026-12-09",
+      "2026-12-23",
+      "2027-01-08",
+      "2027-01-22",
+      "2027-02-05"
+     ],
+     "cobertura": "2027-02-18"
+    }
+   ],
+   "fixas": {
+    "torre-a|0|estr": [
+     "2026-04-24",
+     "2026-07-10",
+     100
+    ],
+    "torre-a|1|estr": [
+     "2026-05-25",
+     "2026-06-11",
+     100
+    ],
+    "torre-a|2|estr": [
+     "2026-06-08",
+     "2026-06-26",
+     100
+    ],
+    "torre-a|3|estr": [
+     "2026-06-24",
+     "2026-07-09",
+     100
+    ],
+    "torre-a|4|estr": [
+     "2026-07-08",
+     "2026-07-21",
+     100
+    ],
+    "torre-a|5|estr": [
+     "2026-07-20",
+     "2026-07-31",
+     99
+    ],
+    "torre-a|6|estr": [
+     "2026-07-30",
+     "2026-08-13",
+     100
+    ],
+    "torre-a|7|estr": [
+     "2026-08-11",
+     "2026-08-24",
+     100
+    ],
+    "torre-a|8|estr": [
+     "2026-08-22",
+     "2026-09-03",
+     100
+    ],
+    "torre-a|9|estr": [
+     "2026-09-03",
+     "2026-09-16",
+     100
+    ],
+    "torre-a|10|estr": [
+     "2026-09-16",
+     "2026-09-25",
+     100
+    ],
+    "torre-a|11|estr": [
+     "2026-09-24",
+     "2026-10-06",
+     100
+    ],
+    "torre-a|12|estr": [
+     "2026-10-07",
+     "2026-10-21",
+     0
+    ],
+    "torre-a|13|estr": [
+     "2026-10-22",
+     "2026-11-09",
+     0
+    ],
+    "torre-a|14|estr": [
+     "2026-11-10",
+     "2026-11-24",
+     0
+    ]
+   },
+   "sabado": false,
+   "compart": false,
+   "feriados": [
+    "2026-11-15",
+    "2026-11-20",
+    "2026-12-25",
+    "2027-01-01",
+    "2027-02-08",
+    "2027-02-09",
+    "2027-03-26",
+    "2027-04-21",
+    "2027-05-01",
+    "2027-05-27",
+    "2027-09-07",
+    "2027-10-12",
+    "2027-11-02",
+    "2027-11-15",
+    "2027-11-20",
+    "2027-12-25",
+    "2028-01-01",
+    "2028-02-28",
+    "2028-02-29",
+    "2028-04-14",
+    "2028-04-21",
+    "2028-05-01",
+    "2028-06-15",
+    "2028-09-07",
+    "2028-10-12",
+    "2028-11-02",
+    "2028-11-15",
+    "2028-11-20",
+    "2028-12-25"
+   ],
+   "custo": {
+    "base": "dia",
+    "diasMes": 22,
+    "encargos": 0,
+    "ociosidade": true
+   }
+  },
+  {
+   "id": "9olnnkqt",
+   "nome": "Cenário 1 (Equipe Terceiras Acabamentos Dobradas)",
+   "equipes": [
+    {
+     "id": "y0gb4tux",
+     "nome": "Fundação (terc.)",
+     "cor": "#6d7f8a",
+     "formacao": [
+      {
+       "qtd": 1,
+       "funcao": "Operador de perfuratriz"
+      },
+      {
+       "qtd": 2,
+       "funcao": "Armador"
+      },
+      {
+       "qtd": 3,
+       "funcao": "Servente"
+      }
+     ]
+    },
+    {
+     "id": "xe4qf2iy",
+     "nome": "Montagem pré-moldado (terc.)",
+     "cor": "#55606b",
+     "formacao": [
+      {
+       "qtd": 1,
+       "funcao": "Encarregado de montagem"
+      },
+      {
+       "qtd": 4,
+       "funcao": "Montador de pré-moldado"
+      },
+      {
+       "qtd": 1,
+       "funcao": "Sinaleiro"
+      },
+      {
+       "qtd": 1,
+       "funcao": "Operador de grua"
+      }
+     ]
+    },
+    {
+     "id": "mm27j37y",
+     "nome": "3 Pedreiros + 1 Ajudante (própria)",
+     "cor": "#4e79a7",
+     "formacao": [
+      {
+       "qtd": 3,
+       "funcao": "Pedreiro"
+      },
+      {
+       "qtd": 1,
+       "funcao": "Ajudante"
+      }
+     ]
+    },
+    {
+     "id": "olpdn72x",
+     "nome": "2 Serralheiros (terc.)",
+     "cor": "#f28e2b",
+     "formacao": [
+      {
+       "qtd": 2,
+       "funcao": "Serralheiro"
+      }
+     ]
+    },
+    {
+     "id": "rrzowz4v",
+     "nome": "1 Serralheiro (terc.)",
+     "cor": "#59a14f",
+     "formacao": [
+      {
+       "qtd": 1,
+       "funcao": "Serralheiro"
+      }
+     ]
+    },
+    {
+     "id": "itbe1a5d",
+     "nome": "4 Gesseiros (terc.)",
+     "cor": "#e15759",
+     "formacao": [
+      {
+       "qtd": 4,
+       "funcao": "Gesseiro"
+      }
+     ]
+    },
+    {
+     "id": "4y2kx8bo",
+     "nome": "2 Instalador de Esquadrias (terc.)",
+     "cor": "#76b7b2",
+     "formacao": [
+      {
+       "qtd": 2,
+       "funcao": "Instalador de Esquadrias"
+      }
+     ]
+    },
+    {
+     "id": "52ja3neo",
+     "nome": "3 Encanadores + 1 Ajudante (terc.)",
+     "cor": "#edc948",
+     "formacao": [
+      {
+       "qtd": 3,
+       "funcao": "Encanador"
+      },
+      {
+       "qtd": 1,
+       "funcao": "Ajudante"
+      }
+     ]
+    },
+    {
+     "id": "tmtt7bb0",
+     "nome": "1 Eletricista (terc.)",
+     "cor": "#b07aa1",
+     "formacao": [
+      {
+       "qtd": 1,
+       "funcao": "Eletricista"
+      }
+     ]
+    },
+    {
+     "id": "78s541gi",
+     "nome": "2 Instalador Ar Condicionado (terc.)",
+     "cor": "#ff9da7",
+     "formacao": [
+      {
+       "qtd": 2,
+       "funcao": "Instalador Ar Condicionado"
+      }
+     ]
+    },
+    {
+     "id": "rrnkwr8u",
+     "nome": "1 Encanador (terc.)",
+     "cor": "#9c755f",
+     "formacao": [
+      {
+       "qtd": 1,
+       "funcao": "Encanador"
+      }
+     ]
+    },
+    {
+     "id": "ruaaq1bh",
+     "nome": "6 Pedreiros (terc.)",
+     "cor": "#86bcb6",
+     "formacao": [
+      {
+       "qtd": 6,
+       "funcao": "Pedreiro"
+      }
+     ]
+    },
+    {
+     "id": "vo4jrdlp",
+     "nome": "2 Pedreiros (própria)",
+     "cor": "#d37295",
+     "formacao": [
+      {
+       "qtd": 2,
+       "funcao": "Pedreiro"
+      }
+     ]
+    },
+    {
+     "id": "wd8pxvef",
+     "nome": "2 Pedreiros (terc.)",
+     "cor": "#8cd17d",
+     "formacao": [
+      {
+       "qtd": 2,
+       "funcao": "Pedreiro"
+      }
+     ]
+    },
+    {
+     "id": "g2bs7f1x",
+     "nome": "4 Azulejistas + 4 Ajudantes (terc.)",
+     "cor": "#499894",
+     "formacao": [
+      {
+       "qtd": 4,
+       "funcao": "Azulejista"
+      },
+      {
+       "qtd": 4,
+       "funcao": "Ajudante"
+      }
+     ]
+    },
+    {
+     "id": "xkvl88zh",
+     "nome": "5 Pintores (terc.)",
+     "cor": "#f1ce63",
+     "formacao": [
+      {
+       "qtd": 5,
+       "funcao": "Pintor"
+      }
+     ]
+    },
+    {
+     "id": "uli9m1ej",
+     "nome": "2 Instalador Box (terc.)",
+     "cor": "#a0cbe8",
+     "formacao": [
+      {
+       "qtd": 2,
+       "funcao": "Instalador Box"
+      }
+     ]
+    },
+    {
+     "id": "rk80dz3w",
+     "nome": "4 Ajudantes (própria)",
+     "cor": "#ffbe7d",
+     "formacao": [
+      {
+       "qtd": 4,
+       "funcao": "Ajudante"
+      }
+     ]
+    },
+    {
+     "id": "a44yhi99",
+     "nome": "3 Instalador de Piso (terc.)",
+     "cor": "#4e79a7",
+     "formacao": [
+      {
+       "qtd": 3,
+       "funcao": "Instalador de Piso"
+      }
+     ]
+    },
+    {
+     "id": "if7ckckf",
+     "nome": "8 Montador de Móveis (própria)",
+     "cor": "#f28e2b",
+     "formacao": [
+      {
+       "qtd": 8,
+       "funcao": "Montador de Móveis"
+      }
+     ]
+    },
+    {
+     "id": "6or1md7c",
+     "nome": "2 Instalador de Portas (terc.)",
+     "cor": "#59a14f",
+     "formacao": [
+      {
+       "qtd": 2,
+       "funcao": "Instalador de Portas"
+      }
+     ]
+    },
+    {
+     "id": "xoz71li3",
+     "nome": "1 Pintor + 2 Encanadores (terc.)",
+     "cor": "#e15759",
+     "formacao": [
+      {
+       "qtd": 1,
+       "funcao": "Pintor"
+      },
+      {
+       "qtd": 2,
+       "funcao": "Encanador"
+      }
+     ]
+    },
+    {
+     "id": "hiv0n3by",
+     "nome": "2 Instalador de Eletro (própria)",
+     "cor": "#76b7b2",
+     "formacao": [
+      {
+       "qtd": 2,
+       "funcao": "Instalador de Eletro"
+      }
+     ]
+    },
+    {
+     "id": "037ux5ji",
+     "nome": "3 Auxiliar de Limpeza (própria)",
+     "cor": "#edc948",
+     "formacao": [
+      {
+       "qtd": 3,
+       "funcao": "Auxiliar de Limpeza"
+      }
+     ]
+    }
+   ],
+   "etapas": [
+    {
+     "id": "fund",
+     "nome": "Fundação",
+     "unidade": "torre",
+     "dias": 152,
+     "equipe": "y0gb4tux",
+     "qtd": 1,
+     "regra": {
+      "tipo": "apos",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#9aa5ad",
+     "macro": "Fundação",
+     "fixaT": {
+      "torre-a": [
+       "2025-09-18",
+       "2026-04-17"
+      ]
+     }
+    },
+    {
+     "id": "estr",
+     "nome": "Estrutura (painel e laje)",
+     "unidade": "pav",
+     "dias": 10,
+     "equipe": "xe4qf2iy",
+     "qtd": 1,
+     "regra": {
+      "tipo": "apos",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#55606b",
+     "macro": "Estrutura"
+    },
+    {
+     "id": "whbtg3en",
+     "nome": "Preparação do Vão para Esquadria de Alumínio (Lixar e Impermeabilizar)",
+     "unidade": "pav",
+     "dias": 5,
+     "equipe": "mm27j37y",
+     "qtd": 1,
+     "regra": {
+      "tipo": "apos",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "propria",
+     "terc": 0,
+     "cor": "#4e79a7",
+     "item": 1,
+     "grupo": 1,
+     "macro": "Instalações e cinza"
+    },
+    {
+     "id": "e1xoxqva",
+     "nome": "Instalação de Guarda-corpo",
+     "unidade": "pav",
+     "dias": 2,
+     "equipe": "olpdn72x",
+     "qtd": 1,
+     "regra": {
+      "tipo": "junto",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#f28e2b",
+     "item": 2,
+     "grupo": 1,
+     "macro": "Instalações e cinza"
+    },
+    {
+     "id": "27je2imx",
+     "nome": "Instalação do duto da churrasqueira",
+     "unidade": "pav",
+     "dias": 2,
+     "equipe": "rrzowz4v",
+     "qtd": 1,
+     "regra": {
+      "tipo": "junto",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#59a14f",
+     "item": 3,
+     "grupo": 1,
+     "macro": "Instalações e cinza"
+    },
+    {
+     "id": "1b40gbxz",
+     "nome": "Drywall - Estrutura e primeira placa",
+     "unidade": "pav",
+     "dias": 5,
+     "equipe": "itbe1a5d",
+     "qtd": 1,
+     "regra": {
+      "tipo": "apos",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#e15759",
+     "item": 4,
+     "grupo": 2,
+     "macro": "Instalações e cinza"
+    },
+    {
+     "id": "6odd8g32",
+     "nome": "Instalação de Janelas",
+     "unidade": "pav",
+     "dias": 2,
+     "equipe": "4y2kx8bo",
+     "qtd": 1,
+     "regra": {
+      "tipo": "junto",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#76b7b2",
+     "item": 5,
+     "grupo": 2,
+     "macro": "Instalações e cinza"
+    },
+    {
+     "id": "so34zmaw",
+     "nome": "Prumada de Esgoto (Cozinha e Banheiro); Ramais de Água Fria e Esgoto; Dreno Ar Condicionado; Fita Intumescente",
+     "unidade": "pav",
+     "dias": 5,
+     "equipe": "52ja3neo",
+     "qtd": 1,
+     "regra": {
+      "tipo": "apos",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#edc948",
+     "item": 6,
+     "grupo": 3,
+     "macro": "Instalações e cinza"
+    },
+    {
+     "id": "lzeq9pne",
+     "nome": "Elétrica Chuveiro",
+     "unidade": "pav",
+     "dias": 5,
+     "equipe": "tmtt7bb0",
+     "qtd": 1,
+     "regra": {
+      "tipo": "junto",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#b07aa1",
+     "item": 7,
+     "grupo": 3,
+     "macro": "Instalações e cinza"
+    },
+    {
+     "id": "caoirs5y",
+     "nome": "Rede Frigorígena",
+     "unidade": "pav",
+     "dias": 5,
+     "equipe": "78s541gi",
+     "qtd": 1,
+     "regra": {
+      "tipo": "junto",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#ff9da7",
+     "item": 8,
+     "grupo": 3,
+     "macro": "Instalações e cinza"
+    },
+    {
+     "id": "gkjiuxh0",
+     "nome": "Teste de estanqueidade",
+     "unidade": "pav",
+     "dias": 1,
+     "equipe": "rrnkwr8u",
+     "qtd": 1,
+     "regra": {
+      "tipo": "apos",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#9c755f",
+     "item": 9,
+     "grupo": 4,
+     "macro": "Instalações e cinza"
+    },
+    {
+     "id": "3x0jjo2k",
+     "nome": "Contrapiso Autonivelante",
+     "unidade": "pav",
+     "dias": 5,
+     "equipe": "ruaaq1bh",
+     "qtd": 1,
+     "regra": {
+      "tipo": "apos",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#86bcb6",
+     "item": 10,
+     "grupo": 5,
+     "macro": "Instalações e cinza",
+     "descendo": true
+    },
+    {
+     "id": "kr3tyor8",
+     "nome": "Fechamento de DryWall (Segunda Placa)",
+     "unidade": "pav",
+     "dias": 2,
+     "equipe": "itbe1a5d",
+     "qtd": 1,
+     "regra": {
+      "tipo": "apos",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#d37295",
+     "item": 11,
+     "grupo": 6,
+     "macro": "Instalações e cinza"
+    },
+    {
+     "id": "1z1he5fe",
+     "nome": "Sanca",
+     "unidade": "pav",
+     "dias": 4,
+     "equipe": "vo4jrdlp",
+     "qtd": 1,
+     "regra": {
+      "tipo": "apos",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "propria",
+     "terc": 0,
+     "cor": "#8cd17d",
+     "item": 12,
+     "grupo": 7,
+     "macro": "Instalações e cinza"
+    },
+    {
+     "id": "01qkvoax",
+     "nome": "Forro",
+     "unidade": "pav",
+     "dias": 4,
+     "equipe": "itbe1a5d",
+     "qtd": 1,
+     "regra": {
+      "tipo": "junto",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#499894",
+     "item": 13,
+     "grupo": 7,
+     "macro": "Instalações e cinza"
+    },
+    {
+     "id": "erbg8ugy",
+     "nome": "Impermeabilização do banheiro e sacada",
+     "unidade": "pav",
+     "dias": 2,
+     "equipe": "vo4jrdlp",
+     "qtd": 1,
+     "regra": {
+      "tipo": "apos",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "propria",
+     "terc": 0,
+     "cor": "#f1ce63",
+     "item": 14,
+     "grupo": 8,
+     "macro": "Instalações e cinza"
+    },
+    {
+     "id": "y4oipjya",
+     "nome": "Contrapiso Banheiros",
+     "unidade": "pav",
+     "dias": 2,
+     "equipe": "wd8pxvef",
+     "qtd": 1,
+     "regra": {
+      "tipo": "apos",
+      "pav": 1,
+      "espera": 3
+     },
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#a0cbe8",
+     "item": 16,
+     "grupo": 10,
+     "macro": "Instalações e cinza"
+    },
+    {
+     "id": "56gnfpma",
+     "nome": "Contrapiso Sacada",
+     "unidade": "pav",
+     "dias": 5,
+     "equipe": "vo4jrdlp",
+     "qtd": 1,
+     "regra": {
+      "tipo": "junto",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "propria",
+     "terc": 0,
+     "cor": "#ffbe7d",
+     "item": 17,
+     "grupo": 10,
+     "macro": "Instalações e cinza"
+    },
+    {
+     "id": "2ysjqb7a",
+     "nome": "Soleiras (Banheiro, Sacada e Porta de Entrada)",
+     "unidade": "pav",
+     "dias": 3,
+     "equipe": "vo4jrdlp",
+     "qtd": 1,
+     "regra": {
+      "tipo": "apos",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "propria",
+     "terc": 0,
+     "cor": "#4e79a7",
+     "item": 18,
+     "grupo": 11,
+     "macro": "Instalações e cinza"
+    },
+    {
+     "id": "2ujwqi96",
+     "nome": "Revestimento Cerâmico (Banheiro; Cozinha; Sacada com Rodapé); Rejunte",
+     "unidade": "pav",
+     "dias": 5,
+     "equipe": "g2bs7f1x",
+     "qtd": 1,
+     "regra": {
+      "tipo": "apos",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#f28e2b",
+     "item": 19,
+     "grupo": 12,
+     "macro": "Instalações e cinza"
+    },
+    {
+     "id": "r8cyatp9",
+     "nome": "Instalação Porta da Sacada e Lavanderia",
+     "unidade": "pav",
+     "dias": 5,
+     "equipe": "4y2kx8bo",
+     "qtd": 1,
+     "regra": {
+      "tipo": "apos",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#59a14f",
+     "item": 20,
+     "grupo": 13,
+     "macro": "Instalações e cinza"
+    },
+    {
+     "id": "0w50s9lz",
+     "nome": "Preparação; Emassamento; Pintura 2 demãos",
+     "unidade": "pav",
+     "dias": 5,
+     "equipe": "xkvl88zh",
+     "qtd": 2,
+     "regra": {
+      "tipo": "apos",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#e15759",
+     "item": 21,
+     "grupo": 14,
+     "macro": "Acabamentos",
+     "descendo": true,
+     "aposCobertura": true
+    },
+    {
+     "id": "kk8a9be0",
+     "nome": "Instalação do Box do banheiro",
+     "unidade": "pav",
+     "dias": 3,
+     "equipe": "uli9m1ej",
+     "qtd": 2,
+     "regra": {
+      "tipo": "apos",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#76b7b2",
+     "item": 22,
+     "grupo": 15,
+     "macro": "Acabamentos",
+     "descendo": true,
+     "aposCobertura": true
+    },
+    {
+     "id": "t53egioa",
+     "nome": "Desengrosso",
+     "unidade": "pav",
+     "dias": 2,
+     "equipe": "rk80dz3w",
+     "qtd": 1,
+     "regra": {
+      "tipo": "apos",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "propria",
+     "terc": 0,
+     "cor": "#edc948",
+     "item": 23,
+     "grupo": 16,
+     "macro": "Acabamentos",
+     "descendo": true,
+     "aposCobertura": true
+    },
+    {
+     "id": "l7om49ce",
+     "nome": "Piso Vinílico",
+     "unidade": "pav",
+     "dias": 5,
+     "equipe": "a44yhi99",
+     "qtd": 2,
+     "regra": {
+      "tipo": "apos",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#b07aa1",
+     "item": 24,
+     "grupo": 17,
+     "macro": "Acabamentos",
+     "descendo": true,
+     "aposCobertura": true
+    },
+    {
+     "id": "uyjnujuw",
+     "nome": "Módulos de tomadas e interruptores; Luminárias; Quadro elétrico; Campainha",
+     "unidade": "pav",
+     "dias": 5,
+     "equipe": "tmtt7bb0",
+     "qtd": 2,
+     "regra": {
+      "tipo": "apos",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#ff9da7",
+     "item": 25,
+     "grupo": 18,
+     "macro": "Acabamentos",
+     "descendo": true,
+     "aposCobertura": true
+    },
+    {
+     "id": "y3j1pw35",
+     "nome": "Mobiliário",
+     "unidade": "pav",
+     "dias": 5,
+     "equipe": "if7ckckf",
+     "qtd": 1,
+     "regra": {
+      "tipo": "apos",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "propria",
+     "terc": 0,
+     "cor": "#9c755f",
+     "item": 26,
+     "grupo": 19,
+     "macro": "Acabamentos",
+     "descendo": true,
+     "aposCobertura": true
+    },
+    {
+     "id": "6jqrwd5j",
+     "nome": "Instalação de Esquadria de Madeira",
+     "unidade": "pav",
+     "dias": 5,
+     "equipe": "6or1md7c",
+     "qtd": 2,
+     "regra": {
+      "tipo": "apos",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#86bcb6",
+     "item": 27,
+     "grupo": 20,
+     "macro": "Acabamentos",
+     "descendo": true,
+     "aposCobertura": true
+    },
+    {
+     "id": "2woywii4",
+     "nome": "Retoques Final Pintura; Instalação de Louças, Metais e Acessórios",
+     "unidade": "pav",
+     "dias": 5,
+     "equipe": "xoz71li3",
+     "qtd": 2,
+     "regra": {
+      "tipo": "apos",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#d37295",
+     "item": 28,
+     "grupo": 21,
+     "macro": "Acabamentos",
+     "descendo": true,
+     "aposCobertura": true
+    },
+    {
+     "id": "ok4027bd",
+     "nome": "Eletrodomésticos",
+     "unidade": "pav",
+     "dias": 5,
+     "equipe": "hiv0n3by",
+     "qtd": 1,
+     "regra": {
+      "tipo": "junto",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "propria",
+     "terc": 0,
+     "cor": "#8cd17d",
+     "item": 29,
+     "grupo": 21,
+     "macro": "Acabamentos",
+     "descendo": true,
+     "aposCobertura": true
+    },
+    {
+     "id": "co2gzqgs",
+     "nome": "Limpeza final",
+     "unidade": "pav",
+     "dias": 5,
+     "equipe": "037ux5ji",
+     "qtd": 1,
+     "regra": {
+      "tipo": "apos",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "propria",
+     "terc": 0,
+     "cor": "#499894",
+     "item": 30,
+     "grupo": 22,
+     "macro": "Acabamentos",
+     "descendo": true,
+     "aposCobertura": true
+    }
+   ],
+   "torres": [
+    {
+     "id": "torre-a",
+     "nome": "Torre A",
+     "pavimentos": [
+      "Térreo",
+      "01º",
+      "02º",
+      "03º",
+      "04º",
+      "05º",
+      "06º",
+      "07º",
+      "08º",
+      "09º",
+      "10º",
+      "11º",
+      "12º",
+      "13º",
+      "14º"
+     ],
+     "aptos": 8,
+     "inicio": "2026-08-03",
+     "ciclo": 10,
+     "lib": [
+      "2026-08-03",
+      "2026-08-14",
+      "2026-08-25",
+      "2026-09-04",
+      "2026-09-17",
+      "2026-09-28",
+      "2026-10-07",
+      "2026-10-22",
+      "2026-11-10",
+      "2026-11-25",
+      "2026-12-09",
+      "2026-12-23",
+      "2027-01-08",
+      "2027-01-22",
+      "2027-02-05"
+     ],
+     "cobertura": "2027-02-18"
+    }
+   ],
+   "fixas": {
+    "torre-a|0|estr": [
+     "2026-04-24",
+     "2026-07-10",
+     100
+    ],
+    "torre-a|1|estr": [
+     "2026-05-25",
+     "2026-06-11",
+     100
+    ],
+    "torre-a|2|estr": [
+     "2026-06-08",
+     "2026-06-26",
+     100
+    ],
+    "torre-a|3|estr": [
+     "2026-06-24",
+     "2026-07-09",
+     100
+    ],
+    "torre-a|4|estr": [
+     "2026-07-08",
+     "2026-07-21",
+     100
+    ],
+    "torre-a|5|estr": [
+     "2026-07-20",
+     "2026-07-31",
+     99
+    ],
+    "torre-a|6|estr": [
+     "2026-07-30",
+     "2026-08-13",
+     100
+    ],
+    "torre-a|7|estr": [
+     "2026-08-11",
+     "2026-08-24",
+     100
+    ],
+    "torre-a|8|estr": [
+     "2026-08-22",
+     "2026-09-03",
+     100
+    ],
+    "torre-a|9|estr": [
+     "2026-09-03",
+     "2026-09-16",
+     100
+    ],
+    "torre-a|10|estr": [
+     "2026-09-16",
+     "2026-09-25",
+     100
+    ],
+    "torre-a|11|estr": [
+     "2026-09-24",
+     "2026-10-06",
+     100
+    ],
+    "torre-a|12|estr": [
+     "2026-10-07",
+     "2026-10-21",
+     0
+    ],
+    "torre-a|13|estr": [
+     "2026-10-22",
+     "2026-11-09",
+     0
+    ],
+    "torre-a|14|estr": [
+     "2026-11-10",
+     "2026-11-24",
+     0
+    ]
+   },
+   "sabado": false,
+   "compart": false,
+   "feriados": [
+    "2026-11-15",
+    "2026-11-20",
+    "2026-12-25",
+    "2027-01-01",
+    "2027-02-08",
+    "2027-02-09",
+    "2027-03-26",
+    "2027-04-21",
+    "2027-05-01",
+    "2027-05-27",
+    "2027-09-07",
+    "2027-10-12",
+    "2027-11-02",
+    "2027-11-15",
+    "2027-11-20",
+    "2027-12-25",
+    "2028-01-01",
+    "2028-02-28",
+    "2028-02-29",
+    "2028-04-14",
+    "2028-04-21",
+    "2028-05-01",
+    "2028-06-15",
+    "2028-09-07",
+    "2028-10-12",
+    "2028-11-02",
+    "2028-11-15",
+    "2028-11-20",
+    "2028-12-25"
+   ],
+   "custo": {
+    "base": "dia",
+    "diasMes": 22,
+    "encargos": 0,
+    "ociosidade": true
+   }
+  },
+  {
+   "id": "bdcrc9jp",
+   "nome": "Teste · cinza após o contrapiso também de cima para baixo",
+   "equipes": [
+    {
+     "id": "y0gb4tux",
+     "nome": "Fundação (terc.)",
+     "cor": "#6d7f8a",
+     "formacao": [
+      {
+       "qtd": 1,
+       "funcao": "Operador de perfuratriz"
+      },
+      {
+       "qtd": 2,
+       "funcao": "Armador"
+      },
+      {
+       "qtd": 3,
+       "funcao": "Servente"
+      }
+     ]
+    },
+    {
+     "id": "xe4qf2iy",
+     "nome": "Montagem pré-moldado (terc.)",
+     "cor": "#55606b",
+     "formacao": [
+      {
+       "qtd": 1,
+       "funcao": "Encarregado de montagem"
+      },
+      {
+       "qtd": 4,
+       "funcao": "Montador de pré-moldado"
+      },
+      {
+       "qtd": 1,
+       "funcao": "Sinaleiro"
+      },
+      {
+       "qtd": 1,
+       "funcao": "Operador de grua"
+      }
+     ]
+    },
+    {
+     "id": "mm27j37y",
+     "nome": "3 Pedreiros + 1 Ajudante (própria)",
+     "cor": "#4e79a7",
+     "formacao": [
+      {
+       "qtd": 3,
+       "funcao": "Pedreiro"
+      },
+      {
+       "qtd": 1,
+       "funcao": "Ajudante"
+      }
+     ]
+    },
+    {
+     "id": "olpdn72x",
+     "nome": "2 Serralheiros (terc.)",
+     "cor": "#f28e2b",
+     "formacao": [
+      {
+       "qtd": 2,
+       "funcao": "Serralheiro"
+      }
+     ]
+    },
+    {
+     "id": "rrzowz4v",
+     "nome": "1 Serralheiro (terc.)",
+     "cor": "#59a14f",
+     "formacao": [
+      {
+       "qtd": 1,
+       "funcao": "Serralheiro"
+      }
+     ]
+    },
+    {
+     "id": "itbe1a5d",
+     "nome": "4 Gesseiros (terc.)",
+     "cor": "#e15759",
+     "formacao": [
+      {
+       "qtd": 4,
+       "funcao": "Gesseiro"
+      }
+     ]
+    },
+    {
+     "id": "4y2kx8bo",
+     "nome": "2 Instalador de Esquadrias (terc.)",
+     "cor": "#76b7b2",
+     "formacao": [
+      {
+       "qtd": 2,
+       "funcao": "Instalador de Esquadrias"
+      }
+     ]
+    },
+    {
+     "id": "52ja3neo",
+     "nome": "3 Encanadores + 1 Ajudante (terc.)",
+     "cor": "#edc948",
+     "formacao": [
+      {
+       "qtd": 3,
+       "funcao": "Encanador"
+      },
+      {
+       "qtd": 1,
+       "funcao": "Ajudante"
+      }
+     ]
+    },
+    {
+     "id": "tmtt7bb0",
+     "nome": "1 Eletricista (terc.)",
+     "cor": "#b07aa1",
+     "formacao": [
+      {
+       "qtd": 1,
+       "funcao": "Eletricista"
+      }
+     ]
+    },
+    {
+     "id": "78s541gi",
+     "nome": "2 Instalador Ar Condicionado (terc.)",
+     "cor": "#ff9da7",
+     "formacao": [
+      {
+       "qtd": 2,
+       "funcao": "Instalador Ar Condicionado"
+      }
+     ]
+    },
+    {
+     "id": "rrnkwr8u",
+     "nome": "1 Encanador (terc.)",
+     "cor": "#9c755f",
+     "formacao": [
+      {
+       "qtd": 1,
+       "funcao": "Encanador"
+      }
+     ]
+    },
+    {
+     "id": "ruaaq1bh",
+     "nome": "6 Pedreiros (terc.)",
+     "cor": "#86bcb6",
+     "formacao": [
+      {
+       "qtd": 6,
+       "funcao": "Pedreiro"
+      }
+     ]
+    },
+    {
+     "id": "vo4jrdlp",
+     "nome": "2 Pedreiros (própria)",
+     "cor": "#d37295",
+     "formacao": [
+      {
+       "qtd": 2,
+       "funcao": "Pedreiro"
+      }
+     ]
+    },
+    {
+     "id": "wd8pxvef",
+     "nome": "2 Pedreiros (terc.)",
+     "cor": "#8cd17d",
+     "formacao": [
+      {
+       "qtd": 2,
+       "funcao": "Pedreiro"
+      }
+     ]
+    },
+    {
+     "id": "g2bs7f1x",
+     "nome": "4 Azulejistas + 4 Ajudantes (terc.)",
+     "cor": "#499894",
+     "formacao": [
+      {
+       "qtd": 4,
+       "funcao": "Azulejista"
+      },
+      {
+       "qtd": 4,
+       "funcao": "Ajudante"
+      }
+     ]
+    },
+    {
+     "id": "xkvl88zh",
+     "nome": "5 Pintores (terc.)",
+     "cor": "#f1ce63",
+     "formacao": [
+      {
+       "qtd": 5,
+       "funcao": "Pintor"
+      }
+     ]
+    },
+    {
+     "id": "uli9m1ej",
+     "nome": "2 Instalador Box (terc.)",
+     "cor": "#a0cbe8",
+     "formacao": [
+      {
+       "qtd": 2,
+       "funcao": "Instalador Box"
+      }
+     ]
+    },
+    {
+     "id": "rk80dz3w",
+     "nome": "4 Ajudantes (própria)",
+     "cor": "#ffbe7d",
+     "formacao": [
+      {
+       "qtd": 4,
+       "funcao": "Ajudante"
+      }
+     ]
+    },
+    {
+     "id": "a44yhi99",
+     "nome": "3 Instalador de Piso (terc.)",
+     "cor": "#4e79a7",
+     "formacao": [
+      {
+       "qtd": 3,
+       "funcao": "Instalador de Piso"
+      }
+     ]
+    },
+    {
+     "id": "if7ckckf",
+     "nome": "8 Montador de Móveis (própria)",
+     "cor": "#f28e2b",
+     "formacao": [
+      {
+       "qtd": 8,
+       "funcao": "Montador de Móveis"
+      }
+     ]
+    },
+    {
+     "id": "6or1md7c",
+     "nome": "2 Instalador de Portas (terc.)",
+     "cor": "#59a14f",
+     "formacao": [
+      {
+       "qtd": 2,
+       "funcao": "Instalador de Portas"
+      }
+     ]
+    },
+    {
+     "id": "xoz71li3",
+     "nome": "1 Pintor + 2 Encanadores (terc.)",
+     "cor": "#e15759",
+     "formacao": [
+      {
+       "qtd": 1,
+       "funcao": "Pintor"
+      },
+      {
+       "qtd": 2,
+       "funcao": "Encanador"
+      }
+     ]
+    },
+    {
+     "id": "hiv0n3by",
+     "nome": "2 Instalador de Eletro (própria)",
+     "cor": "#76b7b2",
+     "formacao": [
+      {
+       "qtd": 2,
+       "funcao": "Instalador de Eletro"
+      }
+     ]
+    },
+    {
+     "id": "037ux5ji",
+     "nome": "3 Auxiliar de Limpeza (própria)",
+     "cor": "#edc948",
+     "formacao": [
+      {
+       "qtd": 3,
+       "funcao": "Auxiliar de Limpeza"
+      }
+     ]
+    }
+   ],
+   "etapas": [
+    {
+     "id": "fund",
+     "nome": "Fundação",
+     "unidade": "torre",
+     "dias": 152,
+     "equipe": "y0gb4tux",
+     "qtd": 1,
+     "regra": {
+      "tipo": "apos",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#9aa5ad",
+     "macro": "Fundação",
+     "fixaT": {
+      "torre-a": [
+       "2025-09-18",
+       "2026-04-17"
+      ]
+     }
+    },
+    {
+     "id": "estr",
+     "nome": "Estrutura (painel e laje)",
+     "unidade": "pav",
+     "dias": 10,
+     "equipe": "xe4qf2iy",
+     "qtd": 1,
+     "regra": {
+      "tipo": "apos",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#55606b",
+     "macro": "Estrutura"
+    },
+    {
+     "id": "whbtg3en",
+     "nome": "Preparação do Vão para Esquadria de Alumínio (Lixar e Impermeabilizar)",
+     "unidade": "pav",
+     "dias": 5,
+     "equipe": "mm27j37y",
+     "qtd": 1,
+     "regra": {
+      "tipo": "apos",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "propria",
+     "terc": 0,
+     "cor": "#4e79a7",
+     "item": 1,
+     "grupo": 1,
+     "macro": "Instalações e cinza"
+    },
+    {
+     "id": "e1xoxqva",
+     "nome": "Instalação de Guarda-corpo",
+     "unidade": "pav",
+     "dias": 2,
+     "equipe": "olpdn72x",
+     "qtd": 1,
+     "regra": {
+      "tipo": "junto",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#f28e2b",
+     "item": 2,
+     "grupo": 1,
+     "macro": "Instalações e cinza"
+    },
+    {
+     "id": "27je2imx",
+     "nome": "Instalação do duto da churrasqueira",
+     "unidade": "pav",
+     "dias": 2,
+     "equipe": "rrzowz4v",
+     "qtd": 1,
+     "regra": {
+      "tipo": "junto",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#59a14f",
+     "item": 3,
+     "grupo": 1,
+     "macro": "Instalações e cinza"
+    },
+    {
+     "id": "1b40gbxz",
+     "nome": "Drywall - Estrutura e primeira placa",
+     "unidade": "pav",
+     "dias": 5,
+     "equipe": "itbe1a5d",
+     "qtd": 1,
+     "regra": {
+      "tipo": "apos",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#e15759",
+     "item": 4,
+     "grupo": 2,
+     "macro": "Instalações e cinza"
+    },
+    {
+     "id": "6odd8g32",
+     "nome": "Instalação de Janelas",
+     "unidade": "pav",
+     "dias": 2,
+     "equipe": "4y2kx8bo",
+     "qtd": 1,
+     "regra": {
+      "tipo": "junto",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#76b7b2",
+     "item": 5,
+     "grupo": 2,
+     "macro": "Instalações e cinza"
+    },
+    {
+     "id": "so34zmaw",
+     "nome": "Prumada de Esgoto (Cozinha e Banheiro); Ramais de Água Fria e Esgoto; Dreno Ar Condicionado; Fita Intumescente",
+     "unidade": "pav",
+     "dias": 5,
+     "equipe": "52ja3neo",
+     "qtd": 1,
+     "regra": {
+      "tipo": "apos",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#edc948",
+     "item": 6,
+     "grupo": 3,
+     "macro": "Instalações e cinza"
+    },
+    {
+     "id": "lzeq9pne",
+     "nome": "Elétrica Chuveiro",
+     "unidade": "pav",
+     "dias": 5,
+     "equipe": "tmtt7bb0",
+     "qtd": 1,
+     "regra": {
+      "tipo": "junto",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#b07aa1",
+     "item": 7,
+     "grupo": 3,
+     "macro": "Instalações e cinza"
+    },
+    {
+     "id": "caoirs5y",
+     "nome": "Rede Frigorígena",
+     "unidade": "pav",
+     "dias": 5,
+     "equipe": "78s541gi",
+     "qtd": 1,
+     "regra": {
+      "tipo": "junto",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#ff9da7",
+     "item": 8,
+     "grupo": 3,
+     "macro": "Instalações e cinza"
+    },
+    {
+     "id": "gkjiuxh0",
+     "nome": "Teste de estanqueidade",
+     "unidade": "pav",
+     "dias": 1,
+     "equipe": "rrnkwr8u",
+     "qtd": 1,
+     "regra": {
+      "tipo": "apos",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#9c755f",
+     "item": 9,
+     "grupo": 4,
+     "macro": "Instalações e cinza"
+    },
+    {
+     "id": "3x0jjo2k",
+     "nome": "Contrapiso Autonivelante",
+     "unidade": "pav",
+     "dias": 5,
+     "equipe": "ruaaq1bh",
+     "qtd": 1,
+     "regra": {
+      "tipo": "apos",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#86bcb6",
+     "item": 10,
+     "grupo": 5,
+     "macro": "Instalações e cinza",
+     "descendo": true
+    },
+    {
+     "id": "kr3tyor8",
+     "nome": "Fechamento de DryWall (Segunda Placa)",
+     "unidade": "pav",
+     "dias": 2,
+     "equipe": "itbe1a5d",
+     "qtd": 1,
+     "regra": {
+      "tipo": "apos",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#d37295",
+     "item": 11,
+     "grupo": 6,
+     "macro": "Instalações e cinza",
+     "descendo": true
+    },
+    {
+     "id": "1z1he5fe",
+     "nome": "Sanca",
+     "unidade": "pav",
+     "dias": 4,
+     "equipe": "vo4jrdlp",
+     "qtd": 1,
+     "regra": {
+      "tipo": "apos",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "propria",
+     "terc": 0,
+     "cor": "#8cd17d",
+     "item": 12,
+     "grupo": 7,
+     "macro": "Instalações e cinza",
+     "descendo": true
+    },
+    {
+     "id": "01qkvoax",
+     "nome": "Forro",
+     "unidade": "pav",
+     "dias": 4,
+     "equipe": "itbe1a5d",
+     "qtd": 1,
+     "regra": {
+      "tipo": "junto",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#499894",
+     "item": 13,
+     "grupo": 7,
+     "macro": "Instalações e cinza",
+     "descendo": true
+    },
+    {
+     "id": "erbg8ugy",
+     "nome": "Impermeabilização do banheiro e sacada",
+     "unidade": "pav",
+     "dias": 2,
+     "equipe": "vo4jrdlp",
+     "qtd": 1,
+     "regra": {
+      "tipo": "apos",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "propria",
+     "terc": 0,
+     "cor": "#f1ce63",
+     "item": 14,
+     "grupo": 8,
+     "macro": "Instalações e cinza",
+     "descendo": true
+    },
+    {
+     "id": "y4oipjya",
+     "nome": "Contrapiso Banheiros",
+     "unidade": "pav",
+     "dias": 2,
+     "equipe": "wd8pxvef",
+     "qtd": 1,
+     "regra": {
+      "tipo": "apos",
+      "pav": 1,
+      "espera": 3
+     },
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#a0cbe8",
+     "item": 16,
+     "grupo": 10,
+     "macro": "Instalações e cinza",
+     "descendo": true
+    },
+    {
+     "id": "56gnfpma",
+     "nome": "Contrapiso Sacada",
+     "unidade": "pav",
+     "dias": 5,
+     "equipe": "vo4jrdlp",
+     "qtd": 1,
+     "regra": {
+      "tipo": "junto",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "propria",
+     "terc": 0,
+     "cor": "#ffbe7d",
+     "item": 17,
+     "grupo": 10,
+     "macro": "Instalações e cinza",
+     "descendo": true
+    },
+    {
+     "id": "2ysjqb7a",
+     "nome": "Soleiras (Banheiro, Sacada e Porta de Entrada)",
+     "unidade": "pav",
+     "dias": 3,
+     "equipe": "vo4jrdlp",
+     "qtd": 1,
+     "regra": {
+      "tipo": "apos",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "propria",
+     "terc": 0,
+     "cor": "#4e79a7",
+     "item": 18,
+     "grupo": 11,
+     "macro": "Instalações e cinza",
+     "descendo": true
+    },
+    {
+     "id": "2ujwqi96",
+     "nome": "Revestimento Cerâmico (Banheiro; Cozinha; Sacada com Rodapé); Rejunte",
+     "unidade": "pav",
+     "dias": 5,
+     "equipe": "g2bs7f1x",
+     "qtd": 1,
+     "regra": {
+      "tipo": "apos",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#f28e2b",
+     "item": 19,
+     "grupo": 12,
+     "macro": "Instalações e cinza",
+     "descendo": true
+    },
+    {
+     "id": "r8cyatp9",
+     "nome": "Instalação Porta da Sacada e Lavanderia",
+     "unidade": "pav",
+     "dias": 5,
+     "equipe": "4y2kx8bo",
+     "qtd": 1,
+     "regra": {
+      "tipo": "apos",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#59a14f",
+     "item": 20,
+     "grupo": 13,
+     "macro": "Instalações e cinza",
+     "descendo": true
+    },
+    {
+     "id": "0w50s9lz",
+     "nome": "Preparação; Emassamento; Pintura 2 demãos",
+     "unidade": "pav",
+     "dias": 5,
+     "equipe": "xkvl88zh",
+     "qtd": 1,
+     "regra": {
+      "tipo": "apos",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#e15759",
+     "item": 21,
+     "grupo": 14,
+     "macro": "Acabamentos",
+     "descendo": true,
+     "aposCobertura": true
+    },
+    {
+     "id": "kk8a9be0",
+     "nome": "Instalação do Box do banheiro",
+     "unidade": "pav",
+     "dias": 3,
+     "equipe": "uli9m1ej",
+     "qtd": 1,
+     "regra": {
+      "tipo": "apos",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#76b7b2",
+     "item": 22,
+     "grupo": 15,
+     "macro": "Acabamentos",
+     "descendo": true,
+     "aposCobertura": true
+    },
+    {
+     "id": "t53egioa",
+     "nome": "Desengrosso",
+     "unidade": "pav",
+     "dias": 2,
+     "equipe": "rk80dz3w",
+     "qtd": 1,
+     "regra": {
+      "tipo": "apos",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "propria",
+     "terc": 0,
+     "cor": "#edc948",
+     "item": 23,
+     "grupo": 16,
+     "macro": "Acabamentos",
+     "descendo": true,
+     "aposCobertura": true
+    },
+    {
+     "id": "l7om49ce",
+     "nome": "Piso Vinílico",
+     "unidade": "pav",
+     "dias": 5,
+     "equipe": "a44yhi99",
+     "qtd": 1,
+     "regra": {
+      "tipo": "apos",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#b07aa1",
+     "item": 24,
+     "grupo": 17,
+     "macro": "Acabamentos",
+     "descendo": true,
+     "aposCobertura": true
+    },
+    {
+     "id": "uyjnujuw",
+     "nome": "Módulos de tomadas e interruptores; Luminárias; Quadro elétrico; Campainha",
+     "unidade": "pav",
+     "dias": 5,
+     "equipe": "tmtt7bb0",
+     "qtd": 1,
+     "regra": {
+      "tipo": "apos",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#ff9da7",
+     "item": 25,
+     "grupo": 18,
+     "macro": "Acabamentos",
+     "descendo": true,
+     "aposCobertura": true
+    },
+    {
+     "id": "y3j1pw35",
+     "nome": "Mobiliário",
+     "unidade": "pav",
+     "dias": 5,
+     "equipe": "if7ckckf",
+     "qtd": 1,
+     "regra": {
+      "tipo": "apos",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "propria",
+     "terc": 0,
+     "cor": "#9c755f",
+     "item": 26,
+     "grupo": 19,
+     "macro": "Acabamentos",
+     "descendo": true,
+     "aposCobertura": true
+    },
+    {
+     "id": "6jqrwd5j",
+     "nome": "Instalação de Esquadria de Madeira",
+     "unidade": "pav",
+     "dias": 5,
+     "equipe": "6or1md7c",
+     "qtd": 1,
+     "regra": {
+      "tipo": "apos",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#86bcb6",
+     "item": 27,
+     "grupo": 20,
+     "macro": "Acabamentos",
+     "descendo": true,
+     "aposCobertura": true
+    },
+    {
+     "id": "2woywii4",
+     "nome": "Retoques Final Pintura; Instalação de Louças, Metais e Acessórios",
+     "unidade": "pav",
+     "dias": 5,
+     "equipe": "xoz71li3",
+     "qtd": 1,
+     "regra": {
+      "tipo": "apos",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#d37295",
+     "item": 28,
+     "grupo": 21,
+     "macro": "Acabamentos",
+     "descendo": true,
+     "aposCobertura": true
+    },
+    {
+     "id": "ok4027bd",
+     "nome": "Eletrodomésticos",
+     "unidade": "pav",
+     "dias": 5,
+     "equipe": "hiv0n3by",
+     "qtd": 1,
+     "regra": {
+      "tipo": "junto",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "propria",
+     "terc": 0,
+     "cor": "#8cd17d",
+     "item": 29,
+     "grupo": 21,
+     "macro": "Acabamentos",
+     "descendo": true,
+     "aposCobertura": true
+    },
+    {
+     "id": "co2gzqgs",
+     "nome": "Limpeza final",
+     "unidade": "pav",
+     "dias": 5,
+     "equipe": "037ux5ji",
+     "qtd": 1,
+     "regra": {
+      "tipo": "apos",
+      "pav": 1,
+      "espera": 0
+     },
+     "modo": "propria",
+     "terc": 0,
+     "cor": "#499894",
+     "item": 30,
+     "grupo": 22,
+     "macro": "Acabamentos",
+     "descendo": true,
+     "aposCobertura": true
+    }
+   ],
+   "torres": [
+    {
+     "id": "torre-a",
+     "nome": "Torre A",
+     "pavimentos": [
+      "Térreo",
+      "01º",
+      "02º",
+      "03º",
+      "04º",
+      "05º",
+      "06º",
+      "07º",
+      "08º",
+      "09º",
+      "10º",
+      "11º",
+      "12º",
+      "13º",
+      "14º"
+     ],
+     "aptos": 8,
+     "inicio": "2026-08-03",
+     "ciclo": 10,
+     "lib": [
+      "2026-08-03",
+      "2026-08-14",
+      "2026-08-25",
+      "2026-09-04",
+      "2026-09-17",
+      "2026-09-28",
+      "2026-10-07",
+      "2026-10-22",
+      "2026-11-10",
+      "2026-11-25",
+      "2026-12-09",
+      "2026-12-23",
+      "2027-01-08",
+      "2027-01-22",
+      "2027-02-05"
+     ],
+     "cobertura": "2027-02-18"
+    }
+   ],
+   "fixas": {
+    "torre-a|0|estr": [
+     "2026-04-24",
+     "2026-07-10",
+     100
+    ],
+    "torre-a|1|estr": [
+     "2026-05-25",
+     "2026-06-11",
+     100
+    ],
+    "torre-a|2|estr": [
+     "2026-06-08",
+     "2026-06-26",
+     100
+    ],
+    "torre-a|3|estr": [
+     "2026-06-24",
+     "2026-07-09",
+     100
+    ],
+    "torre-a|4|estr": [
+     "2026-07-08",
+     "2026-07-21",
+     100
+    ],
+    "torre-a|5|estr": [
+     "2026-07-20",
+     "2026-07-31",
+     99
+    ],
+    "torre-a|6|estr": [
+     "2026-07-30",
+     "2026-08-13",
+     100
+    ],
+    "torre-a|7|estr": [
+     "2026-08-11",
+     "2026-08-24",
+     100
+    ],
+    "torre-a|8|estr": [
+     "2026-08-22",
+     "2026-09-03",
+     100
+    ],
+    "torre-a|9|estr": [
+     "2026-09-03",
+     "2026-09-16",
+     100
+    ],
+    "torre-a|10|estr": [
+     "2026-09-16",
+     "2026-09-25",
+     100
+    ],
+    "torre-a|11|estr": [
+     "2026-09-24",
+     "2026-10-06",
+     100
+    ],
+    "torre-a|12|estr": [
+     "2026-10-07",
+     "2026-10-21",
+     0
+    ],
+    "torre-a|13|estr": [
+     "2026-10-22",
+     "2026-11-09",
+     0
+    ],
+    "torre-a|14|estr": [
+     "2026-11-10",
+     "2026-11-24",
+     0
+    ]
+   },
+   "sabado": false,
+   "compart": false,
+   "feriados": [
+    "2026-11-15",
+    "2026-11-20",
+    "2026-12-25",
+    "2027-01-01",
+    "2027-02-08",
+    "2027-02-09",
+    "2027-03-26",
+    "2027-04-21",
+    "2027-05-01",
+    "2027-05-27",
+    "2027-09-07",
+    "2027-10-12",
+    "2027-11-02",
+    "2027-11-15",
+    "2027-11-20",
+    "2027-12-25",
+    "2028-01-01",
+    "2028-02-28",
+    "2028-02-29",
+    "2028-04-14",
+    "2028-04-21",
+    "2028-05-01",
+    "2028-06-15",
+    "2028-09-07",
+    "2028-10-12",
+    "2028-11-02",
+    "2028-11-15",
+    "2028-11-20",
+    "2028-12-25"
+   ],
+   "custo": {
+    "base": "dia",
+    "diasMes": 22,
+    "encargos": 0,
+    "ociosidade": true
+   }
+  }
+ ]
+}

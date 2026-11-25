@@ -239,6 +239,8 @@ table.mes tr.grp td { font: 700 11px var(--f-disp); text-transform: uppercase; l
 .tor span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tor div { background: var(--rule); height: 10px; border-radius: 2px; } .tor i { display: block; height: 100%; background: var(--warn); border-radius: 2px; }
 .tor b { font: 500 11.5px var(--f-mono); text-align: right; }
+.etapas .macro { font: 700 11px var(--f-disp); text-transform: uppercase; letter-spacing: .8px; color: var(--accent); border-bottom: 2px solid var(--accent); padding: 10px 0 3px; margin-top: 4px; }
+table.t tr.macro td { font-weight: 700; background: var(--accent-soft); }
 @media (prefers-reduced-motion: no-preference) { .alt, .btn, .seg button { transition: background .12s, border-color .12s; } }
 </style>
 
@@ -416,7 +418,7 @@ const fmtc = d => d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digi
 // Tudo em dias úteis contados a partir do início da primeira torre (inteiros e frações).
 function calcular(s) {
   // começo do calendário: a data mais cedo entre torres, liberações e etapas já iniciadas
-  const datas = [...s.torres.map(t => t.inicio), ...s.torres.flatMap(t => t.lib || []).filter(Boolean), ...Object.values(s.fixas || {}).map(f => f[0])];
+  const datas = [...s.torres.map(t => t.inicio), ...s.torres.flatMap(t => t.lib || []).filter(Boolean), ...Object.values(s.fixas || {}).map(f => f[0]), ...s.etapas.flatMap(e => Object.values(e.fixaT || {}).map(f => f[0]))];
   const ini0 = datas.sort()[0];
   const fer = new Set(s.feriados || FERIADOS_PADRAO);
   const cal = calendario(ini0, s.sabado, fer);
@@ -447,13 +449,15 @@ function calcular(s) {
         let pronto = Math.max(lib[0], aPartir, et.aposCobertura ? cob : -Infinity);
         if (ant !== null) pronto = Math.max(pronto, liberacao(ti, ant, et, P - 1, P));
         const k = eqs.indexOf(Math.min(...eqs));
-        const ini = Math.max(pronto, eqs[k]); const fim = ini + diasDe(et);
+        const fxT = et.fixaT?.[t.id];   // datas do cronograma (ex.: fundação já executada)
+        const ini = fxT ? diaDe(fxT[0]) : Math.max(pronto, eqs[k]); const fim = fxT ? diaDe(fxT[1]) + 1 : ini + diasDe(et);
         eqs[k] = fim;
         for (let p = 0; p < P; p++) { iniPav[ti][ei][p] = ini; fimPav[ti][ei][p] = fim; }
         itens.push({ t: ti, p: -1, e: ei, ini, fim, eq: k });
         return;
       }
-      for (let p = 0; p < P; p++) {
+      const ordemP = [...Array(P).keys()]; if (et.descendo) ordemP.reverse();   // de cima para baixo
+      for (const p of ordemP) {
         const fx = s.fixas?.[t.id + "|" + p + "|" + et.id];
         if (fx) {
           // já iniciada no cronograma: fica com as datas dele e ocupa uma equipe
@@ -487,8 +491,8 @@ function calcular(s) {
     const grupo = [ant]; for (let j = ant; j > 0 && s.etapas[j].regra?.tipo === "junto"; j--) grupo.push(j - 1);
     if (r.tipo === "torre") return Math.max(...grupo.flatMap(g => fimPav[ti][g])) + esp;
     const n = Math.max(1, r.pav | 0);
-    const alvo = Math.min(p + n - 1, P - 1);
-    return Math.max(...grupo.map(g => Math.max(fimPav[ti][g][p], fimPav[ti][g][alvo]))) + esp;
+    // "depois de N pavimentos" conta no sentido em que a etapa anterior anda (para cima ou de cima para baixo)
+    return Math.max(...grupo.map(g => { const alvo = s.etapas[g].descendo ? Math.max(p - n + 1, 0) : Math.min(p + n - 1, P - 1); return Math.max(fimPav[ti][g][p], fimPav[ti][g][alvo]); })) + esp;
   }
   const data = x => cal[Math.max(0, Math.min(cal.length - 1, Math.floor(x + 1e-9)))];
   const dataFim = x => cal[Math.max(0, Math.min(cal.length - 1, Math.ceil(x - 1e-9) - 1))];
@@ -508,7 +512,8 @@ function calcular(s) {
   }
   // ritmo de cada etapa (dias úteis por pavimento, com as equipes)
   const diasMax = et => Math.max(et.dias, ...Object.values(et.diasT || {}));
-  const ritmo = s.etapas.map(et => et.unidade === "torre" ? 0 : (et.unidade === "apto" ? diasMax(et) * Math.max(1, s.torres[0].aptos) : diasMax(et)) / Math.max(1, et.qtd));
+  const temFixa = et => !!et.fixaT || Object.keys(s.fixas || {}).some(k => k.endsWith("|" + et.id));   // datas do cronograma: não entra no ritmo
+  const ritmo = s.etapas.map(et => et.unidade === "torre" || temFixa(et) ? 0 : (et.unidade === "apto" ? diasMax(et) * Math.max(1, s.torres[0].aptos) : diasMax(et)) / Math.max(1, et.qtd));
   const maxR = Math.max(...ritmo);
   const gargalos = ritmo.map((r, i) => r >= maxR - 1e-9 ? i : -1).filter(i => i >= 0);
   // pico de pavimentos abertos (com alguma etapa em andamento)
@@ -601,7 +606,9 @@ function renderEquipes(s) {
 const UNI = { apto: "apartamento", pav: "pavimento", torre: "torre" };
 function renderEtapas(s, r) {
   const C = $("#etapas"); C.replaceChildren();
+  const macros = [...new Set(s.etapas.map(e => e.macro).filter(Boolean))];
   s.etapas.forEach((et, i) => {
+    if (et.macro && et.macro !== s.etapas[i - 1]?.macro) C.append(el("div", { class: "macro" }, et.macro));
     const eq = s.equipes.find(e => e.id === et.equipe);
     const mover = d => { const j = i + d; if (j < 0 || j >= s.etapas.length) return; [s.etapas[i], s.etapas[j]] = [s.etapas[j], s.etapas[i]]; recalc(); };
     const seg = (opcoes, valor, set) => el("span", { class: "seg" }, opcoes.map(([v, t]) => el("button", { class: v === valor ? "on" : "", onclick: () => { set(v); recalc(); } }, t)));
@@ -631,7 +638,10 @@ function renderEtapas(s, r) {
         el("label", { title: "Quantas equipes iguais trabalham ao mesmo tempo, cada uma num " + UNI[et.unidade] }, "×", el("input", { type: "number", min: 1, step: 1, value: et.qtd, "aria-label": "Quantidade de equipes", onchange: e => { et.qtd = Math.max(1, +e.target.value | 0); recalc(); } }), et.qtd == 1 ? "equipe" : "equipes juntas"),
         eq ? el("span", { class: "ritmo" }, eq.formacao.reduce((a, f) => a + f.qtd, 0) * et.qtd + " pessoas" + (porPav ? " · " + (+porPav.toFixed(1)).toLocaleString("pt-BR") + " d/pav" : "")) : null),
       el("div", { class: "linha", style: "grid-column:2" }, regra,
-        el("label", { title: "Só começa depois da data de cobertura concluída de cada torre (painel Torres)" }, el("input", { type: "checkbox", checked: !!et.aposCobertura, onchange: e => { et.aposCobertura = e.target.checked || undefined; recalc(); } }), "só após a cobertura"))));
+        el("label", { title: "Só começa depois da data de cobertura concluída de cada torre (painel Torres)" }, el("input", { type: "checkbox", checked: !!et.aposCobertura, onchange: e => { et.aposCobertura = e.target.checked || undefined; recalc(); } }), "só após a cobertura"),
+        et.unidade !== "torre" ? el("label", { title: "Executa os pavimentos do último para o térreo" }, el("input", { type: "checkbox", checked: !!et.descendo, onchange: e => { et.descendo = e.target.checked || undefined; recalc(); } }), "de cima para baixo") : null,
+        el("label", { title: "Macroetapa (agrupa as etapas na lista e no quadro de prazos)" }, "macroetapa", el("input", { value: et.macro || "", list: "listaMacro", style: "width:150px", onchange: e => { et.macro = e.target.value.trim() || undefined; recalc(); } })),
+        i === 0 ? el("datalist", { id: "listaMacro" }, [...new Set(["Fundação", "Estrutura", "Instalações e cinza", "Acabamentos", ...macros])].map(m => el("option", { value: m }))) : null)));
   });
 }
 
@@ -733,6 +743,14 @@ function renderGrafico(s, r, G, L, modo) {
       if (!r.iniPav[ti]?.[ei]) return;
       const ip = r.iniPav[ti][ei], fp = r.fimPav[ti][ei];
       // faixa: borda esquerda = entradas, borda direita = saídas
+      if (et.unidade === "torre") {   // uma execução na torre toda: faixa só na linha do térreo
+        const r0 = sv("rect", { x: padL + ip[0] * pxDia, y: base - rowH + 2, width: Math.max(2, (fp[0] - ip[0]) * pxDia), height: rowH - 4, fill: et.cor, "fill-opacity": .78, rx: 2 });
+        r0.addEventListener("mousemove", e => dica(e, `${ei + 1}. ${et.nome}\n${t.nome}\n${fmt(r.data(ip[0]))} a ${fmt(r.dataFim(fp[0]))}`)); r0.addEventListener("mouseleave", e => dica(e, null)); svg.append(r0);
+        const cx = padL + (ip[0] + fp[0]) / 2 * pxDia, cy = base - rowH / 2;
+        svg.append(sv("circle", { cx, cy, r: 7, fill: et.cor, stroke: cor("--sheet"), "stroke-width": 1.5 }));
+        const n0 = sv("text", { x: cx, y: cy + 3.5, "font-size": 9.5, "font-weight": 700, "text-anchor": "middle", fill: textoCor(et.cor), "pointer-events": "none" }); n0.textContent = ei + 1; svg.append(n0);
+        return;
+      }
       const pts = [];
       for (let k = 0; k < P; k++) pts.push([padL + ip[k] * pxDia, base - k * rowH], [padL + ip[k] * pxDia, base - (k + 1) * rowH]);
       for (let k = P - 1; k >= 0; k--) pts.push([padL + fp[k] * pxDia, base - (k + 1) * rowH], [padL + fp[k] * pxDia, base - k * rowH]);
@@ -744,7 +762,8 @@ function renderGrafico(s, r, G, L, modo) {
       poly.addEventListener("mouseleave", e => dica(e, null));
       svg.append(poly);
       // entrada marcada no primeiro pavimento; número no meio da faixa
-      svg.append(sv("circle", { cx: padL + ip[0] * pxDia, cy: base - rowH / 2, r: 3, fill: cor("--ink") }));
+      const k0 = et.descendo ? P - 1 : 0;
+      svg.append(sv("circle", { cx: padL + ip[k0] * pxDia, cy: base - k0 * rowH - rowH / 2, r: 3, fill: cor("--ink") }));
       const km = Math.floor(P / 2), cx = padL + (ip[km] + fp[km]) / 2 * pxDia, cy = base - km * rowH - rowH / 2;
       svg.append(sv("circle", { cx, cy, r: 7, fill: et.cor, stroke: cor("--sheet"), "stroke-width": 1.5 }));
       const n = sv("text", { x: cx, y: cy + 3.5, "font-size": 9.5, "font-weight": 700, "text-anchor": "middle", fill: textoCor(et.cor), "pointer-events": "none" }); n.textContent = ei + 1; svg.append(n);
@@ -790,6 +809,13 @@ function renderEntradas(s, r) {
   T.append(el("thead", {}, cab));
   const tb = el("tbody");
   s.etapas.forEach((et, ei) => {
+    if (et.macro && et.macro !== s.etapas[ei - 1]?.macro) {
+      const idx = s.etapas.map((e, j) => e.macro === et.macro ? j : -1).filter(j => j >= 0);
+      const trm = el("tr", { class: "macro" }, el("td", { colspan: 3 }, et.macro + " · " + idx.length + " etapas"));
+      s.torres.forEach((t, ti) => { const ip = Math.min(...idx.flatMap(j => r.iniPav[ti][j])), fp = Math.max(...idx.flatMap(j => r.fimPav[ti][j]));
+        trm.append(el("td", { class: "n" }, fmt(r.data(ip))), el("td", { class: "n" }, fmt(r.dataFim(fp))), el("td", { class: "n r" }, Math.round(fp - ip))); });
+      trm.append(el("td")); tb.append(trm);
+    }
     const eq = s.equipes.find(e => e.id === et.equipe);
     const tr = el("tr", {}, el("td", {}, el("span", { class: "leg" }, el("i", { style: `background:${et.cor};color:${textoCor(et.cor)}` }, ei + 1)), " ", et.nome),
       el("td", { class: "n" }, et.qtd + " × " + (eq?.nome ?? "—")),

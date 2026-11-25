@@ -68,3 +68,7 @@ Cada atividade recebe uma especialidade (inferida pelo nome) e um número de equ
 - Estudo `Ecoparque_Base_novo_R01_simulador.json` (de Cronograma R00/R01): Base R01 (liberação = estrutura do
   pavimento + 5 acima, do R34; da pintura em diante só após a cobertura) e Cenário 1 (terceiros da pintura em
   diante com 2 equipes).
+- Macroetapas (`et.macro`): cabeçalho na lista de etapas e linha de prazo por macroetapa. Etapa "de cima para baixo"
+  (`et.descendo`); "depois de N pavimentos" conta no sentido da etapa anterior. Etapa por torre com datas fixas (`et.fixaT`).
+- Estudo semente trocado por `Ecoparque_TorreA_Base_novo_R01_simulador.json` (só Torre A; fundação e estrutura do R34;
+  contrapiso autonivelante e acabamentos de cima para baixo).
