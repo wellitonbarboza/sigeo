@@ -72,3 +72,7 @@ Cada atividade recebe uma especialidade (inferida pelo nome) e um número de equ
   (`et.descendo`); "depois de N pavimentos" conta no sentido da etapa anterior. Etapa por torre com datas fixas (`et.fixaT`).
 - Estudo semente trocado por `Ecoparque_TorreA_Base_novo_R01_simulador.json` (só Torre A; fundação e estrutura do R34;
   contrapiso autonivelante e acabamentos de cima para baixo).
+- Etapa com ordem personalizada de pavimentos (`et.ordemTxt`, ex. "5-0, 14-6") e "não antes de" por torre (`et.naoAntesT`).
+- Planejamento completo (tipo `plano`) semente: `Ecoparque_TorreA_Planejamento_Base_novo_R01.json` — EAP Torre A › Fundação,
+  Estrutura, Instalações e cinza, Acabamentos › pavimento › serviço; LB0 = Base R01; versões = Cenários 1 a 3 (datas pelo
+  simulador de sequência). Linha de balanço do plano aceita pavimento com atividades soltas (cada atividade é um pacote).

@@ -414,6 +414,20 @@ function calendario(ini, sab, fer, n = 1600) {
 const fmt = d => d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit", timeZone: "UTC" });
 const fmtc = d => d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", timeZone: "UTC" });
 
+// ordem em que a etapa percorre os pavimentos: de baixo para cima, de cima para baixo ou personalizada ("5-0, 14-6"; 0 = térreo)
+function ordemDe(et, P) {
+  const asc = [...Array(P).keys()];
+  if (et.ordemTxt) {
+    const l = [];
+    for (const tok of String(et.ordemTxt).toLowerCase().replace(/t[ée]rreo|t/g, "0").split(/[,;\s]+/).filter(Boolean)) {
+      const m = /^(\d+)(?:-(\d+))?$/.exec(tok); if (!m) continue;
+      const a = +m[1], b = m[2] != null ? +m[2] : a, d = a <= b ? 1 : -1;
+      for (let k = a; d > 0 ? k <= b : k >= b; k += d) if (k < P && !l.includes(k)) l.push(k);
+    }
+    if (l.length) return [...l, ...asc.filter(k => !l.includes(k))];
+  }
+  return et.descendo ? asc.reverse() : asc;
+}
 // ---------------------------------------------------------------- motor
 // Tudo em dias úteis contados a partir do início da primeira torre (inteiros e frações).
 function calcular(s) {
@@ -446,7 +460,7 @@ function calcular(s) {
       const ant = ei > 0 ? ei - 1 : null;
       if (et.unidade === "torre") {
         // uma execução para a torre toda
-        let pronto = Math.max(lib[0], aPartir, et.aposCobertura ? cob : -Infinity);
+        let pronto = Math.max(lib[0], aPartir, et.aposCobertura ? cob : -Infinity, et.naoAntesT?.[t.id] ? diaDe(et.naoAntesT[t.id]) : -Infinity);
         if (ant !== null) pronto = Math.max(pronto, liberacao(ti, ant, et, P - 1, P));
         const k = eqs.indexOf(Math.min(...eqs));
         const fxT = et.fixaT?.[t.id];   // datas do cronograma (ex.: fundação já executada)
@@ -456,7 +470,7 @@ function calcular(s) {
         itens.push({ t: ti, p: -1, e: ei, ini, fim, eq: k });
         return;
       }
-      const ordemP = [...Array(P).keys()]; if (et.descendo) ordemP.reverse();   // de cima para baixo
+      const ordemP = ordemDe(et, P);   // de baixo para cima, de cima para baixo ou personalizada
       for (const p of ordemP) {
         const fx = s.fixas?.[t.id + "|" + p + "|" + et.id];
         if (fx) {
@@ -468,7 +482,7 @@ function calcular(s) {
           itens.push({ t: ti, p, e: ei, ini, fim, eq: k, fixa: true, pct: fx[2] || 0 });
           continue;
         }
-        let pronto = Math.max(lib[p], aPartir, et.aposCobertura ? cob : -Infinity);
+        let pronto = Math.max(lib[p], aPartir, et.aposCobertura ? cob : -Infinity, et.naoAntesT?.[t.id] ? diaDe(et.naoAntesT[t.id]) : -Infinity);
         if (ant !== null) pronto = Math.max(pronto, liberacao(ti, ant, et, p, P));
         const unidades = et.unidade === "apto" ? Math.max(1, t.aptos | 0) : 1;
         let ip = Infinity, fp = -Infinity;
@@ -492,7 +506,7 @@ function calcular(s) {
     if (r.tipo === "torre") return Math.max(...grupo.flatMap(g => fimPav[ti][g])) + esp;
     const n = Math.max(1, r.pav | 0);
     // "depois de N pavimentos" conta no sentido em que a etapa anterior anda (para cima ou de cima para baixo)
-    return Math.max(...grupo.map(g => { const alvo = s.etapas[g].descendo ? Math.max(p - n + 1, 0) : Math.min(p + n - 1, P - 1); return Math.max(fimPav[ti][g][p], fimPav[ti][g][alvo]); })) + esp;
+    return Math.max(...grupo.map(g => { const o = ordemDe(s.etapas[g], P), alvo = o[Math.min(o.indexOf(p) + n - 1, P - 1)]; return Math.max(fimPav[ti][g][p], fimPav[ti][g][alvo]); })) + esp;
   }
   const data = x => cal[Math.max(0, Math.min(cal.length - 1, Math.floor(x + 1e-9)))];
   const dataFim = x => cal[Math.max(0, Math.min(cal.length - 1, Math.ceil(x - 1e-9) - 1))];
@@ -639,7 +653,12 @@ function renderEtapas(s, r) {
         eq ? el("span", { class: "ritmo" }, eq.formacao.reduce((a, f) => a + f.qtd, 0) * et.qtd + " pessoas" + (porPav ? " · " + (+porPav.toFixed(1)).toLocaleString("pt-BR") + " d/pav" : "")) : null),
       el("div", { class: "linha", style: "grid-column:2" }, regra,
         el("label", { title: "Só começa depois da data de cobertura concluída de cada torre (painel Torres)" }, el("input", { type: "checkbox", checked: !!et.aposCobertura, onchange: e => { et.aposCobertura = e.target.checked || undefined; recalc(); } }), "só após a cobertura"),
-        et.unidade !== "torre" ? el("label", { title: "Executa os pavimentos do último para o térreo" }, el("input", { type: "checkbox", checked: !!et.descendo, onchange: e => { et.descendo = e.target.checked || undefined; recalc(); } }), "de cima para baixo") : null,
+        et.unidade !== "torre" ? el("label", { title: "Ordem dos pavimentos. Personalizada: faixas separadas por vírgula, 0 = térreo (ex.: 5-0, 14-6)" }, "sentido",
+          el("select", { onchange: e => { const v = e.target.value; et.descendo = v === "desce" || undefined; et.ordemTxt = v === "pers" ? (et.ordemTxt || "5-0, 14-6") : undefined; recalc(); } },
+            [["sobe", "de baixo para cima"], ["desce", "de cima para baixo"], ["pers", "personalizada"]].map(([v, t]) => el("option", { value: v, selected: (et.ordemTxt ? "pers" : et.descendo ? "desce" : "sobe") === v }, t))),
+          et.ordemTxt ? el("input", { value: et.ordemTxt, style: "width:110px", "aria-label": "Ordem personalizada", onchange: e => { et.ordemTxt = e.target.value.trim() || undefined; recalc(); } }) : null) : null,
+        s.torres.map(t => el("label", { title: "A etapa não começa antes desta data nesta torre" }, (s.torres.length > 1 ? t.nome + " · " : "") + "não antes de",
+          el("input", { type: "date", value: et.naoAntesT?.[t.id] || "", onchange: e => { et.naoAntesT ??= {}; if (e.target.value) et.naoAntesT[t.id] = e.target.value; else delete et.naoAntesT[t.id]; recalc(); } }))),
         el("label", { title: "Macroetapa (agrupa as etapas na lista e no quadro de prazos)" }, "macroetapa", el("input", { value: et.macro || "", list: "listaMacro", style: "width:150px", onchange: e => { et.macro = e.target.value.trim() || undefined; recalc(); } })),
         i === 0 ? el("datalist", { id: "listaMacro" }, [...new Set(["Fundação", "Estrutura", "Instalações e cinza", "Acabamentos", ...macros])].map(m => el("option", { value: m }))) : null)));
   });
@@ -762,7 +781,7 @@ function renderGrafico(s, r, G, L, modo) {
       poly.addEventListener("mouseleave", e => dica(e, null));
       svg.append(poly);
       // entrada marcada no primeiro pavimento; número no meio da faixa
-      const k0 = et.descendo ? P - 1 : 0;
+      const k0 = ordemDe(et, P)[0];
       svg.append(sv("circle", { cx: padL + ip[k0] * pxDia, cy: base - k0 * rowH - rowH / 2, r: 3, fill: cor("--ink") }));
       const km = Math.floor(P / 2), cx = padL + (ip[km] + fp[km]) / 2 * pxDia, cy = base - km * rowH - rowH / 2;
       svg.append(sv("circle", { cx, cy, r: 7, fill: et.cor, stroke: cor("--sheet"), "stroke-width": 1.5 }));
@@ -895,6 +914,8 @@ function diferencas(b, a) {
     if (o.qtd !== e.qtd) l.push(`${n} ${e.qtd} equipes`);
     if (o.dias !== e.dias || o.unidade !== e.unidade) l.push(`${n} ${e.dias} d/${UNI[e.unidade]}`);
     if (o.equipe !== e.equipe) l.push(`${n} outra equipe`);
+    if ((o.ordemTxt || !!o.descendo) !== (e.ordemTxt || !!e.descendo)) l.push(`${n} ${e.ordemTxt ? "ordem " + e.ordemTxt : e.descendo ? "de cima para baixo" : "de baixo para cima"}`);
+    if (JSON.stringify(o.naoAntesT || {}) !== JSON.stringify(e.naoAntesT || {})) l.push(`${n} não antes de ${Object.values(e.naoAntesT || {}).map(d => fmt(new Date(d + "T00:00:00Z"))).join(", ") || "—"}`);
     if (!!o.aposCobertura !== !!e.aposCobertura) l.push(`${n} ${e.aposCobertura ? "só após a cobertura" : "sem esperar a cobertura"}`);
     if (JSON.stringify(o.regra) !== JSON.stringify(e.regra)) l.push(`${n} entra ${e.regra.tipo === "junto" ? "junto" : e.regra.tipo === "torre" ? "após a torre" : "após " + e.regra.pav + " pav."}${e.regra.espera ? " +" + e.regra.espera + "d" : ""}`);
   }
@@ -2315,7 +2336,8 @@ function lobDoPlano(P, R) {
     grupos.push({ k, nome: (o.lv > 2 ? P.t[E.pai[k]].n + " › " : "") + o.n, pavs: pavs.slice().sort((a, b) => ordPav(P.t[a].n) - ordPav(P.t[b].n) || b - a) });
   });
   // pacotes de cada pavimento: resumo cujos filhos são todos atividades
-  const pacotes = (k, out) => { const fs = E.filhos[k]; if (!fs.length) return; if (fs.every(c => E.folha[c])) { out.push(k); return; } for (const c of fs) { if (E.folha[c]) out.push(c); else pacotes(c, out); } };
+  // pacotes de serviço: resumo só com atividades; se o próprio pavimento só tem atividades, cada atividade é um pacote
+  const pacotes = (k, out, raiz = true) => { const fs = E.filhos[k]; if (!fs.length) return; if (!raiz && fs.every(c => E.folha[c])) { out.push(k); return; } for (const c of fs) { if (E.folha[c]) out.push(c); else pacotes(c, out, false); } };
   const chave = n => n.toLowerCase().replace(/\s+/g, " ").replace(/\s*\|\s*/g, " | ").trim();
   const etapas = new Map();
   grupos.forEach((g, gi) => g.pavs.forEach((pv, pi) => { const ps = []; pacotes(pv, ps); for (const q of ps) { const c = chave(P.t[q].n); if (!etapas.has(c)) etapas.set(c, { nome: P.t[q].n, por: new Map(), ini: [] }); const e = etapas.get(c); e.por.set(gi + "|" + pi, q); e.ini.push(T[q].i); } }));
