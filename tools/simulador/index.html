@@ -156,7 +156,13 @@ table.t tr.sel td { background: var(--sel); }
 .quadro td.c { min-width: 30px; width: 30px; height: 22px; padding: 0; border: 1px solid var(--rule); }
 .quadro .cel { display: flex; height: 100%; }
 .quadro .cel div { display: flex; align-items: center; justify-content: center; font: 600 10px var(--f-mono); min-width: 0; overflow: hidden; }
-.quadro th.s { font: 500 9.5px var(--f-mono); color: var(--mut); padding: 2px 0; text-align: center; border-bottom: 1px solid var(--rule2); }
+.quadro th.s { font: 500 9.5px var(--f-mono); color: var(--mut); padding: 3px 0; text-align: center; vertical-align: bottom; border-bottom: 1px solid var(--rule2); border-left: 1px solid var(--rule); }
+.quadro th.s span { writing-mode: vertical-rl; transform: rotate(180deg); white-space: nowrap; display: inline-block; }
+.quadro th.m { font: 600 10px var(--f-mono); color: var(--ink2); padding: 2px 4px; text-align: left; white-space: nowrap; border-left: 1px solid var(--rule2); border-bottom: 1px solid var(--rule); }
+.quadro th.tn { vertical-align: bottom; text-align: left; padding: 0 8px 4px; position: sticky; left: 0; background: var(--sheet); }
+table.t button.arv { border: 0; background: none; padding: 0 3px 0 0; cursor: pointer; color: var(--ink2); font: 600 11px var(--f-mono); width: 16px; }
+table.t tr.pav td { font-size: 11px; color: var(--ink2); background: var(--bg); } table.t tr.pav td:first-child { padding-left: 60px; }
+.rel-arv td { padding-top: 1px !important; padding-bottom: 1px !important; } .rel-arv tr.n0 td { background: #2f6f5e; color: #fff; font-weight: 700; } .rel-arv tr.n1 td { background: #dfe9e5; font-weight: 700; } .rel-arv tr.n2 td { font-weight: 600; } .rel-arv tr.n3 td { color: #444; font-size: 8.5px; }
 .quadro td.l { white-space: nowrap; padding: 0 8px; font-size: 11.5px; position: sticky; left: 0; background: var(--sheet); }
 .leg { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 8px; font-size: 12px; color: var(--ink2); }
 .leg span { display: inline-flex; gap: 5px; align-items: center; }
@@ -759,7 +765,7 @@ function renderGrafico(s, r, G, L, modo) {
   L.replaceChildren(...s.etapas.map((e, i) => el("span", {}, el("i", { style: `background:${e.cor};color:${textoCor(e.cor)}` }, i + 1), e.nome)));
   if (modo === "quadro") return renderQuadro(s, r, G);
   const NS = "http://www.w3.org/2000/svg", sv = (t, a = {}) => { const e = document.createElementNS(NS, t); for (const [k, v] of Object.entries(a)) e.setAttribute(k, v); return e; };
-  const pxDia = 4.2, rowH = 15, padL = 64, padT = 26, gapT = 26;
+  const pxDia = 4.2, rowH = 15, padL = 64, padT = 38, gapT = 26;
   const totalDias = Math.ceil(r.fim) + 5;
   const blocos = s.torres.map(t => t.pavimentos.length * rowH);
   const H = padT + blocos.reduce((a, b) => a + b, 0) + gapT * (s.torres.length - 1) + 24;
@@ -771,11 +777,13 @@ function renderGrafico(s, r, G, L, modo) {
   for (let d = 0; d < totalDias; d++) {
     const dt = r.cal[d]; if (!dt) break;
     const x = padL + d * pxDia;
-    if (dt.getUTCDay() === 1 || d === 0) svg.append(sv("line", { x1: x, x2: x, y1: padT - 4, y2: H - 20, stroke: cor("--rule"), "stroke-width": 1 }));
+    if (dt.getUTCDay() === 1 || d === 0) { svg.append(sv("line", { x1: x, x2: x, y1: padT - 12, y2: H - 20, stroke: cor("--rule"), "stroke-width": 1 }));
+      if (dt.getUTCDay() === 1) { const ts = sv("text", { x: x + 2, y: padT - 5, "font-size": 8, fill: cor("--mut") }); ts.textContent = String(dt.getUTCDate()).padStart(2, "0"); svg.append(ts); } }
     if (dt.getUTCMonth() !== ultimoMes) {
       ultimoMes = dt.getUTCMonth();
       svg.append(sv("line", { x1: x, x2: x, y1: 4, y2: H - 20, stroke: cor("--rule2"), "stroke-width": 1 }));
-      const tx = sv("text", { x: x + 3, y: 14, "font-size": 11, fill: cor("--ink2") }); tx.textContent = dt.toLocaleDateString("pt-BR", { month: "short", year: "2-digit", timeZone: "UTC" }); svg.append(tx);
+      if (d === 0 && r.cal[12] && r.cal[12].getUTCMonth() !== ultimoMes) continue;   // mês parcial no começo: sem rótulo para não encavalar
+      const tx = sv("text", { x: x + 3, y: 14, "font-size": 11, fill: cor("--ink2") }); tx.textContent = dt.toLocaleDateString("pt-BR", { month: "short", timeZone: "UTC" }).replace(".", "") + "/" + dt.getUTCFullYear(); svg.append(tx);
     }
   }
   let y0 = padT;
@@ -826,9 +834,18 @@ function renderQuadro(s, r, G) {
   const semanas = Math.ceil(r.fim / passo) + 1;
   s.torres.forEach((t, ti) => {
     const tab = el("table", { class: "t quadro" });
-    const cab = el("tr", {}, el("th", {}, t.nome));
-    for (let w = 0; w < semanas; w++) { const d = r.cal[w * passo]; cab.append(el("th", { class: "s", title: "semana de " + fmt(d) }, String(d.getUTCDate()).padStart(2, "0"), el("br"), String(d.getUTCMonth() + 1).padStart(2, "0"))); }
-    tab.append(el("thead", {}, cab));
+    // cabeçalho: mês/ano em cima; período da semana (primeiro a último dia útil, com ano) embaixo
+    const MS = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"], dm = d => String(d.getUTCDate()).padStart(2, "0") + "/" + String(d.getUTCMonth() + 1).padStart(2, "0");
+    const cab1 = el("tr", {}, el("th", { class: "tn", rowspan: 2 }, t.nome)), cab2 = el("tr"), meses = [];
+    for (let w = 0; w < semanas; w++) {
+      const d = r.cal[w * passo]; if (!d) break; const e = r.cal[Math.min(w * passo + passo - 1, r.cal.length - 1)] || d;
+      const k = d.getUTCFullYear() * 12 + d.getUTCMonth();
+      if (!meses.length || meses[meses.length - 1].k !== k) { const th = el("th", { class: "m", colspan: 1 }); meses.push({ k, d, th, n: 1 }); cab1.append(th); } else { const m = meses[meses.length - 1]; m.n++; m.th.colSpan = m.n; }
+      const txt = dm(d) + " – " + dm(e) + "/" + String(e.getUTCFullYear()).slice(2);
+      cab2.append(el("th", { class: "s", title: "semana de " + fmt(d) + " a " + fmt(e) }, el("span", {}, txt)));
+    }
+    for (const m of meses) m.th.textContent = MS[m.d.getUTCMonth()] + "/" + (m.n >= 3 ? m.d.getUTCFullYear() : String(m.d.getUTCFullYear()).slice(2));
+    tab.append(el("thead", {}, cab1, cab2));
     const tb = el("tbody");
     for (let k = t.pavimentos.length - 1; k >= 0; k--) {
       const tr = el("tr", {}, el("td", { class: "l" }, t.pavimentos[k]));
@@ -849,9 +866,13 @@ function renderQuadro(s, r, G) {
   });
 }
 
+// árvore do quadro de prazos (como no Project): macroetapa › etapa › pavimento
+const arvUI = { fech: new Set(), abre: new Set() };
 function renderEntradas(s, r) {
   const T = $("#entradas"); T.replaceChildren();
-  const cab = el("tr", {}, el("th", {}, "Etapa"), el("th", {}, "Equipes"), el("th", { class: "r" }, "Pessoas"));
+  const re = () => renderEntradas(s, r), macrosT = [...new Set(s.etapas.map(e => e.macro).filter(Boolean))];
+  const nivel = n => { arvUI.fech.clear(); arvUI.abre.clear(); if (n === 1) macrosT.forEach(m => arvUI.fech.add(m)); if (n === 3) s.etapas.forEach(e => arvUI.abre.add(e.id)); re(); };
+  const cab = el("tr", {}, el("th", {}, "Etapa ", el("span", { class: "seg", style: "margin-left:6px;vertical-align:middle", title: "níveis da árvore" }, [[1, "macroetapas"], [2, "etapas"], [3, "pavimentos"]].map(([n, t]) => el("button", { onclick: () => nivel(n) }, t)))), el("th", {}, "Equipes"), el("th", { class: "r" }, "Pessoas"));
   s.torres.forEach(t => cab.append(el("th", {}, t.nome + " · entra"), el("th", {}, "sai"), el("th", { class: "r", title: "dias úteis da entrada no primeiro pavimento à saída do último" }, "dias")));
   cab.append(el("th", {}, "Pav./semana"));
   T.append(el("thead", {}, cab));
@@ -859,13 +880,15 @@ function renderEntradas(s, r) {
   s.etapas.forEach((et, ei) => {
     if (et.macro && et.macro !== s.etapas[ei - 1]?.macro) {
       const idx = s.etapas.map((e, j) => e.macro === et.macro ? j : -1).filter(j => j >= 0);
-      const trm = el("tr", { class: "macro" }, el("td", { colspan: 3 }, et.macro + " · " + idx.length + " etapas"));
+      const fechada = arvUI.fech.has(et.macro);
+      const trm = el("tr", { class: "macro" }, el("td", { colspan: 3 }, el("button", { class: "arv", title: fechada ? "abrir" : "recolher", onclick: () => { fechada ? arvUI.fech.delete(et.macro) : arvUI.fech.add(et.macro); re(); } }, fechada ? "▸" : "▾"), et.macro + " · " + idx.length + " etapas"));
       s.torres.forEach((t, ti) => { const ip = Math.min(...idx.flatMap(j => r.iniPav[ti][j])), fp = Math.max(...idx.flatMap(j => r.fimPav[ti][j]));
         trm.append(el("td", { class: "n" }, fmt(r.data(ip))), el("td", { class: "n" }, fmt(r.dataFim(fp))), el("td", { class: "n r" }, Math.round(fp - ip))); });
       trm.append(el("td")); tb.append(trm);
     }
-    const eq = s.equipes.find(e => e.id === et.equipe);
-    const tr = el("tr", {}, el("td", {}, el("span", { class: "leg" }, el("i", { style: `background:${et.cor};color:${textoCor(et.cor)}` }, ei + 1)), " ", et.nome),
+    if (et.macro && arvUI.fech.has(et.macro)) return;
+    const eq = s.equipes.find(e => e.id === et.equipe), aberta = arvUI.abre.has(et.id), temPav = et.unidade !== "torre";
+    const tr = el("tr", {}, el("td", {}, el("div", { style: "display:flex;gap:6px;align-items:flex-start" }, temPav ? el("button", { class: "arv", title: aberta ? "recolher pavimentos" : "abrir pavimentos", onclick: () => { aberta ? arvUI.abre.delete(et.id) : arvUI.abre.add(et.id); re(); } }, aberta ? "▾" : "▸") : el("span", { style: "display:inline-block;width:16px;flex:none" }), el("span", { class: "leg", style: "margin:0;flex:none" }, el("i", { style: `background:${et.cor};color:${textoCor(et.cor)}` }, ei + 1)), el("span", {}, et.nome))),
       el("td", { class: "n" }, et.qtd + " × " + (eq?.nome ?? "—")),
       el("td", { class: "n r", title: "pessoas por equipe × equipes" }, eq ? (eq.formacao.reduce((a, f) => a + (+f.qtd || 0), 0)) + " × " + et.qtd + " = " + eq.formacao.reduce((a, f) => a + (+f.qtd || 0), 0) * et.qtd : "—"));
     s.torres.forEach((t, ti) => {
@@ -877,6 +900,14 @@ function renderEntradas(s, r) {
     const passo = s.sabado ? 6 : 5;
     tr.append(el("td", { class: "n" }, r.ritmo[ei] ? (passo / r.ritmo[ei]).toLocaleString("pt-BR", { maximumFractionDigits: 1 }) : "—"));
     tb.append(tr);
+    if (aberta && temPav) {   // pavimentos na ordem em que a etapa passa por eles (primeira torre)
+      const P = Math.max(...s.torres.map(t => t.pavimentos.length)), ip0 = r.iniPav[0][ei];
+      const ordem = [...Array(P).keys()].sort((a, b) => (ip0[a] ?? 1e9) - (ip0[b] ?? 1e9));
+      for (const k of ordem) { const tp = el("tr", { class: "pav" }, el("td", { colspan: 3 }, s.torres[0].pavimentos[k] ?? s.torres.find(t => t.pavimentos[k])?.pavimentos[k]));
+        s.torres.forEach((t, ti) => { const a = r.iniPav[ti][ei][k], b = r.fimPav[ti][ei][k];
+          if (a == null) tp.append(el("td"), el("td"), el("td")); else tp.append(el("td", { class: "n" }, fmt(r.data(a))), el("td", { class: "n" }, fmt(r.dataFim(b))), el("td", { class: "n r" }, Math.round(b - a))); });
+        tp.append(el("td")); tb.append(tp); }
+    }
   });
   T.append(tb);
 }
@@ -2556,6 +2587,23 @@ function dadosRelatorio(s, r, opc) {
   const sem = semanaPessoas(r).filter(w => w.dia + (s.sabado ? 6 : 5) > d0).map(w => ({ semana: r.data(w.dia), total: w.total, por: w.por }));
   return { torres, etapas, seq, equipes, cron, sem };
 }
+// cronograma em árvore, como no Project: torre › macroetapa › etapa › pavimento (na ordem em que a etapa passa)
+function arvoreCron(s, r, D, opc) {
+  const L = [], eqDe = e => s.equipes.find(q => q.id === e.equipe)?.nome || "";
+  D.torres.forEach(({ t, ti }, it) => {
+    const span = eis => { const a = Math.min(...eis.flatMap(ei => r.iniPav[ti][ei])), b = Math.max(...eis.flatMap(ei => r.fimPav[ti][ei])); return { ini: r.data(a), fim: r.dataFim(b), dur: Math.round(b - a) }; };
+    const c0 = String(it + 1); L.push({ nivel: 0, eap: c0, nome: t.nome, ...span(D.etapas.map(x => x.ei)) });
+    const macros = [...new Set(D.etapas.map(x => x.e.macro || "(sem macroetapa)"))];
+    macros.forEach((m, im) => { const ets = D.etapas.filter(x => (x.e.macro || "(sem macroetapa)") === m), c1 = c0 + "." + (im + 1);
+      L.push({ nivel: 1, eap: c1, nome: m, ...span(ets.map(x => x.ei)) });
+      ets.forEach(({ e, ei }, ie) => { const q = D.seq.find(x => x.ei === ei && x.torre === t.nome), c2 = c1 + "." + (ie + 1);
+        L.push({ nivel: 2, eap: c2, nome: (q?.num ? q.num + ". " : "") + e.nome, equipe: eqDe(e), qtd: e.qtd || 1, ...span([ei]), folga: q?.folga ?? null, folgaMax: q?.folgaMax ?? null });
+        if (e.unidade === "torre") return;
+        const ip = r.iniPav[ti][ei], fp = r.fimPav[ti][ei], ordem = [...ip.keys()].sort((a, b) => ip[a] - ip[b]);
+        ordem.forEach((p, ip_) => L.push({ nivel: 3, eap: c2 + "." + (ip_ + 1), nome: t.pavimentos[p], equipe: eqDe(e), ini: r.data(ip[p]), fim: r.dataFim(fp[p]), dur: Math.round(fp[p] - ip[p]), folga: opc.folgas ? opc.folgas.item[t.id + "|" + p + "|" + e.id] ?? null : null }));
+      }); }); });
+  return L;
+}
 function abrirRelatorio() {
   const s = S(), P = $("#painelXml"); P.hidden = false; P.replaceChildren();
   const macros = [...new Set(s.etapas.map(e => e.macro || "(sem macroetapa)"))];
@@ -2566,8 +2614,8 @@ function abrirRelatorio() {
       el("div", {}, el("b", {}, "Macroetapas: "), macros.map(m => { const ets = s.etapas.filter(e => (e.macro || "(sem macroetapa)") === m);
         const feitas = ets.every(e => e.fixaT || Object.keys(s.fixas || {}).some(k => k.endsWith("|" + e.id)));   // só datas do cronograma (ex.: fundação, estrutura): desmarcada
         return ck("rm-" + m, m, !feitas); })),
-      el("div", {}, el("b", {}, "Incluir: "), ck("ri-lob", "linha de balanço"), ck("ri-quadro", "quadro pavimento × semana", false), ck("ri-hist", "pessoas por semana"), ck("ri-eq", "equipes necessárias"),
-        ck("ri-seq", "sequência de execução"), ck("ri-crit", "críticas e folgas"), ck("ri-cron", "cronograma aberto por pavimento"), ck("ri-mat", "quadro pavimento × etapa (início)", false), ck("ri-comp", "comparativo das alternativas")),
+      el("div", {}, el("b", {}, "Incluir: "), ck("ri-lob", "linha de balanço", false), ck("ri-quadro", "quadro pavimento × semana (escadinha)"), ck("ri-hist", "pessoas por semana"), ck("ri-eq", "equipes necessárias"),
+        ck("ri-seq", "sequência de execução"), ck("ri-crit", "críticas e folgas"), ck("ri-arv", "cronograma em árvore (macroetapa › etapa › pavimento, como no Project)"), ck("ri-cron", "cronograma aberto por pavimento", false), ck("ri-mat", "quadro pavimento × etapa (início)", false), ck("ri-comp", "comparativo das alternativas")),
       el("div", {}, el("b", {}, "Pavimentos no cronograma: "), el("select", { id: "r-ordem" }, el("option", { value: "desce" }, "do último para o térreo"), el("option", { value: "sobe" }, "do térreo para o último"))),
       el("div", { style: "display:flex;gap:8px;align-items:center" }, el("button", { class: "btn pri", onclick: () => gerarRelatorio("pdf") }, "Gerar PDF"), el("button", { class: "btn", onclick: () => gerarRelatorio("xlsx") }, "Gerar Excel (.xlsx)"),
         el("span", { id: "r-status", class: "mut" }, "PDF: abre a impressão; escolha \"Salvar como PDF\" (paisagem)."))));
@@ -2578,7 +2626,7 @@ async function gerarRelatorio(formato) {
   const opc = { torres: s.torres.filter(t => v("rt-" + t.id)).map(t => t.id), macros: [...new Set(s.etapas.map(e => e.macro || "(sem macroetapa)"))].filter(m => v("rm-" + m)), desce: $("#r-ordem").value === "desce" };
   if (!opc.torres.length) return;
   const st = $("#r-status"); st.textContent = "calculando folgas das etapas…"; await new Promise(z => setTimeout(z, 30));
-  opc.folgas = (v("ri-crit") || v("ri-seq") || v("ri-cron")) ? await folgasItens(s, x => { st.textContent = "calculando folgas por pavimento… " + Math.round(x * 100) + "%"; }) : null;
+  opc.folgas = (v("ri-crit") || v("ri-seq") || v("ri-cron") || v("ri-arv")) ? await folgasItens(s, x => { st.textContent = "calculando folgas por pavimento… " + Math.round(x * 100) + "%"; }) : null;
   const D = dadosRelatorio(s, r, opc);
   st.textContent = "";
   if (formato === "xlsx") return relatorioXlsx(s, r, D, opc, v);
@@ -2620,6 +2668,9 @@ function relatorioPdf(s, r, D, opc, v) {
   if (v("ri-crit") && opc.folgas) { const l = D.seq.filter(x => x.folga != null).sort((a, b) => a.folga - b.folga || a.ini - b.ini);
     secao("Atividades críticas e folgas", el("p", { class: "pq" }, "Folga = dias úteis que a etapa pode atrasar naquele pavimento sem mudar o término da torre. Crítica = folga zero: atrasar ali atrasa a entrega. A coluna \"pavimentos críticos\" mostra onde a etapa não pode escorregar."),
       tb(["Situação", "Etapa", "Macroetapa", "Torre", "Folga (menor a maior)", "Pavimentos críticos", "Início", "Término", "Equipes"], l.map(x => el("tr", { class: x.folga === 0 ? "rel-crit" : "" }, el("td", {}, x.folga === 0 ? (x.criticos.length === x.nPav ? "CRÍTICA" : "CRÍTICA em parte") : x.folga <= 10 ? "atenção" : "com folga"), el("td", {}, x.etapa), el("td", {}, x.macro), el("td", {}, x.torre), el("td", {}, faixa(x)), el("td", { class: "pq" }, x.criticos.length ? (x.criticos.length === x.nPav ? "todos" : x.criticos.join(", ")) : "—"), el("td", {}, f(x.ini)), el("td", {}, f(x.fim)), el("td", { class: "n" }, x.qtd))))); }
+  if (v("ri-arv")) { const A = arvoreCron(s, r, D, opc), fx = x => x.nivel === 2 && x.folga != null ? faixa(x) : x.nivel === 3 ? folgaTxt(x.folga) : "";
+    secao("Cronograma em árvore (torre › macroetapa › etapa › pavimento)", tb(["EAP", "Atividade", "Equipe", "Início", "Término", "Dias úteis", "Folga"],
+      A.map(x => el("tr", { class: "n" + x.nivel + (x.nivel >= 2 && x.folga === 0 ? " rel-crit" : "") }, el("td", { class: "pq" }, x.eap), el("td", { style: `padding-left:${4 + x.nivel * 14}px` }, (x.nivel < 3 ? "▾ " : "") + x.nome), el("td", {}, x.equipe || ""), el("td", {}, f(x.ini)), el("td", {}, f(x.fim)), el("td", { class: "n" }, x.dur), el("td", {}, fx(x)))), "rel-arv")); }
   if (v("ri-cron")) { const linhas = []; let ult = "";
     for (const x of D.cron) { const k = x.torre + "|" + x.pav; if (k !== ult) { linhas.push(el("tr", { class: "rel-grp" }, el("td", { colspan: 6 }, x.torre + " · " + x.pav))); ult = k; }
       linhas.push(el("tr", { class: x.folga === 0 ? "rel-crit" : "" }, el("td", {}, x.macro), el("td", {}, x.etapa), el("td", {}, x.equipe), el("td", {}, f(x.ini)), el("td", {}, f(x.fim)), el("td", {}, folgaTxt(x.folga)))); }
@@ -2647,6 +2698,13 @@ async function relatorioXlsx(s, r, D, opc, v) {
   if (v("ri-eq")) add("Equipes", [["Equipe", "Formação", "Pessoas por equipe", "Equipes no pico", "Pessoas no pico", "Mobilização", "Desmobilização", "Meses", "Etapas"], ...D.equipes.map(q => [q.nome, q.formacao, q.porEquipe, q.pico, q.pessoasPico, q.ini, q.fim, q.meses, q.etapas])], [32, 40, 10, 10, 10, 12, 12, 8, 60]);
   if (v("ri-seq")) add("Sequência", [["#", "Macroetapa", "Etapa", "Torre", "Sentido", "Entra", "Equipe", "Formação", "Equipes", "Pessoas", "Dias por unidade", "Início", "Término", "Duração (dias úteis)", "Menor folga (d)", "Maior folga (d)", "Pavimentos críticos"], ...D.seq.map(x => [x.num, x.macro, x.etapa, x.torre, x.sentido, x.regra, x.equipe, x.formacao, x.qtd, x.pessoas, x.dias, x.ini, x.fim, x.duracao, folgaV(x.folga), folgaV(x.folgaMax), x.criticos ? (x.criticos.length === x.nPav ? "todos" : x.criticos.join(", ")) : ""])], [4, 18, 45, 10, 18, 40, 28, 34, 8, 8, 8, 12, 12, 10, 9, 9, 30]);
   if (v("ri-crit") && opc.folgas) add("Críticas e folgas", [["Situação", "Etapa", "Macroetapa", "Torre", "Menor folga (d)", "Maior folga (d)", "Pavimentos críticos", "Início", "Término"], ...D.seq.filter(x => x.folga != null).sort((a, b) => a.folga - b.folga).map(x => [x.folga === 0 ? (x.criticos.length === x.nPav ? "CRÍTICA" : "CRÍTICA em parte") : x.folga <= 10 ? "atenção" : "com folga", x.etapa, x.macro, x.torre, folgaV(x.folga), folgaV(x.folgaMax), x.criticos.length === x.nPav ? "todos" : x.criticos.join(", "), x.ini, x.fim])], [14, 45, 18, 10, 9, 9, 30, 12, 12]);
+  if (v("ri-arv")) { const A = arvoreCron(s, r, D, opc);
+    const ws = X.utils.aoa_to_sheet([["EAP", "Atividade", "Equipe", "Início", "Término", "Dias úteis", "Menor folga (d)", "Maior folga (d)"], ...A.map(x => [x.eap, "    ".repeat(x.nivel) + x.nome, x.equipe || "", loc(x.ini), loc(x.fim), x.dur, folgaV(x.folga), x.nivel === 2 ? folgaV(x.folgaMax) : ""])], { cellDates: true, dateNF: "dd/mm/yyyy" });
+    ws["!cols"] = [10, 60, 30, 12, 12, 9, 10, 10].map(w => ({ wch: w }));
+    ws["!rows"] = [{}, ...A.map(x => ({ level: x.nivel }))];   // agrupamento: botões 1-4 e +/- na margem, como abrir e fechar a árvore
+    ws["!outline"] = { above: true };                          // a linha-resumo fica acima dos detalhes, como no Project
+    ws["!autofilter"] = { ref: "A1:H" + (A.length + 1) };
+    X.utils.book_append_sheet(wb, ws, "Cronograma em árvore"); }
   if (v("ri-cron")) add("Cronograma por pavimento", [["Torre", "Pavimento", "Macroetapa", "Etapa", "Equipe", "Início", "Término", "Folga no pavimento (d)"], ...D.cron.map(x => [x.torre, x.pav, x.macro, x.etapa, x.equipe, x.ini, x.fim, folgaV(x.folga)])], [10, 12, 18, 45, 28, 12, 12, 10]);
   if (v("ri-mat")) for (const { t, ti } of D.torres) { const ets = D.etapas.filter(x => x.e.unidade !== "torre"), P = t.pavimentos.length, ordemPav = opc.desce ? [...Array(P).keys()].reverse() : [...Array(P).keys()];
     add("Quadro " + t.nome, [["Pavimento", ...ets.map(x => x.e.nome)], ...ordemPav.map(p => [t.pavimentos[p], ...ets.map(x => r.data(r.iniPav[ti][x.ei][p]))])], [10, ...ets.map(() => 14)]); }
