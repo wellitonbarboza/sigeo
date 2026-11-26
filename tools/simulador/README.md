@@ -76,3 +76,6 @@ Cada atividade recebe uma especialidade (inferida pelo nome) e um número de equ
 - Planejamento completo (tipo `plano`) semente: `Ecoparque_TorreA_Planejamento_Base_novo_R01.json` — EAP Torre A › Fundação,
   Estrutura, Instalações e cinza, Acabamentos › pavimento › serviço; LB0 = Base R01; versões = Cenários 1 a 3 (datas pelo
   simulador de sequência). Linha de balanço do plano aceita pavimento com atividades soltas (cada atividade é um pacote).
+- Etapa "depois de" (`et.dep`): a regra de entrada vale em relação a uma etapa escolhida (não só a anterior da lista).
+- Torre A: recesso 16/12/26–03/01/27; Cenários 11 e 12 (exceção: tudo de cima para baixo, pavimentos livres em 26/11/26,
+  fachadas N/S/L/O com 2 pintores e 60 dias úteis cada, após todas as janelas instaladas).

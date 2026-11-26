@@ -457,7 +457,9 @@ function calcular(s) {
       if (!livres[chave] || livres[chave].length !== qtd) livres[chave] = Array(qtd).fill(-Infinity);
       const eqs = livres[chave];
       fimPav[ti][ei] = Array(P).fill(0); iniPav[ti][ei] = Array(P).fill(0);
-      const ant = ei > 0 ? ei - 1 : null;
+      // depende da etapa anterior da lista ou de uma etapa escolhida ("depois de")
+      const iDep = et.dep ? s.etapas.findIndex(x => x.id === et.dep) : -1;
+      const ant = iDep >= 0 && iDep < ei ? iDep : ei > 0 ? ei - 1 : null;
       if (et.unidade === "torre") {
         // uma execução para a torre toda
         let pronto = Math.max(lib[0], aPartir, et.aposCobertura ? cob : -Infinity, et.naoAntesT?.[t.id] ? diaDe(et.naoAntesT[t.id]) : -Infinity);
@@ -502,7 +504,7 @@ function calcular(s) {
     const esp = +r.espera || 0;
     if (r.tipo === "junto") return iniPav[ti][ant][p] + esp;
     // a etapa anterior pode ser um grupo: as que entram "junto" com ela formam um bloco, e o bloco todo precisa terminar
-    const grupo = [ant]; for (let j = ant; j > 0 && s.etapas[j].regra?.tipo === "junto"; j--) grupo.push(j - 1);
+    const grupo = [ant]; if (!et.dep) for (let j = ant; j > 0 && s.etapas[j].regra?.tipo === "junto"; j--) grupo.push(j - 1);
     if (r.tipo === "torre") return Math.max(...grupo.flatMap(g => fimPav[ti][g])) + esp;
     const n = Math.max(1, r.pav | 0);
     // "depois de N pavimentos" conta no sentido em que a etapa anterior anda (para cima ou de cima para baixo)
@@ -659,6 +661,9 @@ function renderEtapas(s, r) {
           et.ordemTxt ? el("input", { value: et.ordemTxt, style: "width:110px", "aria-label": "Ordem personalizada", onchange: e => { et.ordemTxt = e.target.value.trim() || undefined; recalc(); } }) : null) : null,
         s.torres.map(t => el("label", { title: "A etapa não começa antes desta data nesta torre" }, (s.torres.length > 1 ? t.nome + " · " : "") + "não antes de",
           el("input", { type: "date", value: et.naoAntesT?.[t.id] || "", onchange: e => { et.naoAntesT ??= {}; if (e.target.value) et.naoAntesT[t.id] = e.target.value; else delete et.naoAntesT[t.id]; recalc(); } }))),
+        i > 0 ? el("label", { title: "A regra de entrada vale em relação a esta etapa (padrão: a etapa anterior da lista)" }, "depois de",
+          el("select", { style: "max-width:200px", onchange: e => { et.dep = e.target.value || undefined; recalc(); } }, el("option", { value: "" }, "etapa anterior"),
+            s.etapas.slice(0, i).map((x, j) => el("option", { value: x.id, selected: et.dep === x.id }, (j + 1) + ". " + x.nome.slice(0, 40))))) : null,
         el("label", { title: "Macroetapa (agrupa as etapas na lista e no quadro de prazos)" }, "macroetapa", el("input", { value: et.macro || "", list: "listaMacro", style: "width:150px", onchange: e => { et.macro = e.target.value.trim() || undefined; recalc(); } })),
         i === 0 ? el("datalist", { id: "listaMacro" }, [...new Set(["Fundação", "Estrutura", "Instalações e cinza", "Acabamentos", ...macros])].map(m => el("option", { value: m }))) : null)));
   });
