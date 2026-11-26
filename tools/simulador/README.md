@@ -79,3 +79,7 @@ Cada atividade recebe uma especialidade (inferida pelo nome) e um número de equ
 - Etapa "depois de" (`et.dep`): a regra de entrada vale em relação a uma etapa escolhida (não só a anterior da lista).
 - Torre A: recesso 16/12/26–03/01/27; Cenários 11 e 12 (exceção: tudo de cima para baixo, pavimentos livres em 26/11/26,
   fachadas N/S/L/O com 2 pintores e 60 dias úteis cada, após todas as janelas instaladas).
+- Relatório para a obra (botão no topo): PDF pela impressão (A4 paisagem) ou Excel (.xlsx via SheetJS do cdnjs), configurável por
+  torre, macroetapa e seções: linha de balanço, quadro pavimento × semana, pessoas por semana, equipes necessárias, sequência de
+  execução, críticas e folgas (folga de cada etapa em cada pavimento, medida atrasando o item até mudar o término da torre),
+  cronograma aberto por pavimento e quadro pavimento × etapa.

@@ -241,6 +241,27 @@ table.mes tr.grp td { font: 700 11px var(--f-disp); text-transform: uppercase; l
 .tor b { font: 500 11.5px var(--f-mono); text-align: right; }
 .etapas .macro { font: 700 11px var(--f-disp); text-transform: uppercase; letter-spacing: .8px; color: var(--accent); border-bottom: 2px solid var(--accent); padding: 10px 0 3px; margin-top: 4px; }
 table.t tr.macro td { font-weight: 700; background: var(--accent-soft); }
+
+/* relatório para a obra */
+#relatorio { display: none; }
+@media print {
+  @page { size: A4 landscape; margin: 9mm; }
+  body.imprimindo > *:not(#relatorio) { display: none !important; }
+  body.imprimindo { background: #fff !important; }
+  body.imprimindo #relatorio { display: block; color: #111; font: 10px/1.35 Arial, sans-serif; }
+}
+#relatorio h1 { font-size: 17px; margin: 0; } #relatorio h2 { font-size: 13px; margin: 2px 0 0; font-weight: 600; color: #2f6f5e; }
+#relatorio h3 { font-size: 12.5px; margin: 0 0 6px; border-bottom: 2px solid #2f6f5e; padding-bottom: 2px; }
+.rel-cab { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 1px solid #999; padding-bottom: 6px; margin-bottom: 8px; }
+.rel-meta { text-align: right; color: #555; font-size: 9px; }
+.rel-kpis { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-bottom: 10px; }
+.rel-kpis div { border: 1px solid #ccc; border-radius: 4px; padding: 4px 6px; } .rel-kpis span { display: block; color: #555; font-size: 8.5px; text-transform: uppercase; } .rel-kpis b { font-size: 11px; }
+.rel-sec { margin-bottom: 12px; break-inside: auto; } .rel-sec:has(.rel-graf) { break-inside: avoid; }
+table.rel { width: 100%; border-collapse: collapse; font-size: 9px; } table.rel th { background: #e8efec; text-align: left; padding: 3px 4px; border-bottom: 1px solid #999; }
+table.rel td { padding: 2px 4px; border-bottom: 1px solid #e2e2e2; vertical-align: top; } table.rel td.n { text-align: right; } table.rel .pq, #relatorio p.pq { font-size: 8.5px; color: #444; }
+table.rel thead { display: table-header-group; } table.rel tr { break-inside: avoid; }
+tr.rel-crit td { background: #fbe3df; } tr.rel-grp td { background: #2f6f5e; color: #fff; font-weight: 700; } tr.rel-sel td { font-weight: 700; }
+.rel-graf svg { max-width: 100%; }
 @media (prefers-reduced-motion: no-preference) { .alt, .btn, .seg button { transition: background .12s, border-color .12s; } }
 </style>
 
@@ -259,6 +280,7 @@ table.t tr.macro td { font-weight: 700; background: var(--accent-soft); }
       <label class="btn sm" for="impEst" title="Estudo do simulador (.json)">Importar .json</label><input type="file" id="impEst" accept=".json,application/json" hidden>
       <label class="btn sm pri" for="impXml" title="Monta a base a partir de um cronograma do MS Project">Importar do Project (.xml)</label><input type="file" id="impXml" accept=".xml,application/xml,text/xml" hidden>
       <button class="btn sm" id="expXml" title="Cronograma da alternativa em exibição, para abrir no MS Project">Exportar para o Project (.xml)</button>
+      <button class="btn sm pri" id="relObra" title="Resumo da alternativa em exibição para enviar à obra: gráfico, equipes, sequência, cronograma por pavimento, críticas e folgas">Relatório para a obra (PDF/Excel)</button>
       <button class="btn sm" id="delEst">Excluir</button>
       <span class="proto" id="salvo">—</span>
     </div>
@@ -464,6 +486,7 @@ function calcular(s) {
         // uma execução para a torre toda
         let pronto = Math.max(lib[0], aPartir, et.aposCobertura ? cob : -Infinity, et.naoAntesT?.[t.id] ? diaDe(et.naoAntesT[t.id]) : -Infinity);
         if (ant !== null) pronto = Math.max(pronto, liberacao(ti, ant, et, P - 1, P));
+        pronto += s.atrasos?.[t.id + "|-1|" + et.id] || 0;
         const k = eqs.indexOf(Math.min(...eqs));
         const fxT = et.fixaT?.[t.id];   // datas do cronograma (ex.: fundação já executada)
         const ini = fxT ? diaDe(fxT[0]) : Math.max(pronto, eqs[k]); const fim = fxT ? diaDe(fxT[1]) + 1 : ini + diasDe(et);
@@ -486,6 +509,7 @@ function calcular(s) {
         }
         let pronto = Math.max(lib[p], aPartir, et.aposCobertura ? cob : -Infinity, et.naoAntesT?.[t.id] ? diaDe(et.naoAntesT[t.id]) : -Infinity);
         if (ant !== null) pronto = Math.max(pronto, liberacao(ti, ant, et, p, P));
+        pronto += s.atrasos?.[t.id + "|" + p + "|" + et.id] || 0;   // atraso de teste (cálculo de folga)
         const unidades = et.unidade === "apto" ? Math.max(1, t.aptos | 0) : 1;
         let ip = Infinity, fp = -Infinity;
         for (let u = 0; u < unidades; u++) {
@@ -2478,6 +2502,160 @@ function csvDoPlano(P, R) {
 
 $("#pCsv").onclick = () => baixar(slug(estudo.nome) + ".csv", csvDoPlano(estudo, PL), "text/csv;charset=utf-8");
 document.querySelectorAll("#pAbas button[data-a]").forEach(b => b.onclick = () => { plUI.aba = b.dataset.a; renderPlano(); });
+
+// ---------------------------------------------------------------- relatório para a obra (PDF pela impressão ou Excel)
+// Folga de cada etapa em cada pavimento: quantos dias úteis ela pode atrasar ali sem mudar o término da torre.
+async function folgasItens(s, prog) {
+  const r0 = calcular(s), fimT0 = r0.fimT.slice(), out = {}, chaves = [];
+  s.torres.forEach((t, ti) => s.etapas.forEach((e, ei) => {
+    if (e.fixaT) return;   // datas fixas do cronograma (já executado): sem folga a medir
+    if (e.unidade === "torre") chaves.push([t.id + "|-1|" + e.id, ti, ei, -1]); else t.pavimentos.forEach((_, p) => { if (!s.fixas?.[t.id + "|" + p + "|" + e.id]) chaves.push([t.id + "|" + p + "|" + e.id, ti, ei, p]); });
+  }));
+  const c = copia(s); c.atrasos = {};
+  const muda = (k, ti, x) => { c.atrasos[k] = x; const r = calcular(c); delete c.atrasos[k]; return r.fimT[ti] > fimT0[ti] + 1e-6; };
+  for (let i = 0; i < chaves.length; i++) {
+    const [k, ti] = chaves[i];
+    let f;
+    if (muda(k, ti, 1)) f = 0;
+    else { let lo = 1, hi = 2; while (hi < 256 && !muda(k, ti, hi)) { lo = hi; hi *= 2; } if (hi >= 256) f = 256; else { while (hi - lo > 1) { const m = (lo + hi) >> 1; if (muda(k, ti, m)) hi = m; else lo = m; } f = lo; } }
+    out[k] = f;
+    if (i % 40 === 0) { prog?.(i / chaves.length); await new Promise(z => setTimeout(z, 0)); }
+  }
+  // resumo por etapa e torre: menor folga e quantos pavimentos críticos
+  const porEtapa = {};
+  for (const [k, ti, ei, p] of chaves) { const g = porEtapa[ti + "|" + ei] ||= { min: Infinity, max: -Infinity, criticos: [], n: 0 }; const f = out[k]; g.n++; g.min = Math.min(g.min, f); g.max = Math.max(g.max, f); if (f === 0) g.criticos.push(p); }
+  return { item: out, porEtapa };
+}
+const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+function dadosRelatorio(s, r, opc) {
+  const torres = s.torres.map((t, ti) => ({ t, ti })).filter(x => opc.torres.includes(x.t.id));
+  const etapas = s.etapas.map((e, ei) => ({ e, ei })).filter(x => !opc.macros.length || opc.macros.includes(x.e.macro || "(sem macroetapa)"));
+  const eqDe = e => s.equipes.find(q => q.id === e.equipe);
+  const pessoas = q => (q?.formacao || []).reduce((a, f) => a + (+f.qtd || 0), 0);
+  const sentido = e => e.unidade === "torre" ? "torre toda" : e.ordemTxt ? "ordem " + e.ordemTxt : e.descendo ? "de cima para baixo" : "de baixo para cima";
+  const regra = (e, ei) => { const ref = e.dep ? s.etapas.find(x => x.id === e.dep)?.nome : s.etapas[ei - 1]?.nome; const g = e.regra || {}; if (ei === 0) return "liberação do pavimento";
+    const base = g.tipo === "junto" ? "junto com" : g.tipo === "torre" ? "após concluir na torre toda" : `após ${g.pav || 1} pav. de`; return `${base} ${ref || ""}`.trim() + (+g.espera ? ` + ${g.espera} d` : "") + (e.aposCobertura ? " · após cobertura" : "") + (e.naoAntesT ? " · não antes de " + Object.values(e.naoAntesT).map(d => fmt(new Date(d + "T00:00:00Z"))).join("/") : ""); };
+  const num = new Map(etapas.map((x, k) => [x.ei, k + 1]));
+  const seq = etapas.map(({ e, ei }) => { const q = eqDe(e); return torres.map(({ t, ti }) => { const ip = r.iniPav[ti][ei], fp = r.fimPav[ti][ei]; const a = Math.min(...ip), b = Math.max(...fp);
+    return { ei, num: num.get(ei), etapa: e.nome, macro: e.macro || "", torre: t.nome, sentido: sentido(e), regra: regra(e, ei), equipe: q?.nome || "", formacao: (q?.formacao || []).map(f => f.qtd + " " + f.funcao).join(" + "), qtd: e.qtd || 1, pessoas: pessoas(q) * (e.qtd || 1), dias: e.diasT?.[t.id] ?? e.dias, unidade: e.unidade, ini: r.data(a), fim: r.dataFim(b), duracao: Math.round(b - a), ritmo: r.ritmo[ei],
+      ...(() => { const g = opc.folgas?.porEtapa[ti + "|" + ei]; return g ? { folga: g.min, folgaMax: g.max, criticos: g.criticos.map(p => p < 0 ? "torre" : t.pavimentos[p]), nPav: g.n } : { folga: null }; })() }; }); }).flat();
+  // equipes: por tipo de equipe, quantas ao mesmo tempo no pico e o período de mobilização
+  const porEq = new Map();
+  for (const it of r.itens) { const e = s.etapas[it.e]; if (!etapas.some(x => x.ei === it.e) || !torres.some(x => x.ti === it.t)) continue; const q = eqDe(e); if (!q || !pessoas(q)) continue;
+    const k = q.id; if (!porEq.has(k)) porEq.set(k, { q, etapas: new Set(), ini: Infinity, fim: -Infinity, uso: new Map() }); const g = porEq.get(k);
+    g.etapas.add(e.nome); g.ini = Math.min(g.ini, it.ini); g.fim = Math.max(g.fim, it.fim);
+    for (let d = Math.floor(it.ini); d < Math.ceil(it.fim); d++) g.uso.set(d, (g.uso.get(d) || 0) + 1); }
+  const equipes = [...porEq.values()].map(g => { const pico = Math.max(0, ...g.uso.values()); return { nome: g.q.nome, formacao: g.q.formacao.map(f => f.qtd + " " + f.funcao).join(" + "), porEquipe: pessoas(g.q), pico, pessoasPico: pico * pessoas(g.q), ini: r.data(g.ini), fim: r.dataFim(g.fim), meses: Math.round((g.fim - g.ini) / 21 * 10) / 10, etapas: [...g.etapas].join("; ") }; }).sort((a, b) => a.ini - b.ini);
+  // cronograma aberto por pavimento
+  const cron = [];
+  for (const { t, ti } of torres) { const P = t.pavimentos.length, ordemPav = opc.desce ? [...Array(P).keys()].reverse() : [...Array(P).keys()];
+    for (const p of ordemPav) { const linhas = etapas.filter(({ e }) => e.unidade !== "torre").map(({ e, ei }) => ({ torre: t.nome, pav: t.pavimentos[p], macro: e.macro || "", etapa: e.nome, equipe: eqDe(e)?.nome || "", ini: r.data(r.iniPav[ti][ei][p]), fim: r.dataFim(r.fimPav[ti][ei][p]), folga: opc.folgas ? opc.folgas.item[t.id + "|" + p + "|" + e.id] ?? null : null }));
+      linhas.sort((a, b) => a.ini - b.ini); cron.push(...linhas); }
+    for (const { e, ei } of etapas.filter(x => x.e.unidade === "torre")) cron.push({ torre: t.nome, pav: "torre toda", macro: e.macro || "", etapa: e.nome, equipe: eqDe(e)?.nome || "", ini: r.data(r.iniPav[ti][ei][0]), fim: r.dataFim(r.fimPav[ti][ei][0]), folga: opc.folgas ? opc.folgas.item[t.id + "|-1|" + e.id] ?? null : null }); }
+  const d0 = Math.min(...torres.flatMap(({ ti }) => etapas.flatMap(({ ei }) => r.iniPav[ti][ei])));
+  const sem = semanaPessoas(r).filter(w => w.dia + (s.sabado ? 6 : 5) > d0).map(w => ({ semana: r.data(w.dia), total: w.total, por: w.por }));
+  return { torres, etapas, seq, equipes, cron, sem };
+}
+function abrirRelatorio() {
+  const s = S(), P = $("#painelXml"); P.hidden = false; P.replaceChildren();
+  const macros = [...new Set(s.etapas.map(e => e.macro || "(sem macroetapa)"))];
+  const ck = (id, rot, on = true) => el("label", { style: "display:inline-flex;gap:5px;align-items:center;margin-right:14px" }, el("input", { type: "checkbox", id, checked: on }), rot);
+  P.append(el("header", {}, el("h2", {}, "Relatório para a obra · " + s.nome), el("button", { class: "btn sm", onclick: () => { P.hidden = true; } }, "fechar")),
+    el("div", { class: "cfg", style: "flex-direction:column;align-items:flex-start;gap:8px" },
+      el("div", {}, el("b", {}, "Torres: "), s.torres.map(t => ck("rt-" + t.id, t.nome))),
+      el("div", {}, el("b", {}, "Macroetapas: "), macros.map(m => { const ets = s.etapas.filter(e => (e.macro || "(sem macroetapa)") === m);
+        const feitas = ets.every(e => e.fixaT || Object.keys(s.fixas || {}).some(k => k.endsWith("|" + e.id)));   // só datas do cronograma (ex.: fundação, estrutura): desmarcada
+        return ck("rm-" + m, m, !feitas); })),
+      el("div", {}, el("b", {}, "Incluir: "), ck("ri-lob", "linha de balanço"), ck("ri-quadro", "quadro pavimento × semana", false), ck("ri-hist", "pessoas por semana"), ck("ri-eq", "equipes necessárias"),
+        ck("ri-seq", "sequência de execução"), ck("ri-crit", "críticas e folgas"), ck("ri-cron", "cronograma aberto por pavimento"), ck("ri-mat", "quadro pavimento × etapa (início)", false), ck("ri-comp", "comparativo das alternativas")),
+      el("div", {}, el("b", {}, "Pavimentos no cronograma: "), el("select", { id: "r-ordem" }, el("option", { value: "desce" }, "do último para o térreo"), el("option", { value: "sobe" }, "do térreo para o último"))),
+      el("div", { style: "display:flex;gap:8px;align-items:center" }, el("button", { class: "btn pri", onclick: () => gerarRelatorio("pdf") }, "Gerar PDF"), el("button", { class: "btn", onclick: () => gerarRelatorio("xlsx") }, "Gerar Excel (.xlsx)"),
+        el("span", { id: "r-status", class: "mut" }, "PDF: abre a impressão; escolha \"Salvar como PDF\" (paisagem)."))));
+  P.scrollIntoView({ behavior: "smooth" });
+}
+async function gerarRelatorio(formato) {
+  const s = S(), r = res[atual], v = id_ => document.getElementById(id_)?.checked;
+  const opc = { torres: s.torres.filter(t => v("rt-" + t.id)).map(t => t.id), macros: [...new Set(s.etapas.map(e => e.macro || "(sem macroetapa)"))].filter(m => v("rm-" + m)), desce: $("#r-ordem").value === "desce" };
+  if (!opc.torres.length) return;
+  const st = $("#r-status"); st.textContent = "calculando folgas das etapas…"; await new Promise(z => setTimeout(z, 30));
+  opc.folgas = (v("ri-crit") || v("ri-seq") || v("ri-cron")) ? await folgasItens(s, x => { st.textContent = "calculando folgas por pavimento… " + Math.round(x * 100) + "%"; }) : null;
+  const D = dadosRelatorio(s, r, opc);
+  st.textContent = "";
+  if (formato === "xlsx") return relatorioXlsx(s, r, D, opc, v);
+  relatorioPdf(s, r, D, opc, v);
+}
+function relatorioPdf(s, r, D, opc, v) {
+  let R = $("#relatorio"); if (!R) { R = el("div", { id: "relatorio" }); document.body.append(R); } R.replaceChildren();
+  const f = d => d ? fmt(d) : "", tb = (cab, linhas, cls) => el("table", { class: "rel " + (cls || "") }, el("thead", {}, el("tr", {}, cab.map(h => el("th", {}, h)))), el("tbody", {}, linhas));
+  const folgaTxt = x => x == null ? "—" : x === 0 ? "crítica" : x >= 256 ? "> 255 d" : x + " d";
+  const faixa = x => x.folga == null ? "—" : x.folga === x.folgaMax ? folgaTxt(x.folga) : folgaTxt(x.folga) + " a " + folgaTxt(x.folgaMax).replace("crítica", "0 d");
+  const fimTxt = D.torres.map(({ t, ti }) => t.nome + ": " + f(r.dataFim(r.fimT[ti]))).join(" · ");
+  const picoP = Math.max(0, ...D.sem.map(w => w.total));
+  R.append(el("div", { class: "rel-cab" }, el("div", {}, el("h1", {}, estudo.nome), el("h2", {}, s.nome)), el("div", { class: "rel-meta" }, "Gerado em " + fmt(new Date(iso(new Date()) + "T00:00:00Z")), el("br"), "Planning Lab · simulador de sequência")),
+    el("div", { class: "rel-kpis" }, [["Término", fimTxt], ["Pico de pessoas", picoP], ["Pavimentos abertos ao mesmo tempo", r.picoPav], ["Equipes (tipos)", D.equipes.length], ["Início dos serviços", s.aPartirDe ? f(new Date(s.aPartirDe + "T00:00:00Z")) : "liberação dos pavimentos"]].map(([a, b]) => el("div", {}, el("span", {}, a), el("b", {}, String(b))))));
+  const secao = (titulo, ...c) => R.append(el("section", { class: "rel-sec" }, el("h3", {}, titulo), ...c));
+  if (v("ri-comp") && alts.length > 1) secao("Comparativo das alternativas", tb(["Alternativa", "Término", "x " + alts[0].nome.slice(0, 30), "Pico de pavimentos"], alts.map((a, i) => { const x = res[i]; const d = Math.round(x.fim - res[0].fim); return el("tr", { class: i === atual ? "rel-sel" : "" }, el("td", {}, a.nome), el("td", {}, f(x.dataFim(x.fim))), el("td", {}, i ? (d > 0 ? "+" : "") + d + " d úteis" : "referência"), el("td", {}, x.picoPav)); })));
+  if (v("ri-lob") || v("ri-quadro")) for (const modo of ["lob", "quadro"].filter(m => v(m === "lob" ? "ri-lob" : "ri-quadro"))) {
+    // só as etapas escolhidas e o período a partir do início delas (alinhado na segunda-feira)
+    const eis = D.etapas.filter(x => modo === "lob" || x.e.unidade !== "torre").map(x => x.ei);   // no quadro, etapas da torre toda (fachadas) ocupariam todos os pavimentos
+    let d0 = Math.floor(Math.min(...D.torres.flatMap(x => eis.flatMap(ei => r.iniPav[x.ti][ei]))));
+    while (d0 > 0 && r.cal[d0].getUTCDay() !== 1) d0--;
+    const sh = a => a.map(v => v - d0);
+    const s2 = Object.assign({}, s, { torres: D.torres.map(x => x.t), etapas: eis.map(ei => s.etapas[ei]) }),
+      r2 = Object.assign({}, r, { cal: r.cal.slice(d0), fim: r.fim - d0, data: j => r.data(j + d0), dataFim: j => r.dataFim(j + d0),
+        iniPav: D.torres.map(x => eis.map(ei => sh(r.iniPav[x.ti][ei]))), fimPav: D.torres.map(x => eis.map(ei => sh(r.fimPav[x.ti][ei]))), fimT: D.torres.map(x => r.fimT[x.ti] - d0) });
+    const G = el("div", { class: "rel-graf" }), L = el("div", { class: "leg" }); renderGrafico(s2, r2, G, L, modo);
+    G.querySelectorAll("svg").forEach(sv => { sv.removeAttribute("height"); sv.setAttribute("width", "100%"); sv.style.height = "auto"; });
+    secao(modo === "lob" ? "Linha de balanço (gestão visual)" : "Quadro pavimento × semana", G, L);
+  }
+  if (v("ri-hist")) { const mx = Math.max(1, picoP), W = 1000, H = 160, bw = W / D.sem.length;
+    const NS = "http://www.w3.org/2000/svg", svg = document.createElementNS(NS, "svg"); svg.setAttribute("viewBox", `0 0 ${W} ${H + 18}`); svg.setAttribute("width", "100%");
+    let ult = -1; D.sem.forEach((w, i) => { const h = w.total / mx * H, rc = document.createElementNS(NS, "rect"); rc.setAttribute("x", i * bw + .5); rc.setAttribute("y", H - h); rc.setAttribute("width", Math.max(1, bw - 1)); rc.setAttribute("height", h); rc.setAttribute("fill", "#2f6f5e"); svg.append(rc);
+      if (w.semana.getUTCMonth() !== ult) { ult = w.semana.getUTCMonth(); const t = document.createElementNS(NS, "text"); t.setAttribute("x", i * bw); t.setAttribute("y", H + 13); t.setAttribute("font-size", 10); t.textContent = MESES[ult] + "/" + String(w.semana.getUTCFullYear()).slice(2); svg.append(t); } });
+    secao("Pessoas na obra por semana (pico " + picoP + ")", el("div", { class: "rel-graf" }, svg)); }
+  if (v("ri-eq")) secao("Equipes necessárias para o cenário", tb(["Equipe", "Formação", "Pessoas por equipe", "Equipes no pico", "Pessoas no pico", "Mobilização", "Desmobilização", "Meses", "Etapas"],
+    D.equipes.map(q => el("tr", {}, el("td", {}, q.nome), el("td", {}, q.formacao), el("td", { class: "n" }, q.porEquipe), el("td", { class: "n" }, q.pico), el("td", { class: "n" }, q.pessoasPico), el("td", {}, f(q.ini)), el("td", {}, f(q.fim)), el("td", { class: "n" }, String(q.meses).replace(".", ",")), el("td", { class: "pq" }, q.etapas)))));
+  if (v("ri-seq")) secao("Sequência de execução planejada", tb(["#", "Macroetapa", "Etapa", "Torre", "Sentido", "Entra", "Equipes", "Pessoas", "Dias/unid.", "Início", "Término", "Folga"],
+    D.seq.map(x => el("tr", { class: x.folga === 0 ? "rel-crit" : "" }, el("td", { class: "n" }, x.num), el("td", {}, x.macro), el("td", {}, x.etapa), el("td", {}, x.torre), el("td", { class: "pq" }, x.sentido), el("td", { class: "pq" }, x.regra), el("td", { class: "n" }, x.qtd), el("td", { class: "n" }, x.pessoas), el("td", { class: "n" }, x.dias), el("td", {}, f(x.ini)), el("td", {}, f(x.fim)), el("td", {}, faixa(x))))));
+  if (v("ri-crit") && opc.folgas) { const l = D.seq.filter(x => x.folga != null).sort((a, b) => a.folga - b.folga || a.ini - b.ini);
+    secao("Atividades críticas e folgas", el("p", { class: "pq" }, "Folga = dias úteis que a etapa pode atrasar naquele pavimento sem mudar o término da torre. Crítica = folga zero: atrasar ali atrasa a entrega. A coluna \"pavimentos críticos\" mostra onde a etapa não pode escorregar."),
+      tb(["Situação", "Etapa", "Macroetapa", "Torre", "Folga (menor a maior)", "Pavimentos críticos", "Início", "Término", "Equipes"], l.map(x => el("tr", { class: x.folga === 0 ? "rel-crit" : "" }, el("td", {}, x.folga === 0 ? (x.criticos.length === x.nPav ? "CRÍTICA" : "CRÍTICA em parte") : x.folga <= 10 ? "atenção" : "com folga"), el("td", {}, x.etapa), el("td", {}, x.macro), el("td", {}, x.torre), el("td", {}, faixa(x)), el("td", { class: "pq" }, x.criticos.length ? (x.criticos.length === x.nPav ? "todos" : x.criticos.join(", ")) : "—"), el("td", {}, f(x.ini)), el("td", {}, f(x.fim)), el("td", { class: "n" }, x.qtd))))); }
+  if (v("ri-cron")) { const linhas = []; let ult = "";
+    for (const x of D.cron) { const k = x.torre + "|" + x.pav; if (k !== ult) { linhas.push(el("tr", { class: "rel-grp" }, el("td", { colspan: 6 }, x.torre + " · " + x.pav))); ult = k; }
+      linhas.push(el("tr", { class: x.folga === 0 ? "rel-crit" : "" }, el("td", {}, x.macro), el("td", {}, x.etapa), el("td", {}, x.equipe), el("td", {}, f(x.ini)), el("td", {}, f(x.fim)), el("td", {}, folgaTxt(x.folga)))); }
+    secao("Cronograma aberto por pavimento", tb(["Macroetapa", "Etapa", "Equipe", "Início", "Término", "Folga no pavimento"], linhas, "rel-cron")); }
+  if (v("ri-mat")) for (const { t, ti } of D.torres) { const ets = D.etapas.filter(x => x.e.unidade !== "torre"), P = t.pavimentos.length, ordemPav = opc.desce ? [...Array(P).keys()].reverse() : [...Array(P).keys()];
+    const nm = new Map(D.etapas.map((x, k) => [x.ei, k + 1]));
+    secao("Quadro pavimento × etapa · início · " + t.nome, tb(["Pav.", ...ets.map(x => String(nm.get(x.ei)))], ordemPav.map(p => el("tr", {}, el("td", {}, t.pavimentos[p]), ets.map(x => el("td", { class: "n" }, fmtc(r.data(r.iniPav[ti][x.ei][p]))))))),
+      el("p", { class: "pq" }, ets.map(x => nm.get(x.ei) + ". " + x.e.nome).join(" · "))); }
+  document.body.classList.add("imprimindo");
+  const fim = () => { document.body.classList.remove("imprimindo"); removeEventListener("afterprint", fim); };
+  addEventListener("afterprint", fim);
+  setTimeout(() => window.print(), 50);
+}
+async function relatorioXlsx(s, r, D, opc, v) {
+  const st = $("#r-status");
+  if (!window.XLSX) { st.textContent = "carregando o gerador de planilha…"; await new Promise((ok, er) => { const sc = document.createElement("script"); sc.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"; sc.onload = ok; sc.onerror = er; document.head.append(sc); }).catch(() => null); }
+  if (!window.XLSX) { st.textContent = "Não consegui carregar o gerador de planilha. Use o PDF."; return; }
+  // datas do simulador estão em UTC: viram a mesma data local para a planilha não mostrar o dia anterior
+  const loc = v => v instanceof Date ? new Date(v.getUTCFullYear(), v.getUTCMonth(), v.getUTCDate()) : v;
+  const X = window.XLSX, wb = X.utils.book_new(), add = (nome, linhas, larg) => { const ws = X.utils.aoa_to_sheet(linhas.map(l => l.map(loc)), { cellDates: true, dateNF: "dd/mm/yyyy" }); if (larg) ws["!cols"] = larg.map(w => ({ wch: w })); X.utils.book_append_sheet(wb, ws, nome.slice(0, 31)); };
+  const folgaV = x => x == null ? "" : x >= 256 ? ">255" : x;
+  const picoP = Math.max(0, ...D.sem.map(w => w.total));
+  add("Resumo", [["Estudo", estudo.nome], ["Alternativa", s.nome], ["Gerado em", new Date(iso(new Date()) + "T00:00:00Z")], [], ["Torre", "Término"], ...D.torres.map(({ t, ti }) => [t.nome, r.dataFim(r.fimT[ti])]), [], ["Pico de pessoas", picoP], ["Pavimentos abertos ao mesmo tempo", r.picoPav],
+    [], ["Folga = dias úteis que a etapa pode atrasar (em todos os pavimentos) sem mudar o término da torre; 0 = crítica."], ...(v("ri-comp") ? [[], ["Alternativa", "Término", "Diferença (dias úteis)"], ...alts.map((a, i) => [a.nome, res[i].dataFim(res[i].fim), Math.round(res[i].fim - res[0].fim)])] : [])], [40, 22, 18]);
+  if (v("ri-eq")) add("Equipes", [["Equipe", "Formação", "Pessoas por equipe", "Equipes no pico", "Pessoas no pico", "Mobilização", "Desmobilização", "Meses", "Etapas"], ...D.equipes.map(q => [q.nome, q.formacao, q.porEquipe, q.pico, q.pessoasPico, q.ini, q.fim, q.meses, q.etapas])], [32, 40, 10, 10, 10, 12, 12, 8, 60]);
+  if (v("ri-seq")) add("Sequência", [["#", "Macroetapa", "Etapa", "Torre", "Sentido", "Entra", "Equipe", "Formação", "Equipes", "Pessoas", "Dias por unidade", "Início", "Término", "Duração (dias úteis)", "Menor folga (d)", "Maior folga (d)", "Pavimentos críticos"], ...D.seq.map(x => [x.num, x.macro, x.etapa, x.torre, x.sentido, x.regra, x.equipe, x.formacao, x.qtd, x.pessoas, x.dias, x.ini, x.fim, x.duracao, folgaV(x.folga), folgaV(x.folgaMax), x.criticos ? (x.criticos.length === x.nPav ? "todos" : x.criticos.join(", ")) : ""])], [4, 18, 45, 10, 18, 40, 28, 34, 8, 8, 8, 12, 12, 10, 9, 9, 30]);
+  if (v("ri-crit") && opc.folgas) add("Críticas e folgas", [["Situação", "Etapa", "Macroetapa", "Torre", "Menor folga (d)", "Maior folga (d)", "Pavimentos críticos", "Início", "Término"], ...D.seq.filter(x => x.folga != null).sort((a, b) => a.folga - b.folga).map(x => [x.folga === 0 ? (x.criticos.length === x.nPav ? "CRÍTICA" : "CRÍTICA em parte") : x.folga <= 10 ? "atenção" : "com folga", x.etapa, x.macro, x.torre, folgaV(x.folga), folgaV(x.folgaMax), x.criticos.length === x.nPav ? "todos" : x.criticos.join(", "), x.ini, x.fim])], [14, 45, 18, 10, 9, 9, 30, 12, 12]);
+  if (v("ri-cron")) add("Cronograma por pavimento", [["Torre", "Pavimento", "Macroetapa", "Etapa", "Equipe", "Início", "Término", "Folga no pavimento (d)"], ...D.cron.map(x => [x.torre, x.pav, x.macro, x.etapa, x.equipe, x.ini, x.fim, folgaV(x.folga)])], [10, 12, 18, 45, 28, 12, 12, 10]);
+  if (v("ri-mat")) for (const { t, ti } of D.torres) { const ets = D.etapas.filter(x => x.e.unidade !== "torre"), P = t.pavimentos.length, ordemPav = opc.desce ? [...Array(P).keys()].reverse() : [...Array(P).keys()];
+    add("Quadro " + t.nome, [["Pavimento", ...ets.map(x => x.e.nome)], ...ordemPav.map(p => [t.pavimentos[p], ...ets.map(x => r.data(r.iniPav[ti][x.ei][p]))])], [10, ...ets.map(() => 14)]); }
+  if (v("ri-hist") || v("ri-eq")) { const funcs = [...new Set(D.sem.flatMap(w => Object.keys(w.por)))]; add("Pessoas por semana", [["Semana (início)", "Total", ...funcs], ...D.sem.map(w => [w.semana, w.total, ...funcs.map(fn => w.por[fn] || 0)])], [14, 8, ...funcs.map(() => 12)]); }
+  X.writeFile(wb, slug(estudo.nome + " - " + s.nome) + ".xlsx", { cellDates: true });
+  st.textContent = "Planilha gerada.";
+}
+
+$("#relObra").onclick = abrirRelatorio;
 
 // ---------------------------------------------------------------- eventos gerais
 $("#limpaEq").onclick = () => excluirSemUso(S());
