@@ -10284,7 +10284,7 @@
   },
   {
    "id": "3amqd4rc",
-   "nome": "Cenário 9 (Cenário 8 + pavimentos livres em 24/11/26 e cinza antes do contrapiso ×2)",
+   "nome": "Cenário 9 (Cenário 8 + pavimentos livres em 24/11/26 e cinza antes do contrapiso ×2 + fachadas)",
    "equipes": [
     {
      "id": "ufchqpel",
@@ -10589,6 +10589,17 @@
       {
        "qtd": 3,
        "funcao": "Auxiliar de Limpeza"
+      }
+     ]
+    },
+    {
+     "id": "lpb0f52w",
+     "nome": "2 Pintores (fachada, terc.)",
+     "cor": "#33BBEE",
+     "formacao": [
+      {
+       "qtd": 2,
+       "funcao": "Pintor de fachada"
       }
      ]
     }
@@ -11246,6 +11257,78 @@
      "macro": "Acabamentos",
      "descendo": true,
      "aposCobertura": true
+    },
+    {
+     "id": "fach-norte",
+     "nome": "Fachada Norte · pintura externa",
+     "unidade": "torre",
+     "dias": 60,
+     "equipe": "lpb0f52w",
+     "qtd": 1,
+     "regra": {
+      "tipo": "torre",
+      "pav": 1,
+      "espera": 0
+     },
+     "dep": "lu6ayneh",
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#009E73",
+     "macro": "Fachadas"
+    },
+    {
+     "id": "fach-sul",
+     "nome": "Fachada Sul · pintura externa",
+     "unidade": "torre",
+     "dias": 60,
+     "equipe": "lpb0f52w",
+     "qtd": 1,
+     "regra": {
+      "tipo": "torre",
+      "pav": 1,
+      "espera": 0
+     },
+     "dep": "lu6ayneh",
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#CC79A7",
+     "macro": "Fachadas"
+    },
+    {
+     "id": "fach-leste",
+     "nome": "Fachada Leste · pintura externa",
+     "unidade": "torre",
+     "dias": 60,
+     "equipe": "lpb0f52w",
+     "qtd": 1,
+     "regra": {
+      "tipo": "torre",
+      "pav": 1,
+      "espera": 0
+     },
+     "dep": "lu6ayneh",
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#56B4E9",
+     "macro": "Fachadas"
+    },
+    {
+     "id": "fach-oeste",
+     "nome": "Fachada Oeste · pintura externa",
+     "unidade": "torre",
+     "dias": 60,
+     "equipe": "lpb0f52w",
+     "qtd": 1,
+     "regra": {
+      "tipo": "torre",
+      "pav": 1,
+      "espera": 0
+     },
+     "dep": "lu6ayneh",
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#D55E00",
+     "macro": "Fachadas"
     }
    ],
    "torres": [
@@ -11429,7 +11512,7 @@
   },
   {
    "id": "ggpgb9ql",
-   "nome": "Cenário 10 (Cenário 8 + pavimentos livres em 24/11/26 e cinza antes do contrapiso ×3)",
+   "nome": "Cenário 10 (Cenário 8 + pavimentos livres em 24/11/26 e cinza antes do contrapiso ×3 + fachadas)",
    "equipes": [
     {
      "id": "ufchqpel",
@@ -11734,6 +11817,17 @@
       {
        "qtd": 3,
        "funcao": "Auxiliar de Limpeza"
+      }
+     ]
+    },
+    {
+     "id": "lpb0f52w",
+     "nome": "2 Pintores (fachada, terc.)",
+     "cor": "#33BBEE",
+     "formacao": [
+      {
+       "qtd": 2,
+       "funcao": "Pintor de fachada"
       }
      ]
     }
@@ -12391,6 +12485,78 @@
      "macro": "Acabamentos",
      "descendo": true,
      "aposCobertura": true
+    },
+    {
+     "id": "fach-norte",
+     "nome": "Fachada Norte · pintura externa",
+     "unidade": "torre",
+     "dias": 60,
+     "equipe": "lpb0f52w",
+     "qtd": 1,
+     "regra": {
+      "tipo": "torre",
+      "pav": 1,
+      "espera": 0
+     },
+     "dep": "lu6ayneh",
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#009E73",
+     "macro": "Fachadas"
+    },
+    {
+     "id": "fach-sul",
+     "nome": "Fachada Sul · pintura externa",
+     "unidade": "torre",
+     "dias": 60,
+     "equipe": "lpb0f52w",
+     "qtd": 1,
+     "regra": {
+      "tipo": "torre",
+      "pav": 1,
+      "espera": 0
+     },
+     "dep": "lu6ayneh",
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#CC79A7",
+     "macro": "Fachadas"
+    },
+    {
+     "id": "fach-leste",
+     "nome": "Fachada Leste · pintura externa",
+     "unidade": "torre",
+     "dias": 60,
+     "equipe": "lpb0f52w",
+     "qtd": 1,
+     "regra": {
+      "tipo": "torre",
+      "pav": 1,
+      "espera": 0
+     },
+     "dep": "lu6ayneh",
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#56B4E9",
+     "macro": "Fachadas"
+    },
+    {
+     "id": "fach-oeste",
+     "nome": "Fachada Oeste · pintura externa",
+     "unidade": "torre",
+     "dias": 60,
+     "equipe": "lpb0f52w",
+     "qtd": 1,
+     "regra": {
+      "tipo": "torre",
+      "pav": 1,
+      "espera": 0
+     },
+     "dep": "lu6ayneh",
+     "modo": "terc",
+     "terc": 0,
+     "cor": "#D55E00",
+     "macro": "Fachadas"
     }
    ],
    "torres": [
@@ -15033,5 +15199,5 @@
    }
   }
  ],
- "semente": "2026-11-26 15h40"
+ "semente": "2026-11-27 09h30"
 }
