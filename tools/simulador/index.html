@@ -16,7 +16,7 @@ html { padding: env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px)
 :root {
   --bg: #f3f4f1; --sheet: #ffffff; --ink: #1c2321; --ink2: #4d5753; --mut: #848d89;
   --rule: #dde1dc; --rule2: #c6ccc6; --accent: #2f6f5e; --accent-soft: #e3efe9;
-  --bad: #b3261e; --ok: #2f7d43; --warn: #a86b00; --sel: #fff6dc;
+  --bad: #b3261e; --ok: #0062a8; --warn: #a86b00; --sel: #fff6dc;
   --f-disp: "IBM Plex Sans Condensed", "Arial Narrow", sans-serif;
   --f-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
   --f-mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
@@ -24,11 +24,11 @@ html { padding: env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px)
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
   --bg: #151918; --sheet: #1d2221; --ink: #e6ebe8; --ink2: #b2bcb7; --mut: #7f8a85;
   --rule: #2d3432; --rule2: #3d4643; --accent: #6cc2a6; --accent-soft: #23362f;
-  --bad: #ff8a80; --ok: #7fd18f; --warn: #f0b44c; --sel: #3a3420; color-scheme: dark } }
+  --bad: #ff8a80; --ok: #6cb4ff; --warn: #f0b44c; --sel: #3a3420; color-scheme: dark } }
 :root[data-theme="dark"] {
   --bg: #151918; --sheet: #1d2221; --ink: #e6ebe8; --ink2: #b2bcb7; --mut: #7f8a85;
   --rule: #2d3432; --rule2: #3d4643; --accent: #6cc2a6; --accent-soft: #23362f;
-  --bad: #ff8a80; --ok: #7fd18f; --warn: #f0b44c; --sel: #3a3420; color-scheme: dark }
+  --bad: #ff8a80; --ok: #6cb4ff; --warn: #f0b44c; --sel: #3a3420; color-scheme: dark }
 
 * { box-sizing: border-box; }
 body { background: var(--bg); color: var(--ink); font: 13px/1.45 var(--f-body); }
@@ -318,7 +318,7 @@ tr.rel-crit td { background: #fbe3df; } tr.rel-grp td { background: #2f6f5e; col
         <div class="equipes" id="equipes"></div>
       </section>
       <section class="panel">
-        <header><h2>Etapas</h2><span class="mut">na ordem de execução</span><button class="btn sm" id="addEt">+ Etapa</button></header>
+        <header><h2>Etapas</h2><span class="mut">na ordem de execução</span><button class="btn sm" id="corEt" title="recolore todas as etapas e equipes deste estudo com a paleta forte, segura para daltônicos">Cores fortes</button><button class="btn sm" id="addEt">+ Etapa</button></header>
         <div class="etapas" id="etapas"></div>
       </section>
       <section class="panel">
@@ -368,7 +368,9 @@ tr.rel-crit td { background: #fbe3df; } tr.rel-grp td { background: #2f6f5e; col
 <script>
 "use strict";
 // ---------------------------------------------------------------- dados de exemplo
-const CORES = ["#4e79a7","#f28e2b","#59a14f","#e15759","#76b7b2","#edc948","#b07aa1","#ff9da7","#9c755f","#86bcb6","#d37295","#8cd17d","#499894","#f1ce63","#a0cbe8","#ffbe7d"];
+// paleta forte e segura para daltônicos (Okabe-Ito + Paul Tol): vizinhas alternam claro/escuro e matiz; o número no quadrado continua sendo a chave
+const CORES = ["#0072B2","#E69F00","#009E73","#CC79A7","#56B4E9","#D55E00","#F0E442","#332288","#999933","#882255","#33BBEE","#117733","#AA4499","#DDCC77","#555555"];
+const CORES_ANTIGAS = new Set(["#4e79a7","#f28e2b","#59a14f","#e15759","#76b7b2","#edc948","#b07aa1","#ff9da7","#9c755f","#86bcb6","#d37295","#8cd17d","#499894","#f1ce63","#a0cbe8","#ffbe7d"]);
 const id = () => Math.random().toString(36).slice(2, 10);
 function exemplo() {
   const V = { Encanador: [230, 50], Ajudante: [150, 20], Montador: [220, 40], Pedreiro: [230, 50], Servente: [140, 20], Azulejista: [240, 60], Pintor: [220, 50], Eletricista: [240, 50], Instalador: [210, 40] };
@@ -916,7 +918,7 @@ function renderMao(s, r) {
   const M = $("#mao"); M.replaceChildren();
   const sem = semanaPessoas(r); if (!sem.length) return;
   const funcs = Object.keys(r.funcoes);
-  const paleta = ["#2f6f5e", "#c9853a", "#5b7db1", "#b15b74", "#7a9a3a", "#8b6bb8", "#3a9a9a", "#a0784a", "#6d7f8a", "#c25b3a"];
+  const paleta = ["#0072B2", "#E69F00", "#009E73", "#CC79A7", "#56B4E9", "#D55E00", "#332288", "#999933", "#882255", "#555555"];
   const max = Math.max(...sem.map(x => x.total)), H = 150, bw = 9, W = 40 + sem.length * (bw + 2) + 10;
   const NS = "http://www.w3.org/2000/svg", sv = (t, a = {}) => { const e = document.createElementNS(NS, t); for (const [k, v] of Object.entries(a)) e.setAttribute(k, v); return e; };
   const cs = getComputedStyle(document.documentElement), cor = n => cs.getPropertyValue(n).trim();
@@ -1047,7 +1049,14 @@ function agendarSalvar() {
     catch (err) { status("não salvou: " + err.message); }
   }, 900);
 }
+// troca cores da paleta antiga pela forte (forcar: recolore tudo, inclusive cores escolhidas à mão)
+function coresFortes(e, forcar) {
+  const troca = (c, i) => (forcar || CORES_ANTIGAS.has(String(c || "").toLowerCase())) ? CORES[i % CORES.length] : c;
+  if (e.tipo === "plano") { Object.values(e.especialidades || {}).forEach((x, k) => x.cor = troca(x.cor, k)); return; }
+  for (const a of e.alts || []) { (a.etapas || []).forEach((x, i) => x.cor = troca(x.cor, i)); (a.equipes || []).forEach((x, i) => x.cor = troca(x.cor, i)); }
+}
 function abrir(e) {
+  coresFortes(e, false);
   if (e.tipo === "plano") return abrirPlano(e);
   modoPlano(false);
   estudo = e; alts = e.alts; atual = 0;
@@ -1728,7 +1737,7 @@ function editar(P, u, campos) {
   if (!Object.keys(e).length) delete V.ed[u];
   recalcPlano();
 }
-const CORV = ["#55606b", "#2f6f5e", "#c9853a", "#5b7db1", "#b15b74", "#7a9a3a", "#8b6bb8", "#3a9a9a", "#a0784a", "#c25b3a"];
+const CORV = ["#555555", "#0072B2", "#E69F00", "#009E73", "#CC79A7", "#D55E00", "#332288", "#56B4E9", "#882255", "#999933"];
 function renderVersoes(P, R) {
   const vs = versoesDe(P), A = el("div", { class: "alts", style: "margin:0" });
   vs.forEach((V, i) => {
@@ -1991,7 +2000,7 @@ function situacaoDe(o, st) {
   if (o.pct > 0) return o.f < st ? "Em andamento – atrasada" : "Em andamento";
   return o.i < st ? "Não iniciada – atrasada" : "A iniciar";
 }
-const SIT_COR = { "Concluída": "var(--ok)", "Em andamento": "var(--warn)", "Em andamento – atrasada": "#d9730d", "Não iniciada – atrasada": "var(--bad)", "A iniciar": "var(--mut)" };
+const SIT_COR = { "Concluída": "var(--ok)", "Em andamento": "var(--warn)", "Em andamento – atrasada": "#882255", "Não iniciada – atrasada": "var(--bad)", "A iniciar": "var(--mut)" };
 
 function calcularPlano(P) {
   const vs = versoesDe(P), V = VA(P), T = vistaDaVersao(P, V), fimV = fimDe(T), hd = V.hdia ?? P.hdia, sab = V.sabado ?? P.sabado;
@@ -2719,6 +2728,7 @@ $("#relObra").onclick = abrirRelatorio;
 $("#limpaEq").onclick = () => excluirSemUso(S());
 
 $("#addEq").onclick = () => { S().equipes.push({ id: id(), nome: "Nova equipe", cor: CORES[S().equipes.length % CORES.length], formacao: [{ qtd: 1, funcao: "Oficial" }, { qtd: 1, funcao: "Ajudante" }] }); recalc(); };
+$("#corEt").onclick = () => { coresFortes(estudo, true); recalc(); };
 $("#addEt").onclick = () => { const s = S(); s.etapas.push({ id: id(), nome: "Nova etapa", unidade: "pav", dias: 5, equipe: s.equipes[0]?.id, qtd: 1, cor: CORES[s.etapas.length % CORES.length], regra: { tipo: "apos", pav: 1, espera: 0 } }); recalc(); };
 $("#sabado").onchange = e => { S().sabado = e.target.checked; recalc(); };
 $("#compart").onchange = e => { S().compart = e.target.checked; recalc(); };
